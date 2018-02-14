@@ -22,10 +22,10 @@ class Wing:
         delta = arctan(self.geometry.dfzdy(y))
         # print("DEBUG> delta({}): {}".format(y, rad2deg(delta)))
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
-        y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
+        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
         z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
 
-        return np.c_[x, y, z]
+        return np.c_[x, _y, z]
 
     def fI(self, y, xa=None, N=150):
         """Airfoil lower camber line on the 3D wing"""
@@ -41,9 +41,9 @@ class Wing:
         theta = self.geometry.ftheta(y)
         delta = arctan(self.geometry.dfzdy(y))
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
-        y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
+        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
         z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
-        return np.c_[x, y, z]
+        return np.c_[x, _y, z]
 
 
 class WingGeometry:
