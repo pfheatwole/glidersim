@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import sqrt, sin, cos, tan, arctan, deg2rad, rad2deg
+from numpy import sqrt, sin, cos, tan, arctan, deg2rad
 
 
 class Wing:
@@ -8,7 +8,17 @@ class Wing:
         self.airfoil = airfoil
 
     def fE(self, y, xa=None, N=150):
-        """Airfoil upper camber line on the 3D wing"""
+        """Airfoil upper camber line on the 3D wing
+
+        Parameters
+        ----------
+        y : float
+            Position on the span, where `-b/2 < y < b/2`
+        xa : float or array of float, optional
+            Positions on the chord line, where all `0 < xa < chord`
+        N : integer, optional
+            If xa is `None`, sample `N` points along the chord
+        """
 
         if xa is None:
             xa = np.linspace(0, 1, N)
@@ -22,12 +32,25 @@ class Wing:
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
-        z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
+        z = np.abs(
+            -self.geometry.fz(y) +
+            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta)
+            )
 
         return np.c_[x, _y, z]
 
     def fI(self, y, xa=None, N=150):
-        """Airfoil lower camber line on the 3D wing"""
+        """Airfoil lower camber line on the 3D wing
+
+        Parameters
+        ----------
+        y : float
+            Position on the span, where `-b/2 < y < b/2`
+        xa : float or array of float, optional
+            Positions on the chord line, where all `0 < xa < chord`
+        N : integer, optional
+            If xa is `None`, sample `N` points along the chord
+        """
 
         if xa is None:
             xa = np.linspace(0, 1, N)
@@ -41,7 +64,10 @@ class Wing:
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
-        z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
+        z = np.abs(
+                -self.geometry.fz(y) +
+                ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta)
+                )
         return np.c_[x, _y, z]
 
 
@@ -125,8 +151,9 @@ class EllipticalWing(WingGeometry):
         Bc = self.c0
         return Bc * sqrt(1 - (y**2)/Ac**2)
 
-    def ftheta(self, y):
-        # return 2*self.torsion/self.b*np.abs(y)  # Linear
-
-        k = self.torsion/(np.exp(self.b/2) - 1)
-        return k*(np.exp(np.abs(y)) - 1)
+    def ftheta(self, y, linear=False):
+        if linear:
+            return 2*self.torsion/self.b*np.abs(y)  # Linear
+        else:  # Use an exponential distribution of geometric torsion
+            k = self.torsion/(np.exp(self.b/2) - 1)
+            return k*(np.exp(np.abs(y)) - 1)
