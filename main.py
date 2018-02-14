@@ -6,7 +6,7 @@ from numpy import sin, cos, sqrt, arcsin, arctan  # noqa: F401
 from matplotlib import animation
 import mpl_toolkits.mplot3d.axes3d as p3
 
-from IPython import embed
+from IPython import embed  # noqa: F401
 
 from Airfoil import NACA4
 from Wing import Wing, EllipticalWing
@@ -28,11 +28,6 @@ def plot_airfoil(foil):
     ax.set_ylim(-0.2, 0.2)
     ax.grid(True)
     plt.show()
-
-
-def sample_wing(wing):
-    print("Collect a set of points along a 3D wing, suitable for plotting")
-    return
 
 
 def set_axes_equal(ax):
@@ -70,9 +65,6 @@ def plot_wing(wing):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.gca(projection='3d')
     ax.view_init(azim=-130, elev=25)
-    # ax.set_aspect('equal')
-    # ax.set_xlim(-5, 5)
-    # ax.set_ylim(-10, 10)
 
     b = wing.geometry.b
     for y in np.linspace(-b/2, b/2, 21):
@@ -81,7 +73,6 @@ def plot_wing(wing):
         coords = wing.fE(y, N=50)
         ax.plot(coords[:, 0], coords[:, 1], coords[:, 2], c='b')
 
-
     y = np.linspace(-b/2, b/2, 51)
     ax.plot(wing.geometry.fx(y), y, -wing.geometry.fz(y), 'g--', lw=0.8)
 
@@ -89,79 +80,40 @@ def plot_wing(wing):
     plt.show()
 
 
-
-
-
-
 def animated_wing_plotter():
-
-    print("Trying out the animation module")
-
     # Setup all the configurations I want to step through
-    # dmeds = np.arange(-30, -15)[::-1]
-    # smeds = np.arange(10, 25)
-    k = 50
+    k = 30
     dmeds = np.linspace(-30, -15, k)[::-1]
     smeds = np.linspace(10, 25, k)
 
-    print("dmeds.shape:", dmeds.shape)
-    print("smeds.shape:", smeds.shape)
-
     # First, just sweep the dihedral forward and backwards
     t1 = np.r_[dmeds, dmeds[::-1]]
-    seq1 = np.c_[t1, 10*np.ones_like(t1)]
-    print("\nDEBUG> seq1:\n", seq1)
-
-    # Second, sweep the sweep
     t2 = np.r_[smeds, smeds[::-1]]
-    seq2 = np.c_[-15*np.ones_like(t2), t2]
-    print("\nDEBUG> seq2:\n", seq2)
 
-    # Third, sweep both simultaneously
-    seq3 = np.c_[t1, t2]
-
-    # Now, the final set of sequences
+    seq1 = np.c_[t1, 10*np.ones_like(t1)]   # Sweep dihedralMed
+    seq2 = np.c_[-15*np.ones_like(t2), t2]  # Sweep sweepMed
+    seq3 = np.c_[t1, t2]                    # Sweep both
     seq = np.vstack((seq1, seq2, seq3))
 
     fig = plt.figure(figsize=(10, 10))
-    # ax = fig.gca(projection='3d')
     ax = p3.Axes3D(fig)
     ax.set_xlim(-4, 4)
     ax.set_ylim(-4, 4)
     ax.set_zlim(0, 11)
     ax.view_init(azim=-130, elev=25)
 
-    N = 21  # How many slices (total number is 2N, for top and bottom)
+    N = 21  # How many airfoil slices (makes 2N lines, for top and bottom)
     lines = [
-        ax.plot([0], [0], [0], 'r' if n < N else 'b')[0] for n in range(2*N)
-        ]
-
-    def init():
-        return lines
+        ax.plot([0], [0], [0], 'r' if n < N else 'b')[0] for n in range(2*N)]
 
     def update(frame):
-        S = 20.8
-        MAC = 2.4
-        AR = 3.9
-        taper = 0.4
-        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-        c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
-        b = (AR / 2)*c0*(taper + tmp)
-        ys = np.linspace(-b/2, b/2, N)
-        dcg = 0.25  # FIXME: unlisted
-        h0 = 7  # FIXME: unlisted
-        airfoil = NACA4(2415)
-
         print("seq[{}]: {}".format(frame, seq[frame]))
-        dihedralMed = seq[frame][0]
-        dihedralMax = 2*dihedralMed - 1
+        dMed, sMed = seq[frame]
 
-        sweepMed = seq[frame][1]
-        sweepMax = (2*sweepMed) + 5  # ref page 48 (56)
+        wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4,
+                                dMed=dMed, sMed=sMed)
 
-        wing_geo = EllipticalWing(dcg, c0, h0, dihedralMed, dihedralMax, b,
-                                  taper, sweepMed, sweepMax)
-        wing = Wing(wing_geo, airfoil)
+        ys = np.linspace(-wing.geometry.b/2, wing.geometry.b/2, N)
 
         # Update the bottom lines
         for n in range(N):
@@ -169,6 +121,7 @@ def animated_wing_plotter():
             lines[n].set_data(coords[:, 0:2].T)
             lines[n].set_3d_properties(coords[:, 2])
 
+        # Update the top lines
         for n in range(N):
             coords = wing.fE(ys[n], N=50)
             lines[n+N].set_data(coords[:, 0:2].T)
@@ -176,8 +129,29 @@ def animated_wing_plotter():
 
         return lines
 
-    ani = animation.FuncAnimation(fig, update, frames=np.arange(len(seq)))
-    ani.save('test.mp4', fps=25)
+    ani = animation.FuncAnimation(fig, update, frames=np.arange(len(seq)),
+                                  interval=10)
+    # ani.save('test.mp4', fps=25)
+    plt.show()
+
+
+def build_elliptical(MAC, AR, taper, dMed, sMed, airfoil=None):
+    dMax = 2*dMed - 1  # ref page 48 (56)
+    sMax = (2*sMed) + 1  # ref page 48 (56)
+
+    # Compute some missing data in reverse
+    tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
+    c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
+    b = (AR / 2)*c0*(taper + tmp)
+
+    dcg = 0.25  # FIXME: unlisted
+    h0 = 7  # FIXME: unlisted
+    wing_geo = EllipticalWing(dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax)
+
+    if airfoil is None:
+        airfoil = NACA4(2415)
+
+    return Wing(wing_geo, airfoil)
 
 
 if __name__ == "__main__":
@@ -185,47 +159,21 @@ if __name__ == "__main__":
     # plot_airfoil(NACA4(4412))
     # plot_airfoil(NACA4(2415))
 
+    animated_wing_plotter()
+
     print("\n\n-----\nTrying to produce the 'standard wing' from page 89 (97)")
-
-    S = 20.8
-    MAC = 2.4
-    AR = 3.9
-    taper = 0.4
-
-    # ref page 48 (56), `dMax > 2*dMed`  (should be `<` since negative?)
-    # dihedralMed, dihedralMax = -20, -45
-    # dihedralMed, dihedralMax = -35, -55
-    dihedralMed = -20
-    # dihedralMed = -30
-    # dihedralMed = -35
-    dihedralMax = 2*dihedralMed - 1
-    sweepMed = 10  # degrees
-    # sweepMed = 15  # degrees
-    # sweepMed = 25  # degrees
-    sweepMax = (2*sweepMed) + 1  # ref page 48 (56)
-
-    # Compute some missing data in revers
-    tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-    c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
-    # c0 *= .75
-    print("c0:", c0)
-    b = (AR / 2)*c0*(taper + tmp)
-    print("b:", b)
-
-    print("\nWIP!\n")
-    # embed(display_banner=False)
-
-    # def __init__(self, dcg, c0, h0, dihedralMed, dihedralMax, b, taper,
-    #              sweepMed, sweepMax):
-
-    dcg = 0.25  # FIXME: unlisted
-    h0 = 7  # FIXME: unlisted
-    wing_geo = EllipticalWing(dcg, c0, h0, dihedralMed, dihedralMax, b, taper,
-                              sweepMed, sweepMax)
-
-    airfoil = NACA4(2415)
-    wing = Wing(wing_geo, airfoil)
+    wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10)
     plot_wing(wing)
 
-    print("\n\n\n\n\nHere goes...")
-    animated_wing_plotter()
+    print("\nMore wings")
+    wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4, dMed=-35, sMed=10)
+    plot_wing(wing)
+
+    wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=25)
+    plot_wing(wing)
+
+    wing = build_elliptical(MAC=2.2, AR=4.9, taper=0.4, dMed=-20, sMed=10)
+    plot_wing(wing)
+
+    wing = build_elliptical(MAC=2.3, AR=4.0, taper=0.6, dMed=-20, sMed=10)
+    plot_wing(wing)

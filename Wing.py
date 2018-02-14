@@ -17,10 +17,9 @@ class Wing:
         upper = fc*self.airfoil.fE(xa)  # Scaled airfoil
         xs, zs = upper[:, 0], upper[:, 1]
 
-        # FIXME: for now, ignore the more complicated stuff
         theta = self.geometry.ftheta(y)
         delta = arctan(self.geometry.dfzdy(y))
-        # print("DEBUG> delta({}): {}".format(y, rad2deg(delta)))
+
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
         z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
