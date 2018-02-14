@@ -126,4 +126,7 @@ class EllipticalWing(WingGeometry):
         return Bc * sqrt(1 - (y**2)/Ac**2)
 
     def ftheta(self, y):
-        return 2*self.torsion/self.b*np.abs(y)
+        # return 2*self.torsion/self.b*np.abs(y)  # Linear
+
+        k = self.torsion/(np.exp(self.b/2) - 1)
+        return k*(np.exp(np.abs(y)) - 1)
