@@ -135,7 +135,7 @@ def animated_wing_plotter():
     plt.show()
 
 
-def build_elliptical(MAC, AR, taper, dMed, sMed, airfoil=None):
+def build_elliptical(MAC, AR, taper, dMed, sMed, torsion=0, airfoil=None):
     dMax = 2*dMed - 1  # ref page 48 (56)
     sMax = (2*sMed) + 1  # ref page 48 (56)
 
@@ -146,7 +146,8 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, airfoil=None):
 
     dcg = 0.25  # FIXME: unlisted
     h0 = 7  # FIXME: unlisted
-    wing_geo = EllipticalWing(dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax)
+    wing_geo = EllipticalWing(
+        dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax, torsion=torsion)
 
     if airfoil is None:
         airfoil = NACA4(2415)
@@ -159,10 +160,21 @@ if __name__ == "__main__":
     # plot_airfoil(NACA4(4412))
     # plot_airfoil(NACA4(2415))
 
-    animated_wing_plotter()
+    # animated_wing_plotter()
 
     print("\n\n-----\nTrying to produce the 'standard wing' from page 89 (97)")
-    wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10)
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10)
+    plot_wing(wing)
+
+    print("With 15 degree torsion")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, torsion=15)
+    plot_wing(wing)
+
+    print("With -15 degree torsion")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, torsion=15)
     plot_wing(wing)
 
     print("\nMore wings")

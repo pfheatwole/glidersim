@@ -36,9 +36,9 @@ class Wing:
         upper = fc*self.airfoil.fI(xa)  # Scaled airfoil
         xs, zs = upper[:, 0], upper[:, 1]
 
-        # FIXME: for now, ignore the more complicated stuff
         theta = self.geometry.ftheta(y)
         delta = arctan(self.geometry.dfzdy(y))
+
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
         z = np.abs(-self.geometry.fz(y) + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta))
@@ -81,7 +81,7 @@ class EllipticalWing(WingGeometry):
     """Ref: Paraglider Flying Dynamics, page 43 (51)"""
 
     def __init__(self, dcg, c0, h0, dihedralMed, dihedralMax, b, taper,
-                 sweepMed, sweepMax):
+                 sweepMed, sweepMax, torsion=0):
         self.dcg = dcg
         self.c0 = c0
         self.h0 = h0
@@ -90,6 +90,7 @@ class EllipticalWing(WingGeometry):
         self.sweepMed = deg2rad(sweepMed)
         self.sweepMax = deg2rad(sweepMax)
         self.b = b
+        self.torsion = deg2rad(torsion)
         self.taper = taper
 
     def fx(self, y):
@@ -125,4 +126,4 @@ class EllipticalWing(WingGeometry):
         return Bc * sqrt(1 - (y**2)/Ac**2)
 
     def ftheta(self, y):
-        return np.zeros_like(y)  # FIXME
+        return 2*self.torsion/self.b*np.abs(y)
