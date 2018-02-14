@@ -135,6 +135,51 @@ def animated_wing_plotter():
     plt.show()
 
 
+def animate_wing_torsion():
+    # Setup all the configurations I want to step through
+    k = 85
+    torsions = np.linspace(-20, 20, k)
+    torsions = np.r_[torsions, torsions[::-1]]
+    torsions = np.r_[torsions, torsions]
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = p3.Axes3D(fig)
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    ax.set_zlim(0, 11)
+    ax.view_init(azim=-145, elev=0)
+
+    N = 21  # How many airfoil slices (makes 2N lines, for top and bottom)
+    lines = [
+        ax.plot([0], [0], [0], 'r' if n < N else 'b')[0] for n in range(2*N)]
+
+    def update(frame):
+
+        wing = build_elliptical(MAC=2.2, AR=4.5, taper=0.4,
+                                dMed=-20, sMed=10, torsion=torsions[frame])
+
+        ys = np.linspace(-wing.geometry.b/2, wing.geometry.b/2, N)
+
+        # Update the bottom lines
+        for n in range(N):
+            coords = wing.fI(ys[n], N=50)
+            lines[n].set_data(coords[:, 0:2].T)
+            lines[n].set_3d_properties(coords[:, 2])
+
+        # Update the top lines
+        for n in range(N):
+            coords = wing.fE(ys[n], N=50)
+            lines[n+N].set_data(coords[:, 0:2].T)
+            lines[n+N].set_3d_properties(coords[:, 2])
+
+        return lines
+
+    ani = animation.FuncAnimation(fig, update, frames=np.arange(len(torsions)),
+                                  interval=20)
+    # ani.save('torsion.mp4', fps=50)
+    plt.show()
+
+
 def build_elliptical(MAC, AR, taper, dMed, sMed, torsion=0, airfoil=None):
     dMax = 2*dMed - 1  # ref page 48 (56)
     sMax = (2*sMed) + 1  # ref page 48 (56)
@@ -161,6 +206,7 @@ if __name__ == "__main__":
     # plot_airfoil(NACA4(2415))
 
     # animated_wing_plotter()
+    # animate_wing_torsion()
 
     print("\n\n-----\nTrying to produce the 'standard wing' from page 89 (97)")
     wing = build_elliptical(
