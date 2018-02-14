@@ -3,7 +3,19 @@ from numpy import sin, cos, arctan
 
 
 class NACA4:
+    """Airfoil geometry using a NACA4 parameterization"""
+
     def __init__(self, code, chord=1):
+        """
+        Generate a NACA4 airfoil
+
+        Parameters
+        ----------
+        code : integer
+            The 4-digit NACA code
+        chord : float
+            The length of the chord
+        """
         self.chord = chord
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
@@ -12,7 +24,14 @@ class NACA4:
         self.pc = self.p * self.chord
 
     def yc(self, x):
-        """Mean camber line"""
+        """Compute the y-coordinate of the mean camber line
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
+
         m = self.m
         c = self.chord
         p = self.p
@@ -30,7 +49,13 @@ class NACA4:
         return cl
 
     def yt(self, x):
-        """Airfoil thickness, perpendicular to the camber line"""
+        """Airfoil thickness, perpendicular to the camber line
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
         t = self.tcr
 
         x = np.asarray(x)
@@ -41,6 +66,13 @@ class NACA4:
                     .2843*x**3 - .1015*x**4)
 
     def _theta(self, x):
+        """Angle of the mean camber line
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
         m = self.m
         p = self.p
         c = self.chord
@@ -57,7 +89,13 @@ class NACA4:
         return arctan(dyc)
 
     def fE(self, x):
-        """Upper camber line"""
+        """Upper camber line corresponding to the point `x` on the chord
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
 
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
@@ -69,7 +107,13 @@ class NACA4:
         return np.c_[x - yt*np.sin(theta), yc + yt*np.cos(theta)]
 
     def fI(self, x):
-        """Lower camber line"""
+        """Lower camber line corresponding to the point `x` on the chord
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
 
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
