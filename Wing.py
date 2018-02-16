@@ -163,7 +163,7 @@ class WingGeometry:
             The surface distributions, such that `J = (p_w + p_air)*s`
         """
         dy = 1/N
-        y = np.linspace(-self.b/2, self.b/2, N-1) + dy/2
+        y = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
         fx = self.fx(y)
         fz = self.fz(y)
         fc = self.fc(y)
