@@ -219,17 +219,44 @@ if __name__ == "__main__":
         MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10)
     plot_wing(wing)
 
+    print("\n\nPausing\n\n")
+    embed()
+
+    # Demonstrate how dMax controls "smoothness"
+    print("With dMax=-70")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, dMax=-55, sMed=10)
+    plot_wing(wing)
+    print("With dMax=-85")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, dMax=-85, sMed=10)
+    plot_wing(wing)
+
+    # Demonstrate how sMax controls ???
+    print("sMed=10, sMax=50")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, sMax=50)
+    plot_wing(wing)
+    print("sMed=10, sMax=85")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, sMax=85)
+    plot_wing(wing)
+    print("sMed=30, sMax=85")
+    wing = build_elliptical(
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=30, sMax=85)
+    plot_wing(wing)
+
+    # Torsion
     print("With 15 degree torsion")
     wing = build_elliptical(
         MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, torsion=15)
     plot_wing(wing)
-
     print("With -15 degree torsion")
     wing = build_elliptical(
-        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, torsion=15)
+        MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, torsion=-15)
     plot_wing(wing)
 
-    print("\nMore wings")
+    # More wings from page 89
     wing = build_elliptical(MAC=2.4, AR=3.9, taper=0.4, dMed=-35, sMed=10)
     plot_wing(wing)
 
