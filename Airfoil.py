@@ -1,8 +1,56 @@
 import numpy as np
-from numpy import sin, cos, arctan
+from numpy import arctan
 
 
-class NACA4:
+class Airfoil:
+    @property
+    def t(self):
+        # ref PFD 48 (46)
+        """Maximum airfoil thickness"""
+        raise NotImplementedError("Airfoil is a base class")
+
+    def yc(self, x):
+        """Compute the y-coordinate of the mean camber line
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
+        raise NotImplementedError("Airfoil is a base class")
+
+    def yt(self, x):
+        """Airfoil thickness, perpendicular to the camber line
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
+        raise NotImplementedError("Airfoil is a base class")
+
+    def fE(self, x):
+        """Upper camber line corresponding to the point `x` on the chord
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
+        raise NotImplementedError("Airfoil is a base class")
+
+    def fI(self, x):
+        """Lower camber line corresponding to the point `x` on the chord
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 < x < chord`
+        """
+        raise NotImplementedError("Airfoil is a base class")
+
+
+class NACA4(Airfoil):
     """Airfoil geometry using a NACA4 parameterization"""
 
     def __init__(self, code, chord=1):
@@ -23,15 +71,11 @@ class NACA4:
         self.tcr = (code % 100) / 100       # Thickness to chord ratio
         self.pc = self.p * self.chord
 
+    @property
+    def t(self):
+        return self.chord * ((self.code % 100) / 100)
+
     def yc(self, x):
-        """Compute the y-coordinate of the mean camber line
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 < x < chord`
-        """
-
         m = self.m
         c = self.chord
         p = self.p
@@ -49,13 +93,6 @@ class NACA4:
         return cl
 
     def yt(self, x):
-        """Airfoil thickness, perpendicular to the camber line
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 < x < chord`
-        """
         t = self.tcr
 
         x = np.asarray(x)
@@ -89,14 +126,6 @@ class NACA4:
         return arctan(dyc)
 
     def fE(self, x):
-        """Upper camber line corresponding to the point `x` on the chord
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 < x < chord`
-        """
-
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
@@ -107,14 +136,6 @@ class NACA4:
         return np.c_[x - yt*np.sin(theta), yc + yt*np.cos(theta)]
 
     def fI(self, x):
-        """Lower camber line corresponding to the point `x` on the chord
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 < x < chord`
-        """
-
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
