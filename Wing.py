@@ -258,3 +258,19 @@ class EllipticalWing(WingGeometry):
         else:  # Use an exponential distribution of geometric torsion
             k = self.torsion/(np.exp(self.b/2) - 1)
             return k*(np.exp(np.abs(y)) - 1)
+
+    @staticmethod
+    def mac_to_c0(mac, taper):
+        """Compute the central chord length of a tapered elliptical wing"""
+        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
+        c0 = (mac / (2/3) / (2 + taper**2)) * (taper + tmp)
+        return c0
+
+    @staticmethod
+    def ar_to_b(c0, AR, taper):
+        """Compute the span of a tapered elliptical wing"""
+        # ref: PFD 46 (54)
+        # FIXME: rename tmp
+        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
+        b = (AR / 2)*c0*(taper + tmp)
+        return b
