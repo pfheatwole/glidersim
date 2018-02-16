@@ -6,7 +6,7 @@ class Airfoil:
     @property
     def t(self):
         # ref PFD 48 (46)
-        """Maximum airfoil thickness"""
+        """Maximum airfoil thickness as a percentage of chord length"""
         raise NotImplementedError("Airfoil is a base class")
 
     def yc(self, x):
@@ -73,7 +73,7 @@ class NACA4(Airfoil):
 
     @property
     def t(self):
-        return self.chord * ((self.code % 100) / 100)
+        return (self.code % 100) / 100
 
     def yc(self, x):
         m = self.m

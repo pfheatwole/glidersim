@@ -96,7 +96,7 @@ class Wing:
     @property
     def density_factor(self):
         # FIXME: I don't understand this. Ref: PFD 48 (46)
-        return self.geometry.mac * self.airfoil.t/3
+        return self.geometry.mac * self.airfoil.t*self.airfoil.chord/3
 
 
 class WingGeometry:
