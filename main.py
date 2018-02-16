@@ -180,9 +180,15 @@ def animate_wing_torsion():
     plt.show()
 
 
-def build_elliptical(MAC, AR, taper, dMed, sMed, torsion=0, airfoil=None):
-    dMax = 2*dMed - 1  # ref page 48 (56)
-    sMax = (2*sMed) + 1  # ref page 48 (56)
+def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
+                     torsion=0, airfoil=None):
+    if dMax is None:
+        print("Using minimum max dihedral")
+        dMax = 2*dMed - 1  # ref page 48 (56)
+
+    if sMax is None:
+        print("Using minimum max sweep")
+        sMax = (2*sMed) + 1  # ref page 48 (56)
 
     # Compute some missing data in reverse
     tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
