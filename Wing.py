@@ -319,7 +319,7 @@ class EllipticalWing(WingGeometry):
         return c0
 
     @staticmethod
-    def ar_to_b(c0, AR, taper):
+    def AR_to_b(c0, AR, taper):
         """Compute the span of a tapered elliptical wing"""
         # ref: PFD 46 (54)
         # FIXME: rename tmp
