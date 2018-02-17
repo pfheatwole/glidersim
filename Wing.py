@@ -184,6 +184,40 @@ class WingGeometry:
 
         return S
 
+    @property
+    def S_flat(self):
+        """The area of the flattened wing"""
+        # ref: PFD 46 (54)
+        # FIXME: untested
+        N = 1000
+        dy = 1/N
+        ys = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
+        return (self.fc(ys) * sqrt(self.dfzdy(ys)**2 + 1)).sum() * dy
+
+    @property
+    def b_flat(self):
+        """The span of the flattened wing"""
+        # ref: PFD 47 (54)
+        # FIXME: untested
+        N = 1000
+        dy = 1/N
+        ys = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
+        return sqrt(self.dfzdy(ys)**2 + 1).sum() * dy
+
+    @property
+    def AR_flat(self):
+        """The aspect ratio of the flattened wing"""
+        # ref: PFD 47 (54)
+        # FIXME: untested
+        return self.b_flat**2 / self.S_flat
+
+    @property
+    def flattening_ratio(self):
+        """Percent reduction in area of the inflated wing vs the flat wing"""
+        # ref: PFD 47 (54)
+        # FIXME: untested
+        return (1 - self.S/self.S_flat)*100
+
 
 class EllipticalWing(WingGeometry):
     """Ref: Paraglider Flying Dynamics, page 43 (51)"""
@@ -219,6 +253,24 @@ class EllipticalWing(WingGeometry):
         t = self.taper
         taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
         return (2/3) * self.c0 * (2 + t**2) / taper_factor
+
+    # @property
+    def dihedral_smoothness(self):
+        """A measure of the rate of change in curvature along the span"""
+        # ref: PFD 47 (54)
+        # FIXME: untested
+        dMax, min_dMax = abs(self.dihedralMax), abs(2 * self.dihedralMed)
+        ratio = (dMax - min_dMax)/(np.pi/2 - min_dMax)
+        return (1 - ratio)*100
+
+    # @property
+    def sweep_smoothness(self):
+        """A measure of the rate of change in sweep along the span"""
+        # ref: PFD 47 (54)
+        # FIXME: untested
+        sMax, min_sMax = abs(self.sweepMax), abs(2 * self.sweepMed)
+        ratio = (sMax - min_sMax)/(np.pi/2 - min_sMax)
+        return (1 - ratio)*100
 
     def fx(self, y):
         tMed = tan(self.sweepMed)
