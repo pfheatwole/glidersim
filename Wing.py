@@ -96,7 +96,7 @@ class Wing:
     @property
     def density_factor(self):
         # FIXME: I don't understand this. Ref: PFD 48 (46)
-        return self.geometry.mac * self.airfoil.t*self.airfoil.chord/3
+        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
 
 
 class WingGeometry:
@@ -125,7 +125,7 @@ class WingGeometry:
         raise NotImplementedError("WingGeometry is a base class")
 
     @property
-    def mac(self):
+    def MAC(self):
         """Mean aerodynamic chord"""
         raise NotImplementedError("WingGeometry is a base class")
 
@@ -249,7 +249,7 @@ class EllipticalWing(WingGeometry):
         return 2 * self.b / (self.c0*taper_factor)
 
     @property
-    def mac(self):
+    def MAC(self):
         t = self.taper
         taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
         return (2/3) * self.c0 * (2 + t**2) / taper_factor
@@ -312,10 +312,10 @@ class EllipticalWing(WingGeometry):
             return k*(np.exp(np.abs(y)) - 1)
 
     @staticmethod
-    def mac_to_c0(mac, taper):
+    def MAC_to_c0(MAC, taper):
         """Compute the central chord length of a tapered elliptical wing"""
         tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-        c0 = (mac / (2/3) / (2 + taper**2)) * (taper + tmp)
+        c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
         return c0
 
     @staticmethod
