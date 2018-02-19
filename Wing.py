@@ -1,3 +1,5 @@
+import abc
+
 import numpy as np
 from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
 
@@ -25,7 +27,7 @@ class Wing:
             xa = np.linspace(0, 1, N)
 
         fc = self.geometry.fc(y)  # Chord length at `y` on the span
-        upper = fc*self.airfoil.fE(xa)  # Scaled airfoil
+        upper = fc*self.airfoil.geometry.fE(xa)  # Scaled airfoil
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
@@ -57,7 +59,7 @@ class Wing:
             xa = np.linspace(0, 1, N)
 
         fc = self.geometry.fc(y)  # Chord length at `y` on the span
-        upper = fc*self.airfoil.fI(xa)  # Scaled airfoil
+        upper = fc*self.airfoil.geometry.fI(xa)  # Scaled airfoil
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
@@ -99,7 +101,7 @@ class Wing:
         return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
 
 
-class WingGeometry:
+class WingGeometry(abc.ABC):
     def __init__(self, c0, h0, dcg):
         """
         Build a wing from a parameterized description
@@ -115,35 +117,35 @@ class WingGeometry:
         self.dcg = dcg
 
     @property
+    @abc.abstractmethod
     def S(self):
         """Projected surface area"""
-        raise NotImplementedError("WingGeometry is a base class")
 
     @property
+    @abc.abstractmethod
     def AR(self):
         """Aspect ratio"""
-        raise NotImplementedError("WingGeometry is a base class")
 
     @property
+    @abc.abstractmethod
     def MAC(self):
         """Mean aerodynamic chord"""
-        raise NotImplementedError("WingGeometry is a base class")
 
+    @abc.abstractmethod
     def fx(self, y):
         """The quarter chord projected onto the XY plane"""
-        raise NotImplementedError("WingGeometry is a base class")
 
+    @abc.abstractmethod
     def fz(self, y):
         """The quarter chord projected onto the YZ plane"""
-        raise NotImplementedError("WingGeometry is a base class")
 
+    @abc.abstractmethod
     def fc(self, y):
         """Chord length along the span"""
-        raise NotImplementedError("WingGeometry is a base class")
 
-    def ft(self, y):
+    @abc.abstractmethod
+    def ftheta(self, y):
         """Spanwise airfoil chord angle relative to the central airfoil"""
-        raise NotImplementedError("WingGeometry is a base class")
 
     def surface_distributions(self, N=2000):
         """The surface area distributions for computing inertial moments.

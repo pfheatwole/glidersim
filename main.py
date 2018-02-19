@@ -8,7 +8,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 
 from IPython import embed  # noqa: F401
 
-from Airfoil import NACA4
+from Airfoil import Airfoil, LinearCoefficients, NACA4
 from Wing import Wing, EllipticalWing
 
 
@@ -181,7 +181,7 @@ def animate_wing_torsion():
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
-                     torsion=0, airfoil=None):
+                     torsion=0, airfoil_geo=None):
     if dMax is None:
         print("Using minimum max dihedral")
         dMax = 2*dMed - 1  # ref page 48 (56)
@@ -199,10 +199,12 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     wing_geo = EllipticalWing(
         dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax, torsion=torsion)
 
-    if airfoil is None:
-        airfoil = NACA4(2415)
+    if airfoil_geo is None:
+        airfoil_geo = NACA4(2415)
 
-    return Wing(wing_geo, airfoil)
+    coefs = LinearCoefficients(5.73, -2, 0.007, -0.05)  # a0, i0, D0, Cm0
+
+    return Wing(wing_geo, Airfoil(coefs, airfoil_geo))
 
 
 if __name__ == "__main__":

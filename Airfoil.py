@@ -1,14 +1,114 @@
+"""
+Models for airfoil geometry and airfoil coefficients. Geometry models are for
+graphical purposes, such as drawing the wing. Coefficient models are for
+evaluating the section coefficients for lift, drag, and pitching moment.
+"""
+
+import abc
+
 import numpy as np
 from numpy import arctan
 
 
 class Airfoil:
-    @property
-    def t(self):
-        # ref PFD 48 (46)
-        """Maximum airfoil thickness as a percentage of chord length"""
-        raise NotImplementedError("Airfoil is a base class")
+    def __init__(self, coefficients, geometry=None):
 
+        if not isinstance(coefficients, AirfoilCoefficients):
+            raise ValueError("geometry is not an AirfoilGeometry")
+
+        if geometry is None:
+            geometry = NACA4(2415)
+
+        if not isinstance(geometry, AirfoilGeometry):
+            raise ValueError("geometry is not an AirfoilGeometry")
+
+        self.coefficients = coefficients
+        self.geometry = geometry
+
+
+class AirfoilCoefficients(abc.ABC):
+    """
+    Provides functions for the aerodynamic coefficients of a wing section.
+
+    FIXME: needs a better description
+    """
+
+    @abc.abstractmethod
+    def Cl(self, alpha):
+        """
+        Lift coefficient of the airfoil at the given angle of attack
+
+        Parameters
+        ----------
+        alpha : float
+            The angle of attack
+        """
+        # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
+
+    @abc.abstractmethod
+    def Cd(self, alpha):
+        """
+        Form drag coefficient of the airfoil at the given angle of attack
+
+        Parameters
+        ----------
+        alpha : float
+            The angle of attack
+
+        Notes
+        -----
+        This is pressure drag only (asymmetric pressure forces across the
+        airfoil due to flow separation). Calculating the skin friction drag of
+        a section requires surface material properties, which are a property
+        of the wing, not the airfoil (the shape of a wing cross-section).
+        """
+        # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
+
+    @abc.abstractmethod
+    def Cm(self, alpha):
+        """
+        Pitching coefficient of the airfoil at the given angle of attack
+
+        Parameters
+        ----------
+        alpha : float
+            The angle of attack
+        """
+
+
+class LinearCoefficients(AirfoilCoefficients):
+    """
+    An airfoil model that assumes a strictly linear lift coefficient, constant
+    form drag, and constant pitching moment.
+    """
+
+    def __init__(self, a0, i0, D0, Cm0):
+        self.a0 = a0
+        self.i0 = i0
+        self.D0 = D0
+        self.Cm0 = Cm0
+
+    def Cl(self, alpha):
+        return self.a0 * (alpha - self.i0)
+
+    def Cd(self, alpha):
+        return self.D0
+
+    def Cm(self, alpha):
+        return self.Cm0
+
+
+# ---------------------------------------------------------------------------
+
+
+class AirfoilGeometry(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def t(self):
+        """Maximum airfoil thickness as a percentage of chord length"""
+        # ref PFD 48 (46)
+
+    @abc.abstractmethod
     def yc(self, x):
         """Compute the y-coordinate of the mean camber line
 
@@ -17,8 +117,8 @@ class Airfoil:
         x : float
             Position on the chord line, where `0 < x < chord`
         """
-        raise NotImplementedError("Airfoil is a base class")
 
+    @abc.abstractmethod
     def yt(self, x):
         """Airfoil thickness, perpendicular to the camber line
 
@@ -27,8 +127,8 @@ class Airfoil:
         x : float
             Position on the chord line, where `0 < x < chord`
         """
-        raise NotImplementedError("Airfoil is a base class")
 
+    @abc.abstractmethod
     def fE(self, x):
         """Upper camber line corresponding to the point `x` on the chord
 
@@ -37,8 +137,8 @@ class Airfoil:
         x : float
             Position on the chord line, where `0 < x < chord`
         """
-        raise NotImplementedError("Airfoil is a base class")
 
+    @abc.abstractmethod
     def fI(self, x):
         """Lower camber line corresponding to the point `x` on the chord
 
@@ -47,10 +147,9 @@ class Airfoil:
         x : float
             Position on the chord line, where `0 < x < chord`
         """
-        raise NotImplementedError("Airfoil is a base class")
 
 
-class NACA4(Airfoil):
+class NACA4(AirfoilGeometry):
     """Airfoil geometry using a NACA4 parameterization"""
 
     def __init__(self, code, chord=1):
