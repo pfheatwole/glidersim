@@ -191,8 +191,8 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         sMax = (2*sMed) + 1  # ref page 48 (56)
 
     # Compute some missing data in reverse
-    c0 = EllipticalWing.mac_to_c0(MAC, taper)
-    b = EllipticalWing.ar_to_b(c0, AR, taper)
+    c0 = EllipticalWing.MAC_to_c0(MAC, taper)
+    b = EllipticalWing.AR_to_b(c0, AR, taper)
 
     dcg = 0.25  # FIXME: unlisted
     h0 = 7  # FIXME: unlisted
