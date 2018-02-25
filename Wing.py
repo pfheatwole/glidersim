@@ -31,7 +31,7 @@ class Wing:
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
-        delta = arctan(self.geometry.dfzdy(y))
+        delta = self.geometry.delta(y)
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
@@ -63,7 +63,7 @@ class Wing:
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
-        delta = arctan(self.geometry.dfzdy(y))
+        delta = self.geometry.delta(y)
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
@@ -300,6 +300,9 @@ class EllipticalWing(WingGeometry):
         Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
         Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
         return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
+
+    def delta(self, y):
+        return arctan(self.dfzdy(y))
 
     def fc(self, y):
         Ac = (self.b/2) / sqrt(1 - self.taper**2)
