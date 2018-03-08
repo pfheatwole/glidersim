@@ -490,18 +490,16 @@ class WingGeometry(abc.ABC):
 class EllipticalWing(WingGeometry):
     """Ref: Paraglider Flying Dynamics, page 43 (51)"""
 
-    def __init__(self, dcg, c0, h0, dihedralMed, dihedralMax, b, taper,
+    def __init__(self, b, c0, taper, dihedralMed, dihedralMax,
                  sweepMed, sweepMax, torsion=0):
-        self.dcg = dcg
+        self.b = b
         self.c0 = c0
-        self.h0 = h0
+        self.taper = taper
         self.dihedralMed = deg2rad(dihedralMed)
         self.dihedralMax = deg2rad(dihedralMax)
         self.sweepMed = deg2rad(sweepMed)
         self.sweepMax = deg2rad(sweepMax)
-        self.b = b
         self.torsion = deg2rad(torsion)
-        self.taper = taper
 
     @property
     def S(self):
@@ -546,7 +544,8 @@ class EllipticalWing(WingGeometry):
 
         Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
         Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        Cx = -Bx + (self.dcg - 1/4)*self.c0
+        # Cx = -Bx + (self.dcg - 1/4)*self.c0
+        Cx = -Bx  # Modified from the original definition in PFD
 
         return Bx * sqrt(1 - (y**2)/Ax**2) + Cx
 
@@ -556,7 +555,8 @@ class EllipticalWing(WingGeometry):
 
         Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
         Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        Cz = -Bz - self.h0
+        # Cz = -Bz - self.h0
+        Cz = -Bz  # Modified from the original definition in PFD
 
         return Bz * sqrt(1 - (y**2)/Az**2) + Cz
 

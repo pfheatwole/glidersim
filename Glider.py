@@ -1,5 +1,7 @@
 # import abc
 
+from functools import partial
+
 import numpy as np
 from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
 
@@ -89,7 +91,7 @@ class Glider:
             fz = wing.geometry.fz(y)
             fc = wing.geometry.fc(y)
             S = wing.geometry.S
-            numerator = (Cli*cos(alpha_i) + Cdi*sin(alpha_i)) * fx * fc(y)
+            numerator = (Cli*cos(alpha_i) + Cdi*sin(alpha_i)) * fx * fc
             denominator = (CL*cos(alpha_eq) + CD*sin(alpha_eq)) * S
             d0 = trapz(numerator, dy) / denominator
 

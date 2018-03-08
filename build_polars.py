@@ -1,5 +1,3 @@
-from functools import partial
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import numpy as np
@@ -12,10 +10,11 @@ from IPython import embed  # noqa: F401
 
 from Airfoil import Airfoil, LinearCoefficients, NACA4
 from Wing import Wing, EllipticalWing
+from Glider import Glider
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
-                     torsion=0, airfoil_geo=None, coefs=None, dcg=None):
+                     torsion=0, airfoil_geo=None, coefs=None):
     if dMax is None:
         print("Using minimum max dihedral")
         dMax = 2*dMed - 1  # ref page 48 (56)
@@ -28,11 +27,8 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     c0 = EllipticalWing.MAC_to_c0(MAC, taper)
     b = EllipticalWing.AR_to_b(c0, AR, taper)
 
-    if dcg is None:
-        dcg = 0.65  # FIXME: unlisted
-    h0 = 7  # FIXME: unlisted
-    wing_geo = EllipticalWing(
-        dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax, torsion=torsion)
+    # FIXME: this naming is confusing. EllipticalWing is a geometry, not a wing
+    wing_geo = EllipticalWing(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
 
     if airfoil_geo is None:
         airfoil_geo = NACA4(2415)
@@ -124,12 +120,21 @@ if __name__ == "__main__":
 
     input("Continue?")
     embed()
-    # input("Continue?")
+
+
+
+
+    #Glider(wing, d_cg, h_cg, S_cg, Cd_cg):
+    glider1 = Glider(wing1, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
+    glider2 = Glider(wing2, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
+    glider3 = Glider(wing3, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
+    glider4 = Glider(wing4, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
+    glider5 = Glider(wing5, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
+
 
     print("\nChecking equilibrium for hands-up")
-    equilibrium_parameters(wing, 0)
+    glider1.equilibrium_parameters(0)
 
-    input("Continue?")
     input("Continue?")
     embed()
 
