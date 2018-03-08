@@ -60,7 +60,7 @@ class Wing:
         # TODO: document
         return self.Cm0_bar    # FIXME: I'm buzzing, fix this crap
 
-    def section_forces(self, y, ui, wi, rho=1):
+    def section_forces(self, y, uL, vL, wL, rho=1):
         """
         Compute section forces and moments acting on the wing.
 
@@ -68,8 +68,12 @@ class Wing:
         ----------
         y : float or array of float
             The section position on the wing span, where -b/2 < y < b/2
-        ui : float or array of float
-        wi : float or array of float
+        uL : float or array of float
+            Section-local relative wind aligned to the x-axis
+        vL : float or array of float
+            Section-local relative wind aligned to the y-axis
+        wL : float or array of float
+            Section-local relative wind aligned to the y-axis
 
         Returns
         -------
@@ -85,24 +89,27 @@ class Wing:
         #        forces themselves. This function is suitable for an
         #        integration routine; `section_forces` is a deceptive name.
 
-        # Precompute in case `y` is an array
-        theta = self.geometry.ftheta(y)  # FIXME: include brakes
-        delta = self.geometry.delta(y)  # PFD Eq:4.13, p74
-        alpha = np.arctan2(wi, ui) + theta  # PFD Eq:4.17, p74
-        fc = self.geometry.fc(y)
+        delta = self.geometry.delta(y)  # PFD eq 4.13, p74
+        theta = self.geometry.ftheta(y)  # FIXME: should include braking
+
+        ui = uL  # PFD Eq:4.14, p74
+        wi = wL*cos(delta) - vL*sin(delta)  # PFD Eq:4.15, p74
+
+        alpha_i = arctan(wi/ui) + theta  # PFD Eq:4.17, p74
 
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
+        fc = self.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
         K2 = 1/cos(delta)
-        dLi = K1*self.Cl(alpha)*fc*K2
-        dDi = K1*self.Cd(alpha)*fc*K2
-        dm0i = K1*self.Cm0(alpha)*(fc**2)*K2
+        dLi = K1*self.Cl(alpha_i)*fc*K2
+        dDi = K1*self.Cd(alpha_i)*fc*K2
+        dm0i = K1*self.Cm0(alpha_i)*(fc**2)*K2
 
         # Translate the section forces and moments into body axes
-        #  * PFD eq 4.23-4.27
-        F_par_x = dLi*sin(alpha - theta) - dDi*cos(alpha - theta)
-        F_perp_x = dLi*cos(alpha - theta) + dDi*sin(alpha - theta)
+        #  * PFD Eqs:4.23-4.27, p76
+        F_par_x = dLi*sin(alpha_i - theta) - dDi*cos(alpha_i - theta)
+        F_perp_x = dLi*cos(alpha_i - theta) + dDi*sin(alpha_i - theta)
         F_par_y = F_perp_x * sin(delta)
         F_par_z = F_perp_x * cos(delta)
         mi_par_y = dm0i*cos(delta)
@@ -130,14 +137,13 @@ class Wing:
         # Build a set of integration points
         N = 501
         dy = self.geometry.b/(N - 1)  # Include the endpoints
-        ys = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
 
         # Compute local relative winds to match `alpha`
-        U, W = np.cos(alpha), np.sin(alpha)
-        ui, wi = U, W*cos(self.geometry.delta(ys))
+        uL, wL = np.cos(alpha), np.sin(alpha)
 
         # Compute the local forces
-        F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(ys, ui, wi)
+        F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(y, uL, 0, wL)
 
         # Convert the body-oriented forces into relative wind coordinates
         Li_prime = F_par_z*cos(alpha) + F_par_x*sin(alpha)
@@ -150,9 +156,9 @@ class Wing:
         # Compute the global coefficients
         rho = 1  # FIXME: is it correct to normalize around rho=1?
         S = self.geometry.S
-        CL = L/((rho/2) * (U**2 + W**2) * S)
-        CD = D/((rho/2) * (U**2 + W**2) * S)
-        Cm0 = My/((rho/2) * (U**2 + W**2) * S * self.geometry.MAC)
+        CL = L/((rho/2) * (uL**2 + wL**2) * S)
+        CD = D/((rho/2) * (uL**2 + wL**2) * S)
+        Cm0 = My/((rho/2) * (uL**2 + wL**2) * S * self.geometry.MAC)
 
         # CL and CD need to be adjusted due wing geometry
         # FIXME: depends on the airfoil containing the `i0` property

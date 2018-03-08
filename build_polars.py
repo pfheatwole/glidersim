@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import numpy as np
 from numpy import sin, cos, sqrt, arcsin, arctan  # noqa: F401
-from scipy.optimize import least_squares
 
 # from matplotlib import animation
 # import mpl_toolkits.mplot3d.axes3d as p3
@@ -43,125 +42,6 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         coefs = LinearCoefficients(5.80, -4, 0.008, -0.1)  # a0, i0, D0, Cm0
 
     return Wing(wing_geo, Airfoil(coefs, airfoil_geo))
-
-
-def equilibrium_parameters(wing, delta):
-    """Compute alpha_eq, d0, h0
-
-    Parameters
-    ----------
-    wing : Wing
-        The glider system that defines the wing geometry and airfoil
-    delta : float
-        The symmetric brake actuation, where `0 <= delta <= 1`
-
-    Returns
-    -------
-    alpha_eq : float
-        The equilibrium AOA for the given symmetric brakes actuation
-    d0 : float
-        The x-axis distance of the cg to the global AC
-    h0 : float
-        The z-axis distance of the cg to the global AC
-    """
-
-    # The integration points across the span
-    N = 1000
-    dy = wing.geometry.b/N
-    y = np.linspace(-wing.geometry.b/2, wing.geometry.b/2, N,
-                    endpoint=False) + dy/2
-    deltas = wing.geometry.delta(y)
-    thetas = wing.geometry.ftheta(y)
-
-    def calc_d0h0(wing, alpha_eq):
-        """Calculate the global AC, {d0, h0}
-
-        These points are deterministic given alpha_eq, but are used as part
-        of the optimization routine to find alpha_eq.
-
-        ref: PFD Eqs 5.44-5.45
-        """
-
-        CL = wing.CL(alpha_eq)
-        CD = wing.CD(alpha_eq)
-
-        Cli = wing.Cl(alpha_eq)
-        Cdi = wing.Cd(alpha_eq)
-        alpha_i = alpha_eq*cos(deltas) + thetas
-
-        # PFD eq 5.44
-        d0 = ((Cli*cos(alpha_i) + Cdi*sin(alpha_i)) *
-              wing.geometry.fx(y) * wing.geometry.fc(y) * dy).sum() / \
-            ((CL*cos(alpha_eq) + CD*sin(alpha_eq)) * wing.geometry.S)
-
-        # PFD eq 5.45
-        h0 = -((Cli*sin(alpha_i) - Cdi*cos(alpha_i)) *
-               wing.geometry.fz(y) * wing.geometry.fc(y) /
-               cos(deltas)*dy).sum() / \
-              ((CL*sin(alpha_eq) - CD*cos(alpha_eq)) * wing.geometry.S)
-
-        print("DEBUG> d0: {}, h0: {}".format(d0, h0))
-
-        return d0, h0
-
-    # def calc_my(wing, d0_prime, h0_prime, alpha):
-    def calc_my(wing, alpha, d0=None, h0=None):
-        """Optimization target for computing alpha_eq
-
-        Parameters
-        ----------
-        wing : Wing
-        alpha : float
-            Current guess for alpha_eq
-
-        Returns
-        -------
-        My : float
-            The total moment about the y-axis. Should be zero for equilibrium.
-        """
-        print("DEBUG> calc_my: alpha:", alpha)
-
-        # Update {d0, h0} to track the changing alpha
-        if d0 is None:
-            d0, h0 = calc_d0h0(wing, alpha)
-
-        CL = wing.CL(alpha)
-        CD = wing.CD(alpha)
-        Cm = wing.Cm(alpha)
-        Cz = CL*cos(alpha) + CD*sin(alpha)  # PFD eq 4.76
-        Cx = CL*sin(alpha) - CD*cos(alpha)  # PFD eq 4.77
-        My = Cz*d0 - Cx*h0 + Cm*wing.geometry.MAC  # PFD Eq 4.78/5.37
-        print("DEBUG> My: {} (alpha: {}, d0: {}, h0: {}, h0/d0: {})".format(
-            My, alpha, d0, h0, h0/d0))
-        return My
-
-    def calc_my_TEST(wing, d0, h0, alpha):
-        CL = wing.CL(alpha)
-        CD = wing.CD(alpha)
-        Cm = wing.Cm(alpha)
-        Cz = CL*cos(alpha) + CD*sin(alpha)  # PFD eq 4.76
-        Cx = CL*sin(alpha) - CD*cos(alpha)  # PFD eq 4.77
-        My = Cz*d0 - Cx*h0 + Cm*wing.geometry.MAC  # PFD Eq 4.78/5.37
-        return My
-
-    alphas = np.linspace(-1.99, 24, 50)
-    d0h0s = np.asarray([calc_d0h0(wing, np.deg2rad(a)) for a in alphas])
-    Mys = np.asarray([calc_my(wing, np.deg2rad(a)) for a in alphas])
-    print("d0h0s")
-    input("Continue?")
-    embed()
-
-    # FIXME: Initialize alpha_eq to something reasonable
-    f_alpha = partial(calc_my, wing)
-    alpha_eq_prime = least_squares(f_alpha, np.deg2rad(8)).x[0]
-    # alpha_eq_prime = least_squares(
-    #     f_alpha, np.deg2rad(2),
-    #   bounds=(np.deg2rad(1.75), np.deg2rad(2.3))).x[0]
-    #   bounds=(0, np.deg2rad(15))).x[0]
-
-    print("Finished finding alpha_eq_prime:", alpha_eq_prime)
-    input("Continue?")
-    embed()
 
 
 def find_first(arr, val):
@@ -226,11 +106,11 @@ if __name__ == "__main__":
     print("wing5.D0:", D05)
     print()
 
-    D21 = (wing1.CD(0.05) - wing1.CD(wing1.i0)) / (a1*(.05-wing1.i0))**2
-    D22 = (wing2.CD(0.05) - wing2.CD(wing2.i0)) / (a2*(.05-wing2.i0))**2
-    D23 = (wing3.CD(0.05) - wing3.CD(wing3.i0)) / (a3*(.05-wing3.i0))**2
-    D24 = (wing4.CD(0.05) - wing4.CD(wing4.i0)) / (a4*(.05-wing4.i0))**2
-    D25 = (wing5.CD(0.05) - wing5.CD(wing5.i0)) / (a5*(.05-wing5.i0))**2
+    D21 = (wing1.CD(0.05) - D01) / wing1.CL(0.05)**2
+    D22 = (wing2.CD(0.05) - D02) / wing2.CL(0.05)**2
+    D23 = (wing3.CD(0.05) - D03) / wing3.CL(0.05)**2
+    D24 = (wing4.CD(0.05) - D04) / wing4.CL(0.05)**2
+    D25 = (wing5.CD(0.05) - D05) / wing5.CL(0.05)**2
     print("wing1.D2:", D21)
     print("wing2.D2:", D22)
     print("wing3.D2:", D23)
