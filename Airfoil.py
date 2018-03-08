@@ -83,8 +83,8 @@ class LinearCoefficients(AirfoilCoefficients):
     """
 
     def __init__(self, a0, i0, D0, Cm0):
-        self.a0 = a0
-        self.i0 = i0
+        self.a0 = a0  # [1/rad]
+        self.i0 = np.deg2rad(i0)
         self.D0 = D0
         self.Cm0 = Cm0
 
