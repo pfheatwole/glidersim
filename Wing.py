@@ -2,6 +2,26 @@ import abc
 
 import numpy as np
 from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
+from numpy.polynomial import Polynomial
+
+from IPython import embed
+
+from numba import njit
+
+
+@njit(cache=True)
+def trapz(y, dx):
+    # Trapezoidal integrator
+    return np.sum(y[1:] + y[:-1]) / 2.0 * dx
+
+
+def integrate(f, a, b, N):
+    if N % 2 == 0:
+        raise ValueError("trapezoid integration requires odd N")
+    x = np.linspace(a, b, N)
+    dx = (b - a)/(N - 1)  # Include the endpoints
+    y = f(x)
+    return trapz(y, dx)
 
 
 class Wing:
@@ -9,6 +29,272 @@ class Wing:
         self.geometry = geometry
         self.airfoil = airfoil
         self.wing_density = wing_density  # FIXME: no idea in general
+
+        # Preliminary section (2D) aerodynamic coefficients
+        # FIXME: D0 should include skin friction + air intakes (eq 4.7)
+        self.a_bar = self.airfoil.coefficients.a0
+        self.i0 = self.airfoil.coefficients.i0
+        self.D0 = self.airfoil.coefficients.D0
+        self.D2_bar = 0  # To be replaced later when alpha_eq is set
+        self.Cm0_bar = self.airfoil.coefficients.Cm0
+
+        # Initialize the global (3D) aerodynamic coefficients
+        CL, CD, Cm0 = self._compute_global_coefficients()
+        self.CL = CL
+        self.CD = CD
+        self.Cm = Cm0
+        self.i0 = self.CL.roots()[0]  # FIXME: test
+
+    def Cl(self, alpha):
+        # TODO: test, verify, and adapt for `delta`
+        # TODO: document
+        return self.a_bar * (alpha - self.i0)
+
+    def Cd(self, alpha):
+        # TODO: test, verify, and adapt for `delta`
+        # TODO: document
+        return self.D2_bar*(self.a_bar * (alpha - self.i0))**2 + self.D0
+
+    def Cm0(self, alpha):
+        # TODO: test, verify, and adapt for `delta`
+        # TODO: document
+        return self.Cm0_bar    # FIXME: I'm buzzing, fix this crap
+
+    def section_forces(self, y, ui, wi, rho=1):
+        """
+        Compute section forces and moments acting on the wing.
+
+        Parameters
+        ----------
+        y : float or array of float
+            The section position on the wing span, where -b/2 < y < b/2
+        ui : float or array of float
+        wi : float or array of float
+
+        Returns
+        -------
+        dLi : float
+            Lift per unit span
+        dDi : float
+            Drag per unit span
+        dm0i : float
+            Moment per unit span
+        """
+
+        # FIXME: update docstring. These are forces per unit span, not the
+        #        forces themselves. This function is suitable for an
+        #        integration routine; `section_forces` is a deceptive name.
+
+        # Precompute in case `y` is an array
+        theta = self.geometry.ftheta(y)  # FIXME: include brakes
+        delta = self.geometry.delta(y)  # PFD Eq:4.13, p74
+        alpha = np.arctan2(wi, ui) + theta  # PFD Eq:4.17, p74
+        fc = self.geometry.fc(y)
+
+        # PFD Eq:4.65-4.67
+        # NOTE: this does not include the `dy` term as in those equations
+        K1 = (rho/2)*(ui**2 + wi**2)
+        K2 = 1/cos(delta)
+        dLi = K1*self.Cl(alpha)*fc*K2
+        dDi = K1*self.Cd(alpha)*fc*K2
+        dm0i = K1*self.Cm0(alpha)*(fc**2)*K2
+
+        # Translate the section forces and moments into body axes
+        #  * PFD eq 4.23-4.27
+        F_par_x = dLi*sin(alpha - theta) - dDi*cos(alpha - theta)
+        F_perp_x = dLi*cos(alpha - theta) + dDi*sin(alpha - theta)
+        F_par_y = F_perp_x * sin(delta)
+        F_par_z = F_perp_x * cos(delta)
+        mi_par_y = dm0i*cos(delta)
+
+        return F_par_x, F_par_y, F_par_z, mi_par_y
+
+    def _pointwise_global_coefficients(self, alpha):
+        """
+        Compute point estimates of the global CL, CD, and Cm
+
+        This procedure is from Paraglider Flight Dynamics, Sec:4.3.3
+
+        Parameters
+        ----------
+        alpha : float [radians]
+            The angle of attack for the current point estimate
+
+        Returns
+        -------
+        CL : float
+        CD : float
+        Cm0 : float
+        """
+
+        # Build a set of integration points
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        ys = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+
+        # Compute local relative winds to match `alpha`
+        U, W = np.cos(alpha), np.sin(alpha)
+        ui, wi = U, W*cos(self.geometry.delta(ys))
+
+        # Compute the local forces
+        F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(ys, ui, wi)
+
+        # Convert the body-oriented forces into relative wind coordinates
+        Li_prime = F_par_z*cos(alpha) + F_par_x*sin(alpha)
+        Di_prime = -F_par_x*cos(alpha) + F_par_z*sin(alpha)
+
+        L = trapz(Li_prime, dy)
+        D = trapz(Di_prime, dy)
+        My = trapz(mi_par_y, dy)
+
+        # Compute the global coefficients
+        rho = 1  # FIXME: is it correct to normalize around rho=1?
+        S = self.geometry.S
+        CL = L/((rho/2) * (U**2 + W**2) * S)
+        CD = D/((rho/2) * (U**2 + W**2) * S)
+        Cm0 = My/((rho/2) * (U**2 + W**2) * S * self.geometry.MAC)
+
+        # CL and CD need to be adjusted due wing geometry
+        # FIXME: depends on the airfoil containing the `i0` property
+        i0 = self.airfoil.coefficients.i0
+        a_prime = CL/(alpha - i0)
+        a = a_prime/(1 + a_prime/(np.pi * self.geometry.AR))
+        CL = a*(alpha - i0)
+
+        D2_prime = CD/CL**2 - self.D0
+        D2 = D2_prime + 1/(np.pi * self.geometry.AR)
+        CD = D2*a**2*(alpha - i0)**2 + self.D0
+
+        return CL, CD, Cm0
+
+    def _compute_global_coefficients(self):
+        """
+        Fit polynomials to the adjusted global aerodynamic coefficients.
+
+        This procedure is from Paraglider Flight Dynamics, Sec:4.3.4
+        """
+        # FIXME: docstring
+        # FIXME: the alpha range should depend on the airfoil.
+        alphas = np.deg2rad(np.linspace(-1.99, 25, 1000))
+        CLs = np.empty_like(alphas)
+        CDs = np.empty_like(alphas)
+        Cm0s = np.empty_like(alphas)
+
+        for n, alpha in enumerate(alphas):
+            CL, CD, Cm = self._pointwise_global_coefficients(alpha)
+            CLs[n], CDs[n], Cm0s[n] = CL, CD, Cm
+
+        # FIXME: currently assumes linear CL, with no expectation of stalls!!
+        # FIXME: for non-constant-linear airfoils, do these fittings hold?
+        CL = Polynomial.fit(alphas, CLs, 1)  # Linear CL
+        CD = Polynomial.fit(alphas, CDs, 2)  # Quadratic CD
+        Cm0 = Polynomial.fit(alphas, Cm0s, 2)  # Quadratic Cm0
+        return CL, CD, Cm0
+
+    def set_local_coefficients(self, alpha_eq):
+        """
+        This procedure is from PFD Sec:4.3.5
+        """
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        ys = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+
+        delta = self.geometry.delta(ys)
+        theta = self.geometry.ftheta(ys)
+
+        alpha_i = alpha_eq*cos(delta) + theta  # PFD Eq:4.46, p82
+
+        tmp_i_local = alpha_i - self.airfoil.coefficients.i0
+        tmp_i_global = alpha_i - self.i0
+
+        NZL = (1/10**5)**(1 - tmp_i_local/np.abs(tmp_i_local))
+
+        CL_eq = self.CL(alpha_eq)
+        # CD_eq = self.CD(alpha_eq)
+        Cm0_eq = self.Cm(alpha_eq)
+
+        # Recompute some stuff from `global_coefficients`
+        a = self.CL.deriv()(0)  # FIXME: is this SUPPOSED to be a_global?
+        D0 = self.CD(self.i0)  # Global D0
+        D2 = (self.CD(alpha_eq) - D0) / CL_eq**2  # PFD eq 4.39
+
+        fc = self.geometry.fc(ys)
+        # PFD Equations 4.50-4.52 p74 (p82)
+        # Note: the `dy` is left off at this point, and must be added later
+        KX1 = NZL*tmp_i_global*sin(alpha_i - theta)/cos(delta)*fc
+        KX2 = -(tmp_i_global**2)*cos(alpha_i - theta)/cos(delta)*fc
+        KX3 = -D0*fc*cos(alpha_i - theta)/cos(delta)*fc
+
+        # PFD Equations 4.53-4.55 p75 (p83)
+        KZ1 = NZL*tmp_i_global*cos(alpha_i - theta)*fc
+        KZ2 = (tmp_i_global**2)*sin(alpha_i - theta)*fc
+        KZ3 = D0*fc*sin(alpha_i - theta)*fc
+
+        # PFD equations 4.58-4.59, p75 (p83)
+        KL1 = KZ1*cos(alpha_eq) + KX1*sin(alpha_eq)
+        KL2 = KZ2*cos(alpha_eq) + KX2*sin(alpha_eq)
+        KL3 = KZ3*cos(alpha_eq) + KX3*sin(alpha_eq)
+        KD1 = KZ1*sin(alpha_eq) - KX1*cos(alpha_eq)
+        KD2 = KZ2*sin(alpha_eq) - KX2*cos(alpha_eq)
+        KD3 = KZ3*sin(alpha_eq) - KX3*cos(alpha_eq)
+
+        # PFD eq 4.61, p76 (p84)
+        SL1 = trapz(KL1, dy)
+        SL2 = trapz(KL2, dy)
+        SL3 = trapz(KL3, dy)
+        SD1 = trapz(KD1, dy)
+        SD2 = trapz(KD2, dy)
+        SD3 = trapz(KD3, dy)
+
+        S = self.geometry.S
+        a_bar = (S*(SD2/SL2*a*(alpha_eq - self.i0) - (D2*CL_eq**2 + D0)) -
+                 (SD2/SL2*SL3-SD3)) / (SD2/SL2*SL1 - SD1)
+
+        D2_bar = (S*a*(alpha_eq - self.i0) - a_bar*SL1 - SL3)/(a_bar**2*SL2)
+
+        Cm0_bar = Cm0_eq  # FIXME: correct? ref: "median", PFD p79
+
+        # Update the section coefficients for calculating local forces
+        self.a_bar = a_bar
+        self.D2_bar = D2_bar
+        self.Cm0_bar = Cm0_bar
+
+    def J(self, rho=1.3, N=2000):
+        """Compute the 3x3 moment of inertia matrix.
+
+        Parameters
+        ----------
+        rho : float
+            Volumetric air density of the atmosphere
+        N : integer
+            The number of points for integration across the span
+
+        Returns
+        -------
+        J : 3x3 matrix of float
+                [[Jxx Jxy Jxz]
+            J =  [Jxy Jyy Jyz]
+                 [Jxz Jyz Jzz]]
+        """
+        S = self.geometry.surface_distributions(N=N)
+        wing_air_density = rho*self.density_factor
+        surface_density = self.wing_density + wing_air_density
+        return surface_density * S
+
+    # @property
+    # def i0(self):
+    #     """The global zero-lift angle of attack"""
+    #     return self.CL.roots()[0]  # FIXME: test
+
+    @property
+    def density_factor(self):
+        # FIXME: I don't understand this. Ref: PFD 48 (46)
+        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
+
+
+
+
+
 
     def fE(self, y, xa=None, N=150):
         """Airfoil upper camber line on the 3D wing
@@ -22,6 +308,8 @@ class Wing:
         N : integer, optional
             If xa is `None`, sample `N` points along the chord
         """
+
+        # FIXME: doesn't this belong in WingGeometry?
 
         if xa is None:
             xa = np.linspace(0, 1, N)
@@ -55,6 +343,8 @@ class Wing:
             If xa is `None`, sample `N` points along the chord
         """
 
+        # FIXME: doesn't this belong in WingGeometry?
+
         if xa is None:
             xa = np.linspace(0, 1, N)
 
@@ -73,49 +363,8 @@ class Wing:
                 )
         return np.c_[x, _y, z]
 
-    def J(self, rho=1.3, N=2000):
-        """Compute the 3x3 moment of inertia matrix.
-
-        Parameters
-        ----------
-        rho : float
-            Volumetric air density of the atmosphere
-        N : integer
-            The number of points for integration across the span
-
-        Returns
-        -------
-        J : 3x3 matrix of float
-                [[Jxx Jxy Jxz]
-            J =  [Jxy Jyy Jyz]
-                 [Jxz Jyz Jzz]]
-        """
-        S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho*self.density_factor
-        surface_density = self.wing_density + wing_air_density
-        return surface_density * S
-
-    @property
-    def density_factor(self):
-        # FIXME: I don't understand this. Ref: PFD 48 (46)
-        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
-
 
 class WingGeometry(abc.ABC):
-    def __init__(self, c0, h0, dcg):
-        """
-        Build a wing from a parameterized description
-
-        Parameters
-        ----------
-        c0, h0, dcg: float
-            Configure the basic 2D triangle: ref page 34 (42)
-
-        """
-        self.c0 = c0
-        self.h0 = h0
-        self.dcg = dcg
-
     @property
     @abc.abstractmethod
     def S(self):
@@ -164,10 +413,21 @@ class WingGeometry(abc.ABC):
         S : 3x3 matrix of float
             The surface distributions, such that `J = (p_w + p_air)*s`
         """
-        dy = 1/N
-        y = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
-        fx = self.fx(y)
-        fz = self.fz(y)
+
+
+        # FIXME: This belongs with the glider. The wing by itself doesn't
+        #        really care about it's own moment of inertia, since it never
+        #        flies on its own anyway, right?
+        #
+        # Will need some tweaks after the move. The wing used to care about
+        # `dcg` and `h0`, but separating the two means that WingGeometry.fx
+        # and WingGeometry.fz will no longer include those terms.
+
+
+        dy = self.b/N
+        y = np.linspace(-self.b/2, self.b/2, N, endpoint=False) + dy/2
+        fx = self.fx(y)  # FIXME: add the `dcg` term after moving to Glider
+        fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
         fc = self.fc(y)
 
         # FIXME: needs verification
@@ -192,8 +452,8 @@ class WingGeometry(abc.ABC):
         # ref: PFD 46 (54)
         # FIXME: untested
         N = 1000
-        dy = 1/N
-        ys = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
+        dy = self.b/N
+        ys = np.linspace(-self.b/2, self.b/2, N, endpoint=False) + dy/2
         return (self.fc(ys) * sqrt(self.dfzdy(ys)**2 + 1)).sum() * dy
 
     @property
@@ -202,8 +462,8 @@ class WingGeometry(abc.ABC):
         # ref: PFD 47 (54)
         # FIXME: untested
         N = 1000
-        dy = 1/N
-        ys = np.linspace(-self.b/2, self.b/2 - dy, N) + dy/2
+        dy = self.b/N
+        ys = np.linspace(-self.b/2, self.b/2, N) + dy/2
         return sqrt(self.dfzdy(ys)**2 + 1).sum() * dy
 
     @property
