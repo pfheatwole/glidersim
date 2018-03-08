@@ -92,7 +92,8 @@ class LinearCoefficients(AirfoilCoefficients):
         return self.a0 * (alpha - self.i0)
 
     def Cd(self, alpha):
-        return self.D0
+        alpha = np.asarray(alpha)
+        return np.ones_like(alpha) * self.D0
 
     def Cm(self, alpha):
         return self.Cm0
