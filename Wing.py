@@ -402,7 +402,7 @@ class WingGeometry(abc.ABC):
     def ftheta(self, y):
         """Spanwise airfoil chord angle relative to the central airfoil"""
 
-    def surface_distributions(self, N=2000):
+    def surface_distributions(self):
         """The surface area distributions for computing inertial moments.
 
         The moments of inertia for the wing are the mass distribution of the
@@ -430,19 +430,21 @@ class WingGeometry(abc.ABC):
         # and WingGeometry.fz will no longer include those terms.
 
 
-        dy = self.b/N
-        y = np.linspace(-self.b/2, self.b/2, N, endpoint=False) + dy/2
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+
         fx = self.fx(y)  # FIXME: add the `dcg` term after moving to Glider
         fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
         fc = self.fc(y)
 
         # FIXME: needs verification
         # FIXME: this is a crude rectangle rule integration
-        Sx = ((y**2 + fz**2)*fc).sum()*dy
-        Sy = ((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc).sum()*dy
-        Sz = ((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc).sum()*dy
+        Sx = trapz((y**2 + fz**2)*fc, dy)
+        Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
+        Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)
         Sxy = 0
-        Sxz = ((2*fx - fc/2)*fz*fc).sum()*dy
+        Sxz = trapz((2*fx - fc/2)*fz*fc, dy)
         Syz = 0
 
         S = np.array([
@@ -457,20 +459,20 @@ class WingGeometry(abc.ABC):
         """The area of the flattened wing"""
         # ref: PFD 46 (54)
         # FIXME: untested
-        N = 1000
-        dy = self.b/N
-        ys = np.linspace(-self.b/2, self.b/2, N, endpoint=False) + dy/2
-        return (self.fc(ys) * sqrt(self.dfzdy(ys)**2 + 1)).sum() * dy
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        return trapz(self.fc(y) * sqrt(self.dfzdy(y)**2 + 1), dy)
 
     @property
     def b_flat(self):
         """The span of the flattened wing"""
         # ref: PFD 47 (54)
         # FIXME: untested
-        N = 1000
-        dy = self.b/N
-        ys = np.linspace(-self.b/2, self.b/2, N) + dy/2
-        return sqrt(self.dfzdy(ys)**2 + 1).sum() * dy
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        return trapz(sqrt(self.dfzdy(y)**2 + 1), dy)
 
     @property
     def AR_flat(self):
