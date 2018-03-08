@@ -65,7 +65,7 @@ class AirfoilCoefficients(abc.ABC):
         # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
     @abc.abstractmethod
-    def Cm(self, alpha):
+    def Cm0(self, alpha):
         """
         Pitching coefficient of the airfoil at the given angle of attack
 
@@ -95,7 +95,7 @@ class LinearCoefficients(AirfoilCoefficients):
         alpha = np.asarray(alpha)
         return np.ones_like(alpha) * self.D0
 
-    def Cm(self, alpha):
+    def Cm0(self, alpha):
         return self.Cm0
 
 
@@ -103,6 +103,9 @@ class LinearCoefficients(AirfoilCoefficients):
 
 
 class AirfoilGeometry(abc.ABC):
+    """
+    These are used for drawing the 3D wing, and have no effect on performance.
+    """
     @property
     @abc.abstractmethod
     def t(self):
