@@ -173,3 +173,77 @@ class Glider:
         embed()
 
 
+
+    # FIXME: moved from Wing. Verify and test.
+    def surface_distributions(self):
+        """The surface area distributions for computing inertial moments.
+
+        The moments of inertia for the wing are the mass distribution of the
+        air and wing material. That distribution is typically decomposed into
+        the product of volumetric density and volume, but a simplification is
+        to calculate the density per unit area.
+
+        FIXME: this description is mediocre.
+
+        Ref: "Paraglider Flight Dynamics", page 48 (56)
+
+        Returns
+        ------
+        S : 3x3 matrix of float
+            The surface distributions, such that `J = (p_w + p_air)*s`
+        """
+
+        # FIXME: this was moved from Wing when creating Glider. That move
+        #        eliminated dcg/h0 from the WingGeometry, so WingGeometry.fx
+        #        and WingGeometry.fz no longer position the wing relative to
+        #        the cg. Calculating the moments of inertia requires that the
+        #        Glider add those terms back in.
+        print("BROKEN! See the source FIXME")
+        1/0
+
+        N = 501
+        dy = self.geometry.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+
+        fx = self.fx(y)  # FIXME: add the `dcg` term after moving to Glider
+        fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
+        fc = self.fc(y)
+
+        # FIXME: needs verification
+        # FIXME: this is a crude rectangle rule integration
+        Sx = trapz((y**2 + fz**2)*fc, dy)
+        Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
+        Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)
+        Sxy = 0
+        Sxz = trapz((2*fx - fc/2)*fz*fc, dy)
+        Syz = 0
+
+        S = np.array([
+            [Sx, Sxy, Sxz],
+            [Sxy, Sy, Syz],
+            [Sxz, Syz, Sz]])
+
+        return S
+
+    # FIXME: moved from Wing. Verify and test.
+    def J(self, rho=1.3, N=2000):
+        """Compute the 3x3 moment of inertia matrix.
+
+        Parameters
+        ----------
+        rho : float
+            Volumetric air density of the atmosphere
+        N : integer
+            The number of points for integration across the span
+
+        Returns
+        -------
+        J : 3x3 matrix of float
+                [[Jxx Jxy Jxz]
+            J =  [Jxy Jyy Jyz]
+                 [Jxz Jyz Jzz]]
+        """
+        S = self.geometry.surface_distributions(N=N)
+        wing_air_density = rho*self.density_factor
+        surface_density = self.wing_density + wing_air_density
+        return surface_density * S

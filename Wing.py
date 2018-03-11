@@ -32,8 +32,8 @@ class Wing:
 
         # Preliminary section (2D) aerodynamic coefficients
         # FIXME: D0 should include skin friction + air intakes (eq 4.7)
+        # self.i0 = self.airfoil.coefficients.i0
         self.a_bar = self.airfoil.coefficients.a0
-        self.i0 = self.airfoil.coefficients.i0
         self.D0 = self.airfoil.coefficients.D0
         self.D2_bar = 0  # To be replaced later when alpha_eq is set
         self.Cm0_bar = self.airfoil.coefficients.Cm0
@@ -45,6 +45,31 @@ class Wing:
         self.Cm = Cm0
         self.i0 = self.CL.roots()[0]  # FIXME: test
 
+
+    # FIXME: wtf do I need these explicitly available?
+    #  * They're only useful for specific implementations of the coeffs,
+    #     * eg, `i0` is a parameter for the linear Cl, etc
+
+    @property
+    def i0(self):
+        """The global zero-lift angle of attack"""
+        return self.CL.roots()[0]  # FIXME: test
+
+    @property
+    def D0(self):
+        """The global profile drag"""
+        return self.CL(self.i0)
+
+    @property
+    def D2(self):
+        return (self.CD(alpha_eq) - D0) / CL_eq**2  # PFD eq 4.39
+
+
+    @property
+    def density_factor(self):
+        # FIXME: I don't understand this. Ref: PFD 48 (56)
+        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
+
     def Cl(self, alpha):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
@@ -53,6 +78,15 @@ class Wing:
     def Cd(self, alpha):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
+        #
+
+        #
+        #
+        # Shouldn't this be written in terms of the global attributes?
+        # eg, `self.D0` should be `self.CL(self.i0)`  (global D0 for global i0)
+        #
+        #
+
         return self.D2_bar*(self.a_bar * (alpha - self.i0))**2 + self.D0
 
     def Cm0(self, alpha):
@@ -265,43 +299,6 @@ class Wing:
         self.D2_bar = D2_bar
         self.Cm0_bar = Cm0_bar
 
-    def J(self, rho=1.3, N=2000):
-        """Compute the 3x3 moment of inertia matrix.
-
-        Parameters
-        ----------
-        rho : float
-            Volumetric air density of the atmosphere
-        N : integer
-            The number of points for integration across the span
-
-        Returns
-        -------
-        J : 3x3 matrix of float
-                [[Jxx Jxy Jxz]
-            J =  [Jxy Jyy Jyz]
-                 [Jxz Jyz Jzz]]
-        """
-        S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho*self.density_factor
-        surface_density = self.wing_density + wing_air_density
-        return surface_density * S
-
-    # @property
-    # def i0(self):
-    #     """The global zero-lift angle of attack"""
-    #     return self.CL.roots()[0]  # FIXME: test
-
-    @property
-    def density_factor(self):
-        # FIXME: I don't understand this. Ref: PFD 48 (46)
-        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
-
-
-
-
-
-
     def fE(self, y, xa=None, N=150):
         """Airfoil upper camber line on the 3D wing
 
@@ -401,58 +398,6 @@ class WingGeometry(abc.ABC):
     @abc.abstractmethod
     def ftheta(self, y):
         """Spanwise airfoil chord angle relative to the central airfoil"""
-
-    def surface_distributions(self):
-        """The surface area distributions for computing inertial moments.
-
-        The moments of inertia for the wing are the mass distribution of the
-        air and wing material. That distribution is typically decomposed into
-        the product of volumetric density and volume, but a simplification is
-        to calculate the density per unit area.
-
-        FIXME: this description is mediocre.
-
-        Ref: "Paraglider Flight Dynamics", page 48 (56)
-
-        Returns
-        ------
-        S : 3x3 matrix of float
-            The surface distributions, such that `J = (p_w + p_air)*s`
-        """
-
-
-        # FIXME: This belongs with the glider. The wing by itself doesn't
-        #        really care about it's own moment of inertia, since it never
-        #        flies on its own anyway, right?
-        #
-        # Will need some tweaks after the move. The wing used to care about
-        # `dcg` and `h0`, but separating the two means that WingGeometry.fx
-        # and WingGeometry.fz will no longer include those terms.
-
-
-        N = 501
-        dy = self.geometry.b/(N - 1)  # Include the endpoints
-        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
-
-        fx = self.fx(y)  # FIXME: add the `dcg` term after moving to Glider
-        fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
-        fc = self.fc(y)
-
-        # FIXME: needs verification
-        # FIXME: this is a crude rectangle rule integration
-        Sx = trapz((y**2 + fz**2)*fc, dy)
-        Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
-        Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)
-        Sxy = 0
-        Sxz = trapz((2*fx - fc/2)*fz*fc, dy)
-        Syz = 0
-
-        S = np.array([
-            [Sx, Sxy, Sxz],
-            [Sxy, Sy, Syz],
-            [Sxz, Syz, Sz]])
-
-        return S
 
     @property
     def S_flat(self):
