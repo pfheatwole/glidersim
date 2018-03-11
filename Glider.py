@@ -86,7 +86,7 @@ class Glider:
         dy = wing.geometry.b/(N - 1)  # Include the endpoint
         y = np.linspace(-wing.geometry.b/2, wing.geometry.b/2, N)
 
-        deltas = wing.geometry.delta(y)
+        Gammas = wing.geometry.Gamma(y)
         thetas = wing.geometry.ftheta(y)
 
         def calc_d0h0(wing, alpha_eq):
@@ -103,7 +103,7 @@ class Glider:
 
             Cli = wing.Cl(alpha_eq)
             Cdi = wing.Cd(alpha_eq)
-            alpha_i = alpha_eq*cos(deltas) + thetas
+            alpha_i = alpha_eq*cos(Gammas) + thetas
 
             # PFD Eq:5.44, p120
             fx = wing.geometry.fx(y)
@@ -116,7 +116,7 @@ class Glider:
 
             # PFD Eq:5.45, p120
             numerator = -((Cli*sin(alpha_i) - Cdi*cos(alpha_i)) *
-                          fz * fc / cos(deltas))
+                          fz * fc / cos(Gammas))
             denominator = (CL*sin(alpha_eq) - CD*cos(alpha_eq)) * S
             h0 = trapz(numerator, dy) / denominator
 

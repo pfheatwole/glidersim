@@ -123,11 +123,11 @@ class Wing:
         #        forces themselves. This function is suitable for an
         #        integration routine; `section_forces` is a deceptive name.
 
-        delta = self.geometry.delta(y)  # PFD eq 4.13, p74
+        Gamma = self.geometry.Gamma(y)  # PFD eq 4.13, p74
         theta = self.geometry.ftheta(y)  # FIXME: should include braking
 
         ui = uL  # PFD Eq:4.14, p74
-        wi = wL*cos(delta) - vL*sin(delta)  # PFD Eq:4.15, p74
+        wi = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
 
         alpha_i = arctan(wi/ui) + theta  # PFD Eq:4.17, p74
 
@@ -135,7 +135,7 @@ class Wing:
         # NOTE: this does not include the `dy` term as in those equations
         fc = self.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
-        K2 = 1/cos(delta)
+        K2 = 1/cos(Gamma)
         dLi = K1*self.Cl(alpha_i)*fc*K2
         dDi = K1*self.Cd(alpha_i)*fc*K2
         dm0i = K1*self.Cm0(alpha_i)*(fc**2)*K2
@@ -144,9 +144,9 @@ class Wing:
         #  * PFD Eqs:4.23-4.27, p76
         F_par_x = dLi*sin(alpha_i - theta) - dDi*cos(alpha_i - theta)
         F_perp_x = dLi*cos(alpha_i - theta) + dDi*sin(alpha_i - theta)
-        F_par_y = F_perp_x * sin(delta)
-        F_par_z = F_perp_x * cos(delta)
-        mi_par_y = dm0i*cos(delta)
+        F_par_y = F_perp_x * sin(Gamma)
+        F_par_z = F_perp_x * cos(Gamma)
+        mi_par_y = dm0i*cos(Gamma)
 
         return F_par_x, F_par_y, F_par_z, mi_par_y
 
@@ -239,10 +239,10 @@ class Wing:
         dy = self.geometry.b/(N - 1)  # Include the endpoints
         ys = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
 
-        delta = self.geometry.delta(ys)
+        Gamma = self.geometry.Gamma(ys)
         theta = self.geometry.ftheta(ys)
 
-        alpha_i = alpha_eq*cos(delta) + theta  # PFD Eq:4.46, p82
+        alpha_i = alpha_eq*cos(Gamma) + theta  # PFD Eq:4.46, p82
 
         tmp_i_local = alpha_i - self.airfoil.coefficients.i0
         tmp_i_global = alpha_i - self.i0
@@ -261,9 +261,9 @@ class Wing:
         fc = self.geometry.fc(ys)
         # PFD Equations 4.50-4.52 p74 (p82)
         # Note: the `dy` is left off at this point, and must be added later
-        KX1 = NZL*tmp_i_global*sin(alpha_i - theta)/cos(delta)*fc
-        KX2 = -(tmp_i_global**2)*cos(alpha_i - theta)/cos(delta)*fc
-        KX3 = -D0*fc*cos(alpha_i - theta)/cos(delta)*fc
+        KX1 = NZL*tmp_i_global*sin(alpha_i - theta)/cos(Gamma)*fc
+        KX2 = -(tmp_i_global**2)*cos(alpha_i - theta)/cos(Gamma)*fc
+        KX3 = -D0*fc*cos(alpha_i - theta)/cos(Gamma)*fc
 
         # PFD Equations 4.53-4.55 p75 (p83)
         KZ1 = NZL*tmp_i_global*cos(alpha_i - theta)*fc
@@ -322,13 +322,13 @@ class Wing:
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
-        delta = self.geometry.delta(y)
+        Gamma = self.geometry.Gamma(y)
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
-        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
+        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
         z = np.abs(
             -self.geometry.fz(y) +
-            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta)
+            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
             )
 
         return np.c_[x, _y, z]
@@ -356,13 +356,13 @@ class Wing:
         xs, zs = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
-        delta = self.geometry.delta(y)
+        Gamma = self.geometry.Gamma(y)
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
-        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(delta)
+        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
         z = np.abs(
                 -self.geometry.fz(y) +
-                ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(delta)
+                ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
                 )
         return np.c_[x, _y, z]
 
@@ -514,7 +514,7 @@ class EllipticalWing(WingGeometry):
         Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
         return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
 
-    def delta(self, y):
+    def Gamma(self, y):
         return arctan(self.dfzdy(y))
 
     def fc(self, y):
