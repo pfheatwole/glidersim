@@ -34,26 +34,30 @@ class AirfoilCoefficients(abc.ABC):
     """
 
     @abc.abstractmethod
-    def Cl(self, alpha):
+    def Cl(self, alpha, delta):
         """
         Lift coefficient of the airfoil at the given angle of attack
 
         Parameters
         ----------
-        alpha : float
+        alpha : float [radians]
             The angle of attack
+        delta : float [radians]
+            The angle of deflection of the trailing edge due to braking
         """
         # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
     @abc.abstractmethod
-    def Cd(self, alpha):
+    def Cd(self, alpha, delta):
         """
         Form drag coefficient of the airfoil at the given angle of attack
 
         Parameters
         ----------
-        alpha : float
+        alpha : float [radians]
             The angle of attack
+        delta : float [radians]
+            The angle of deflection of the trailing edge due to braking
 
         Notes
         -----
@@ -65,14 +69,16 @@ class AirfoilCoefficients(abc.ABC):
         # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
     @abc.abstractmethod
-    def Cm0(self, alpha):
+    def Cm0(self, alpha, delta):
         """
         Pitching coefficient of the airfoil at the given angle of attack
 
         Parameters
         ----------
-        alpha : float
+        alpha : float [radians]
             The angle of attack
+        delta : float [radians]
+            The angle of deflection of the trailing edge due to braking
         """
 
 
@@ -88,14 +94,16 @@ class LinearCoefficients(AirfoilCoefficients):
         self.D0 = D0
         self.Cm0 = Cm0
 
-    def Cl(self, alpha):
-        return self.a0 * (alpha - self.i0)
+    def Cl(self, alpha, delta=0):
+        # FIXME: verify the usage of delta
+        return self.a0 * (alpha + delta - self.i0)
 
-    def Cd(self, alpha):
+    def Cd(self, alpha, delta=0):
         alpha = np.asarray(alpha)
-        return np.ones_like(alpha) * self.D0
+        # FIXME: verify the usage of delta
+        return np.ones_like(alpha + delta) * self.D0
 
-    def Cm0(self, alpha):
+    def Cm0(self, alpha, delta=0):
         return self.Cm0
 
 
