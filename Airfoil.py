@@ -86,6 +86,9 @@ class LinearCoefficients(AirfoilCoefficients):
     """
     An airfoil model that assumes a strictly linear lift coefficient, constant
     form drag, and constant pitching moment.
+
+    In addition, the effect of brakes is to shift the coefficient curves to the
+    left. Brake deflections do not change the shape of the curves themselves.
     """
 
     def __init__(self, a0, i0, D0, Cm0):
