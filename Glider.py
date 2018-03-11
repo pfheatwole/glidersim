@@ -3,9 +3,12 @@
 from functools import partial
 
 import numpy as np
-from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
+# from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
+from numpy import sin, cos
 
 from scipy.optimize import least_squares
+
+from IPython import embed
 
 
 def trapz(y, dx):
@@ -61,12 +64,12 @@ class Glider:
 
         return uL, vL, wL
 
-    def equilibrium_parameters(self, delta):
+    def equilibrium_parameters(self, delta_B=0):
         """Compute alpha_eq, d0, h0
 
         Parameters
         ----------
-        delta : float
+        delta_B : float
             The symmetric brake actuation, where `0 <= delta <= 1`
 
         Returns
@@ -171,8 +174,6 @@ class Glider:
         print("Finished finding alpha_eq_prime:", alpha_eq_prime)
         input("Continue?")
         embed()
-
-
 
     # FIXME: moved from Wing. Verify and test.
     def surface_distributions(self):
