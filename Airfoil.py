@@ -107,7 +107,8 @@ class LinearCoefficients(AirfoilCoefficients):
         return np.ones_like(alpha) * self.D0
 
     def Cm0(self, alpha, delta=0):
-        return self.Cm0
+        alpha = np.asarray(alpha)
+        return np.ones_like(alpha) * self._Cm0
 
 
 # ---------------------------------------------------------------------------
