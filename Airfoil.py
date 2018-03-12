@@ -95,7 +95,7 @@ class LinearCoefficients(AirfoilCoefficients):
         self.a0 = a0  # [1/rad]
         self.i0 = np.deg2rad(i0)
         self.D0 = D0
-        self.Cm0 = Cm0
+        self._Cm0 = Cm0  # FIXME: seems clunky; change the naming?
 
     def Cl(self, alpha, delta=0):
         # FIXME: verify the usage of delta
