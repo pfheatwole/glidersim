@@ -104,7 +104,7 @@ class LinearCoefficients(AirfoilCoefficients):
     def Cd(self, alpha, delta=0):
         alpha = np.asarray(alpha)
         # FIXME: verify the usage of delta
-        return np.ones_like(alpha + delta) * self.D0
+        return np.ones_like(alpha) * self.D0
 
     def Cm0(self, alpha, delta=0):
         return self.Cm0
