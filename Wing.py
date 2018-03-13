@@ -30,40 +30,14 @@ class Wing:
         self.airfoil = airfoil
         self.wing_density = wing_density  # FIXME: no idea in general
 
-        # Preliminary section (2D) aerodynamic coefficients
-        # FIXME: D0 should include skin friction + air intakes (eq 4.7)
-        # self.i0 = self.airfoil.coefficients.i0
-        self.a_bar = self.airfoil.coefficients.a0
-        self.D0 = self.airfoil.coefficients.D0
-        self.D2_bar = 0  # To be replaced later when alpha_eq is set
-        self.Cm0_bar = self.airfoil.coefficients.Cm0
-
         # Initialize the global (3D) aerodynamic coefficients
         CL, CD, Cm0 = self._compute_global_coefficients()
         self.CL = CL
         self.CD = CD
         self.Cm = Cm0
-        self.i0 = self.CL.roots()[0]  # FIXME: test
 
-
-    # FIXME: wtf do I need these explicitly available?
-    #  * They're only useful for specific implementations of the coeffs,
-    #     * eg, `i0` is a parameter for the linear Cl, etc
-
-    @property
-    def i0(self):
-        """The global zero-lift angle of attack"""
-        return self.CL.roots()[0]  # FIXME: test
-
-    @property
-    def D0(self):
-        """The global profile drag"""
-        return self.CL(self.i0)
-
-    @property
-    def D2(self):
-        return (self.CD(alpha_eq) - D0) / CL_eq**2  # PFD eq 4.39
-
+        # Initialize the section (2D) aerodynamic coefficients
+        # FIXME
 
     @property
     def density_factor(self):
@@ -73,21 +47,15 @@ class Wing:
     def Cl(self, alpha):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
-        return self.a_bar * (alpha - self.i0)
+        i0 = self.CL.roots()[0]  # Adjusted global zero-lift angle
+        return self.a_bar * (alpha - i0)
 
     def Cd(self, alpha):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
-        #
-
-        #
-        #
-        # Shouldn't this be written in terms of the global attributes?
-        # eg, `self.D0` should be `self.CL(self.i0)`  (global D0 for global i0)
-        #
-        #
-
-        return self.D2_bar*(self.a_bar * (alpha - self.i0))**2 + self.D0
+        i0 = self.CL.roots()[0]  # Adjusted global zero-lift angle
+        D0 = self.CD(i0)
+        return self.D2_bar*(self.a_bar * (alpha - i0))**2 + D0
 
     def Cm0(self, alpha):
         # TODO: test, verify, and adapt for `delta`
@@ -122,6 +90,7 @@ class Wing:
         # FIXME: update docstring. These are forces per unit span, not the
         #        forces themselves. This function is suitable for an
         #        integration routine; `section_forces` is a deceptive name.
+        # FIXME: the "Returns" in the docstring is also wrong
 
         Gamma = self.geometry.Gamma(y)  # PFD eq 4.13, p74
         theta = self.geometry.ftheta(y)  # FIXME: should include braking
@@ -136,9 +105,9 @@ class Wing:
         fc = self.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
         K2 = 1/cos(Gamma)
-        dLi = K1*self.Cl(alpha_i)*fc*K2
-        dDi = K1*self.Cd(alpha_i)*fc*K2
-        dm0i = K1*self.Cm0(alpha_i)*(fc**2)*K2
+        dLi = K1*self.airfoil.coefficients.Cl(alpha_i)*fc*K2
+        dDi = K1*self.airfoil.coefficients.Cd(alpha_i)*fc*K2
+        dm0i = K1*self.airfoil.coefficients.Cm0(alpha_i)*(fc**2)*K2
 
         # Translate the section forces and moments into body axes
         #  * PFD Eqs:4.23-4.27, p76
@@ -180,6 +149,7 @@ class Wing:
         F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(y, uL, 0, wL)
 
         # Convert the body-oriented forces into relative wind coordinates
+        # PFD Eq:4.29-4.30, p77
         Li_prime = F_par_z*cos(alpha) + F_par_x*sin(alpha)
         Di_prime = -F_par_x*cos(alpha) + F_par_z*sin(alpha)
 
@@ -194,17 +164,6 @@ class Wing:
         CD = D/((rho/2) * (uL**2 + wL**2) * S)
         Cm0 = My/((rho/2) * (uL**2 + wL**2) * S * self.geometry.MAC)
 
-        # CL and CD need to be adjusted due wing geometry
-        # FIXME: depends on the airfoil containing the `i0` property
-        i0 = self.airfoil.coefficients.i0
-        a_prime = CL/(alpha - i0)
-        a = a_prime/(1 + a_prime/(np.pi * self.geometry.AR))
-        CL = a*(alpha - i0)
-
-        D2_prime = CD/CL**2 - self.D0
-        D2 = D2_prime + 1/(np.pi * self.geometry.AR)
-        CD = D2*a**2*(alpha - i0)**2 + self.D0
-
         return CL, CD, Cm0
 
     def _compute_global_coefficients(self):
@@ -212,23 +171,45 @@ class Wing:
         Fit polynomials to the adjusted global aerodynamic coefficients.
 
         This procedure is from Paraglider Flight Dynamics, Sec:4.3.4
+
+        FIXME: the alpha range should depend on the airfoil.
+        FIXME: currently assumes linear CL, with no expectation of stalls!!
+        FIXME: for non-constant-linear airfoils, do these fittings hold?
+        FIXME: seems convoluted for what it accomplishes
         """
-        # FIXME: docstring
-        # FIXME: the alpha range should depend on the airfoil.
         alphas = np.deg2rad(np.linspace(-1.99, 25, 1000))
         CLs = np.empty_like(alphas)
         CDs = np.empty_like(alphas)
         Cm0s = np.empty_like(alphas)
 
+        # First, compute the unadjusted global coefficients
         for n, alpha in enumerate(alphas):
             CL, CD, Cm = self._pointwise_global_coefficients(alpha)
             CLs[n], CDs[n], Cm0s[n] = CL, CD, Cm
 
-        # FIXME: currently assumes linear CL, with no expectation of stalls!!
-        # FIXME: for non-constant-linear airfoils, do these fittings hold?
-        CL = Polynomial.fit(alphas, CLs, 1)  # Linear CL
-        CD = Polynomial.fit(alphas, CDs, 2)  # Quadratic CD
-        Cm0 = Polynomial.fit(alphas, Cm0s, 2)  # Quadratic Cm0
+        # Second, adjust the global coefficients to account for the 3D wing
+        # FIXME: Verify!
+        CL_prime = Polynomial.fit(alphas, CLs, 1)
+        i0 = CL_prime.roots()[0]  # Unadjusted global zero-lift angle
+        a_prime = CL_prime.deriv()(0)  # Preliminary lift-curve slope
+        a = a_prime/(1 + a_prime/(np.pi * self.geometry.AR))  # Adjusted slope
+        D0 = self.airfoil.coefficients.D0  # Profile drag only
+        D2_prime = CDs/CLs**2 - D0
+        D2 = D2_prime + 1/(np.pi * self.geometry.AR)  # Adjusted induced drag
+
+        # FIXME: this derivation and fitting for D2 seems strange to me. He
+        # assumes a fixed D0 for the airfoil; the CDs are basically D0, but
+        # with a small variation due to the 3D wing shape. Thus, aren't `CDs`
+        # essentially the alpha-dependent profile drag? Then why does he
+        # subtract D0 to calculate D2_prime, then add back D0 to calculate CD,
+        # instead of subtracting and adding CDs, the "true" profile drag?
+
+        # FIXME: compare these results against the wings on PFD pg 97
+
+        CL = Polynomial.fit(alphas, a*(alphas - i0), 1)
+        CD = Polynomial.fit(alphas, D2 * (CL(alphas)**2) + D0, 2)
+        Cm0 = Polynomial.fit(alphas, Cm0s, 2)
+
         return CL, CD, Cm0
 
     def set_local_coefficients(self, alpha_eq):
@@ -244,8 +225,9 @@ class Wing:
 
         alpha_i = alpha_eq*cos(Gamma) + theta  # PFD Eq:4.46, p82
 
+        i0 = self.CL.roots()[0]  # FIXME: test
         tmp_i_local = alpha_i - self.airfoil.coefficients.i0
-        tmp_i_global = alpha_i - self.i0
+        tmp_i_global = alpha_i - i0
 
         NZL = (1/10**5)**(1 - tmp_i_local/np.abs(tmp_i_local))
 
@@ -255,7 +237,7 @@ class Wing:
 
         # Recompute some stuff from `global_coefficients`
         a = self.CL.deriv()(0)  # FIXME: is this SUPPOSED to be a_global?
-        D0 = self.CD(self.i0)  # Global D0
+        D0 = self.CD(i0)  # Global D0
         D2 = (self.CD(alpha_eq) - D0) / CL_eq**2  # PFD eq 4.39
 
         fc = self.geometry.fc(ys)
@@ -287,10 +269,10 @@ class Wing:
         SD3 = trapz(KD3, dy)
 
         S = self.geometry.S
-        a_bar = (S*(SD2/SL2*a*(alpha_eq - self.i0) - (D2*CL_eq**2 + D0)) -
+        a_bar = (S*(SD2/SL2*a*(alpha_eq - i0) - (D2*CL_eq**2 + D0)) -
                  (SD2/SL2*SL3-SD3)) / (SD2/SL2*SL1 - SD1)
 
-        D2_bar = (S*a*(alpha_eq - self.i0) - a_bar*SL1 - SL3)/(a_bar**2*SL2)
+        D2_bar = (S*a*(alpha_eq - i0) - a_bar*SL1 - SL3)/(a_bar**2*SL2)
 
         Cm0_bar = Cm0_eq  # FIXME: correct? ref: "median", PFD p79
 
@@ -532,6 +514,7 @@ class EllipticalWing(WingGeometry):
     @staticmethod
     def MAC_to_c0(MAC, taper):
         """Compute the central chord length of a tapered elliptical wing"""
+        # PFD Table:3-6, p54
         tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
         c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
         return c0
@@ -539,8 +522,7 @@ class EllipticalWing(WingGeometry):
     @staticmethod
     def AR_to_b(c0, AR, taper):
         """Compute the span of a tapered elliptical wing"""
-        # ref: PFD 46 (54)
-        # FIXME: rename tmp
+        # PFD Table:3-6, p54
         tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
         b = (AR / 2)*c0*(taper + tmp)
         return b

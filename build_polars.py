@@ -16,12 +16,12 @@ from Glider import Glider
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
                      torsion=0, airfoil_geo=None, coefs=None):
     if dMax is None:
-        print("Using minimum max dihedral")
         dMax = 2*dMed - 1  # ref page 48 (56)
+        print("Using minimum max dihedral ({})".format(dMax))
 
     if sMax is None:
-        print("Using minimum max sweep")
         sMax = (2*sMed) + 1  # ref page 48 (56)
+        print("Using minimum max sweep ({})".format(sMax))
 
     # Compute some missing data in reverse
     c0 = EllipticalWing.MAC_to_c0(MAC, taper)
@@ -35,6 +35,7 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
 
     if coefs is None:
         # coefs = LinearCoefficients(5.73, -5, 0.007, -0.05)  # a0, i0, D0, Cm0
+        print("Using default airfoil coefficients")
         coefs = LinearCoefficients(5.80, -4, 0.008, -0.1)  # a0, i0, D0, Cm0
 
     return Wing(wing_geo, Airfoil(coefs, airfoil_geo))
@@ -53,12 +54,17 @@ if __name__ == "__main__":
     airfoil_geo = NACA4(4412)
 
     # FIXME: these parameters are largely unknown?
+    # coefs = LinearCoefficients(5.73, -2, 0.007, -0.05)
     coefs = LinearCoefficients(5.73, -2, 0.007, -0.05)
     wing = build_elliptical(
         MAC=2.3, AR=4.0, taper=0.4, dMed=-30, sMed=10, coefs=coefs)
 
     # from PFD p89 (97)
     coefs = LinearCoefficients(5.73, -2, 0.007, -0.05)
+
+    print("\nFIXME: over-riding the coefficients, trying to match p97")
+    coefs = LinearCoefficients(5.73, -2, 0.011, -0.05)
+
     wing1 = build_elliptical(
         MAC=2.4, AR=3.9, taper=0.4, dMed=-20, sMed=10, coefs=coefs)
     wing2 = build_elliptical(
@@ -79,28 +85,39 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.show()
 
-    a1 = wing1.CL(.05)/(.05-wing1.i0)
-    a2 = wing2.CL(.05)/(.05-wing2.i0)
-    a3 = wing3.CL(.05)/(.05-wing3.i0)
-    a4 = wing4.CL(.05)/(.05-wing4.i0)
-    a5 = wing5.CL(.05)/(.05-wing5.i0)
+    print()
+    a1 = wing1.CL.deriv()(.05)
+    a2 = wing2.CL.deriv()(.05)
+    a3 = wing3.CL.deriv()(.05)
+    a4 = wing4.CL.deriv()(.05)
+    a5 = wing5.CL.deriv()(.05)
     print("wing1.a:", a1)
-    print("wing1.a:", a2)
-    print("wing1.a:", a3)
-    print("wing1.a:", a4)
-    print("wing1.a:", a5)
+    print("wing2.a:", a2)
+    print("wing3.a:", a3)
+    print("wing4.a:", a4)
+    print("wing5.a:", a5)
 
-    D01 = wing1.CD(wing1.i0)
-    D02 = wing2.CD(wing2.i0)
-    D03 = wing3.CD(wing3.i0)
-    D04 = wing4.CD(wing4.i0)
-    D05 = wing5.CD(wing5.i0)
+    i01 = wing1.CL.roots()[0]
+    i02 = wing2.CL.roots()[0]
+    i03 = wing3.CL.roots()[0]
+    i04 = wing4.CL.roots()[0]
+    i05 = wing5.CL.roots()[0]
+    print("wing1.i0:", np.rad2deg(i01))
+    print("wing2.i0:", np.rad2deg(i02))
+    print("wing3.i0:", np.rad2deg(i03))
+    print("wing4.i0:", np.rad2deg(i04))
+    print("wing5.i0:", np.rad2deg(i05))
+
+    D01 = wing1.CD(wing1.CL.roots()[0])
+    D02 = wing2.CD(wing2.CL.roots()[0])
+    D03 = wing3.CD(wing3.CL.roots()[0])
+    D04 = wing4.CD(wing4.CL.roots()[0])
+    D05 = wing5.CD(wing5.CL.roots()[0])
     print("wing1.D0:", D01)
     print("wing2.D0:", D02)
     print("wing3.D0:", D03)
     print("wing4.D0:", D04)
     print("wing5.D0:", D05)
-    print()
 
     D21 = (wing1.CD(0.05) - D01) / wing1.CL(0.05)**2
     D22 = (wing2.CD(0.05) - D02) / wing2.CL(0.05)**2
