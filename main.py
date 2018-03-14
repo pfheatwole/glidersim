@@ -69,9 +69,10 @@ def plot_wing(wing):
     b = wing.geometry.b
     for y in np.linspace(-b/2, b/2, 21):
         coords = wing.fI(y, N=50)
-        ax.plot(coords[:, 0], coords[:, 1], coords[:, 2], c='r', zorder=.9)
+        ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='r', zorder=.9,
+                lw=0.8)
         coords = wing.fE(y, N=50)
-        ax.plot(coords[:, 0], coords[:, 1], coords[:, 2], c='b')
+        ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='b', lw=0.8)
 
     y = np.linspace(-b/2, b/2, 51)
     ax.plot(wing.geometry.fx(y), y, -wing.geometry.fz(y), 'g--', lw=0.8)
@@ -99,12 +100,12 @@ def animated_wing_plotter():
     ax = p3.Axes3D(fig)
     ax.set_xlim(-4, 4)
     ax.set_ylim(-4, 4)
-    ax.set_zlim(0, 11)
+    ax.set_zlim(-6, 4)
     ax.view_init(azim=-130, elev=25)
 
     N = 21  # How many airfoil slices (makes 2N lines, for top and bottom)
-    lines = [
-        ax.plot([0], [0], [0], 'r' if n < N else 'b')[0] for n in range(2*N)]
+    lines = [ax.plot([0], [0], [0], 'r' if n < N else 'b', lw=0.8)[0]
+             for n in range(2*N)]
 
     def update(frame):
         print("seq[{}]: {}".format(frame, seq[frame]))
@@ -118,12 +119,14 @@ def animated_wing_plotter():
         # Update the bottom lines
         for n in range(N):
             coords = wing.fI(ys[n], N=50)
+            coords[:, 2] = -coords[:, 2]
             lines[n].set_data(coords[:, 0:2].T)
             lines[n].set_3d_properties(coords[:, 2])
 
         # Update the top lines
         for n in range(N):
             coords = wing.fE(ys[n], N=50)
+            coords[:, 2] = -coords[:, 2]
             lines[n+N].set_data(coords[:, 0:2].T)
             lines[n+N].set_3d_properties(coords[:, 2])
 
@@ -146,12 +149,12 @@ def animate_wing_torsion():
     ax = p3.Axes3D(fig)
     ax.set_xlim(-5, 5)
     ax.set_ylim(-5, 5)
-    ax.set_zlim(0, 11)
+    ax.set_zlim(-6, 4)
     ax.view_init(azim=-145, elev=0)
 
     N = 21  # How many airfoil slices (makes 2N lines, for top and bottom)
-    lines = [
-        ax.plot([0], [0], [0], 'r' if n < N else 'b')[0] for n in range(2*N)]
+    lines = [ax.plot([0], [0], [0], 'r' if n < N else 'b', lw=0.8)[0]
+             for n in range(2*N)]
 
     def update(frame):
 
@@ -163,12 +166,14 @@ def animate_wing_torsion():
         # Update the bottom lines
         for n in range(N):
             coords = wing.fI(ys[n], N=50)
+            coords[:, 2] = -coords[:, 2]
             lines[n].set_data(coords[:, 0:2].T)
             lines[n].set_3d_properties(coords[:, 2])
 
         # Update the top lines
         for n in range(N):
             coords = wing.fE(ys[n], N=50)
+            coords[:, 2] = -coords[:, 2]
             lines[n+N].set_data(coords[:, 0:2].T)
             lines[n+N].set_3d_properties(coords[:, 2])
 
@@ -197,7 +202,7 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     dcg = 0.25  # FIXME: unlisted
     h0 = 7  # FIXME: unlisted
     wing_geo = EllipticalWing(
-        dcg, c0, h0, dMed, dMax, b, taper, sMed, sMax, torsion=torsion)
+        b, c0, taper, dMed, dMax, sMed, sMax, torsion=torsion)
 
     if airfoil_geo is None:
         airfoil_geo = NACA4(2415)
@@ -213,7 +218,7 @@ if __name__ == "__main__":
     # plot_airfoil(NACA4(2415))
 
     # animated_wing_plotter()
-    # animate_wing_torsion()
+    animate_wing_torsion()
 
     print("\n\n-----\nTrying to produce the 'standard wing' from page 89 (97)")
     wing = build_elliptical(

@@ -294,8 +294,6 @@ class Wing:
             If xa is `None`, sample `N` points along the chord
         """
 
-        # FIXME: doesn't this belong in WingGeometry?
-
         if xa is None:
             xa = np.linspace(0, 1, N)
 
@@ -308,10 +306,8 @@ class Wing:
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
-        z = np.abs(
-            -self.geometry.fz(y) +
+        z = self.geometry.fz(y) - \
             ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
-            )
 
         return np.c_[x, _y, z]
 
@@ -328,8 +324,6 @@ class Wing:
             If xa is `None`, sample `N` points along the chord
         """
 
-        # FIXME: doesn't this belong in WingGeometry?
-
         if xa is None:
             xa = np.linspace(0, 1, N)
 
@@ -342,10 +336,9 @@ class Wing:
 
         x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
         _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
-        z = np.abs(
-                -self.geometry.fz(y) +
-                ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
-                )
+        z = self.geometry.fz(y) - \
+            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
+
         return np.c_[x, _y, z]
 
 
