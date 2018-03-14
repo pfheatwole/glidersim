@@ -62,7 +62,7 @@ class Wing:
         # TODO: document
         return self.Cm0_bar    # FIXME: I'm buzzing, fix this crap
 
-    def section_forces(self, y, uL, vL, wL, rho=1):
+    def section_forces(self, y, uL, vL, wL, delta_B=0, rho=1, use_2d=False):
         """
         Compute section forces and moments acting on the wing.
 
@@ -76,6 +76,12 @@ class Wing:
             Section-local relative wind aligned to the y-axis
         wL : float or array of float
             Section-local relative wind aligned to the y-axis
+        delta_B : float [percentage]
+            The amount of symmetric brake
+        rho : float
+            Air density
+        use_2d : bool
+            Use coefficients from the the 2D airfoil instead of the 3D wing
 
         Returns
         -------
@@ -100,14 +106,24 @@ class Wing:
 
         alpha_i = arctan(wi/ui) + theta  # PFD Eq:4.17, p74
 
+        # FIXME: I don't like this design for choosing Wing vs Airfoil coeffs
+        if use_2d:
+            Cl = self.airfoil.coefficients.Cl
+            Cd = self.airfoil.coefficients.Cd
+            Cm = self.airfoil.coefficients.Cm0
+        else:
+            Cl = self.Cl
+            Cd = self.Cd
+            Cm = self.Cm
+
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
         fc = self.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
         K2 = 1/cos(Gamma)
-        dLi = K1*self.airfoil.coefficients.Cl(alpha_i)*fc*K2
-        dDi = K1*self.airfoil.coefficients.Cd(alpha_i)*fc*K2
-        dm0i = K1*self.airfoil.coefficients.Cm0(alpha_i)*(fc**2)*K2
+        dLi = K1*Cl(alpha_i)*fc*K2
+        dDi = K1*Cd(alpha_i)*fc*K2
+        dm0i = K1*Cm(alpha_i)*(fc**2)*K2
 
         # Translate the section forces and moments into body axes
         #  * PFD Eqs:4.23-4.27, p76
@@ -146,7 +162,8 @@ class Wing:
         uL, wL = np.cos(alpha), np.sin(alpha)
 
         # Compute the local forces
-        F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(y, uL, 0, wL)
+        F_par_x, F_par_y, F_par_z, mi_par_y = self.section_forces(
+            y, uL, 0, wL, use_2d=True)
 
         # Convert the body-oriented forces into relative wind coordinates
         # PFD Eq:4.29-4.30, p77
