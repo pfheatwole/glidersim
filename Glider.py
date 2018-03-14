@@ -36,15 +36,60 @@ class BrakeGeometry:
 
 
 class Glider:
-    def __init__(self, wing, d_cg, h_cg, S_cg, Cd_cg):
+    def __init__(self, wing, d_cg, h_cg, S_cg, Cd_cg, kappa_a):
+        """
+        Parameters
+        ----------
+        wing : Wing
+        d_cg : float [percentage]
+            Distance of the cg from the central chord leading edge, as a
+            percentage of the chord length, where 0 < d_cg < 1
+        h_cg : float [meters]
+            Perpendiular distance from the cg to the central chord
+        S_cg : float [meters**2]
+            Surface area of the cg
+        Cd_cg : float [N/m**2]
+            Drag coefficient of cg
+        kappa_a : float [meters]
+            The accelerator line length. This corresponds to the maximum change
+            in the length of the lines to the leading edge.
+        """
         self.wing = wing
         self.d_cg = d_cg
         self.h_cg = h_cg
         self.S_cg = S_cg
         self.Cd_cg = Cd_cg
+        self.kappa_a = kappa_a
+
+        C0 = wing.geometry.fc(0)
+        self.LE = np.sqrt(h_cg**2 + (d_cg*C0)**2)
+        self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*C0)**2)
 
         # FIXME: pre-compute the `body->local` transformation matrices here?
         # FIXME: lots more to implement
+
+    def cg_position(self, delta_a):
+        """
+        Compute {d_cg, h_cg} for a given speed bar position
+
+        Parameters
+        ----------
+        delta_a : float or array of float
+            The percent application of the speedbar, where `0 <= delta_1 <= 1`
+
+        Returns
+        -------
+        d_cg : float or array of float [percent]
+            The horizontal position of the cg relative to the central leading
+            edge as a fraction of the central chord.
+        h_cg : float or array of float [m]
+            The vertical position of the cg relative to the central chord.
+        """
+        C0 = self.wing.geometry.fc(0)
+        delta_LE = delta_a * self.kappa_a
+        d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - C0**2)/(-2*C0**2)
+        h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*C0)**2)
+        return d_cg, h_cg
 
     def wing_section_wind(self, y, state, control=None):
         # FIXME: Document
@@ -56,11 +101,21 @@ class Glider:
         #
         # FIXME: rewrite this as a matrix equation?
         #  * Ref: 'Aircraft Control and Simulation', Eq:1.4-2, p31
-        fx = self.geometry.fx(y)
-        fz = self.geometry.fz(y)
-        uL = U + fz*Q - y*R
-        vL = V - fz*P + fx*R
-        wL = W + y*P - fx*Q
+
+        delta_a = 0  # FIXME: should be a parameter
+
+        # FIXME: shouldn't this be {d_prime, h_prime}?
+        #  * IIRC, those are the approximate position of the center of pressure
+        #  * The CP is where the forces can be assumed to occur, and thus where
+        #    the moment arms should be measured.
+        C0 = self.wing.geometry.fc(0)
+        d_cg, h_cg = self.cg_position(delta_a)
+
+        x = self.geometry.fx(y) + (d_cg - 1/4)*C0  # FIXME?
+        z = self.geometry.fz(y) + h_cg  # FIXME?
+        uL = U + z*Q - y*R
+        vL = V - z*P + x*R
+        wL = W + y*P - x*Q
 
         return uL, vL, wL
 
