@@ -116,6 +116,13 @@ class Wing:
             Cd = self.Cd
             Cm = self.Cm
 
+            # Find the relative wind at the central chord
+            mid = len(y) // 2
+            if y[mid] != 0:
+                raise ValueError("The y midpoint is not zero")
+            # FIXME: test, and design review: calc the local coeffs each time?
+            self._pointwise_local_coefficients(alpha_i[mid])
+
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
         fc = self.geometry.fc(y)
@@ -229,7 +236,39 @@ class Wing:
 
         return CL, CD, Cm0
 
-    def set_local_coefficients(self, alpha_eq):
+    def _pointwise_local_coefficients(self, alpha):
+        """
+        This is my replacement for PFD Sec:4.3.5
+        """
+        N = 501
+        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, 501)
+        dy = self.geometry.b/(N - 1)
+
+        Gamma = self.geometry.Gamma(y)
+        theta = self.geometry.ftheta(y)
+        c = self.geometry.fc(y)
+        uL, wL = np.cos(alpha), np.sin(alpha)
+        ui = uL
+        wi = wL*cos(Gamma)
+        alpha_i = np.arctan(wi/ui) + theta
+
+        i0 = self.CL.roots()[0]
+        D0 = self.CD(i0)
+
+        numerator = self.CL(alpha)*self.geometry.S
+        denominator = trapz((alpha_i - i0)*c/cos(Gamma), dy)
+        a_bar = numerator/denominator
+
+        numerator = self.CD(alpha)*self.geometry.S - trapz(D0*c/cos(Gamma), dy)
+        Cl = a_bar*(alpha_i - i0)
+        denominator = trapz(Cl**2 * c / cos(Gamma), dy)
+        D2_bar = numerator/denominator
+
+        self.a_bar = a_bar
+        self.D2_bar = D2_bar
+        return a_bar, D2_bar
+
+    def _pointwise_local_coefficients_PFD(self, alpha_eq):
         """
         This procedure is from PFD Sec:4.3.5
         """
