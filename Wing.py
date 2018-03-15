@@ -31,10 +31,10 @@ class Wing:
         self.wing_density = wing_density  # FIXME: no idea in general
 
         # Initialize the global (3D) aerodynamic coefficients
-        CL, CD, Cm0 = self._compute_global_coefficients()
+        CL, CD, Cm = self._compute_global_coefficients()
         self.CL = CL
         self.CD = CD
-        self.Cm = Cm0
+        self.Cm = Cm
 
         # Initialize the section (2D) aerodynamic coefficients
         # FIXME
@@ -57,10 +57,10 @@ class Wing:
         D0 = self.CD(i0)
         return self.D2_bar*(self.a_bar * (alpha - i0))**2 + D0
 
-    def Cm0(self, alpha):
+    def Cm(self, alpha):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
-        return self.Cm0_bar    # FIXME: I'm buzzing, fix this crap
+        return self.Cm_bar
 
     def section_forces(self, y, uL, vL, wL, delta_B=0, rho=1, use_2d=False):
         """
@@ -157,7 +157,7 @@ class Wing:
         -------
         CL : float
         CD : float
-        Cm0 : float
+        Cm : float
         """
 
         # Build a set of integration points
@@ -186,9 +186,9 @@ class Wing:
         S = self.geometry.S
         CL = L/((rho/2) * (uL**2 + wL**2) * S)
         CD = D/((rho/2) * (uL**2 + wL**2) * S)
-        Cm0 = My/((rho/2) * (uL**2 + wL**2) * S * self.geometry.MAC)
+        Cm = My/((rho/2) * (uL**2 + wL**2) * S * self.geometry.MAC)
 
-        return CL, CD, Cm0
+        return CL, CD, Cm
 
     def _compute_global_coefficients(self):
         """
@@ -204,12 +204,12 @@ class Wing:
         alphas = np.deg2rad(np.linspace(-1.99, 25, 1000))
         CLs = np.empty_like(alphas)
         CDs = np.empty_like(alphas)
-        Cm0s = np.empty_like(alphas)
+        Cms = np.empty_like(alphas)
 
         # First, compute the unadjusted global coefficients
         for n, alpha in enumerate(alphas):
             CL, CD, Cm = self._pointwise_global_coefficients(alpha)
-            CLs[n], CDs[n], Cm0s[n] = CL, CD, Cm
+            CLs[n], CDs[n], Cms[n] = CL, CD, Cm
 
         # Second, adjust the global coefficients to account for the 3D wing
         # FIXME: Verify!
@@ -232,9 +232,9 @@ class Wing:
 
         CL = Polynomial.fit(alphas, a*(alphas - i0), 1)
         CD = Polynomial.fit(alphas, D2 * (CL(alphas)**2) + D0, 2)
-        Cm0 = Polynomial.fit(alphas, Cm0s, 2)
+        Cm = Polynomial.fit(alphas, Cms, 2)
 
-        return CL, CD, Cm0
+        return CL, CD, Cm
 
     def _pointwise_local_coefficients(self, alpha):
         """
