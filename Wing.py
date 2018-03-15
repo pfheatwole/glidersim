@@ -324,10 +324,16 @@ class Wing:
         SD3 = trapz(KD3, dy)
 
         S = self.geometry.S
-        a_bar = (S*(SD2/SL2*a*(alpha_eq - i0) - (D2*CL_eq**2 + D0)) -
-                 (SD2/SL2*SL3-SD3)) / (SD2/SL2*SL1 - SD1)
 
-        D2_bar = (S*a*(alpha_eq - i0) - a_bar*SL1 - SL3)/(a_bar**2*SL2)
+        # Version 1: From PFD; susceptible to divison by zero (via SL2)
+        #  * Specifically: when torsion=0 and alpha=0 (and thus sin(alpha) = 0)
+        # a_bar = (S*(SD2/SL2*a*(alpha_eq - i0) - (D2*CL_eq**2 + D0)) -
+        #          (SD2/SL2*SL3-SD3)) / (SD2/SL2*SL1 - SD1)
+        # D2_bar = (S*a*(alpha_eq - i0) - a_bar*SL1 - SL3)/(a_bar**2*SL2)
+
+        # This version is less susceptible for division-by-zero?
+        a_bar = (S*CL_eq - ((S*CD_eq - SD3)/SD2)*SL2 - SL3)/(SL1 - (SD1/SD2)*SL2)
+        D2_bar = (S*CD - a_bar*SD1 - SD3)/(a_bar**2 * SD2)
 
         Cm0_bar = Cm0_eq  # FIXME: correct? ref: "median", PFD p79
 
