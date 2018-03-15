@@ -281,20 +281,19 @@ class Wing:
 
         alpha_i = alpha_eq*cos(Gamma) + theta  # PFD Eq:4.46, p82
 
-        i0 = self.CL.roots()[0]  # FIXME: test
-        tmp_i_local = alpha_i - self.airfoil.coefficients.i0
-        tmp_i_global = alpha_i - i0
-
-        NZL = (1/10**5)**(1 - tmp_i_local/np.abs(tmp_i_local))
-
         CL_eq = self.CL(alpha_eq)
         # CD_eq = self.CD(alpha_eq)
         Cm0_eq = self.Cm(alpha_eq)
 
         # Recompute some stuff from `global_coefficients`
         a = self.CL.deriv()(0)  # FIXME: is this SUPPOSED to be a_global?
+        i0 = self.CL.roots()[0]  # FIXME: test
         D0 = self.CD(i0)  # Global D0
         D2 = (self.CD(alpha_eq) - D0) / CL_eq**2  # PFD eq 4.39
+
+        tmp_i_local = alpha_i - self.airfoil.coefficients.i0
+        tmp_i_global = alpha_i - i0
+        NZL = (1/10**5)**(1 - tmp_i_local/np.abs(tmp_i_local))
 
         fc = self.geometry.fc(ys)
         # PFD Equations 4.50-4.52 p74 (p82)
