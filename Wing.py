@@ -108,13 +108,13 @@ class Wing:
 
         # FIXME: I don't like this design for choosing Wing vs Airfoil coeffs
         if use_2d:
-            Cl = self.airfoil.coefficients.Cl
-            Cd = self.airfoil.coefficients.Cd
-            Cm = self.airfoil.coefficients.Cm0
+            Cl = self.airfoil.coefficients.Cl(alpha_i)
+            Cd = self.airfoil.coefficients.Cd(alpha_i)
+            Cm = self.airfoil.coefficients.Cm0(alpha_i)
         else:
-            Cl = self.Cl
-            Cd = self.Cd
-            Cm = self.Cm
+            Cl = self.Cl(alpha_i)
+            Cd = self.Cd(alpha_i)
+            Cm = self.Cm(alpha_i)
 
             # Find the relative wind at the central chord
             mid = len(y) // 2
@@ -128,9 +128,9 @@ class Wing:
         fc = self.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
         K2 = 1/cos(Gamma)
-        dLi = K1*Cl(alpha_i)*fc*K2
-        dDi = K1*Cd(alpha_i)*fc*K2
-        dm0i = K1*Cm(alpha_i)*(fc**2)*K2
+        dLi = K1*Cl*fc*K2
+        dDi = K1*Cd*fc*K2
+        dm0i = K1*Cm*(fc**2)*K2
 
         # Translate the section forces and moments into body axes
         #  * PFD Eqs:4.23-4.27, p76
