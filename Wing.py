@@ -282,7 +282,7 @@ class Wing:
         alpha_i = alpha_eq*cos(Gamma) + theta  # PFD Eq:4.46, p82
 
         CL_eq = self.CL(alpha_eq)
-        # CD_eq = self.CD(alpha_eq)
+        CD_eq = self.CD(alpha_eq)
         Cm0_eq = self.Cm(alpha_eq)
 
         # Recompute some stuff from `global_coefficients`
@@ -333,7 +333,7 @@ class Wing:
 
         # This version is less susceptible for division-by-zero?
         a_bar = (S*CL_eq - ((S*CD_eq - SD3)/SD2)*SL2 - SL3)/(SL1 - (SD1/SD2)*SL2)
-        D2_bar = (S*CD - a_bar*SD1 - SD3)/(a_bar**2 * SD2)
+        D2_bar = (S*CD_eq - a_bar*SD1 - SD3)/(a_bar**2 * SD2)
 
         Cm0_bar = Cm0_eq  # FIXME: correct? ref: "median", PFD p79
 
