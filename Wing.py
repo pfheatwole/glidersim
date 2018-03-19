@@ -105,23 +105,25 @@ class Wing:
         wi = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
 
         alpha_i = arctan(wi/ui) + theta  # PFD Eq:4.17, p74
+        # delta_i = self.brake.delta(y, delta_B, delta_B)
+        delta_i = np.zeros_like(alpha_i)
 
         # FIXME: I don't like this design for choosing Wing vs Airfoil coeffs
         if use_2d:
-            Cl = self.airfoil.coefficients.Cl(alpha_i)
-            Cd = self.airfoil.coefficients.Cd(alpha_i)
-            Cm = self.airfoil.coefficients.Cm0(alpha_i)
+            Cl = self.airfoil.coefficients.Cl(alpha_i, delta_i)
+            Cd = self.airfoil.coefficients.Cd(alpha_i, delta_i)
+            Cm = self.airfoil.coefficients.Cm0(alpha_i, delta_i)
         else:
-            Cl = self.Cl(alpha_i)
-            Cd = self.Cd(alpha_i)
-            Cm = self.Cm(alpha_i)
+            Cl = self.Cl(alpha_i, delta_i)
+            Cd = self.Cd(alpha_i, delta_i)
+            Cm = self.Cm(alpha_i, delta_i)
 
             # Find the relative wind at the central chord
             mid = len(y) // 2
             if y[mid] != 0:
                 raise ValueError("The y midpoint is not zero")
             # FIXME: test, and design review: calc the local coeffs each time?
-            self._pointwise_local_coefficients(alpha_i[mid])
+            self._pointwise_local_coefficients(alpha_i[mid], delta_B)
 
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
@@ -236,7 +238,7 @@ class Wing:
 
         return CL, CD, Cm
 
-    def _pointwise_local_coefficients(self, alpha):
+    def _pointwise_local_coefficients(self, alpha, delta_B):
         """
         This is my replacement for PFD Sec:4.3.5
         """
@@ -341,6 +343,7 @@ class Wing:
         self.a_bar = a_bar
         self.D2_bar = D2_bar
         self.Cm0_bar = Cm0_bar
+        return a_bar, D2_bar, Cm0_bar
 
     def fE(self, y, xa=None, N=150):
         """Airfoil upper camber line on the 3D wing

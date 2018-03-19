@@ -42,8 +42,9 @@ class AirfoilCoefficients(abc.ABC):
         ----------
         alpha : float [radians]
             The angle of attack
-        delta : float [radians]
-            The angle of deflection of the trailing edge due to braking
+        delta : float [unitless distance]
+            The deflection distance of the trailing edge due to braking,
+            measured as a fraction of the chord length.
         """
         # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
@@ -56,8 +57,9 @@ class AirfoilCoefficients(abc.ABC):
         ----------
         alpha : float [radians]
             The angle of attack
-        delta : float [radians]
-            The angle of deflection of the trailing edge due to braking
+        delta : float [unitless distance]
+            The deflection distance of the trailing edge due to braking,
+            measured as a fraction of the chord length.
 
         Notes
         -----
@@ -77,8 +79,9 @@ class AirfoilCoefficients(abc.ABC):
         ----------
         alpha : float [radians]
             The angle of attack
-        delta : float [radians]
-            The angle of deflection of the trailing edge due to braking
+        delta : float [unitless distance]
+            The deflection distance of the trailing edge due to braking,
+            measured as a fraction of the chord length.
         """
 
 
@@ -89,6 +92,10 @@ class LinearCoefficients(AirfoilCoefficients):
 
     In addition, the effect of brakes is to shift the coefficient curves to the
     left. Brake deflections do not change the shape of the curves themselves.
+    This is equivalent to an airfoil with a fixed flap hinge located at the
+    leading edge.
+
+    FIXME: the name is misleading: should be "FixedCoefficients" or similar
     """
 
     def __init__(self, a0, i0, D0, Cm0):
@@ -99,14 +106,16 @@ class LinearCoefficients(AirfoilCoefficients):
 
     def Cl(self, alpha, delta=0):
         # FIXME: verify the usage of delta
-        return self.a0 * (alpha + delta - self.i0)
+        delta_angle = arctan(delta)  # tan(delta_angle) = delta/chord
+        return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta=0):
-        alpha = np.asarray(alpha)
         # FIXME: verify the usage of delta
+        alpha = np.asarray(alpha)
         return np.ones_like(alpha) * self.D0
 
     def Cm0(self, alpha, delta=0):
+        # FIXME: verify the usage of delta
         alpha = np.asarray(alpha)
         return np.ones_like(alpha) * self._Cm0
 
