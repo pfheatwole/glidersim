@@ -3,17 +3,13 @@
 from functools import partial
 
 import numpy as np
-# from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
 from numpy import sin, cos
 
 from scipy.optimize import least_squares
 
 from IPython import embed
 
-
-def trapz(y, dx):
-    # Trapezoidal integrator
-    return np.sum(y[1:] + y[:-1]) / 2.0 * dx
+from util import trapz
 
 
 class BrakeGeometry:

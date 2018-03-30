@@ -1,27 +1,12 @@
 import abc
 
 import numpy as np
-from numpy import sqrt, sin, cos, tan, arcsin, arctan, deg2rad
+from numpy import sin, cos, arctan
 from numpy.polynomial import Polynomial
 
+from util import trapz
+
 from IPython import embed
-
-from numba import njit
-
-
-@njit(cache=True)
-def trapz(y, dx):
-    # Trapezoidal integrator
-    return np.sum(y[1:] + y[:-1]) / 2.0 * dx
-
-
-def integrate(f, a, b, N):
-    if N % 2 == 0:
-        raise ValueError("trapezoid integration requires odd N")
-    x = np.linspace(a, b, N)
-    dx = (b - a)/(N - 1)  # Include the endpoints
-    y = f(x)
-    return trapz(y, dx)
 
 
 class Wing:
