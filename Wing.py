@@ -114,16 +114,16 @@ class Wing:
             Cd = self.airfoil.coefficients.Cd(alpha_i, delta_i)
             Cm = self.airfoil.coefficients.Cm0(alpha_i, delta_i)
         else:
-            Cl = self.Cl(alpha_i, delta_i)
-            Cd = self.Cd(alpha_i, delta_i)
-            Cm = self.Cm(alpha_i, delta_i)
-
-            # Find the relative wind at the central chord
+            # Use the relative wind at the central chord for the global alpha
+            # FIXME: test, and design review: calc the local coeffs each time?
             mid = len(y) // 2
             if y[mid] != 0:
                 raise ValueError("The y midpoint is not zero")
-            # FIXME: test, and design review: calc the local coeffs each time?
             self._pointwise_local_coefficients(alpha_i[mid], delta_B)
+
+            Cl = self.Cl(alpha_i, delta_i)
+            Cd = self.Cd(alpha_i, delta_i)
+            Cm = self.Cm(alpha_i, delta_i)
 
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
