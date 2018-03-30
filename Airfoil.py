@@ -9,6 +9,9 @@ import abc
 import numpy as np
 from numpy import arctan
 
+import pandas as pd
+from scipy.interpolate import LinearNDInterpolator
+
 
 class Airfoil:
     def __init__(self, coefficients, geometry=None):
@@ -110,14 +113,63 @@ class LinearCoefficients(AirfoilCoefficients):
         return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta=0):
-        # FIXME: verify the usage of delta
         alpha = np.asarray(alpha)
         return np.ones_like(alpha) * self.D0
 
     def Cm0(self, alpha, delta=0):
-        # FIXME: verify the usage of delta
         alpha = np.asarray(alpha)
         return np.ones_like(alpha) * self._Cm0
+
+
+class GridCoefficients(AirfoilCoefficients):
+    """
+    Uses the airfoil coefficients from a CSV file.
+
+    The CSV must contain the following columns
+     * alpha
+     * flap
+     * CL
+     * CD
+     * Cm
+
+    """
+
+    def __init__(self, filename, xhinge, convert_degrees=True):
+        if (xhinge < 0) or (xhinge > 1):
+            raise ValueError("xhinge should be a fraction of the chord length")
+
+        # FIXME: add a dictionary for column name overrides?
+
+        data = pd.read_csv(filename)
+        self.data = data
+        self.xhinge = xhinge
+
+        if convert_degrees:
+            data['CL'] = np.deg2rad(data.CL)
+            data['CD'] = np.deg2rad(data.CD)
+            data['Cm'] = np.deg2rad(data.Cm)
+
+        self._Cl = LinearNDInterpolator(data[['alpha', 'flap']], data.CL)
+        self._Cd = LinearNDInterpolator(data[['alpha', 'flap']], data.CD)
+        self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
+
+    def Cl(self, alpha, delta=0):
+        # alpha = np.rad2deg(alpha)
+        # delta = np.rad2deg(delta)
+        flap = arctan(delta/(1 - self.xhinge))
+        return self._Cl(alpha, flap)
+
+    def Cd(self, alpha, delta=0):
+        # alpha = np.rad2deg(alpha)
+        # delta = np.rad2deg(delta)
+        flap = arctan(delta/(1 - self.xhinge))
+        return self._Cd(alpha, flap)
+
+    def Cm0(self, alpha, delta=0):
+        # alpha = np.rad2deg(alpha)
+        # delta = np.rad2deg(delta)
+        flap = arctan(delta/(1 - self.xhinge))
+        return self._Cm(alpha, flap)
 
 
 # ---------------------------------------------------------------------------
