@@ -125,6 +125,11 @@ class Wing:
             Cd = self.Cd(alpha_i, delta_i)
             Cm = self.Cm(alpha_i, delta_i)
 
+        if any(np.isnan(Cl)):
+            print("\n\nsection_forces: Cl has a nan\n")
+            embed()
+            input("continue?")
+
         # PFD Eq:4.65-4.67
         # NOTE: this does not include the `dy` term as in those equations
         fc = self.geometry.fc(y)
@@ -189,6 +194,11 @@ class Wing:
         CL = L/((rho/2) * (uL**2 + wL**2) * S)
         CD = D/((rho/2) * (uL**2 + wL**2) * S)
         Cm = My/((rho/2) * (uL**2 + wL**2) * S * self.geometry.MAC)
+
+        if np.isnan(CL):
+            print("\nBLARGH! CL is np.nan\n")
+            embed()
+            input("continue?")
 
         return CL, CD, Cm
 
