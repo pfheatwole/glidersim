@@ -257,6 +257,9 @@ class Glider:
         print("BROKEN! See the source FIXME")
         1/0
 
+        # FIXME: technically, the speedbar would rotate the wing coordinates.
+        #        The {fx, fz} should be corrected for that.
+
         N = 501
         dy = self.geometry.b/(N - 1)  # Include the endpoints
         y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
