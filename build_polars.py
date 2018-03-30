@@ -9,7 +9,8 @@ from numpy import sin, cos, sqrt, arcsin, arctan  # noqa: F401
 from IPython import embed  # noqa: F401
 
 from Airfoil import Airfoil, LinearCoefficients, NACA4
-from Wing import Wing, EllipticalWing
+from Wing import Wing
+from WingGeometry import EllipticalWing
 from Glider import Glider
 
 

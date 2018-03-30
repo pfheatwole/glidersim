@@ -10,7 +10,8 @@ from IPython import embed  # noqa: F401
 
 import Airfoil
 
-from Wing import Wing, EllipticalWing
+from Wing import Wing
+from WingGeometry import EllipticalWing
 from Glider import Glider
 from Glider import trapz
 
