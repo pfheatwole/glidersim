@@ -213,7 +213,7 @@ class Wing:
         FIXME: for non-constant-linear airfoils, do these fittings hold?
         FIXME: seems convoluted for what it accomplishes
         """
-        alphas = np.deg2rad(np.linspace(-1.99, 25, 1000))
+        alphas = np.deg2rad(np.linspace(-1.99, 24, 1000))
         CLs = np.empty_like(alphas)
         CDs = np.empty_like(alphas)
         Cms = np.empty_like(alphas)
@@ -225,11 +225,22 @@ class Wing:
 
         # Second, adjust the global coefficients to account for the 3D wing
         # FIXME: Verify!
-        CL_prime = Polynomial.fit(alphas, CLs, 1)
+
+        # FIXME: already losing data with a linear fit!!!
+        # CL_prime = Polynomial.fit(alphas, CLs, 1)
+        mask = (alphas > np.deg2rad(-3)) & (alphas < np.deg2rad(9))
+        CL_prime = Polynomial.fit(alphas[mask], CLs[mask], 1)
+
         i0 = CL_prime.roots()[0]  # Unadjusted global zero-lift angle
-        a_prime = CL_prime.deriv()(0)  # Preliminary lift-curve slope
+        # i0 = alphas[np.argmin(np.abs(CLs))]
+
+        a_prime = CL_prime.deriv()(0.05)  # Preliminary lift-curve slope
         a = a_prime/(1 + a_prime/(np.pi * self.geometry.AR))  # Adjusted slope
-        D0 = self.airfoil.coefficients.D0  # Profile drag only
+
+        # FIXME: should not rely on the AirfoilCoefficients providing D0
+        # D0 = self.airfoil.coefficients.D0  # Profile drag only
+        D0 = self.airfoil.coefficients.Cd(alphas)
+
         D2_prime = CDs/CLs**2 - D0
         D2 = D2_prime + 1/(np.pi * self.geometry.AR)  # Adjusted induced drag
 
@@ -245,6 +256,23 @@ class Wing:
         CL = Polynomial.fit(alphas, a*(alphas - i0), 1)
         CD = Polynomial.fit(alphas, D2 * (CL(alphas)**2) + D0, 2)
         Cm = Polynomial.fit(alphas, Cms, 2)
+
+        # ------------------------------
+        # Alternative formulation
+        i0x = alphas[np.argmin(np.abs(CLs))]
+        x = np.sqrt((a_prime/a))*(alphas - i0x) + i0x
+        y = np.sqrt((a/a_prime))*CLs
+        CLx = Polynomial.fit(x, y, 5)
+
+        # Have to extend the coverage since alpha (x) got skewed
+        D0x = self.airfoil.coefficients.Cd(alphas)
+        e = 0.95  # Efficiency factor
+        Di = CLx(x)**2 / (np.pi * e * self.geometry.AR)
+        CDx = Polynomial.fit(alphas, Di + D0x, 5)
+
+        # ------------------------------
+
+        embed()
 
         return CL, CD, Cm
 
