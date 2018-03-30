@@ -31,33 +31,27 @@ class BrakeGeometry:
         return left + right
 
 
-class Glider:
-    def __init__(self, wing, d_cg, h_cg, S_cg, Cd_cg, kappa_a):
+class ParagliderWing:
+    def __init__(self, parafoil, d_cg, h_cg, kappa_a):
         """
         Parameters
         ----------
-        wing : Wing
+        parafoil : Parafoil
         d_cg : float [percentage]
             Distance of the cg from the central chord leading edge, as a
             percentage of the chord length, where 0 < d_cg < 1
         h_cg : float [meters]
             Perpendiular distance from the cg to the central chord
-        S_cg : float [meters**2]
-            Surface area of the cg
-        Cd_cg : float [N/m**2]
-            Drag coefficient of cg
         kappa_a : float [meters]
             The accelerator line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
-        self.wing = wing
+        self.parafoil = parafoil
         self.d_cg = d_cg
         self.h_cg = h_cg
-        self.S_cg = S_cg
-        self.Cd_cg = Cd_cg
         self.kappa_a = kappa_a
 
-        C0 = wing.geometry.fc(0)
+        C0 = parafoil.geometry.fc(0)
         self.LE = np.sqrt(h_cg**2 + (d_cg*C0)**2)
         self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*C0)**2)
 
@@ -81,15 +75,15 @@ class Glider:
         h_cg : float or array of float [m]
             The vertical position of the cg relative to the central chord.
         """
-        C0 = self.wing.geometry.fc(0)
+        C0 = self.parafoil.geometry.fc(0)
         delta_LE = delta_a * self.kappa_a
         d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - C0**2)/(-2*C0**2)
         h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*C0)**2)
         return d_cg, h_cg
 
-    def wing_section_wind(self, y, state, control=None):
+    def section_wind(self, y, state, control=None):
         # FIXME: Document
-        # compute the local relative wind for wing sections
+        # compute the local relative wind for parafoil sections
         U, V, W, P, Q, R = state
 
         # Compute the local section wind
@@ -104,7 +98,7 @@ class Glider:
         #  * IIRC, those are the approximate position of the center of pressure
         #  * The CP is where the forces can be assumed to occur, and thus where
         #    the moment arms should be measured.
-        C0 = self.wing.geometry.fc(0)
+        C0 = self.parafoil.geometry.fc(0)
         d_cg, h_cg = self.cg_position(delta_a)
 
         x = self.geometry.fx(y) + (d_cg - 1/4)*C0  # FIXME?
@@ -133,17 +127,17 @@ class Glider:
             The z-axis distance of the cg to the global AC
         """
 
-        wing = self.wing  # FIXME: cleanup
+        foil= self.parafoil  # FIXME: cleanup
 
         # The integration points across the span
         N = 501
-        dy = wing.geometry.b/(N - 1)  # Include the endpoint
-        y = np.linspace(-wing.geometry.b/2, wing.geometry.b/2, N)
+        dy = foil.geometry.b/(N - 1)  # Include the endpoint
+        y = np.linspace(-foil.geometry.b/2, foil.geometry.b/2, N)
 
-        Gammas = wing.geometry.Gamma(y)
-        thetas = wing.geometry.ftheta(y)
+        Gammas = foil.geometry.Gamma(y)
+        thetas = foil.geometry.ftheta(y)
 
-        def calc_d0h0(wing, alpha_eq):
+        def calc_d0h0(foil, alpha_eq):
             """Calculate the global AC, {d0, h0}
 
             These points are deterministic given alpha_eq, but are used as part
@@ -152,18 +146,18 @@ class Glider:
             ref: PFD Eqs 5.44-5.45
             """
 
-            CL = wing.CL(alpha_eq)
-            CD = wing.CD(alpha_eq)
+            CL = foil.CL(alpha_eq)
+            CD = foil.CD(alpha_eq)
 
-            Cli = wing.Cl(alpha_eq)
-            Cdi = wing.Cd(alpha_eq)
+            Cli = foil.Cl(alpha_eq)
+            Cdi = foil.Cd(alpha_eq)
             alpha_i = alpha_eq*cos(Gammas) + thetas
 
             # PFD Eq:5.44, p120
-            fx = wing.geometry.fx(y)
-            fz = wing.geometry.fz(y)
-            fc = wing.geometry.fc(y)
-            S = wing.geometry.S
+            fx = foil.geometry.fx(y)
+            fz = foil.geometry.fz(y)
+            fc = foil.geometry.fc(y)
+            S = foil.geometry.S
             numerator = (Cli*cos(alpha_i) + Cdi*sin(alpha_i)) * fx * fc
             denominator = (CL*cos(alpha_eq) + CD*sin(alpha_eq)) * S
             d0 = trapz(numerator, dy) / denominator
@@ -178,12 +172,12 @@ class Glider:
 
             return d0, h0
 
-        def calc_my(wing, alpha, d0=None, h0=None):
+        def calc_my(foil, alpha, d0=None, h0=None):
             """Optimization target for computing alpha_eq
 
             Parameters
             ----------
-            wing : Wing
+            foil : foil
             alpha : float
                 Current guess for alpha_eq
 
@@ -197,25 +191,25 @@ class Glider:
 
             # Update {d0, h0} to track the changing alpha
             if d0 is None:
-                d0, h0 = calc_d0h0(wing, alpha)
+                d0, h0 = calc_d0h0(foil, alpha)
 
-            CL = wing.CL(alpha)
-            CD = wing.CD(alpha)
-            Cm = wing.Cm(alpha)
+            CL = foil.CL(alpha)
+            CD = foil.CD(alpha)
+            Cm = foil.Cm(alpha)
             Cz = CL*cos(alpha) + CD*sin(alpha)  # PFD eq 4.76
             Cx = CL*sin(alpha) - CD*cos(alpha)  # PFD eq 4.77
-            My = Cz*d0 - Cx*h0 + Cm*wing.geometry.MAC  # PFD Eq 4.78/5.37
+            My = Cz*d0 - Cx*h0 + Cm*foil.geometry.MAC  # PFD Eq 4.78/5.37
             return My
 
         # alphas = np.linspace(-1.99, 24, 50)
-        # d0h0s = np.asarray([calc_d0h0(wing, np.deg2rad(a)) for a in alphas])
-        # Mys = np.asarray([calc_my(wing, np.deg2rad(a)) for a in alphas])
+        # d0h0s = np.asarray([calc_d0h0(foil, np.deg2rad(a)) for a in alphas])
+        # Mys = np.asarray([calc_my(foil, np.deg2rad(a)) for a in alphas])
         # print("d0h0s")
         # input("Continue?")
         # embed()
 
         # FIXME: Initialize alpha_eq to something reasonable
-        f_alpha = partial(calc_my, wing)
+        f_alpha = partial(calc_my, foil)
         alpha_eq_prime = least_squares(f_alpha, np.deg2rad(8)).x[0]
         # alpha_eq_prime = least_squares(
         #     f_alpha, np.deg2rad(2),
@@ -226,14 +220,14 @@ class Glider:
         input("Continue?")
         embed()
 
-    # FIXME: moved from Wing. Verify and test.
+    # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
         """The surface area distributions for computing inertial moments.
 
-        The moments of inertia for the wing are the mass distribution of the
-        air and wing material. That distribution is typically decomposed into
-        the product of volumetric density and volume, but a simplification is
-        to calculate the density per unit area.
+        The moments of inertia for the parafoil are the mass distribution of
+        the air and wing material. That distribution is typically decomposed
+        into the product of volumetric density and volume, but a simplification
+        is to calculate the density per unit area.
 
         FIXME: this description is mediocre.
 
@@ -245,15 +239,15 @@ class Glider:
             The surface distributions, such that `J = (p_w + p_air)*s`
         """
 
-        # FIXME: this was moved from Wing when creating Glider. That move
-        #        eliminated dcg/h0 from the WingGeometry, so WingGeometry.fx
-        #        and WingGeometry.fz no longer position the wing relative to
-        #        the cg. Calculating the moments of inertia requires that the
-        #        Glider add those terms back in.
+        # FIXME: this was moved from Parafoil when creating ParagliderWing.
+        #        That move eliminated dcg/h0 from the ParafoilGeometry, so
+        #        ParafoilGeometry.fx and ParafoilGeometry.fz no longer position
+        #        the Parafoil relative to the cg. Calculating the moments of
+        #        inertia requires that the ParagliderWing add those terms back.
         print("BROKEN! See the source FIXME")
         1/0
 
-        # FIXME: technically, the speedbar would rotate the wing coordinates.
+        # FIXME: technically, the speedbar would rotate the foil coordinates.
         #        The {fx, fz} should be corrected for that.
 
         N = 501
@@ -280,7 +274,7 @@ class Glider:
 
         return S
 
-    # FIXME: moved from Wing. Verify and test.
+    # FIXME: moved from Parafoil. Verify and test.
     def J(self, rho=1.3, N=2000):
         """Compute the 3x3 moment of inertia matrix.
 

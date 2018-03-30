@@ -9,7 +9,7 @@ from util import trapz
 from IPython import embed
 
 
-class Wing:
+class Parafoil:
     def __init__(self, geometry, airfoil, wing_density=0.2):
         self.geometry = geometry
         self.airfoil = airfoil
@@ -93,7 +93,7 @@ class Wing:
         # delta_i = self.brake.delta(y, delta_B, delta_B)
         delta_i = np.zeros_like(alpha_i)
 
-        # FIXME: I don't like this design for choosing Wing vs Airfoil coeffs
+        # FIXME: I don't like this design for choosing Parafoil vs Airfoil coeffs
         if use_2d:
             Cl = self.airfoil.coefficients.Cl(alpha_i, delta_i)
             Cd = self.airfoil.coefficients.Cd(alpha_i, delta_i)

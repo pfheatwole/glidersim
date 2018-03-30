@@ -6,7 +6,7 @@ from numpy import arcsin, arctan, deg2rad, sqrt, tan
 from util import trapz
 
 
-class WingGeometry(abc.ABC):
+class ParafoilGeometry(abc.ABC):
     @property
     @abc.abstractmethod
     def S(self):
@@ -73,7 +73,7 @@ class WingGeometry(abc.ABC):
         return (1 - self.S/self.S_flat)*100
 
 
-class EllipticalWing(WingGeometry):
+class Elliptical(ParafoilGeometry):
     """Ref: Paraglider Flying Dynamics, page 43 (51)"""
 
     def __init__(self, b, c0, taper, dihedralMed, dihedralMax,

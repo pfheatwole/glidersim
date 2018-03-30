@@ -10,10 +10,8 @@ from IPython import embed  # noqa: F401
 
 import Airfoil
 
-from Wing import Wing
-from WingGeometry import EllipticalWing
-from Glider import Glider
-from Glider import trapz
+from Parafoil import Parafoil
+from ParafoilGeometry import Elliptical
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
@@ -27,11 +25,11 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         print("Using minimum max sweep ({})".format(sMax))
 
     # Compute some missing data in reverse
-    c0 = EllipticalWing.MAC_to_c0(MAC, taper)
-    b = EllipticalWing.AR_to_b(c0, AR, taper)
+    c0 = Elliptical.MAC_to_c0(MAC, taper)
+    b = Elliptical.AR_to_b(c0, AR, taper)
 
-    # FIXME: this naming is confusing. EllipticalWing is a geometry, not a wing
-    wing_geo = EllipticalWing(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
+    # FIXME: this naming is confusing. Ellipticalg is a geometry, not a wing
+    foil_geo = Elliptical(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
 
     if airfoil_geo is None:
         airfoil_geo = Airfoil.NACA4(2415)
@@ -41,7 +39,7 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         print("Using default airfoil coefficients")
         coefs = Airfoil.LinearCoefficients(5.80, -4, 0.008, -0.1)
 
-    return Wing(wing_geo, Airfoil.Airfoil(coefs, airfoil_geo))
+    return Parafoil(foil_geo, Airfoil.Airfoil(coefs, airfoil_geo))
 
 
 if __name__ == "__main__":
