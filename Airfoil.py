@@ -49,7 +49,6 @@ class AirfoilCoefficients(abc.ABC):
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
         """
-        # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
     @abc.abstractmethod
     def Cd(self, alpha, delta):
@@ -71,7 +70,6 @@ class AirfoilCoefficients(abc.ABC):
         a section requires surface material properties, which are a property
         of the wing, not the airfoil (the shape of a wing cross-section).
         """
-        # FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
 
     @abc.abstractmethod
     def Cm0(self, alpha, delta):
@@ -93,12 +91,12 @@ class LinearCoefficients(AirfoilCoefficients):
     An airfoil model that assumes a strictly linear lift coefficient, constant
     form drag, and constant pitching moment.
 
-    In addition, the effect of brakes is to shift the coefficient curves to the
-    left. Brake deflections do not change the shape of the curves themselves.
-    This is equivalent to an airfoil with a fixed flap hinge located at the
-    leading edge.
+    The effect of brakes is to shift the coefficient curves to the left; brake
+    deflections do not change the shape of the curves. This is equivalent to
+    an airfoil with a fixed flap hinge located at the leading edge.
 
     FIXME: the name is misleading: should be "FixedCoefficients" or similar
+    FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
     """
 
     def __init__(self, a0, i0, D0, Cm0):
