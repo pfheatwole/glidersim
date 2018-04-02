@@ -127,7 +127,7 @@ class ParagliderWing:
             The z-axis distance of the cg to the global AC
         """
 
-        foil= self.parafoil  # FIXME: cleanup
+        foil = self.parafoil  # FIXME: cleanup
 
         # The integration points across the span
         N = 501
