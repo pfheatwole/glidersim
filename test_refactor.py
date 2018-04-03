@@ -7,6 +7,7 @@ import Airfoil
 import Parafoil
 
 from ParafoilGeometry import Elliptical
+from ParagliderWing import BrakeGeometry, ParagliderWing
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
@@ -47,7 +48,10 @@ if __name__ == "__main__":
     b = foil.geometry.b
     y = np.linspace(-b/2, b/2, 501)
 
-    parafoil_coefs = Parafoil.Coefs2D(foil)
+    brakes = BrakeGeometry(foil.geometry.b, .5, .1)  # FIXME: values?
+    parafoil_coefs = Parafoil.Coefs2D(foil, brakes)
+
+    wing = ParagliderWing(foil, parafoil_coefs, d_cg=0.2, h_cg=7, kappa_a=0)
 
     embed()
 

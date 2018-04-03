@@ -24,7 +24,8 @@ class BrakeGeometry:
         self.delta_M = delta_M
         self.delta_f = delta_f
 
-    def delta(self, y, delta_Bl, delta_Br):
+    # def delta(self, y, delta_Bl, delta_Br):
+    def __call__(self, y, delta_Bl, delta_Br):
         # FIXME: verify and test
         left = delta_Bl*self.delta_M*(100/self.delta_f)**(-y/self.b - 1/2)
         right = delta_Br*self.delta_M*(100/self.delta_f)**(y/self.b - 1/2)
@@ -32,7 +33,7 @@ class BrakeGeometry:
 
 
 class ParagliderWing:
-    def __init__(self, parafoil, d_cg, h_cg, kappa_a):
+    def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_a):
         """
         Parameters
         ----------
@@ -47,6 +48,7 @@ class ParagliderWing:
             in the length of the lines to the leading edge.
         """
         self.parafoil = parafoil
+        self.parafoil_coefs = parafoil_coefs
         self.d_cg = d_cg
         self.h_cg = h_cg
         self.kappa_a = kappa_a
