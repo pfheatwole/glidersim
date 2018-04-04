@@ -179,8 +179,8 @@ class CoefficientsEstimator(abc.ABC):
 
         # FIXME: verify docstring. These are forces per unit span, not the
 
-        Gamma = self.geometry.Gamma(y)  # PFD eq 4.13, p74
-        theta = self.geometry.ftheta(y)  # FIXME: should include braking
+        Gamma = self.parafoil.geometry.Gamma(y)  # PFD eq 4.13, p74
+        theta = self.parafoil.geometry.ftheta(y)  # FIXME: should include braking
 
         ui = uL  # PFD Eq:4.14, p74
         wi = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
@@ -191,7 +191,7 @@ class CoefficientsEstimator(abc.ABC):
         Cm = self.Cm(y, alpha_i, delta_B, delta_B)
 
         # PFD Eq:4.65-4.67 (minus the `dy` term)
-        c = self.geometry.fc(y)
+        c = self.parafoil.geometry.fc(y)
         K1 = (rho/2)*(ui**2 + wi**2)
         K2 = 1/cos(Gamma)
         dLi = K1*Cl*c*K2
@@ -236,13 +236,13 @@ class Coefs2D(CoefficientsEstimator):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
         delta = self.brake_geo(y, delta_Br, delta_Bl)
-        return self.parafoil.airfoil.coefficients.Cd(y, alpha, delta)
+        return self.parafoil.airfoil.coefficients.Cd(alpha, delta)
 
     def Cm(self, y, alpha, delta_Br, delta_Bl):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
         delta = self.brake_geo(y, delta_Br, delta_Bl)
-        return self.parafoil.airfoil.coefficients.Cm0(y, alpha, delta)
+        return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
 
 
 class CoefsPFD(CoefficientsEstimator):
