@@ -131,7 +131,8 @@ class Elliptical(ParafoilGeometry):
         Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
         Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
         # Cx = -Bx + (self.dcg - 1/4)*self.c0
-        Cx = -Bx  # Modified from the original definition in PFD
+        # Cx = -Bx  # Modified from the original definition in PFD
+        Cx = -Bx - self.c0/4  # Modified v2: set the central LE as the origin
 
         return Bx * sqrt(1 - (y**2)/Ax**2) + Cx
 
