@@ -106,14 +106,16 @@ class CoefficientsEstimator(abc.ABC):
             The angle of attack for the current point estimate
         delta_B : float [percentage]
             The amount of symmetric brakes, where `0 <= delta_b <= 1`
-        coefs : CoefficientsEstimator
-            The estimation method for the section coefficients
 
         Returns
         -------
         CL : float
+            The global lift coefficient
         CD : float
-        Cm : float
+            The global drag coefficient
+        CM_c4 : float
+            The global pitching moment coefficient about quarter chord of the
+            central chord.
         """
 
         # Build a set of integration points
@@ -126,29 +128,39 @@ class CoefficientsEstimator(abc.ABC):
         uL, wL = np.cos(alpha), np.sin(alpha)
 
         # Compute the local forces
-        dF, dM = self.section_forces(y, uL, 0, wL)
+        dF, dM = self.section_forces(y, uL, 0, wL, delta_B, delta_B)
         dFx, dFz, dMy = dF[:, 0], dF[:, 2], dM[:, 1]  # Convenience views
 
         # Convert the body-oriented forces into relative wind coordinates
         # PFD Eq:4.29-4.30, p77
-        Li_prime = dFx*sin(alpha) + dFz*cos(alpha)  # FIXME: verify
-        Di_prime = -dFx*cos(alpha) + dFz*sin(alpha)  # FIXME: verify
-
+        Li_prime = dFx*sin(alpha) - dFz*cos(alpha)
+        Di_prime = -dFx*cos(alpha) - dFz*sin(alpha)
         L = trapz(Li_prime, dy)
         D = trapz(Di_prime, dy)
         My = trapz(dMy, dy)
 
-        # Compute the global coefficients
-        rho = 1  # FIXME: is it correct to normalize around rho=1?
-        S = self.parafoil.geometry.S
-        CL = L/((rho/2) * (uL**2 + wL**2) * S)
-        CD = D/((rho/2) * (uL**2 + wL**2) * S)
-        Cm = My/((rho/2) * (uL**2 + wL**2) * S * self.parafoil.geometry.MAC)
+        # Relocating the dFx and dFz to the central quarter chord introduces
+        # new pitching moments. These must be subtracted from the overall
+        # pitching moment for the global force+moment pair to be equivalent.
+        c4 = self.parafoil.geometry.fx(0)
+        x = self.parafoil.geometry.fx(y)
+        z = self.parafoil.geometry.fz(y)
+        mFx = trapz(dFx*(0-z), dy)  # The moment from relocating dFx to c4
+        mFz = -trapz(dFz*(c4-x), dy)  # The moment from relocating dFz to c4
+        My_c4 = My - mFx - mFz  # Apply counteracting moments for equivalence
 
-        return CL, CD, Cm
+        # Compute the global coefficients
+        # Note: in this context, rho=1 and V_infinity=1 and have been dropped
+        S = self.parafoil.geometry.S
+        MAC = self.parafoil.geometry.MAC
+        CL = L / (1/2 * S)
+        CD = D / (1/2 * S)
+        CM_c4 = My_c4 / (1/2 * S * MAC)
+
+        return CL, CD, CM_c4
 
     # FIXME: this doesn't seem to belong in a "CoefficientsEstimator"!
-    def section_forces(self, y, uL, vL, wL, delta_B=0, rho=1):
+    def section_forces(self, y, uL, vL, wL, delta_Bl=0, delta_Br=0, rho=1):
         """
         Compute section forces and moments acting on the wing.
 
@@ -157,13 +169,15 @@ class CoefficientsEstimator(abc.ABC):
         y : float or array of float
             The section position on the wing span, where -b/2 < y < b/2
         uL : float or array of float
-            Section-local relative wind aligned to the x-axis
+            Section-local relative wind aligned to the Parafoil x-axis
         vL : float or array of float
-            Section-local relative wind aligned to the y-axis
+            Section-local relative wind aligned to the Parafoil y-axis
         wL : float or array of float
-            Section-local relative wind aligned to the y-axis
-        delta_B : float [percentage]
-            The amount of symmetric brake
+            Section-local relative wind aligned to the Parafoil z-axis
+        delta_Bl : float [percentage]
+            The amount of left brake
+        delta_Br : float [percentage]
+            The amount of right brake
         rho : float
             Air density
         use_2d : bool
@@ -180,39 +194,40 @@ class CoefficientsEstimator(abc.ABC):
         # FIXME: verify docstring. These are forces per unit span, not the
 
         Gamma = self.parafoil.geometry.Gamma(y)  # PFD eq 4.13, p74
-        theta = self.parafoil.geometry.ftheta(y)  # FIXME: should include braking
+        theta = self.parafoil.geometry.ftheta(y)
 
-        ui = uL  # PFD Eq:4.14, p74
-        wi = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
-        alpha_i = arctan(wi/ui) + theta  # PFD Eq:4.17, p74
+        # Compute the section (local) relative wind
+        u = uL  # PFD Eq:4.14, p74
+        w = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
+        alpha = arctan(w/u) + theta  # PFD Eq:4.17, p74
 
-        Cl = self.Cl(y, alpha_i, delta_B, delta_B)
-        Cd = self.Cd(y, alpha_i, delta_B, delta_B)
-        Cm = self.Cm(y, alpha_i, delta_B, delta_B)
+        Cl = self.Cl(y, alpha, delta_Br, delta_Bl)
+        Cd = self.Cd(y, alpha, delta_Br, delta_Bl)
+        Cm = self.Cm(y, alpha, delta_Br, delta_Bl)
 
-        # PFD Eq:4.65-4.67 (minus the `dy` term)
+        # PFD Eq:4.65-4.67 (with an implicit `dy` term)
         c = self.parafoil.geometry.fc(y)
-        K1 = (rho/2)*(ui**2 + wi**2)
+        K1 = (rho/2)*(u**2 + w**2)
         K2 = 1/cos(Gamma)
-        dLi = K1*Cl*c*K2
-        dDi = K1*Cd*c*K2
-        dm0i = K1*Cm*(c**2)*K2
+        dL = K1*Cl*c*K2
+        dD = K1*Cd*c*K2
+        dm0 = K1*Cm*(c**2)*K2
 
-        # Translate the section forces and moments into body axes
+        # Translate the section forces and moments into Parafoil body axes
         #  * PFD Eqs:4.23-4.27, p76
-        F_par_x = dLi*sin(alpha_i - theta) - dDi*cos(alpha_i - theta)
-        F_perp_x = dLi*cos(alpha_i - theta) + dDi*sin(alpha_i - theta)
-        F_par_y = F_perp_x * sin(Gamma)
-        F_par_z = F_perp_x * cos(Gamma)
-        mi_par_y = dm0i*cos(Gamma)
+        dF_perp_x = dL*cos(alpha - theta) + dD*sin(alpha - theta)
+        dF_par_x = dL*sin(alpha - theta) - dD*cos(alpha - theta)
+        dF_par_y = dF_perp_x * sin(Gamma)
+        dF_par_z = -dF_perp_x * cos(Gamma)
 
-        zeros_x = np.zeros_like(mi_par_y)
-        zeros_z = np.zeros_like(mi_par_y)
-        dF = np.vstack([F_par_x, F_par_y, F_par_z]).T
-        dM = np.vstack([zeros_x, mi_par_y, zeros_z]).T
+        dm_par_x = np.zeros_like(y)
+        dm_par_y = dm0*cos(Gamma)
+        dm_par_z = np.zeros_like(y)
+
+        dF = np.vstack([dF_par_x, dF_par_y, dF_par_z]).T
+        dM = np.vstack([dm_par_x, dm_par_y, dm_par_z]).T
 
         return dF, dM
-
 
 
 class Coefs2D(CoefficientsEstimator):
