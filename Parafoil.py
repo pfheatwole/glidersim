@@ -244,19 +244,22 @@ class Coefs2D(CoefficientsEstimator):
     def Cl(self, y, alpha, delta_Br, delta_Bl):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Br, delta_Bl)/c
         return self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
     def Cd(self, y, alpha, delta_Br, delta_Bl):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Br, delta_Bl)/c
         return self.parafoil.airfoil.coefficients.Cd(alpha, delta)
 
     def Cm(self, y, alpha, delta_Br, delta_Bl):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Br, delta_Bl)/c
         return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
 
 
