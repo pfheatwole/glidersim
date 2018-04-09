@@ -130,6 +130,12 @@ class GridCoefficients(AirfoilCoefficients):
      * CD
      * Cm
 
+    This assumes a fixed-hinge design. A trailing edge deflection is simply a
+    rotation of some trailing section of the chord, rotated by the angle `flap`
+    about the point `xhinge`. That is: `delta = (1 - xhinge)*flap`, where
+    `0 < xhinge < 1`.
+
+    Note: this assumes normalized chord lengths; that is, `c = 1`.
     """
 
     def __init__(self, filename, xhinge, convert_degrees=True):
@@ -152,15 +158,15 @@ class GridCoefficients(AirfoilCoefficients):
         self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
 
     def Cl(self, alpha, delta=0):
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cl(alpha, flap)
 
     def Cd(self, alpha, delta=0):
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cd(alpha, flap)
 
     def Cm0(self, alpha, delta=0):
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cm(alpha, flap)
 
 
