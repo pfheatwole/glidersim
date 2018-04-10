@@ -17,6 +17,11 @@ class BrakeGeometry(abc.ABC):
             Left brake application as a fraction of maximum braking
         delta_Br : float [percentage]
             Right brake application as a fraction of maximum braking
+
+        Returns
+        -------
+        delta : float [meters]
+            The trailing edge deflection as a fraction of the chord.
         """
 
 
