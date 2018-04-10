@@ -12,26 +12,6 @@ from IPython import embed
 from util import trapz
 
 
-class BrakeGeometry:
-    """
-    Implements the basic PFD braking design (PFD EQ:4.18, p75)
-
-    FIXME: document
-    """
-
-    def __init__(self, b, delta_M, delta_f):
-        self.b = b
-        self.delta_M = delta_M
-        self.delta_f = delta_f
-
-    # def delta(self, y, delta_Bl, delta_Br):
-    def __call__(self, y, delta_Bl, delta_Br):
-        # FIXME: verify and test
-        left = delta_Bl*self.delta_M*(100/self.delta_f)**(-y/self.b - 1/2)
-        right = delta_Br*self.delta_M*(100/self.delta_f)**(y/self.b - 1/2)
-        return left + right
-
-
 class ParagliderWing:
     def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_a):
         """
