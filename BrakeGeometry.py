@@ -99,7 +99,8 @@ class Exponential(BrakeGeometry):
         self.tau1 = _tau1(self.tau2)
 
     def __call__(self, y, delta_Bl, delta_Br):
-        magnitude = self.delta_max * np.choose(y < 0, [delta_Bl, delta_Br])
+        # This is an abuse of `np.choose` (so the choices are reversed)
+        magnitude = self.delta_max * np.choose(y < 0, [delta_Br, delta_Bl])
         abs_y = np.abs(y)  # Assume a symmetric brake design on both semiwings
         fraction = np.exp(abs_y*self.tau1) - np.exp(-abs_y*self.tau2)
         return fraction*magnitude  # The total deflection
