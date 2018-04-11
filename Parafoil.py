@@ -83,15 +83,15 @@ class Parafoil:
 
 class CoefficientsEstimator(abc.ABC):
     @abc.abstractmethod
-    def Cl(self, y, alpha, delta_Br, delta_Bl):
+    def Cl(self, y, alpha, delta_Bl, delta_Br):
         """The lift coefficient for the parafoil section"""
 
     @abc.abstractmethod
-    def Cd(self, y, alpha, delta_Br, delta_Bl):
+    def Cd(self, y, alpha, delta_Bl, delta_Br):
         """The drag coefficient for the parafoil section"""
 
     @abc.abstractmethod
-    def Cm(self, y, alpha, delta_Br, delta_Bl):
+    def Cm(self, y, alpha, delta_Bl, delta_Br):
         """The pitching moment coefficient for the parafoil section"""
 
     def _pointwise_global_coefficients(self, alpha, delta_B):
@@ -201,9 +201,9 @@ class CoefficientsEstimator(abc.ABC):
         w = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
         alpha = arctan(w/u) + theta  # PFD Eq:4.17, p74
 
-        Cl = self.Cl(y, alpha, delta_Br, delta_Bl)
-        Cd = self.Cd(y, alpha, delta_Br, delta_Bl)
-        Cm = self.Cm(y, alpha, delta_Br, delta_Bl)
+        Cl = self.Cl(y, alpha, delta_Bl, delta_Br)
+        Cd = self.Cd(y, alpha, delta_Bl, delta_Br)
+        Cm = self.Cm(y, alpha, delta_Bl, delta_Br)
 
         # PFD Eq:4.65-4.67 (with an implicit `dy` term)
         c = self.parafoil.geometry.fc(y)
@@ -241,25 +241,22 @@ class Coefs2D(CoefficientsEstimator):
         self.parafoil = parafoil
         self.brake_geo = brake_geo
 
-    def Cl(self, y, alpha, delta_Br, delta_Bl):
+    def Cl(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        delta = self.brake_geo(y, delta_Bl, delta_Br)
         return self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
-    def Cd(self, y, alpha, delta_Br, delta_Bl):
+    def Cd(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        delta = self.brake_geo(y, delta_Bl, delta_Br)
         return self.parafoil.airfoil.coefficients.Cd(alpha, delta)
 
-    def Cm(self, y, alpha, delta_Br, delta_Bl):
+    def Cm(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Br, delta_Bl)
+        delta = self.brake_geo(y, delta_Bl, delta_Br)
         return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
 
 
