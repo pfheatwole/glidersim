@@ -1,6 +1,8 @@
 from functools import partial
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 import numpy as np
 from scipy.optimize import minimize_scalar
 
@@ -12,6 +14,7 @@ import Parafoil
 import BrakeGeometry
 from ParafoilGeometry import Elliptical
 from ParagliderWing import ParagliderWing
+from Paraglider import Paraglider
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
@@ -42,93 +45,117 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     return Parafoil.Parafoil(foil_geo, Airfoil.Airfoil(coefs, airfoil_geo))
 
 
-def total_moment(wing, delta_B, alpha):
-    CL, CD, Cm_c4 = wing.parafoil_coefs._pointwise_global_coefficients(
-        alpha, delta_B)
+def plot_coefficients(coefs):
+    CLs = []
+    alphas = np.deg2rad(np.linspace(-1.5, 30))
+    deltas = np.linspace(0, 1, 25)
+    for d in deltas:
+        CLs.append(coefs.CL(alphas, d))
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    for n, c in enumerate(CLs):
+        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+    ax.set_xlabel('alpha')
+    ax.set_ylabel('delta')
+    ax.set_zlabel('CL')
+    plt.show()
 
-    Cx = CL*np.sin(alpha) - CD*np.cos(alpha)
-    Cz = -CL*np.cos(alpha) - CD*np.sin(alpha)  # FIXME: verify, esp orientation
+    CDs = []
+    alphas = np.deg2rad(np.linspace(-1.5, 30))
+    deltas = np.linspace(0, 1, 25)
+    for d in deltas:
+        CDs.append(coefs.CD(alphas, d))
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    for n, c in enumerate(CDs):
+        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+    ax.set_xlabel('alpha')
+    ax.set_ylabel('delta')
+    ax.set_zlabel('CD')
+    plt.show()
 
-    MAC = wing.parafoil.geometry.MAC
-    c4 = wing.parafoil.geometry.fx(0)
-    kMy = Cm_c4*MAC - Cx*wing.h_cg - Cz*(c4 - (-wing.d_cg))
+    CMs = []
+    alphas = np.deg2rad(np.linspace(-1.5, 30))
+    deltas = np.linspace(0, 1, 25)
+    for d in deltas:
+        CMs.append(coefs.CM(alphas, d))
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    for n, c in enumerate(CMs):
+        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+    ax.set_xlabel('alpha')
+    ax.set_ylabel('delta')
+    ax.set_zlabel('CM')
+    plt.show()
 
-    # print("\ninside total_moment")
-    # embed()
-    # input('continue?')
 
-    return np.abs(kMy)
+def plot_polar(glider):
+    alpha_eq = []
+    for d in np.linspace(0, 1, 21)[::-1]:
+        alpha_eq.append(glider.wing.alpha_eq(d, 0))
+    for d in np.linspace(0, 1, 21):
+        alpha_eq.append(glider.wing.alpha_eq(0, d))
+    alpha_eq = np.asarray(alpha_eq)
+
+    w_brakes = []
+    for d in np.linspace(0, 1, 21)[::-1]:
+        w_brakes.append(glider.equilibrium_glide(d, 0))
+    w_brakes = np.asarray(w_brakes)
+
+    w_speedbar = []
+    for d in np.linspace(0, 1, 21):
+        w_speedbar.append(glider.equilibrium_glide(0, d))
+    w_speedbar = np.asarray(w_speedbar)
+
+    eq = np.vstack([w_brakes, w_speedbar])
+
+    gamma_eq = alpha_eq - eq[:, 0]
+
+    Vx = eq[:, 1] * np.cos(gamma_eq)
+    Vz = -eq[:, 1] * np.sin(gamma_eq)
+
+    plt.plot(Vx, Vz)
+    plt.show()
 
 
 def main():
-    print("\nGNULAB3 wing\n")
+    print("\nGNULAB3 airfoil\n")
     coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
 
-    # print("\nNACA4412 wing\n")
+    # print("\nNACA4412 LinearCoefficients airfoil\n")
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
 
-    # LinearCoefficients wing
+    # print("\nPFD example LinearCoefficients airfoil\n")
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
 
-    foil = build_elliptical(
+    parafoil = build_elliptical(
         MAC=2.5, AR=3.9, taper=0.15, dMed=-25, dMax=-70,
         sMed=5, airfoil_geo=Airfoil.NACA4(4412), coefs=coefs)
 
-    b = foil.geometry.b
+    b = parafoil.geometry.b
     y = np.linspace(-b/2, b/2, 501)
 
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
-    brakes = BrakeGeometry.Exponential(foil.geometry.b, .65, np.deg2rad(10))
-    parafoil_coefs = Parafoil.Coefs2D(foil, brakes)
-    parafoil_coefs2 = Parafoil.CoefsMine(foil, brakes)
-    parafoil_coefs3 = Parafoil.CoefsPFD(foil, brakes)
-    coefs = parafoil_coefs
+    brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
+    parafoil_coefs = Parafoil.Coefs2D(parafoil, brakes)
+    parafoil_coefs2 = Parafoil.CoefsMine(parafoil, brakes)
+    parafoil_coefs3 = Parafoil.CoefsPFD(parafoil, brakes)
+    parafoil_coefs4 = Parafoil.Coefs2(parafoil, brakes)
+    coefs = parafoil_coefs4
 
     if isinstance(coefs, Parafoil.CoefsPFD):  # FIXME: HACK!
         coefs._pointwise_local_coefficients(.123, 0)
 
-    d_cg = 0.5*foil.geometry.fc(0)  # Place the cg at 50% central chord
-    print("\nd_cg:", d_cg)
+    wing = ParagliderWing(parafoil, coefs, d_cg=0.5, h_cg=7, kappa_S=0.4)
+    glider = Paraglider(wing, 75, 0.55, 0.75)
 
-    wing = ParagliderWing(foil, coefs, d_cg=d_cg, h_cg=7, kappa_a=0)
-
-    f = partial(total_moment, wing, 0)
-    alpha_min, alpha_max = np.deg2rad(-1.5), np.deg2rad(20)
-    r = minimize_scalar(f, bounds=(alpha_min, alpha_max), method='Bounded').x
-    print("Equilibrium condition for zero brakes:")
-    print("  alpha_eq   : {}".format(np.rad2deg(r)))
-    print("  Glide ratio: {}".format(1/np.tan(r)))
-    print()
-
-    # print("Testing: wing.parafoil_coefs._pointwise_global_coefficients(alpha, delta_B)")
+    print("\nFinished building the wing\n")
     embed()
 
-    # print("brakes (deltas) not implemented yet, skipping")
-    # return
-
-    deltas = np.linspace(0, 1, 250)
-    results = np.zeros_like(deltas)
-    for n, delta in enumerate(deltas):
-        f = partial(total_moment, wing, delta)
-        alpha_min, alpha_max = np.deg2rad(-1.5), np.deg2rad(20)
-        results[n] = minimize_scalar(f, bounds=(alpha_min, alpha_max),
-                                     method='Bounded').x
-
-    test_alpha = np.deg2rad(8)
-    global_coefs = []
-    for d in deltas:
-        global_coefs.append(wing.parafoil_coefs._pointwise_global_coefficients(
-            test_alpha, d))
-    global_coefs = np.asarray(global_coefs)
-
-
-    Vx = np.cos(results)
-    Vz = np.sin(results)
-
+    plot_coefficients(coefs)
     embed()
 
     # input("\ncontinue with NACA?")
-
     # print("\nNACA4412 wing\n")
     # nacacoefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
     # nacawing = build_elliptical(

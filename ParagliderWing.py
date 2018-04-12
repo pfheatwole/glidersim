@@ -3,9 +3,8 @@
 from functools import partial
 
 import numpy as np
-from numpy import sin, cos
 
-from scipy.optimize import least_squares
+from scipy.optimize import minimize_scalar
 
 from IPython import embed
 
@@ -13,7 +12,7 @@ from util import trapz
 
 
 class ParagliderWing:
-    def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_a):
+    def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_S):
         """
         Parameters
         ----------
@@ -23,15 +22,16 @@ class ParagliderWing:
             percentage of the chord length, where 0 < d_cg < 1
         h_cg : float [meters]
             Perpendiular distance from the cg to the central chord
-        kappa_a : float [meters]
-            The accelerator line length. This corresponds to the maximum change
+        kappa_S : float [meters]
+            The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
+        # FIXME: kappa_S is a strange notation?
         self.parafoil = parafoil
         self.parafoil_coefs = parafoil_coefs
         self.d_cg = d_cg
         self.h_cg = h_cg
-        self.kappa_a = kappa_a
+        self.kappa_S = kappa_S
 
         C0 = parafoil.geometry.fc(0)
         self.LE = np.sqrt(h_cg**2 + (d_cg*C0)**2)
@@ -40,14 +40,14 @@ class ParagliderWing:
         # FIXME: pre-compute the `body->local` transformation matrices here?
         # FIXME: lots more to implement
 
-    def cg_position(self, delta_a):
+    def cg_position(self, delta_S):
         """
         Compute {d_cg, h_cg} for a given speed bar position
 
         Parameters
         ----------
-        delta_a : float or array of float
-            The percent application of the speedbar, where `0 <= delta_1 <= 1`
+        delta_S : float or array of float
+            Fraction of speed bar application
 
         Returns
         -------
@@ -57,11 +57,51 @@ class ParagliderWing:
         h_cg : float or array of float [m]
             The vertical position of the cg relative to the central chord.
         """
-        C0 = self.parafoil.geometry.fc(0)
-        delta_LE = delta_a * self.kappa_a
-        d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - C0**2)/(-2*C0**2)
-        h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*C0)**2)
+        c = self.parafoil.geometry.fc(0)
+        delta_LE = delta_S * self.kappa_S
+        d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - c**2)/(-2*c**2)
+        h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*c)**2)
+
         return d_cg, h_cg
+
+    def alpha_eq(self, delta_B, delta_S):
+        """
+
+        Parameters
+        ----------
+        delta_B : float [percentage]
+            Fraction of symmetric braking application
+        delta_S : float [percentage]
+            Fraction of speed bar application
+
+        Returns
+        -------
+        alpha_eq : float [radians]
+            The equilibrium angle of attack for the given control inputs
+        """
+
+        def moment_factor(delta_B, delta_S, alpha):
+            CL = self.parafoil_coefs.CL(alpha, delta_B)
+            CD = self.parafoil_coefs.CD(alpha, delta_B)
+            CM_c4 = self.parafoil_coefs.CM(alpha, delta_B)
+
+            Cx = CL*np.sin(alpha) - CD*np.cos(alpha)
+            Cz = -CL*np.cos(alpha) - CD*np.sin(alpha)  # FIXME: verify
+
+            MAC = self.parafoil.geometry.MAC
+            c4 = self.parafoil.geometry.fx(0)
+            c = self.parafoil.geometry.fc(0)
+            d_cg, h_cg = self.cg_position(delta_S)
+
+            kMy = CM_c4*MAC - Cx*h_cg - Cz*(c4 - (-d_cg*c))
+
+            return np.abs(kMy)
+
+        f = partial(moment_factor, delta_B, delta_S)
+        alpha_min, alpha_max = np.deg2rad(-1.5), np.deg2rad(20)  # FIXME: magic
+        r = minimize_scalar(f, bounds=(alpha_min, alpha_max), method='Bounded')
+
+        return r.x
 
     def section_wind(self, y, state, control=None):
         # FIXME: Document
@@ -90,117 +130,6 @@ class ParagliderWing:
         wL = W + y*P - x*Q
 
         return uL, vL, wL
-
-    def equilibrium_parameters(self, delta_B=0):
-        """Compute alpha_eq, d0, h0
-
-        Parameters
-        ----------
-        delta_B : float
-            The symmetric brake actuation, where `0 <= delta <= 1`
-
-        Returns
-        -------
-        alpha_eq : float
-            The equilibrium AOA for the given symmetric brakes actuation
-        d0 : float
-            The x-axis distance of the cg to the global AC
-        h0 : float
-            The z-axis distance of the cg to the global AC
-        """
-
-        foil = self.parafoil  # FIXME: cleanup
-
-        # The integration points across the span
-        N = 501
-        dy = foil.geometry.b/(N - 1)  # Include the endpoint
-        y = np.linspace(-foil.geometry.b/2, foil.geometry.b/2, N)
-
-        Gammas = foil.geometry.Gamma(y)
-        thetas = foil.geometry.ftheta(y)
-
-        def calc_d0h0(foil, alpha_eq):
-            """Calculate the global AC, {d0, h0}
-
-            These points are deterministic given alpha_eq, but are used as part
-            of the optimization routine to find alpha_eq.
-
-            ref: PFD Eqs 5.44-5.45
-            """
-
-            CL = foil.CL(alpha_eq)
-            CD = foil.CD(alpha_eq)
-
-            Cli = foil.Cl(alpha_eq)
-            Cdi = foil.Cd(alpha_eq)
-            alpha_i = alpha_eq*cos(Gammas) + thetas
-
-            # PFD Eq:5.44, p120
-            fx = foil.geometry.fx(y)
-            fz = foil.geometry.fz(y)
-            fc = foil.geometry.fc(y)
-            S = foil.geometry.S
-            numerator = (Cli*cos(alpha_i) + Cdi*sin(alpha_i)) * fx * fc
-            denominator = (CL*cos(alpha_eq) + CD*sin(alpha_eq)) * S
-            d0 = trapz(numerator, dy) / denominator
-
-            # PFD Eq:5.45, p120
-            numerator = -((Cli*sin(alpha_i) - Cdi*cos(alpha_i)) *
-                          fz * fc / cos(Gammas))
-            denominator = (CL*sin(alpha_eq) - CD*cos(alpha_eq)) * S
-            h0 = trapz(numerator, dy) / denominator
-
-            # print("DEBUG> d0: {}, h0: {}".format(d0, h0))
-
-            return d0, h0
-
-        def calc_my(foil, alpha, d0=None, h0=None):
-            """Optimization target for computing alpha_eq
-
-            Parameters
-            ----------
-            foil : foil
-            alpha : float
-                Current guess for alpha_eq
-
-            Returns
-            -------
-            My : float
-                The total moment about the y-axis. Should be zero for
-                equilibrium.
-            """
-            print("DEBUG> calc_my: alpha:", alpha)
-
-            # Update {d0, h0} to track the changing alpha
-            if d0 is None:
-                d0, h0 = calc_d0h0(foil, alpha)
-
-            CL = foil.CL(alpha)
-            CD = foil.CD(alpha)
-            Cm = foil.Cm(alpha)
-            Cz = CL*cos(alpha) + CD*sin(alpha)  # PFD eq 4.76
-            Cx = CL*sin(alpha) - CD*cos(alpha)  # PFD eq 4.77
-            My = Cz*d0 - Cx*h0 + Cm*foil.geometry.MAC  # PFD Eq 4.78/5.37
-            return My
-
-        # alphas = np.linspace(-1.99, 24, 50)
-        # d0h0s = np.asarray([calc_d0h0(foil, np.deg2rad(a)) for a in alphas])
-        # Mys = np.asarray([calc_my(foil, np.deg2rad(a)) for a in alphas])
-        # print("d0h0s")
-        # input("Continue?")
-        # embed()
-
-        # FIXME: Initialize alpha_eq to something reasonable
-        f_alpha = partial(calc_my, foil)
-        alpha_eq_prime = least_squares(f_alpha, np.deg2rad(8)).x[0]
-        # alpha_eq_prime = least_squares(
-        #     f_alpha, np.deg2rad(2),
-        #   bounds=(np.deg2rad(1.75), np.deg2rad(2.3))).x[0]
-        #   bounds=(0, np.deg2rad(15))).x[0]
-
-        print("Finished finding alpha_eq_prime:", alpha_eq_prime)
-        input("Continue?")
-        embed()
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):

@@ -273,28 +273,28 @@ class CoefsPFD(CoefficientsEstimator):
         self.brake_geo = brake_geo
 
         # Initialize the global (3D) aerodynamic coefficients
-        CL, CD, Cm = self._compute_global_coefficients()
+        CL, CD, CM = self._compute_global_coefficients()
         self.CL = CL
         self.CD = CD
-        self.Cm = Cm
+        self.CM = CM
 
         # Initialize the section (2D) aerodynamic coefficients
         # FIXME
 
-    def Cl(self, y, alpha, delta):
+    def Cl(self, y, alpha, delta_Br, delta_Bl):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
         i0 = self.CL.roots()[0]  # Adjusted global zero-lift angle
         return self.a_bar * (alpha - i0)
 
-    def Cd(self, y, alpha, delta):
+    def Cd(self, y, alpha, delta_Br, delta_Bl):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
         i0 = self.CL.roots()[0]  # Adjusted global zero-lift angle
         D0 = self.CD(i0)
         return self.D2_bar*(self.a_bar * (alpha - i0))**2 + D0
 
-    def Cm(self, y, alpha, delta):
+    def Cm(self, y, alpha, delta_Br, delta_Bl):
         # TODO: test, verify, and adapt for `delta`
         # TODO: document
         return self.Cm_bar
@@ -571,3 +571,119 @@ class CoefsMine(CoefficientsEstimator):
         self.a_bar = a_bar
         self.D2_bar = D2_bar
         return a_bar, D2_bar
+
+
+class Coefs2(CoefficientsEstimator):
+    # This is sort of a temporary hack, a partial coefficients estimator that
+    # only provides the global coefficients. I'm using it to test my steady-
+    # state estimation code (finding alpha_eq).
+
+    def __init__(self, parafoil, brake_geo):
+        self.parafoil = parafoil
+        self.brake_geo = brake_geo  # FIXME: shouldn't need to keep this around
+
+        # Compute 25 Polynomial approxmations over the operating brake range
+        # FIXME: implementation specific
+        # self.deltas = np.linspace(0, brake_geo.delta_max, 25)
+        self.deltas = np.linspace(0, 1, 25)
+
+        # Initialize the global (3D) aerodynamic coefficients
+        CLs, CDs, CMs = self._compute_global_coefficients()
+        self.CLs = CLs
+        self.CDs = CDs
+        self.CMs = CMs
+
+    def Cl(self, y, alpha, delta_Br, delta_Bl):
+        raise NotImplementedError
+
+    def Cd(self, y, alpha, delta_Br, delta_Bl):
+        raise NotImplementedError
+
+    def Cm(self, y, alpha, delta_Br, delta_Bl):
+        raise NotImplementedError
+
+    # FIXME: doesn't do any interpolation between deltas
+    def CL(self, alpha, delta):
+        di = np.argmin(np.abs(self.deltas - delta))  # Choose the closest poly
+        # print("Inside Coefs2.CL")
+        # embed()
+        return self.CLs[di](alpha)
+
+    def CD(self, alpha, delta):
+        di = np.argmin(np.abs(self.deltas - delta))  # Choose the closest poly
+        return self.CDs[di](alpha)
+
+    def CM(self, alpha, delta):
+        di = np.argmin(np.abs(self.deltas - delta))  # Choose the closest poly
+        return self.CMs[di](alpha)
+
+    def _compute_global_coefficients(self):
+        """
+        Fit polynomials to the adjusted global aerodynamic coefficients.
+
+        This procedure is from Paraglider Flight Dynamics, Sec:4.3.4
+
+        FIXME: the alpha range should depend on the airfoil.
+        FIXME: currently assumes linear CL, with no expectation of stalls!!
+        FIXME: for non-constant-linear airfoils, do these fittings hold?
+        FIXME: seems convoluted for what it accomplishes
+        """
+        _alphas = np.deg2rad(np.linspace(-1.99, 24, 1000))
+        coefs2d = Coefs2D(self.parafoil, self.brake_geo)
+
+        _CLs, _CDs, _CMs = [], [], []
+        for n_d, delta in enumerate(self.deltas):
+            CLs = np.empty_like(_alphas)
+            CDs = np.empty_like(_alphas)
+            CMs = np.empty_like(_alphas)
+
+            for n_a, alpha in enumerate(_alphas):
+                CL, CD, CM_c4 = coefs2d._pointwise_global_coefficients(
+                        alpha, delta)
+                CLs[n_a], CDs[n_a], CMs[n_a] = CL, CD, CM_c4
+
+
+            # WIP: don't rescale etc, just use the 2D coeffs
+            # CL = Polynomial.fit(_alphas, CLs, 5)
+            # CD = Polynomial.fit(_alphas, CDs, 5)
+            # CM = Polynomial.fit(_alphas, CMs, 2)
+            # _CLs.append(CL)
+            # _CDs.append(CD)
+            # _CMs.append(CM)
+
+            # if delta == self.deltas[-1]:
+            #     print("\n\nthe last of deltas\n")
+            #     embed()
+            # continue
+
+
+            # Second, adjust the global coefficients to account for the 3D wing
+            mask = (_alphas > np.deg2rad(-3)) & (_alphas < np.deg2rad(9))
+            CL_prime = Polynomial.fit(_alphas[mask], CLs[mask], 1)
+
+            # i0 = alphas[np.argmin(np.abs(CLs))]
+            i0 = CL_prime.roots()[0]  # Unadjusted global zero-lift angle
+            a_prime = CL_prime.deriv()(0.05)  # Preliminary lift-curve slope
+            a = a_prime/(1 + a_prime/(np.pi * self.parafoil.geometry.AR))  # Adjusted slope
+
+            # Skew the CL curve using an (approximately?) area-preserving transform
+            alphas = np.sqrt((a_prime/a))*(_alphas - i0) + i0
+            CLs = np.sqrt((a/a_prime))*CLs
+            CL = Polynomial.fit(alphas, CLs, 5)
+
+            # D0 = self.parafoil.airfoil.coefficients.Cd(alphas)
+            D0 = CDs  # FIXME: correct?
+            e = 0.95  # Efficiency factor
+            Di = CL(alphas)**2 / (np.pi * e * self.parafoil.geometry.AR)
+            CD = Polynomial.fit(alphas, Di + D0, 5)
+
+            CM = Polynomial.fit(alphas, CMs, 2)
+
+            _CLs.append(CL)
+            _CDs.append(CD)
+            _CMs.append(CM)
+
+            # print("Inside _compute_global_coefficients, delta={}".format(delta))
+            # embed()
+
+        return _CLs, _CDs, _CMs
