@@ -214,18 +214,17 @@ class CoefficientsEstimator(abc.ABC):
         dm0 = K1*Cm*(c**2)*K2
 
         # Translate the section forces and moments into Parafoil body axes
-        #  * PFD Eqs:4.23-4.27, p76
+        #  * PFD Eqs:4.23-4.28, pp76-77
         dF_perp_x = dL*cos(alpha - theta) + dD*sin(alpha - theta)
         dF_par_x = dL*sin(alpha - theta) - dD*cos(alpha - theta)
         dF_par_y = dF_perp_x * sin(Gamma)
         dF_par_z = -dF_perp_x * cos(Gamma)
-
-        dm_par_x = np.zeros_like(y)
-        dm_par_y = dm0*cos(Gamma)
-        dm_par_z = np.zeros_like(y)
+        dM_par_x = np.zeros_like(y)
+        dM_par_y = dm0*cos(Gamma)
+        dM_par_z = -dm0*sin(Gamma)  # FIXME: verify
 
         dF = np.vstack([dF_par_x, dF_par_y, dF_par_z]).T
-        dM = np.vstack([dm_par_x, dm_par_y, dm_par_z]).T
+        dM = np.vstack([dM_par_x, dM_par_y, dM_par_z]).T
 
         return dF, dM
 
