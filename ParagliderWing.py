@@ -89,11 +89,10 @@ class ParagliderWing:
             Cz = -CL*np.cos(alpha) - CD*np.sin(alpha)  # FIXME: verify
 
             MAC = self.parafoil.geometry.MAC
-            c4 = self.parafoil.geometry.fx(0)
             c = self.parafoil.geometry.fc(0)
             d_cg, h_cg = self.cg_position(delta_S)
 
-            kMy = CM_c4*MAC - Cx*h_cg - Cz*(c4 - (-d_cg*c))
+            kMy = CM_c4*MAC - Cx*h_cg - Cz*((d_cg - 1/4)*c)
 
             return np.abs(kMy)
 
