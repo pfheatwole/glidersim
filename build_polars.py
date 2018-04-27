@@ -9,8 +9,8 @@ from numpy import sin, cos, sqrt, arcsin, arctan  # noqa: F401
 from IPython import embed  # noqa: F401
 
 from Airfoil import Airfoil, LinearCoefficients, NACA4
-from Wing import Wing, EllipticalWing
-from Glider import Glider
+from Parafoil import Parafoil
+from ParafoilGeometry import Elliptical
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
@@ -24,11 +24,11 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         print("Using minimum max sweep ({})".format(sMax))
 
     # Compute some missing data in reverse
-    c0 = EllipticalWing.MAC_to_c0(MAC, taper)
-    b = EllipticalWing.AR_to_b(c0, AR, taper)
+    c0 = Elliptical.MAC_to_c0(MAC, taper)
+    b = Elliptical.AR_to_b(c0, AR, taper)
 
-    # FIXME: this naming is confusing. EllipticalWing is a geometry, not a wing
-    wing_geo = EllipticalWing(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
+    # FIXME: this naming is confusing. Ellipticalg is a geometry, not a wing
+    foil_geo = Elliptical(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
 
     if airfoil_geo is None:
         airfoil_geo = NACA4(2415)
@@ -38,7 +38,7 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         print("Using default airfoil coefficients")
         coefs = LinearCoefficients(5.80, -4, 0.008, -0.1)  # a0, i0, D0, Cm0
 
-    return Wing(wing_geo, Airfoil(coefs, airfoil_geo))
+    return Parafoil(foil_geo, Airfoil(coefs, airfoil_geo))
 
 
 def find_first(arr, val):
@@ -134,51 +134,3 @@ if __name__ == "__main__":
     alphas = np.linspace(-1.99, 25, 1000)
     alphas_r = np.deg2rad(alphas)
     LD1 = wing1.CL(alphas_r)/wing1.CD(alphas_r)
-
-    input("Continue?")
-    embed()
-
-
-
-
-    #Glider(wing, d_cg, h_cg, S_cg, Cd_cg):
-    glider1 = Glider(wing1, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
-    glider2 = Glider(wing2, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
-    glider3 = Glider(wing3, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
-    glider4 = Glider(wing4, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
-    glider5 = Glider(wing5, d_cg=0.35, h_cg=7, S_cg=1, Cd_cg=0.8)
-
-
-    print("\nChecking equilibrium for hands-up")
-    glider1.equilibrium_parameters(0)
-
-    input("Continue?")
-    embed()
-
-    print("\nSome plots")
-
-    alphas = np.linspace(-1.99, 25, 1000)
-    alphas_r = np.deg2rad(alphas)
-
-    plt.plot(alphas, wing.airfoil.coefficients.Cl(alphas_r),
-             'r--', lw=0.8, label='Central CL')
-    plt.plot(alphas, wing.CL(alphas_r), label='Global CL')
-    plt.legend()
-    plt.show()
-
-    plt.plot(alphas, wing.CD(alphas_r), label='Global CD')
-    plt.plot(alphas, wing.airfoil.coefficients.Cd(np.deg2rad(alphas)),
-             'r--', lw=0.8, label='Central CD')
-    plt.legend()
-    plt.show()
-
-    plt.plot(wing.CL(alphas_r), wing.CD(alphas_r))
-    plt.title('Cd vs Cl')
-    plt.show()
-
-    plt.plot(alphas, wing.CL(alphas_r)/wing.CD(alphas_r))
-    plt.title('L/D vs Alpha')
-    plt.show()
-
-    input("Continue?")
-    embed()

@@ -130,9 +130,16 @@ class GridCoefficients(AirfoilCoefficients):
      * CD
      * Cm
 
+    This assumes a fixed-hinge design. A trailing edge deflection is simply a
+    rotation of some trailing section of the chord, rotated by the angle `flap`
+    about the point `xhinge`. That is: `delta = (1 - xhinge)*flap`, where
+    `0 < xhinge < 1`.
+
+    Note: this assumes normalized chord lengths; that is, `c = 1`.
     """
 
     def __init__(self, filename, xhinge, convert_degrees=True):
+        # FIXME: docstring
         if (xhinge < 0) or (xhinge > 1):
             raise ValueError("xhinge should be a fraction of the chord length")
 
@@ -140,33 +147,26 @@ class GridCoefficients(AirfoilCoefficients):
 
         data = pd.read_csv(filename)
         self.data = data
-        self.xhinge = xhinge
+        self.xhinge = xhinge  # hinge position as a percentage of the chord
 
         if convert_degrees:
-            data['CL'] = np.deg2rad(data.CL)
-            data['CD'] = np.deg2rad(data.CD)
-            data['Cm'] = np.deg2rad(data.Cm)
+            data['alpha'] = np.deg2rad(data.alpha)
+            data['flap'] = np.deg2rad(data.flap)
 
         self._Cl = LinearNDInterpolator(data[['alpha', 'flap']], data.CL)
         self._Cd = LinearNDInterpolator(data[['alpha', 'flap']], data.CD)
         self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
 
     def Cl(self, alpha, delta=0):
-        # alpha = np.rad2deg(alpha)
-        # delta = np.rad2deg(delta)
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cl(alpha, flap)
 
     def Cd(self, alpha, delta=0):
-        # alpha = np.rad2deg(alpha)
-        # delta = np.rad2deg(delta)
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cd(alpha, flap)
 
     def Cm0(self, alpha, delta=0):
-        # alpha = np.rad2deg(alpha)
-        # delta = np.rad2deg(delta)
-        flap = arctan(delta/(1 - self.xhinge))
+        flap = delta/(1 - self.xhinge)
         return self._Cm(alpha, flap)
 
 
