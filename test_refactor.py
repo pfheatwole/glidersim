@@ -74,14 +74,14 @@ def plot_coefficients(coefs):
     ax.set_zlabel('CD')
     plt.show()
 
-    CMs = []
+    CM_c4s = []
     alphas = np.deg2rad(np.linspace(-1.5, 30))
     deltas = np.linspace(0, 1, 25)
     for d in deltas:
-        CMs.append(coefs.CM(alphas, d))
+        CM_c4s.append(coefs.CM_c4(alphas, d))
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    for n, c in enumerate(CMs):
+    for n, c in enumerate(CM_c4s):
         ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
     ax.set_xlabel('alpha')
     ax.set_ylabel('delta')
@@ -129,7 +129,9 @@ def main():
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
 
     parafoil = build_elliptical(
+        # MAC=2.5, AR=3.9, taper=0.15, dMed=-20, dMax=-50,
         MAC=2.5, AR=3.9, taper=0.15, dMed=-25, dMax=-70,
+        # MAC=2.5, AR=3.9, taper=0.15, dMed=-1, dMax=-2,
         sMed=5, airfoil_geo=Airfoil.NACA4(4412), coefs=coefs)
 
     b = parafoil.geometry.b
@@ -150,10 +152,18 @@ def main():
     glider = Paraglider(wing, 75, 0.55, 0.75)
 
     print("\nFinished building the wing\n")
-    embed()
 
-    plot_coefficients(coefs)
-    embed()
+    # print("entering Anderson2")
+    # anders = Parafoil.Anderson2(parafoil, brakes)
+    # cl, cdi = anders._compute_section_coefs(0.123, 0)
+
+    print("entering Phillips")
+    phillips = Parafoil.Phillips(parafoil, brakes)
+
+    # embed()
+
+    # plot_coefficients(coefs)
+    # embed()
 
     # input("\ncontinue with NACA?")
     # print("\nNACA4412 wing\n")
