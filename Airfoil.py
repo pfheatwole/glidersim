@@ -111,12 +111,10 @@ class LinearCoefficients(AirfoilCoefficients):
         return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta=0):
-        alpha = np.asarray(alpha)
-        return np.ones_like(alpha) * self.D0
+        return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
     def Cm0(self, alpha, delta=0):
-        alpha = np.asarray(alpha)
-        return np.ones_like(alpha) * self._Cm0
+        return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
 
 
 class GridCoefficients(AirfoilCoefficients):
