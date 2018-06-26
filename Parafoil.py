@@ -9,32 +9,13 @@ from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import CubicSpline
 
 from numba import njit
-from numba import double
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
-from util import trapz
+from util import trapz, cross3
 
 from IPython import embed
-
-
-@njit
-def ncross(vec1, vec2):
-    """ Calculate the cross product of two 3d vectors. """
-    result = np.empty(3)
-    return cross_(vec1, vec2, result)
-
-
-@njit
-def cross_(vec1, vec2, result):
-    """ Calculate the cross product of two 3d vectors. """
-    a1, a2, a3 = double(vec1[0]), double(vec1[1]), double(vec1[2])
-    b1, b2, b3 = double(vec2[0]), double(vec2[1]), double(vec2[2])
-    result[0] = a2 * b3 - a3 * b2
-    result[1] = a3 * b1 - a1 * b3
-    result[2] = a1 * b2 - a2 * b1
-    return result
 
 
 def set_axes_equal(ax):
@@ -90,6 +71,8 @@ class Parafoil:
             If xa is `None`, sample `N` points along the chord
         """
 
+        # FIXME: rename: "extrudo" isn't English
+
         if xa is None:
             xa = np.linspace(0, 1, N)
 
@@ -119,6 +102,8 @@ class Parafoil:
         N : integer, optional
             If xa is `None`, sample `N` points along the chord
         """
+
+        # FIXME: rename: "intrudo" isn't English
 
         if xa is None:
             xa = np.linspace(0, 1, N)
@@ -217,6 +202,9 @@ class CoefficientsEstimator(abc.ABC):
         return CL, CD, CM_c4
 
     # FIXME: this doesn't seem to belong in a "CoefficientsEstimator"!
+    #
+    #        Update: doubly so, since Phillip's method has it's own equations
+    #        based on the estimated circulation
     def section_forces(self, y, uL, vL, wL, delta_Bl=0, delta_Br=0, rho=1):
         """
         Compute section forces and moments acting on the wing.
@@ -295,7 +283,7 @@ class Coefs2D(CoefficientsEstimator):
         self.parafoil = parafoil
         self.brake_geo = brake_geo
 
-        # Compute 25 Polynomial approxmations over the operating brake range
+        # Compute 25 Polynomial approximations over the operating brake range
         self.delta_Bs = np.linspace(0, 1, 25)
 
         # Initialize the global aerodynamic coefficients
@@ -304,22 +292,49 @@ class Coefs2D(CoefficientsEstimator):
         self.CDs = CDs
         self.CM_c4s = CM_c4s
 
-    def Cl(self, y, alpha, delta_Bl, delta_Br):
+    # FIXME: reparameterize the coefficients to use the normalized deltas
+
+    def Cl_alpha(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Bl, delta_Br)
+        delta_distance = self.brake_geo(y, delta_Bl, delta_Br)
+
+        # Convert the deflection distances to deflection angles.
+        #
+        # From the arc length equation, `s = radius*theta`, where `s` is the
+        # trailing edge deflection distance, `radius` is the chord length, and
+        # `theta` is the deflection angle.
+        c = self.parafoil.geometry.fc(y)
+        delta_angle = delta_distance / c
+
+        return self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta_angle)
+
+    def Cl(self, y, alpha, delta_Bl, delta_Br):
+        # FIXME: make AirfoilCoefficients responsible for broadcasting `alpha`?
+        if np.isscalar(alpha):
+            alpha = np.ones_like(y) * alpha
+
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
+
         return self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
     def Cd(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Bl, delta_Br)
+
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
+
         return self.parafoil.airfoil.coefficients.Cd(alpha, delta)
 
     def Cm(self, y, alpha, delta_Bl, delta_Br):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha
-        delta = self.brake_geo(y, delta_Bl, delta_Br)
+
+        c = self.parafoil.geometry.fc(y)
+        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
+
         return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
 
     # FIXME: doesn't do any interpolation between deltas
@@ -1217,7 +1232,7 @@ class Phillips(CoefficientsEstimator):
         # FIXME: Phillips indexes the nodal points from zero, and the control
         #        points from 1. Should I do the same?
         # FIXME: how many segments for reasonable accuracy?
-        self.K = 71  # The number of bound vortex segments for the entire span
+        self.K = 51  # The number of bound vortex segments for the entire span
         k = np.arange(self.K+1)
         b = self.parafoil.geometry.b
 
@@ -1290,18 +1305,8 @@ class Phillips(CoefficientsEstimator):
 
             set_axes_equal(ax)
             plt.show()
-        # --------------------------------------------------------------------
-
-        print("DEBUG> testing `find_vortex_strengths`")
         self.f = None  # FIXME: design review Numba helper functions
-        V_inf = np.asarray([[10, 0, 1]]*self.K)
-        # self.find_vortex_strengths(V_inf, 0, 0)
-        # self.find_vortex_strengths(V_inf, 0, 0.5)
-        self.find_vortex_strengths(V_inf, 0, 1.0)
-        # embed()
 
-        # FIXME: implement the rest of the class functionality
-        # raise NotImplementedError
 
     def Cl(self, y, alpha, delta_Bl, delta_Br):
         raise NotImplementedError
@@ -1347,16 +1352,16 @@ class Phillips(CoefficientsEstimator):
                 indices = [(i, j) for i in range(K) for j in range(K)]
                 print()
                 for ij in indices:
-                    v[ij] = ncross(u_inf, R2[ij]) / \
+                    v[ij] = cross3(u_inf, R2[ij]) / \
                         (r2[ij] * (r2[ij] - dot(u_inf, R2[ij])))
 
-                    v[ij] = v[ij] - ncross(u_inf, R1[ij]) / \
+                    v[ij] = v[ij] - cross3(u_inf, R1[ij]) / \
                         (r1[ij] * (r1[ij] - dot(u_inf, R1[ij])))
 
                     if ij[0] == ij[1]:
                         continue  # Skip singularities when `i == j`
 
-                    v[ij] = v[ij] + ((r1[ij] + r2[ij]) * ncross(R1[ij], R2[ij])) / \
+                    v[ij] = v[ij] + ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
                         (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
 
                 return v/(4*np.pi)
@@ -1365,7 +1370,7 @@ class Phillips(CoefficientsEstimator):
 
         return self.f(u_inf)
 
-    def find_vortex_strengths(self, V_inf, delta_Bl, delta_Br, max_runs=50):
+    def find_vortex_strengths(self, V_inf, delta_Bl, delta_Br, max_runs=None):
         """
 
         Parameters
@@ -1409,6 +1414,7 @@ class Phillips(CoefficientsEstimator):
         Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/b)**2)
 
         # Save intermediate values for debugging purposes
+        Vs = [V_inf]
         Gammas = [Gamma]  # For debugging purposes
         delta_Gammas = []
         fs = []
@@ -1416,11 +1422,20 @@ class Phillips(CoefficientsEstimator):
         alphas = []
         Cl_alphas = []
 
+        # FIXME: very ad-hoc way to prevent large negative AoA at the wing tips
+        # FIXME: why must Omega be so small? `Cl_alpha` sensitivity?
+        M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
+        base_Omega, min_Omega = 0.2, 0.05
+        Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
+        if max_runs is None:
+            # max_runs = 5 + int(np.ceil(3*M))
+            max_runs = 10
+
         # FIXME: don't use a fixed number of runs
         # FIXME: how much faster is `opt_einsum` versus the scipy version?
         # FIXME: if `coefs2d.Cl` was Numba compatible, what about this loop?
         n_runs = 0
-        while True:
+        while n_runs < max_runs:
             print("run:", n_runs)
             # 4. Compute the local fluid velocities
             #  * ref: Hunsaker-Snyder Eq:5
@@ -1439,6 +1454,11 @@ class Phillips(CoefficientsEstimator):
             V_a = einsum('ik,ik->i', V, self.u_a)  # Chordwise
             V_n = einsum('ik,ik->i', V, self.u_n)  # Normal-wise
             alpha = arctan2(V_n, V_a)
+
+            min_alpha = min(alpha)
+            if np.rad2deg(min_alpha) < -11:
+                print("Encountered a very small alpha: {}".format(min_alpha))
+                embed()
 
             # plt.plot(cp_y, np.rad2deg(alpha))
             # plt.ylabel('local section alpha')
@@ -1459,8 +1479,7 @@ class Phillips(CoefficientsEstimator):
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
                 embed()
-                1/0
-                break
+                return
 
             # 6. Compute the residual error
             #  * ref: Phillips Eq:15, or Hunsaker-Snyder Eq:8
@@ -1470,30 +1489,15 @@ class Phillips(CoefficientsEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            #
-            # epsilon = 0.00005
-            # Cl_alpha = \
-            #     (self.coefs2d.Cl(cp_y, alpha+epsilon, delta_Bl, delta_Br) -
-            #      self.coefs2d.Cl(cp_y, alpha-epsilon, delta_Bl, delta_Br)) / \
-            #     (2*epsilon)  # FIXME: crude central difference method
-            #
-            # Alternative version that only supports a single airfoil
-            # FIXME: this is a stopgap only, doesn't work great; in particular,
-            #        it forces very small relaxation factors (Omega), since the
-            #        derivatives are so noisy.
-            #
-            # FIXME: my `coefs2D.Cl` is based on a `LinearNDInterpolator`. I'm
-            #        guessing that might jack with the derivatives. :-(
-            #
-            _a = np.deg2rad(np.linspace(-2, 22, 1000))
-            clpoly = Polynomial.fit(_a, self.coefs2d.Cl(0, _a, delta_Bl, delta_Br), 7)
-            Cl_alpha = clpoly.deriv()(alpha)
+            Cl_alpha = self.coefs2d.Cl_alpha(cp_y, alpha, delta_Bl, delta_Br)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
             # plt.show()
 
+            # print("Check the Cl_alpha")
             # embed()
+            # input('continue?')
 
             # J is a Jordan matrix, where `J[ij] = d(F_i)/d(Gamma_j)`
             J1 = 2 * np.diag(W_norm)  # terms for i==j
@@ -1509,43 +1513,178 @@ class Phillips(CoefficientsEstimator):
             # Compute the Gamma update term
             delta_Gamma = np.linalg.solve(J, -f)
 
-            # print("Finished run", n_runs)
-            # embed()
-            # input('continue?')
-
             # Use the residual error and gradient to update the Gamma proposal
-            # FIXME: why must Omega be so small? `Cl_alpha` sensitivity?
-            Omega = 0.15  # Relaxation factor
             Gamma = Gamma + Omega*delta_Gamma
 
+            Vs.append(V)
+            alphas.append(alpha)
             delta_Gammas.append(delta_Gamma)
             Gammas.append(Gamma)
             fs.append(f)
             Js.append(J)
-            alphas.append(alpha)
             Cl_alphas.append(Cl_alpha)
 
             # print("finished run", n_runs)
             # embed()
             # 1/0
 
+            # FIXME: ad-hoc workaround to avoid massively negative AoA
+            Omega += (1 - Omega)/4
+
             n_runs += 1
-            if n_runs > max_runs:
-                break
 
-        embed()
+        # embed()
 
-        # thinning = n_runs // 5 if n_runs > 20 else 1
-        thinning = n_runs // 10 if n_runs > 20 else 1
+        # if n_runs < 10:
+        #     thinning = 1
+        # elif n_runs < 26:
+        #     thinning = 2
+        # else:
+        #     thinning = 5
+        thinning = 1
         Gammas = Gammas[::thinning]
 
         for n, G in enumerate(Gammas):
             plt.plot(cp_y, G, marker='.', label=n*thinning)
         plt.ylabel('Gamma')
         plt.legend()
+        plt.grid(True)
         plt.show()
 
+        dF = Gamma[:, None] * cross(self.dl, V)
+
         embed()
+        # return Gamma
+
+        return dF
+
+
+class Phillips2D(CoefficientsEstimator):
+    """
+    This is a finite-element method, based on Phillips, but it uses the 2D
+    section lift coefficients directly instead of calculating the bound
+    vorticity. This is equivalent to neglecting the induced velocities from
+    other segments.
+    """
+
+    def __init__(self, parafoil, brake_geo):
+        self.parafoil = parafoil
+        self.brake_geo = brake_geo
+        self.coefs2d = Coefs2D(parafoil, brake_geo)
+
+        # Define the spanwise and nodal and control points
+        # NOTE: this is suitable for parafoils, but for wings made of left
+        #       and right segments, you should distribute the points across
+        #       each span independently. See _[1].
+        # FIXME: Phillips indexes the nodal points from zero, and the control
+        #        points from 1. Should I do the same?
+        # FIXME: how many segments for reasonable accuracy?
+        self.K = 51  # The number of bound vortex segments for the entire span
+        k = np.arange(self.K+1)
+        b = self.parafoil.geometry.b
+
+        # Nodes are indexed from 0..K+1
+        node_y = (-b/2) * np.cos(k * np.pi / self.K)
+        node_x = self.parafoil.geometry.fx(node_y)
+        node_z = self.parafoil.geometry.fz(node_y)
+        self.nodes = np.c_[node_x, node_y, node_z]
+
+        # Control points are indexed from 0..K
+        cp_y = (-b/2) * (np.cos(np.pi/(2*self.K) + k[:-1]*np.pi/self.K))
+        cp_x = self.parafoil.geometry.fx(cp_y)
+        cp_z = self.parafoil.geometry.fz(cp_y)
+        self.cps = np.c_[cp_x, cp_y, cp_z]
+
+        # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
+        self.R1 = self.cps - self.nodes[:-1, None]
+        self.R2 = self.cps - self.nodes[1:, None]  # node N is at at axis0=N-1
+        self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
+        self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
+
+        # Define the orthogonal unit vectors for each control point
+        # FIXME: these need verification; their orientation in particular
+        # FIXME: also, check their magnitudes
+        dihedral = self.parafoil.geometry.Gamma(cp_y)
+        twist = self.parafoil.geometry.ftheta(cp_y)  # Angle of incidence
+        sd, cd = sin(dihedral), cos(dihedral)
+        st, ct = sin(twist), cos(twist)
+        self.u_s = np.c_[np.zeros_like(cp_y), cd, sd]  # Spanwise
+        self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
+        self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
+
+        assert np.allclose(norm(self.u_s, axis=1), 1)
+        assert np.allclose(norm(self.u_a, axis=1), 1)
+        assert np.allclose(norm(self.u_n, axis=1), 1)
+
+        # Define the differential areas. Uses a trapezoidal area by assuming a
+        # linear chord variation between nodes.
+        self.dl = self.nodes[1:] - self.nodes[:-1]
+        c_nodes = self.parafoil.geometry.fc(self.nodes[:, 1])
+        self.c_avg = (c_nodes[1:] + c_nodes[:-1])/2
+        # self.dA = c_avg * np.diff(self.nodes[:, 1])  # ignores dihedral
+        # self.dA = self.c_avg * np.diff(self.nodes[:, 1]) / cos(self.parafoil.geometry.Gamma(self.cps[:, 1]))
+        self.dA = self.c_avg * norm(self.dl, axis=1)
+        print("DEBUG> using the dl to compute dA")
+        # FIXME: does the planform area use dl or dy?
+
+    def Cl(self, y, alpha, delta_Bl, delta_Br):
+        raise NotImplementedError
+
+    def Cd(self, y, alpha, delta_Bl, delta_Br):
+        raise NotImplementedError
+
+    def Cm(self, y, alpha, delta_Bl, delta_Br):
+        raise NotImplementedError
+
+    def section_forces(self, V_inf, delta_Bl, delta_Br, rho=1):
+        assert np.shape(V_inf) == (self.K, 3)
+
+        cp_y = self.cps[:, 1]
+
+        # Compute the section local angle of attack
+        #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
+        V_a = einsum('ik,ik->i', V_inf, self.u_a)  # Chordwise
+        V_n = einsum('ik,ik->i', V_inf, self.u_n)  # Normal-wise
+        alpha = arctan2(V_n, V_a)
+
+        CL = self.coefs2d.Cl(cp_y, alpha, delta_Bl, delta_Br)
+        CD = self.coefs2d.Cd(cp_y, alpha, delta_Bl, delta_Br)
+
+        # dL = ((1/2) * norm(V_inf, axis=1) * self.dA * CL)[:, None] * cross(self.dl, V_inf)
+        # dL = dL / norm(self.dl)  # FIXME: hacky, but this term was already included in dA
+
+        directions = cross(self.dl, V_inf)
+        directions = directions / norm(directions, axis=1)[:, None]
+        dL = ((1/2) * np.sum(V_inf**2, axis=1) * self.dA * CL)[:, None] * directions
+
+        # dD = ((1/2) * norm(V_inf, axis=1) * self.dA * CD)[:, None] * -V_inf
+        D_hat = -(V_inf / norm(V_inf, axis=1)[:, None])  # Drag unit vectors
+        dD = (1/2 * np.sum(V_inf**2, axis=1) * self.dA * CD)[:, None] * D_hat
+
+        print("check dL and dD")
+        embed()
+
+        L = np.sum(dL, axis=0)  # These are the inviscous forces only
+        D = np.sum(dD, axis=0)
+
+        dF = dL + dD
+        return dF
+
+        F = L + D  # Normal forces + parallel forces
+        # print("Check the section forces")
+        # embed()
+        # return F
+
+        Gamma = ((1/2) * np.sum(V_inf**2, axis=1) * CL * self.dA /
+                 norm(cross(self.dl, V_inf), axis=1))
+
+        return Gamma
+
+
+        # FIXME: what about the moments?
+        #  1. From the section forces
+        #  2. From the section pitching moments
+
 
 
 

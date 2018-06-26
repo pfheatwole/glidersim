@@ -54,7 +54,8 @@ def plot_coefficients(coefs):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     for n, c in enumerate(CLs):
-        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        # ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        ax.plot(alphas, np.full_like(alphas, deltas[n]), c)
     ax.set_xlabel('alpha')
     ax.set_ylabel('delta')
     ax.set_zlabel('CL')
@@ -68,7 +69,8 @@ def plot_coefficients(coefs):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     for n, c in enumerate(CDs):
-        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        # ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        ax.plot(alphas, np.full_like(alphas, deltas[n]), c)
     ax.set_xlabel('alpha')
     ax.set_ylabel('delta')
     ax.set_zlabel('CD')
@@ -82,7 +84,8 @@ def plot_coefficients(coefs):
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     for n, c in enumerate(CM_c4s):
-        ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        # ax.plot(alphas, np.ones_like(alphas)*deltas[n], c)
+        ax.plot(alphas, np.full_like(alphas, deltas[n]), c)
     ax.set_xlabel('alpha')
     ax.set_ylabel('delta')
     ax.set_zlabel('CM')
@@ -119,8 +122,12 @@ def plot_polar(glider):
 
 
 def main():
-    print("\nGNULAB3 airfoil\n")
-    coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
+    # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
+    # coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
+
+    print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
+    coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv',
+                                     0.8)
 
     # print("\nNACA4412 LinearCoefficients airfoil\n")
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
@@ -138,15 +145,26 @@ def main():
     y = np.linspace(-b/2, b/2, 501)
 
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
-    brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
-    parafoil_coefs = Parafoil.Coefs2D(parafoil, brakes)
-    parafoil_coefs2 = Parafoil.CoefsMine(parafoil, brakes)
-    parafoil_coefs3 = Parafoil.CoefsPFD(parafoil, brakes)
-    parafoil_coefs4 = Parafoil.Coefs2(parafoil, brakes)
-    coefs = parafoil_coefs4
+    # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
 
-    if isinstance(coefs, Parafoil.CoefsPFD):  # FIXME: HACK!
-        coefs._pointwise_local_coefficients(.123, 0)
+    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil.geometry.fc(b/2)
+    bQuadratic = BrakeGeometry.Quadratic(b, delta_max)
+    bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
+    bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
+    bCubic65 = BrakeGeometry.Cubic(b, 0.65, delta_max)
+    brakes = bQuadratic
+    brakes = bCubic65
+
+    # embed()
+
+#   parafoil_coefs = Parafoil.Coefs2D(parafoil, brakes)
+#   parafoil_coefs2 = Parafoil.CoefsMine(parafoil, brakes)
+#   parafoil_coefs3 = Parafoil.CoefsPFD(parafoil, brakes)
+#   parafoil_coefs4 = Parafoil.Coefs2(parafoil, brakes)
+#   coefs = parafoil_coefs4
+
+#   if isinstance(coefs, Parafoil.CoefsPFD):  # FIXME: HACK!
+#       coefs._pointwise_local_coefficients(.123, 0)
 
     wing = ParagliderWing(parafoil, coefs, d_cg=0.5, h_cg=7, kappa_S=0.4)
     glider = Paraglider(wing, 75, 0.55, 0.75)
@@ -160,7 +178,24 @@ def main():
     print("entering Phillips")
     phillips = Parafoil.Phillips(parafoil, brakes)
 
-    # embed()
+    print("entering Phillips2D")
+    phillips2d = Parafoil.Phillips2D(parafoil, brakes)
+    print("Testing V_inf = [10, 0, 1]")
+    V_inf = np.asarray([[10.0, 0.0, 1.0]]*phillips2d.K)
+    V_inf[:, 0] += np.linspace(0, 1, phillips2d.K)**2 * 2  # spinning!
+    # phillips2d.section_forces(V_inf, 0, 0)
+    # phillips2d.section_forces(V_inf, 0, 0.25)
+    # phillips2d.section_forces(V_inf, 0, 0.5)
+    # phillips2d.section_forces(V_inf, 0, 1)
+
+    # Gamma_2d = phillips2d.section_forces(V_inf, 0, 1)
+    # Gamma_3d = phillips.find_vortex_strengths(V_inf, 0, 1)
+
+    dF_2d = phillips2d.section_forces(V_inf, 0, 1)
+    dF_3d = phillips.find_vortex_strengths(V_inf, 0, 1)
+
+    embed()
+
 
     # plot_coefficients(coefs)
     # embed()
