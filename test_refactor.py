@@ -142,7 +142,6 @@ def main():
         sMed=5, airfoil_geo=Airfoil.NACA4(4412), coefs=coefs)
 
     b = parafoil.geometry.b
-    y = np.linspace(-b/2, b/2, 501)
 
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
     # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
@@ -152,19 +151,8 @@ def main():
     bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
     bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
     bCubic65 = BrakeGeometry.Cubic(b, 0.65, delta_max)
-    brakes = bQuadratic
+    # brakes = bQuadratic
     brakes = bCubic65
-
-    # embed()
-
-#   parafoil_coefs = Parafoil.Coefs2D(parafoil, brakes)
-#   parafoil_coefs2 = Parafoil.CoefsMine(parafoil, brakes)
-#   parafoil_coefs3 = Parafoil.CoefsPFD(parafoil, brakes)
-#   parafoil_coefs4 = Parafoil.Coefs2(parafoil, brakes)
-#   coefs = parafoil_coefs4
-
-#   if isinstance(coefs, Parafoil.CoefsPFD):  # FIXME: HACK!
-#       coefs._pointwise_local_coefficients(.123, 0)
 
     wing = ParagliderWing(parafoil, coefs, d_cg=0.5, h_cg=7, kappa_S=0.4)
     glider = Paraglider(wing, 75, 0.55, 0.75)
