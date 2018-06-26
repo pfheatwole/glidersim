@@ -540,12 +540,13 @@ class Phillips(CoefficientsEstimator):
 
         return self.f(u_inf)
 
-    def find_vortex_strengths(self, V_inf, delta_Bl, delta_Br, max_runs=None):
+    def _vortex_strengths(self, V_rel, delta_Bl, delta_Br, max_runs=None):
         """
+        FIXME: finish the docstring
 
         Parameters
         ----------
-        V_inf : array of float, shape (K,) [meters/second]
+        V_rel : array of float, shape (K,) [meters/second]
             Fluid velocity vectors for each section, in body coordinates. This
             is equal to the relative wind "far" from each wing section, which
             is absent of circulation effects.
@@ -553,16 +554,24 @@ class Phillips(CoefficientsEstimator):
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
+
+        Returns
+        -------
+        Gamma : array of float, shape (K,) [units?]
+        V : array of float, shape (K,) [meters/second]
+
         """
 
         # FIXME: this implementation fails when wing sections go beyond the
         #        stall condition. In that case, use under-relaxed Picard
         #        iterations.  ref: Hunsaker and Snyder, 2006, pg 5
+        # FIXME: find a better initial proposal
+        # FIXME: return the induced AoA? Could be interesting
 
-        assert np.shape(V_inf) == (self.K, 3)
+        assert np.shape(V_rel) == (self.K, 3)
 
         # FIXME: is using the freestream velocity at the central chord okay?
-        u_inf = V_inf[self.K // 2]
+        u_inf = V_rel[self.K // 2]
         u_inf = u_inf / norm(u_inf)
 
         # 2. Compute the "induced velocity" unit vectors
@@ -579,13 +588,13 @@ class Phillips(CoefficientsEstimator):
         # avg_brake = (delta_Bl + delta_Br)/2
         # CL_2d = self.coefs2d.CL(np.arctan2(u_inf[2], u_inf[0]), avg_brake)
         # S = self.parafoil.geometry.S
-        # Gamma0 = 2*norm(V_inf[self.K//2])*S*CL_2d/(np.pi*b)  # c0 circulation
+        # Gamma0 = 2*norm(V_rel[self.K//2])*S*CL_2d/(np.pi*b)  # c0 circulation
 
         Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/b)**2)
 
         # Save intermediate values for debugging purposes
-        Vs = [V_inf]
-        Gammas = [Gamma]  # For debugging purposes
+        Vs = [V_rel]
+        Gammas = [Gamma]
         delta_Gammas = []
         fs = []
         Js = []
@@ -610,14 +619,7 @@ class Phillips(CoefficientsEstimator):
             # 4. Compute the local fluid velocities
             #  * ref: Hunsaker-Snyder Eq:5
             #  * ref: Phillips Eq:5 (nondimensional version)
-            V = V_inf + einsum('i,ijk->jk', Gamma, v)
-
-            # for n in range(3):
-            #     plt.plot(cp_y, V[:, n], label='V_{}'.format(['x','y','z'][n]), marker='.')
-            #     plt.plot(cp_y, V_inf[:, n], label='V_inf{}'.format(['x','y','z'][n]))
-            # plt.ylabel('total local velocity')
-            # plt.legend()
-            # plt.show()
+            V = V_rel + einsum('i,ijk->jk', Gamma, v)
 
             # 5. Compute the section local angle of attack
             #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
@@ -635,8 +637,8 @@ class Phillips(CoefficientsEstimator):
             # plt.show()
 
             # For testing purposes: the global section alpha and induced AoA
-            # V_chordwise_2d = einsum('ij,ij->i', V_inf, self.u_a)
-            # V_normal_2d = einsum('ij,ij->i', V_inf, self.u_n)
+            # V_chordwise_2d = einsum('ij,ij->i', V_rel, self.u_a)
+            # V_normal_2d = einsum('ij,ij->i', V_rel, self.u_n)
             # alpha_2d = arctan2(V_normal_2d, V_chordwise_2d)
             # alpha_induced = alpha_2d - alpha
 
@@ -650,6 +652,7 @@ class Phillips(CoefficientsEstimator):
                 print("Cl has nan's")
                 embed()
                 return
+                # FIXME: raise a RuntimeWarning?
 
             # 6. Compute the residual error
             #  * ref: Phillips Eq:15, or Hunsaker-Snyder Eq:8
@@ -711,22 +714,25 @@ class Phillips(CoefficientsEstimator):
         #     thinning = 2
         # else:
         #     thinning = 5
-        thinning = 1
-        Gammas = Gammas[::thinning]
+        # thinning = 1
+        # Gammas = Gammas[::thinning]
 
-        for n, G in enumerate(Gammas):
-            plt.plot(cp_y, G, marker='.', label=n*thinning)
-        plt.ylabel('Gamma')
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        # for n, G in enumerate(Gammas):
+        #     plt.plot(cp_y, G, marker='.', label=n*thinning)
+        # plt.ylabel('Gamma')
+        # plt.legend()
+        # plt.grid(True)
+        # plt.show()
 
+        return Gamma, V
+
+    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+        # FIXME: depenency on rho?
+        # FIXME: include viscous effects as well; ref: the Phillips paper
+        Gamma, V = self._vortex_strengths(V_rel, delta_Bl, delta_Br)
         dF = Gamma[:, None] * cross(self.dl, V)
-
-        embed()
-        # return Gamma
-
-        return dF
+        dM = None
+        return dF, dM
 
 
 class Phillips2D(CoefficientsEstimator):
@@ -806,56 +812,29 @@ class Phillips2D(CoefficientsEstimator):
     def Cm(self, y, alpha, delta_Bl, delta_Br):
         raise NotImplementedError
 
-    def section_forces(self, V_inf, delta_Bl, delta_Br, rho=1):
-        assert np.shape(V_inf) == (self.K, 3)
+    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+        # FIXME: dependency on rho?
+        assert np.shape(V_rel) == (self.K, 3)
 
         cp_y = self.cps[:, 1]
 
         # Compute the section local angle of attack
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-        V_a = einsum('ik,ik->i', V_inf, self.u_a)  # Chordwise
-        V_n = einsum('ik,ik->i', V_inf, self.u_n)  # Normal-wise
+        V_a = einsum('ik,ik->i', V_rel, self.u_a)  # Chordwise
+        V_n = einsum('ik,ik->i', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
         CL = self.coefs2d.Cl(cp_y, alpha, delta_Bl, delta_Br)
         CD = self.coefs2d.Cd(cp_y, alpha, delta_Bl, delta_Br)
 
-        # dL = ((1/2) * norm(V_inf, axis=1) * self.dA * CL)[:, None] * cross(self.dl, V_inf)
-        # dL = dL / norm(self.dl)  # FIXME: hacky, but this term was already included in dA
+        dL_hat = cross(self.dl, V_rel)
+        dL_hat = dL_hat / norm(dL_hat, axis=1)[:, None]  # Lift unit vectors
+        dL = (1/2 * np.sum(V_rel**2, axis=1) * self.dA * CL)[:, None] * dL_hat
 
-        directions = cross(self.dl, V_inf)
-        directions = directions / norm(directions, axis=1)[:, None]
-        dL = ((1/2) * np.sum(V_inf**2, axis=1) * self.dA * CL)[:, None] * directions
-
-        # dD = ((1/2) * norm(V_inf, axis=1) * self.dA * CD)[:, None] * -V_inf
-        D_hat = -(V_inf / norm(V_inf, axis=1)[:, None])  # Drag unit vectors
-        dD = (1/2 * np.sum(V_inf**2, axis=1) * self.dA * CD)[:, None] * D_hat
-
-        print("check dL and dD")
-        embed()
-
-        L = np.sum(dL, axis=0)  # These are the inviscous forces only
-        D = np.sum(dD, axis=0)
+        dD_hat = -(V_rel / norm(V_rel, axis=1)[:, None])  # Drag unit vectors
+        dD = (1/2 * np.sum(V_rel**2, axis=1) * self.dA * CD)[:, None] * dD_hat
 
         dF = dL + dD
-        return dF
+        dM = 0
 
-        F = L + D  # Normal forces + parallel forces
-        # print("Check the section forces")
-        # embed()
-        # return F
-
-        Gamma = ((1/2) * np.sum(V_inf**2, axis=1) * CL * self.dA /
-                 norm(cross(self.dl, V_inf), axis=1))
-
-        return Gamma
-
-
-        # FIXME: what about the moments?
-        #  1. From the section forces
-        #  2. From the section pitching moments
-
-
-
-
-# noqa: E303
+        return dF, dM
