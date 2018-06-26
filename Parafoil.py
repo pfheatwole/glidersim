@@ -1,8 +1,7 @@
 import abc
 
 import numpy as np
-from numpy import sin, cos, arctan, arctan2, dot, cross, einsum
-from numpy.polynomial import Polynomial
+from numpy import sin, cos, arctan2, dot, cross, einsum
 from numpy.linalg import norm
 
 from numba import njit
@@ -10,7 +9,7 @@ from numba import njit
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
-from util import trapz, cross3
+from util import cross3
 
 from IPython import embed
 
@@ -45,9 +44,9 @@ def set_axes_equal(ax):
 
 
 class Parafoil:
-    def __init__(self, geometry, airfoil, wing_density=0.2):
+    def __init__(self, geometry, sections, wing_density=0.2):
         self.geometry = geometry
-        self.airfoil = airfoil  # FIXME: replace with a ParafoilCoefficients
+        self.sections = sections  # Provides the airfoils for each section
         self.wing_density = wing_density  # FIXME: no idea in general
 
     @property
@@ -120,81 +119,64 @@ class Parafoil:
         return np.c_[x, _y, z]
 
 
-class ParafoilCoefficients(abc.ABC):
-    """Returns the section coefficients"""
+class ParafoilSections(abc.ABC):
+    """Defines the spanwise variation of the Parafoil sections"""
+
+    # FIXME: bad naming? An instance of this class isn't a Parafoil section.
 
     @abc.abstractmethod
-    def Cl(self, y, alpha, delta_Bl, delta_Br):
-        """The lift coefficient for the parafoil section"""
+    def Cl_alpha(self, y, alpha, delta):
+        """The derivative of the lift coefficient vs alpha for the section"""
 
     @abc.abstractmethod
-    def Cd(self, y, alpha, delta_Bl, delta_Br):
-        """The drag coefficient for the parafoil section"""
+    def Cl(self, y, alpha, delta):
+        """The lift coefficient for the section"""
 
     @abc.abstractmethod
-    def Cm(self, y, alpha, delta_Bl, delta_Br):
-        """The pitching moment coefficient for the parafoil section"""
+    def Cd(self, y, alpha, delta):
+        """The drag coefficient for the section"""
+
+    @abc.abstractmethod
+    def Cm(self, y, alpha, delta):
+        """The pitching moment coefficient for the section"""
 
 
-class ConstantCoefficients(ParafoilCoefficients):
+class ConstantCoefficients(ParafoilSections):
     """
-    Uses the same airfoil for all wing sections.
+    Uses the same airfoil for all wing sections, no spanwise variation.
     """
 
-    def __init__(self, parafoil, brake_geo):
-        self.parafoil = parafoil
-        self.brake_geo = brake_geo
+    def __init__(self, airfoil):
+        self.airfoil = airfoil
 
-    # FIXME: reparameterize the coefficients to use the normalized deltas
-
-    def Cl_alpha(self, y, alpha, delta_Bl, delta_Br):
+    def Cl_alpha(self, y, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha
-        delta_distance = self.brake_geo(y, delta_Bl, delta_Br)
+            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+        return self.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-        # Convert the deflection distances to deflection angles.
-        #
-        # From the arc length equation, `s = radius*theta`, where `s` is the
-        # trailing edge deflection distance, `radius` is the chord length, and
-        # `theta` is the deflection angle.
-        c = self.parafoil.geometry.fc(y)
-        delta_angle = delta_distance / c
-
-        return self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta_angle)
-
-    def Cl(self, y, alpha, delta_Bl, delta_Br):
+    def Cl(self, y, alpha, delta):
         # FIXME: make AirfoilCoefficients responsible for broadcasting `alpha`?
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha
+            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+        return self.airfoil.coefficients.Cl(alpha, delta)
 
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
-
-        return self.parafoil.airfoil.coefficients.Cl(alpha, delta)
-
-    def Cd(self, y, alpha, delta_Bl, delta_Br):
+    def Cd(self, y, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha
+            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+        return self.airfoil.coefficients.Cd(alpha, delta)
 
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
-
-        return self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-
-    def Cm(self, y, alpha, delta_Bl, delta_Br):
+    def Cm(self, y, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha
+            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+        return self.airfoil.coefficients.Cm0(alpha, delta)
 
-        c = self.parafoil.geometry.fc(y)
-        delta = self.brake_geo(y, delta_Bl, delta_Br) / c
 
-        return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
-
+# ----------------------------------------------------------------------------
 
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+    def forces_and_moments(self, V_rel, delta, rho=1):
         """Estimate the forces and moments on a Parafoil"""
 
 
@@ -219,10 +201,8 @@ class Phillips(ForceEstimator):
     the segment length is decreased. See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil, brake_geo):
+    def __init__(self, parafoil):
         self.parafoil = parafoil
-        self.brake_geo = brake_geo
-        self.coefs = ConstantCoefficients(parafoil, brake_geo)
 
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
@@ -357,7 +337,7 @@ class Phillips(ForceEstimator):
 
         return self.f(u_inf)
 
-    def _vortex_strengths(self, V_rel, delta_Bl, delta_Br, max_runs=None):
+    def _vortex_strengths(self, V_rel, delta, max_runs=None):
         """
         FIXME: finish the docstring
 
@@ -367,10 +347,8 @@ class Phillips(ForceEstimator):
             Fluid velocity vectors for each section, in body coordinates. This
             is equal to the relative wind "far" from each wing section, which
             is absent of circulation effects.
-        delta_Bl : float [percentage]
-            The amount of left brake
-        delta_Br : float [percentage]
-            The amount of right brake
+        delta : array of float, shape (K,) [radians]
+            The angle of trailing edge deflection
 
         Returns
         -------
@@ -420,9 +398,11 @@ class Phillips(ForceEstimator):
 
         # FIXME: very ad-hoc way to prevent large negative AoA at the wing tips
         # FIXME: why must Omega be so small? `Cl_alpha` sensitivity?
-        M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
-        base_Omega, min_Omega = 0.2, 0.05
-        Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
+        # M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
+        # base_Omega, min_Omega = 0.2, 0.05
+        # Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
+        Omega = 0.1
+
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
             max_runs = 10
@@ -463,7 +443,7 @@ class Phillips(ForceEstimator):
             # embed()
             # input('continue?')
 
-            Cl = self.coefs.Cl(cp_y, alpha, delta_Bl, delta_Br)
+            Cl = self.parafoil.sections.Cl(cp_y, alpha, delta)
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
@@ -479,7 +459,7 @@ class Phillips(ForceEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            Cl_alpha = self.coefs.Cl_alpha(cp_y, alpha, delta_Bl, delta_Br)
+            Cl_alpha = self.parafoil.sections.Cl_alpha(cp_y, alpha, delta)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
@@ -543,10 +523,10 @@ class Phillips(ForceEstimator):
 
         return Gamma, V
 
-    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+    def forces_and_moments(self, V_rel, delta, rho=1):
         # FIXME: depenency on rho?
         # FIXME: include viscous effects as well; ref: the Phillips paper
-        Gamma, V = self._vortex_strengths(V_rel, delta_Bl, delta_Br)
+        Gamma, V = self._vortex_strengths(V_rel, delta)
         dF = Gamma[:, None] * cross(self.dl, V)
         dM = None
         return dF, dM
@@ -560,10 +540,8 @@ class Phillips2D(ForceEstimator):
     other segments.
     """
 
-    def __init__(self, parafoil, brake_geo):
+    def __init__(self, parafoil):
         self.parafoil = parafoil
-        self.brake_geo = brake_geo
-        self.coefs = ConstantCoefficients(parafoil, brake_geo)
 
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
@@ -620,7 +598,7 @@ class Phillips2D(ForceEstimator):
         print("DEBUG> using the dl to compute dA")
         # FIXME: does the planform area use dl or dy?
 
-    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+    def forces_and_moments(self, V_rel, delta, rho=1):
         # FIXME: dependency on rho?
         assert np.shape(V_rel) == (self.K, 3)
 
@@ -632,8 +610,8 @@ class Phillips2D(ForceEstimator):
         V_n = einsum('ik,ik->i', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
-        CL = self.coefs.Cl(cp_y, alpha, delta_Bl, delta_Br)
-        CD = self.coefs.Cd(cp_y, alpha, delta_Bl, delta_Br)
+        CL = self.parafoil.sections.Cl(cp_y, alpha, delta)
+        CD = self.parafoil.sections.Cd(cp_y, alpha, delta)
 
         dL_hat = cross(self.dl, V_rel)
         dL_hat = dL_hat / norm(dL_hat, axis=1)[:, None]  # Lift unit vectors

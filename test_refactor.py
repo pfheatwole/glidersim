@@ -18,7 +18,7 @@ from Paraglider import Paraglider
 
 
 def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
-                     torsion=0, airfoil_geo=None, coefs=None):
+                     torsion=0, airfoil_geo=None, sections=None):
     if dMax is None:
         dMax = 2*dMed - 1  # ref page 48 (56)
         print("Using minimum max dihedral ({})".format(dMax))
@@ -31,18 +31,13 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     c0 = Elliptical.MAC_to_c0(MAC, taper)
     b = Elliptical.AR_to_b(c0, AR, taper)
 
+    if sections is None:
+        raise ValueError("FIXME: the `sections` parameter is mandatory")
+
     # FIXME: this naming is confusing. Ellipticalg is a geometry, not a wing
     foil_geo = Elliptical(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
 
-    if airfoil_geo is None:
-        airfoil_geo = Airfoil.NACA4(2415)
-
-    if coefs is None:
-        # coefs = LinearCoefficients(5.73, -5, 0.007, -0.05)  # a0, i0, D0, Cm0
-        print("Using default airfoil coefficients")
-        coefs = Airfoil.LinearCoefficients(5.80, -4, 0.008, -0.1)
-
-    return Parafoil.Parafoil(foil_geo, Airfoil.Airfoil(coefs, airfoil_geo))
+    return Parafoil.Parafoil(foil_geo, sections)
 
 
 def plot_coefficients(coefs):
@@ -122,12 +117,17 @@ def plot_polar(glider):
 
 
 def main():
+    airfoil_geo = Airfoil.NACA4(4412)  # For graphical purposes only
+
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
-    # coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
 
     print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
-    coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv',
-                                     0.8)
+    airfoil_coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv', 0.8)
+
+    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+
+    sections = Parafoil.ConstantCoefficients(airfoil)
 
     # print("\nNACA4412 LinearCoefficients airfoil\n")
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
@@ -139,7 +139,7 @@ def main():
         # MAC=2.5, AR=3.9, taper=0.15, dMed=-20, dMax=-50,
         MAC=2.5, AR=3.9, taper=0.15, dMed=-25, dMax=-70,
         # MAC=2.5, AR=3.9, taper=0.15, dMed=-1, dMax=-2,
-        sMed=5, airfoil_geo=Airfoil.NACA4(4412), coefs=coefs)
+        sMed=5, airfoil_geo=Airfoil.NACA4(4412), sections=sections)
 
     b = parafoil.geometry.b
 
@@ -154,7 +154,7 @@ def main():
     # brakes = bQuadratic
     brakes = bCubic65
 
-    wing = ParagliderWing(parafoil, coefs, d_cg=0.5, h_cg=7, kappa_S=0.4)
+    wing = ParagliderWing(parafoil, d_cg=0.5, h_cg=7, kappa_S=0.4)
     glider = Paraglider(wing, 75, 0.55, 0.75)
 
     print("\nFinished building the wing\n")
@@ -164,23 +164,27 @@ def main():
     # cl, cdi = anders._compute_section_coefs(0.123, 0)
 
     print("entering Phillips")
-    phillips = Parafoil.Phillips(parafoil, brakes)
+    phillips = Parafoil.Phillips(parafoil)
 
     print("entering Phillips2D")
-    phillips2d = Parafoil.Phillips2D(parafoil, brakes)
+    phillips2d = Parafoil.Phillips2D(parafoil)
+
+
     print("Testing V_inf = [10, 0, 1]")
-    V_inf = np.asarray([[10.0, 0.0, 1.0]]*phillips2d.K)
-    V_inf[:, 0] += np.linspace(0, 1, phillips2d.K)**2 * 2  # spinning!
-    # phillips2d.section_forces(V_inf, 0, 0)
-    # phillips2d.section_forces(V_inf, 0, 0.25)
-    # phillips2d.section_forces(V_inf, 0, 0.5)
-    # phillips2d.section_forces(V_inf, 0, 1)
+    cp_y = phillips.cps[:, 0]
+    K = len(cp_y)
+    V_inf = np.asarray([[10.0, 0.0, 1.0]] * K)
+    V_inf[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
+    # delta = brakes(cp_y, 0, 0.0)
+    # delta = brakes(cp_y, 0, 0.25)
+    # delta = brakes(cp_y, 0, 0.5)
+    delta = brakes(cp_y, 0, 1.0)
 
     # Gamma_2d = phillips2d.section_forces(V_inf, 0, 1)
     # Gamma_3d = phillips.find_vortex_strengths(V_inf, 0, 1)
 
-    dF_2d = phillips2d.section_forces(V_inf, 0, 1)
-    dF_3d = phillips.find_vortex_strengths(V_inf, 0, 1)
+    dF_2d, _ = phillips2d.forces_and_moments(V_inf, delta)
+    dF_3d, _ = phillips.forces_and_moments(V_inf, delta)
 
     embed()
 
