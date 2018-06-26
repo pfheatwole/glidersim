@@ -47,7 +47,7 @@ def set_axes_equal(ax):
 class Parafoil:
     def __init__(self, geometry, airfoil, wing_density=0.2):
         self.geometry = geometry
-        self.airfoil = airfoil
+        self.airfoil = airfoil  # FIXME: replace with a ParafoilCoefficients
         self.wing_density = wing_density  # FIXME: no idea in general
 
     @property
@@ -120,7 +120,9 @@ class Parafoil:
         return np.c_[x, _y, z]
 
 
-class CoefficientsEstimator(abc.ABC):
+class ParafoilCoefficients(abc.ABC):
+    """Returns the section coefficients"""
+
     @abc.abstractmethod
     def Cl(self, y, alpha, delta_Bl, delta_Br):
         """The lift coefficient for the parafoil section"""
@@ -133,161 +135,15 @@ class CoefficientsEstimator(abc.ABC):
     def Cm(self, y, alpha, delta_Bl, delta_Br):
         """The pitching moment coefficient for the parafoil section"""
 
-    def _pointwise_global_coefficients(self, alpha, delta_B):
-        """
-        Compute point estimates of the global CL, CD, and Cm
 
-        This procedure is from Paraglider Flight Dynamics, Sec:4.3.3
-
-        Parameters
-        ----------
-        alpha : float [radians]
-            The angle of attack for the current point estimate
-        delta_B : float [percentage]
-            The amount of symmetric brakes, where `0 <= delta_b <= 1`
-
-        Returns
-        -------
-        CL : float
-            The global lift coefficient
-        CD : float
-            The global drag coefficient
-        CM_c4 : float
-            The global pitching moment coefficient about quarter chord of the
-            central chord.
-        """
-
-        # Build a set of integration points
-        N = 501
-        dy = self.parafoil.geometry.b/(N - 1)  # Include the endpoints
-        y = np.linspace(-self.parafoil.geometry.b/2,
-                        self.parafoil.geometry.b/2, N)
-
-        # Compute local relative winds to match `alpha`
-        uL, wL = np.cos(alpha), np.sin(alpha)
-
-        # Compute the local forces
-        dF, dM = self.section_forces(y, uL, 0, wL, delta_B, delta_B)
-        dFx, dFz, dMy = dF[:, 0], dF[:, 2], dM[:, 1]  # Convenience views
-
-        # Convert the body-oriented forces into relative wind coordinates
-        # PFD Eq:4.29-4.30, p77
-        Li_prime = dFx*sin(alpha) - dFz*cos(alpha)
-        Di_prime = -dFx*cos(alpha) - dFz*sin(alpha)
-        L = trapz(Li_prime, dy)
-        D = trapz(Di_prime, dy)
-        My = trapz(dMy, dy)
-
-        # Relocating the dFx and dFz to the central quarter chord introduces
-        # new pitching moments. These must be subtracted from the overall
-        # pitching moment for the global force+moment pair to be equivalent.
-        c4 = self.parafoil.geometry.fx(0)
-        x = self.parafoil.geometry.fx(y)
-        z = self.parafoil.geometry.fz(y)
-        mFx = trapz(dFx*(0-z), dy)  # The moment from relocating dFx to c4
-        mFz = -trapz(dFz*(c4-x), dy)  # The moment from relocating dFz to c4
-        My_c4 = My - mFx - mFz  # Apply counteracting moments for equivalence
-
-        # Compute the global coefficients
-        # Note: in this context, rho=1 and V_infinity=1 and have been dropped
-        S = self.parafoil.geometry.S
-        MAC = self.parafoil.geometry.MAC
-        CL = L / (1/2 * S)
-        CD = D / (1/2 * S)
-        CM_c4 = My_c4 / (1/2 * S * MAC)
-
-        return CL, CD, CM_c4
-
-    # FIXME: this doesn't seem to belong in a "CoefficientsEstimator"!
-    #
-    #        Update: doubly so, since Phillip's method has it's own equations
-    #        based on the estimated circulation
-    def section_forces(self, y, uL, vL, wL, delta_Bl=0, delta_Br=0, rho=1):
-        """
-        Compute section forces and moments acting on the wing.
-
-        Parameters
-        ----------
-        y : float or array of float
-            The section position on the wing span, where -b/2 < y < b/2
-        uL : float or array of float
-            Section-local relative wind aligned to the Parafoil x-axis
-        vL : float or array of float
-            Section-local relative wind aligned to the Parafoil y-axis
-        wL : float or array of float
-            Section-local relative wind aligned to the Parafoil z-axis
-        delta_Bl : float [percentage]
-            The amount of left brake
-        delta_Br : float [percentage]
-            The amount of right brake
-        rho : float
-            Air density
-
-        Returns
-        -------
-        dF : ndarray, shape (M, 3)
-            The force differentials parallel to the X, Y, and Z axes
-        dM : ndarray, shape (M, 3)
-            The moment differentials about the X, Y, and Z axes
-        """
-
-        # FIXME: verify docstring. These are forces per unit span, not the
-
-        Gamma = self.parafoil.geometry.Gamma(y)  # PFD eq 4.13, p74
-        theta = self.parafoil.geometry.ftheta(y)
-
-        # Compute the section (local) relative wind
-        u = uL  # PFD Eq:4.14, p74
-        w = wL*cos(Gamma) - vL*sin(Gamma)  # PFD Eq:4.15, p74
-        alpha = arctan(w/u) + theta  # PFD Eq:4.17, p74
-
-        Cl = self.Cl(y, alpha, delta_Bl, delta_Br)
-        Cd = self.Cd(y, alpha, delta_Bl, delta_Br)
-        Cm = self.Cm(y, alpha, delta_Bl, delta_Br)
-
-        # PFD Eq:4.65-4.67 (with an implicit `dy` term)
-        c = self.parafoil.geometry.fc(y)
-        K1 = (rho/2)*(u**2 + w**2)
-        K2 = 1/cos(Gamma)
-        dL = K1*Cl*c*K2
-        dD = K1*Cd*c*K2
-        dm0 = K1*Cm*(c**2)*K2
-
-        # Translate the section forces and moments into Parafoil body axes
-        #  * PFD Eqs:4.23-4.28, pp76-77
-        dF_perp_x = dL*cos(alpha - theta) + dD*sin(alpha - theta)
-        dF_par_x = dL*sin(alpha - theta) - dD*cos(alpha - theta)
-        dF_par_y = dF_perp_x * sin(Gamma)
-        dF_par_z = -dF_perp_x * cos(Gamma)
-        dM_par_x = np.zeros_like(y)
-        dM_par_y = dm0*cos(Gamma)
-        dM_par_z = -dm0*sin(Gamma)  # FIXME: verify
-
-        dF = np.vstack([dF_par_x, dF_par_y, dF_par_z]).T
-        dM = np.vstack([dM_par_x, dM_par_y, dM_par_z]).T
-
-        return dF, dM
-
-
-class Coefs2D(CoefficientsEstimator):
+class ConstantCoefficients(ParafoilCoefficients):
     """
-    Returns the 2D airfoil coefficients with no adjustments.
-
-    FIXME: Only works for parafoils with constant airfoils
+    Uses the same airfoil for all wing sections.
     """
 
     def __init__(self, parafoil, brake_geo):
         self.parafoil = parafoil
         self.brake_geo = brake_geo
-
-        # Compute 25 Polynomial approximations over the operating brake range
-        self.delta_Bs = np.linspace(0, 1, 25)
-
-        # Initialize the global aerodynamic coefficients
-        CLs, CDs, CM_c4s = self._compute_global_coefficients()
-        self.CLs = CLs
-        self.CDs = CDs
-        self.CM_c4s = CM_c4s
 
     # FIXME: reparameterize the coefficients to use the normalized deltas
 
@@ -334,45 +190,15 @@ class Coefs2D(CoefficientsEstimator):
 
         return self.parafoil.airfoil.coefficients.Cm0(alpha, delta)
 
-    # FIXME: doesn't do any interpolation between deltas
-    def CL(self, alpha, delta_B):
-        di = np.argmin(np.abs(self.delta_Bs - delta_B))
-        return self.CLs[di](alpha)
 
-    def CD(self, alpha, delta_B):
-        di = np.argmin(np.abs(self.delta_Bs - delta_B))
-        return self.CDs[di](alpha)
+class ForceEstimator(abc.ABC):
 
-    def CM_c4(self, alpha, delta_B):
-        di = np.argmin(np.abs(self.delta_Bs - delta_B))
-        return self.CM_c4s[di](alpha)
-
-    def _compute_global_coefficients(self):
-        alphas = np.deg2rad(np.linspace(-1.99, 24, 100))
-        _CLs, _CDs, _CM_c4s = [], [], []
-
-        for n_d, delta_B in enumerate(self.delta_Bs):
-            CLs = np.empty_like(alphas)
-            CDs = np.empty_like(alphas)
-            CM_c4s = np.empty_like(alphas)
-
-            for n_a, alpha in enumerate(alphas):
-                CL, CD, CM_c4 = self._pointwise_global_coefficients(
-                        alpha, delta_B)
-                CLs[n_a], CDs[n_a], CM_c4s[n_a] = CL, CD, CM_c4
-
-            CL = Polynomial.fit(alphas, CLs, 5)
-            CD = Polynomial.fit(alphas, CDs, 5)
-            CM_c4 = Polynomial.fit(alphas, CM_c4s, 2)
-
-            _CLs.append(CL)
-            _CDs.append(CD)
-            _CM_c4s.append(CM_c4)
-
-        return _CLs, _CDs, _CM_c4s
+    @abc.abstractmethod
+    def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
+        """Estimate the forces and moments on a Parafoil"""
 
 
-class Phillips(CoefficientsEstimator):
+class Phillips(ForceEstimator):
     """
     Supposed to work with wings with sweep and dihedral, but much more complex.
 
@@ -396,7 +222,7 @@ class Phillips(CoefficientsEstimator):
     def __init__(self, parafoil, brake_geo):
         self.parafoil = parafoil
         self.brake_geo = brake_geo
-        self.coefs2d = Coefs2D(parafoil, brake_geo)
+        self.coefs = ConstantCoefficients(parafoil, brake_geo)
 
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
@@ -477,15 +303,6 @@ class Phillips(CoefficientsEstimator):
             set_axes_equal(ax)
             plt.show()
         self.f = None  # FIXME: design review Numba helper functions
-
-    def Cl(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
-
-    def Cd(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
-
-    def Cm(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
 
     def ORIG_induced_velocities(self, u_inf):
         #  * ref: Phillips, Eq:6
@@ -586,7 +403,7 @@ class Phillips(CoefficientsEstimator):
 
         # Alternative initial proposal
         # avg_brake = (delta_Bl + delta_Br)/2
-        # CL_2d = self.coefs2d.CL(np.arctan2(u_inf[2], u_inf[0]), avg_brake)
+        # CL_2d = self.coefs.CL(np.arctan2(u_inf[2], u_inf[0]), avg_brake)
         # S = self.parafoil.geometry.S
         # Gamma0 = 2*norm(V_rel[self.K//2])*S*CL_2d/(np.pi*b)  # c0 circulation
 
@@ -646,7 +463,7 @@ class Phillips(CoefficientsEstimator):
             # embed()
             # input('continue?')
 
-            Cl = self.coefs2d.Cl(cp_y, alpha, delta_Bl, delta_Br)
+            Cl = self.coefs.Cl(cp_y, alpha, delta_Bl, delta_Br)
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
@@ -662,7 +479,7 @@ class Phillips(CoefficientsEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            Cl_alpha = self.coefs2d.Cl_alpha(cp_y, alpha, delta_Bl, delta_Br)
+            Cl_alpha = self.coefs.Cl_alpha(cp_y, alpha, delta_Bl, delta_Br)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
@@ -735,7 +552,7 @@ class Phillips(CoefficientsEstimator):
         return dF, dM
 
 
-class Phillips2D(CoefficientsEstimator):
+class Phillips2D(ForceEstimator):
     """
     This is a finite-element method, based on Phillips, but it uses the 2D
     section lift coefficients directly instead of calculating the bound
@@ -746,7 +563,7 @@ class Phillips2D(CoefficientsEstimator):
     def __init__(self, parafoil, brake_geo):
         self.parafoil = parafoil
         self.brake_geo = brake_geo
-        self.coefs2d = Coefs2D(parafoil, brake_geo)
+        self.coefs = ConstantCoefficients(parafoil, brake_geo)
 
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
@@ -803,15 +620,6 @@ class Phillips2D(CoefficientsEstimator):
         print("DEBUG> using the dl to compute dA")
         # FIXME: does the planform area use dl or dy?
 
-    def Cl(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
-
-    def Cd(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
-
-    def Cm(self, y, alpha, delta_Bl, delta_Br):
-        raise NotImplementedError
-
     def forces_and_moments(self, V_rel, delta_Bl, delta_Br, rho=1):
         # FIXME: dependency on rho?
         assert np.shape(V_rel) == (self.K, 3)
@@ -824,8 +632,8 @@ class Phillips2D(CoefficientsEstimator):
         V_n = einsum('ik,ik->i', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
-        CL = self.coefs2d.Cl(cp_y, alpha, delta_Bl, delta_Br)
-        CD = self.coefs2d.Cd(cp_y, alpha, delta_Bl, delta_Br)
+        CL = self.coefs.Cl(cp_y, alpha, delta_Bl, delta_Br)
+        CD = self.coefs.Cd(cp_y, alpha, delta_Bl, delta_Br)
 
         dL_hat = cross(self.dl, V_rel)
         dL_hat = dL_hat / norm(dL_hat, axis=1)[:, None]  # Lift unit vectors
