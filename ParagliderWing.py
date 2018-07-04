@@ -12,7 +12,7 @@ from util import trapz
 
 
 class ParagliderWing:
-    def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_S):
+    def __init__(self, parafoil, brake_geo, d_cg, h_cg, kappa_S):
         """
         Parameters
         ----------
@@ -26,19 +26,42 @@ class ParagliderWing:
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
-        # FIXME: kappa_S is a strange notation?
         self.parafoil = parafoil
-        self.parafoil_coefs = parafoil_coefs
-        self.d_cg = d_cg
-        self.h_cg = h_cg
-        self.kappa_S = kappa_S
+        self.brake_geo = brake_geo
+        self.d_cg = d_cg  # FIXME: reparametrize. d_cg -> x_cg (absolute)
+        self.h_cg = h_cg  # FIXME: rename. h_cg -> z_cg (absolute)
+        self.kappa_S = kappa_S  # FIXME: strange notation. Why `kappa`?
 
-        C0 = parafoil.geometry.fc(0)
-        self.LE = np.sqrt(h_cg**2 + (d_cg*C0)**2)
-        self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*C0)**2)
+        self.C0 = parafoil.geometry.fc(0)
+        self.LE = np.sqrt(h_cg**2 + (d_cg*self.C0)**2)
+        self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*self.C0)**2)
+
+        # Precompute some useful values
+        self.y = parafoil.control_points[:, 1]  # Control point y-coordinates
+        self.c = parafoil.geometry.fc(self.y)  # Chord lengths
 
         # FIXME: pre-compute the `body->local` transformation matrices here?
-        # FIXME: lots more to implement
+
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, delta_a):
+        """
+
+        Parameters
+        ----------
+        V_cp2w : ndarray of floats, shape (K,3) [m/s]
+            The relative velocity of each control point vs the fluid
+        delta_Bl : float [percentage]
+            The amount of left brake
+        delta_Br : float [percentage]
+            The amount of right brake
+
+        Returns
+        -------
+        dF, dM : array of float, shape (K,)
+            Forces and moments for each section.
+        """
+        delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
+        dF, dM = self.parafoil.forces_and_moments(V_cp2w, delta)
+        return dF, dM
 
     def cg_position(self, delta_S):
         """
@@ -81,6 +104,7 @@ class ParagliderWing:
         """
 
         def moment_factor(delta_B, delta_S, alpha):
+            raise RuntimeError("FIXME: broken. Wrong implementaion anyway.")
             CL = self.parafoil_coefs.CL(alpha, delta_B)
             CD = self.parafoil_coefs.CD(alpha, delta_B)
             CM_c4 = self.parafoil_coefs.CM(alpha, delta_B)
@@ -102,33 +126,25 @@ class ParagliderWing:
 
         return r.x
 
-    def section_wind(self, y, state, control=None):
-        # FIXME: Document
-        # compute the local relative wind for parafoil sections
-        U, V, W, P, Q, R = state
+    def control_points(self, delta_s):
+        """
+        Compute the coordinates of the control points for force estimation.
 
-        # Compute the local section wind
-        # PFD eqs 4.10-4.12, p73
-        #
-        # FIXME: rewrite this as a matrix equation?
-        #  * Ref: 'Aircraft Control and Simulation', Eq:1.4-2, p31
+        Parameters
+        ----------
+        delta_s : float [percentage?]
+            The amount of speedbar
 
-        delta_a = 0  # FIXME: should be a parameter
-
-        # FIXME: shouldn't this be {d_prime, h_prime}?
-        #  * IIRC, those are the approximate position of the center of pressure
-        #  * The CP is where the forces can be assumed to occur, and thus where
-        #    the moment arms should be measured.
-        C0 = self.parafoil.geometry.fc(0)
-        d_cg, h_cg = self.cg_position(delta_a)
-
-        x = self.geometry.fx(y) + (d_cg - 1/4)*C0  # FIXME?
-        z = self.geometry.fz(y) + h_cg  # FIXME?
-        uL = U + z*Q - y*R
-        vL = V - z*P + x*R
-        wL = W + y*P - x*Q
-
-        return uL, vL, wL
+        Returns
+        -------
+        cps : ndarray of floats, shape (K,3) [meters]
+            The control points in ParagliderWing coordinates
+        """
+        cps = self.parafoil.control_points.copy()  # In Parafoil coordinates
+        d_cg, h_cg = self.cg_position(delta_s)
+        cps[:, 0] += (d_cg - 1/4) * self.C0
+        cps[:, 2] += h_cg
+        return cps
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
@@ -159,7 +175,7 @@ class ParagliderWing:
 
         # FIXME: technically, the speedbar would rotate the foil coordinates.
         #        The {fx, fz} should be corrected for that.
-
+        # FIXME: linear distribution? A cosine is probably more suitable
         N = 501
         dy = self.geometry.b/(N - 1)  # Include the endpoints
         y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
@@ -168,8 +184,7 @@ class ParagliderWing:
         fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
         fc = self.fc(y)
 
-        # FIXME: needs verification
-        # FIXME: this is a crude rectangle rule integration
+        # FIXME: needs verification. What about weight shifting? Speed bar?
         Sx = trapz((y**2 + fz**2)*fc, dy)
         Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
         Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)

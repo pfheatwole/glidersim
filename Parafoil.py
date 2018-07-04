@@ -44,14 +44,25 @@ def set_axes_equal(ax):
 
 
 class Parafoil:
-    def __init__(self, geometry, sections, wing_density=0.2):
+    def __init__(self, geometry, sections, force_estimator, wing_density=0.2):
         self.geometry = geometry
         self.sections = sections  # Provides the airfoils for each section
+
+        # The estimator owns the control points for the force estimation
+        # FIXME: this design is inconvenient for configuring the estimator
+        self.forces_and_moments = force_estimator(self)
+
         self.wing_density = wing_density  # FIXME: no idea in general
+
+    @property
+    def control_points(self):
+        # FIXME: needs a design review, this is weird
+        return self.forces_and_moments.control_points
 
     @property
     def density_factor(self):
         # FIXME: I don't understand this. Ref: PFD 48 (56)
+        #        Also, I think it's wrong? should be `p_air = p*MAC*t/3`
         return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
 
     def fE(self, y, xa=None, N=150):
@@ -119,6 +130,8 @@ class Parafoil:
         return np.c_[x, _y, z]
 
 
+# ----------------------------------------------------------------------------
+
 class ParafoilSections(abc.ABC):
     """Defines the spanwise variation of the Parafoil sections"""
 
@@ -176,8 +189,13 @@ class ConstantCoefficients(ParafoilSections):
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def forces_and_moments(self, V_rel, delta, rho=1):
+    def __call__(self, V_rel, delta, rho=1):
         """Estimate the forces and moments on a Parafoil"""
+
+    @property
+    @abc.abstractmethod
+    def control_points(self):
+        """The reference points for calculating the section forces"""
 
 
 class Phillips(ForceEstimator):
@@ -283,6 +301,12 @@ class Phillips(ForceEstimator):
             set_axes_equal(ax)
             plt.show()
         self.f = None  # FIXME: design review Numba helper functions
+
+    @property
+    def control_points(self):
+        cps = self.cps.view()  # FIXME: better than making a copy?
+        cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
+        return cps
 
     def ORIG_induced_velocities(self, u_inf):
         #  * ref: Phillips, Eq:6
@@ -405,14 +429,14 @@ class Phillips(ForceEstimator):
 
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
-            max_runs = 10
+            max_runs = 30
 
         # FIXME: don't use a fixed number of runs
         # FIXME: how much faster is `opt_einsum` versus the scipy version?
         # FIXME: if `coefs2d.Cl` was Numba compatible, what about this loop?
         n_runs = 0
         while n_runs < max_runs:
-            print("run:", n_runs)
+            # print("run:", n_runs)
             # 4. Compute the local fluid velocities
             #  * ref: Hunsaker-Snyder Eq:5
             #  * ref: Phillips Eq:5 (nondimensional version)
@@ -523,7 +547,7 @@ class Phillips(ForceEstimator):
 
         return Gamma, V
 
-    def forces_and_moments(self, V_rel, delta, rho=1):
+    def __call__(self, V_rel, delta, rho=1):
         # FIXME: depenency on rho?
         # FIXME: include viscous effects as well; ref: the Phillips paper
         Gamma, V = self._vortex_strengths(V_rel, delta)
@@ -598,7 +622,13 @@ class Phillips2D(ForceEstimator):
         print("DEBUG> using the dl to compute dA")
         # FIXME: does the planform area use dl or dy?
 
-    def forces_and_moments(self, V_rel, delta, rho=1):
+    @property
+    def control_points(self):
+        cps = self.cps.view()  # FIXME: better than making a copy?
+        cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
+        return cps
+
+    def __call__(self, V_rel, delta, rho=1):
         # FIXME: dependency on rho?
         assert np.shape(V_rel) == (self.K, 3)
 
