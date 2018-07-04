@@ -125,6 +125,7 @@ class Elliptical(ParafoilGeometry):
         return (1 - ratio)*100
 
     def fx(self, y):
+        """Quarter-chord x-coordinate (central leading edge as the origin)"""
         tMed = tan(self.sweepMed)
         tMax = tan(self.sweepMax)
 
@@ -137,6 +138,7 @@ class Elliptical(ParafoilGeometry):
         return Bx * sqrt(1 - (y**2)/Ax**2) + Cx
 
     def fz(self, y):
+        """Quarter-chord z-coordinate (central leading edge as the origin)"""
         tMed = tan(self.dihedralMed)
         tMax = tan(self.dihedralMax)
 
@@ -147,6 +149,18 @@ class Elliptical(ParafoilGeometry):
 
         return Bz * sqrt(1 - (y**2)/Az**2) + Cz
 
+    def dfxdy(self, y):
+        # FIXME: untested
+        tMed = tan(self.sweepMed)
+        tMax = tan(self.sweepMax)
+        Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
+        Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
+
+    def Lambda(self, y):
+        """Sweep angle"""
+        return arctan(self.dfxdy(y))
+
     def dfzdy(self, y):
         tMed = tan(self.dihedralMed)
         tMax = tan(self.dihedralMax)
@@ -155,14 +169,17 @@ class Elliptical(ParafoilGeometry):
         return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
 
     def Gamma(self, y):
+        """Dihedral angle"""
         return arctan(self.dfzdy(y))
 
     def fc(self, y):
+        """Chord length"""
         Ac = (self.b/2) / sqrt(1 - self.taper**2)
         Bc = self.c0
         return Bc * sqrt(1 - (y**2)/Ac**2)
 
     def ftheta(self, y, linear=False):
+        """Geometric torsion"""
         if linear:
             return 2*self.torsion/self.b*np.abs(y)  # Linear
         else:  # Use an exponential distribution of geometric torsion

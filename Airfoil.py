@@ -11,7 +11,9 @@ from numpy import arctan
 
 import pandas as pd
 from scipy.interpolate import LinearNDInterpolator
+from numpy.polynomial import Polynomial
 
+from IPython import embed
 
 class Airfoil:
     def __init__(self, coefficients, geometry=None):
@@ -85,6 +87,19 @@ class AirfoilCoefficients(abc.ABC):
             measured as a fraction of the chord length.
         """
 
+    def Cl_alpha(self, alpha, delta=0):
+        """
+        Derivative of the lift coefficient versus angle of attack
+
+        Parameters
+        ----------
+        alpha : float [radians]
+            The angle of attack
+        delta : float [unitless distance]
+            The deflection distance of the trailing edge due to braking,
+            measured as a fraction of the chord length.
+        """
+
 
 class LinearCoefficients(AirfoilCoefficients):
     """
@@ -111,12 +126,13 @@ class LinearCoefficients(AirfoilCoefficients):
         return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta=0):
-        alpha = np.asarray(alpha)
-        return np.ones_like(alpha) * self.D0
+        return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
     def Cm0(self, alpha, delta=0):
-        alpha = np.asarray(alpha)
-        return np.ones_like(alpha) * self._Cm0
+        return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
+
+    def Cl_alpha(self, alpha, delta=0):
+        return self.a0
 
 
 class GridCoefficients(AirfoilCoefficients):
@@ -157,6 +173,22 @@ class GridCoefficients(AirfoilCoefficients):
         self._Cd = LinearNDInterpolator(data[['alpha', 'flap']], data.CD)
         self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
 
+        # Construct another grid for the derivative of Cl vs alpha
+        # FIXME: needs a design review
+        points = []
+        for flap, group in data.groupby('flap'):
+            # FIXME: formalize the data sanitation strategy
+            if group.shape[0] < 10:
+                print("DEBUG> too few points for flap={}. Skipping.".format(
+                    flap))
+                continue
+            poly = Polynomial.fit(group['alpha'], group['CL'], 7)
+            Cl_alphas = poly.deriv()(group['alpha'])
+            flaps = np.full(group.shape[0], flap)
+            points.append(np.vstack((group['alpha'], flaps, Cl_alphas)).T)
+        points = np.vstack(points)
+        self._Cl_alpha = LinearNDInterpolator(points[:, :2], points[:, 2])
+
     def Cl(self, alpha, delta=0):
         flap = delta/(1 - self.xhinge)
         return self._Cl(alpha, flap)
@@ -168,6 +200,10 @@ class GridCoefficients(AirfoilCoefficients):
     def Cm0(self, alpha, delta=0):
         flap = delta/(1 - self.xhinge)
         return self._Cm(alpha, flap)
+
+    def Cl_alpha(self, alpha, delta=0):
+        flap = delta/(1 - self.xhinge)
+        return self._Cl_alpha(alpha, flap)
 
 
 # ---------------------------------------------------------------------------

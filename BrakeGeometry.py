@@ -7,7 +7,7 @@ import numpy as np
 class BrakeGeometry(abc.ABC):
     def __call__(self, y, delta_Bl, delta_Br):
         """
-        Returns the trailing edge deflection due to the application of brakes.
+        Computes the trailing edge deflection due to the application of brakes.
 
         Parameters
         ----------
@@ -21,7 +21,7 @@ class BrakeGeometry(abc.ABC):
         Returns
         -------
         delta : float [meters]
-            The trailing edge deflection as a fraction of the chord.
+            The trailing edge deflection as an absolute distance in meters.
         """
 
 
@@ -45,6 +45,88 @@ class PFD(BrakeGeometry):
         return left + right
 
 
+class Quadratic(BrakeGeometry):
+    """
+    FIXME: docstring  (reference the "Exponential" class)
+
+        `delta = k * y**2`
+
+    Constraining the function and its first deritative to be zero at the
+    origin means that the linear term and offset are both zero.
+
+    Maximum deflection occurs at the wingtips (y = ±b/2).
+    """
+
+    def __init__(self, b, delta_tip):
+        """
+        Parameters
+        ----------
+        b : float [meters]
+            The total span of the wing
+        delta_tip : float [meters]
+            The maximum deflection at the wing tip
+        """
+        self.delta_tip = delta_tip
+        self.k = 1 / (b/2)**2
+
+    def __call__(self, y, delta_Bl, delta_Br):
+        """
+        Parameters
+        ----------
+        y : float [meters]
+            The position along the span
+        delta_Bl : float [percentage]
+            The percentage of left brake application
+        delta_Br : float [percentage]
+            The percentage of right brake application
+        """
+        # This is an abuse of `np.choose` (so the choices are reversed)
+        fraction = self.delta_tip * np.choose(y < 0, [delta_Br, delta_Bl])
+        delta = fraction * self.k * (y**2)
+        return delta
+
+
+class Cubic(BrakeGeometry):
+    """
+    FIXME: docstring  (reference the "Exponential" class)
+
+        `delta = K1 * y**3 + K2 * y**2`
+
+    A normal cubic goes like `ay**3 + by**2 + cy + d = 0`, but constraining the
+    function to be zero at the origin forces d=0, and constraining the first
+    derivative to be zero when evaluated at the origin forces c=0. Thus, you're
+    left with just the cubic and quadratic terms.
+
+    If monotonicity is enforced, then maximum deflection occurs at the wingtips
+    (y = ±b/2). If monotonicity is not enforced, then the deflection between
+    the root and the tip can exceed the total deflection at the tip.
+
+    Warning: if you set `delta_tip` based on the maximum delta available from
+    your airfoil model, but do not enforce monotonicity, then you can generate
+    deflections that violate your airfoil model.
+    """
+
+    def __init__(self, b, p, delta_max, check_monotonic=True):
+        # FIXME: if I don't enforce monotonicity, then `delta_max` is misnamed
+        p = p * (b/2)  # convert the ratio to the actual point
+        self.K2 = delta_max * (1 - (b/2)**3/2) / ((b/2)**2 - (p**2)*((b/2)**3))
+        self.K1 = delta_max/2 - self.K2 * (p**2)
+        self.delta_max = delta_max
+
+        if check_monotonic:
+            # From the first derivative, evaluated at `y = b/2`
+            is_monotonic = self.K1 >= -(2*self.K2)/(3 * b/2)
+            if not is_monotonic:
+                print("BrakeGeometric is not monotonic")
+
+    def __call__(self, y, delta_Bl, delta_Br):
+        # This is an abuse of `np.choose` (so the choices are reversed)
+        fraction = np.choose(y < 0, [delta_Br, delta_Bl])
+        abs_y = np.abs(y)  # left and right side are symmetric
+        delta = fraction * (self.K1 * abs_y**3 + self.K2 * y**2)
+        return delta
+
+
 class Exponential(BrakeGeometry):
     """
     Implements a brake deflection distribution according to:
@@ -65,6 +147,10 @@ class Exponential(BrakeGeometry):
 
     I did this because specifying `delta_max` in radians seemed more intuitive.
     """
+
+
+    # FIXME: this brake design is awful. Nuke it.
+
 
     def __init__(self, b, p_b4, delta_max):
         """
