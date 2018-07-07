@@ -226,7 +226,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
@@ -236,27 +236,27 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
     def fE(self, x):
-        """Upper camber line corresponding to the point `x` on the chord
+        """Upper surface coordinate
 
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
     def fI(self, x):
-        """Lower camber line corresponding to the point `x` on the chord
+        """Lower surface coordinate
 
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
 
