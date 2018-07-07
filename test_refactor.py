@@ -17,7 +17,7 @@ from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
 
-def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
+def build_elliptical_geo(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
                      torsion=0, airfoil_geo=None, sections=None):
     if dMax is None:
         dMax = 2*dMed - 1  # ref page 48 (56)
@@ -34,10 +34,10 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
     if sections is None:
         raise ValueError("FIXME: the `sections` parameter is mandatory")
 
-    # FIXME: this naming is confusing. Ellipticalg is a geometry, not a wing
+    # FIXME: this naming is confusing. Elliptical is a geometry, not a wing
     foil_geo = Elliptical(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
 
-    return Parafoil.Parafoil(foil_geo, sections)
+    return foil_geo
 
 
 def plot_coefficients(coefs):
@@ -135,18 +135,22 @@ def main():
     # print("\nPFD example LinearCoefficients airfoil\n")
     # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
 
-    parafoil = build_elliptical(
+    parafoil_geo = build_elliptical_geo(
         # MAC=2.5, AR=3.9, taper=0.15, dMed=-20, dMax=-50,
         MAC=2.5, AR=3.9, taper=0.15, dMed=-25, dMax=-70,
         # MAC=2.5, AR=3.9, taper=0.15, dMed=-1, dMax=-2,
         sMed=5, airfoil_geo=Airfoil.NACA4(4412), sections=sections)
 
-    b = parafoil.geometry.b
+    # Same geometry, two different force estimation methods
+    parafoil2d = Parafoil.Parafoil(parafoil_geo, sections, Parafoil.Phillips2D)
+    parafoil3d = Parafoil.Parafoil(parafoil_geo, sections, Parafoil.Phillips)
+
+    b = parafoil2d.geometry.b
 
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
     # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
 
-    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil.geometry.fc(b/2)
+    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil_geo.fc(b/2)
     bQuadratic = BrakeGeometry.Quadratic(b, delta_max)
     bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
     bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
@@ -154,52 +158,82 @@ def main():
     # brakes = bQuadratic
     brakes = bCubic65
 
-    wing = ParagliderWing(parafoil, d_cg=0.5, h_cg=7, kappa_S=0.4)
-    glider = Paraglider(wing, 75, 0.55, 0.75)
+    # Build a wings with the different force estimation methods
+    wing2d = ParagliderWing(parafoil2d, brakes, d_riser=0.5, z_riser=7,
+                            kappa_w=0.3, kappa_s=0.4)
+    wing3d = ParagliderWing(parafoil3d, brakes, d_riser=0.5, z_riser=7,
+                            kappa_w=0.3, kappa_s=0.4)
 
-    print("\nFinished building the wing\n")
+    glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
+    glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
 
-    # print("entering Anderson2")
-    # anders = Parafoil.Anderson2(parafoil, brakes)
-    # cl, cdi = anders._compute_section_coefs(0.123, 0)
-
-    print("entering Phillips")
-    phillips = Parafoil.Phillips(parafoil)
-
-    print("entering Phillips2D")
-    phillips2d = Parafoil.Phillips2D(parafoil)
-
-
-    print("Testing V_inf = [10, 0, 1]")
-    cp_y = phillips.cps[:, 0]
+    # ---------------------------------------------------------------------
+    # Run some tests
+    cp_y = wing2d.control_points(0)[:, 1]
     K = len(cp_y)
-    V_inf = np.asarray([[10.0, 0.0, 1.0]] * K)
-    V_inf[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
-    # delta = brakes(cp_y, 0, 0.0)
-    # delta = brakes(cp_y, 0, 0.25)
-    # delta = brakes(cp_y, 0, 0.5)
-    delta = brakes(cp_y, 0, 1.0)
+    V_rel = np.asarray([[10.0, 0.0, 1.0]] * K)
+    V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
 
-    # Gamma_2d = phillips2d.section_forces(V_inf, 0, 1)
-    # Gamma_3d = phillips.find_vortex_strengths(V_inf, 0, 1)
+    #          Bl     Br
+    # deltas = [0.00, 0.00]
+    # deltas = [0.00, 0.25]
+    deltas = [0.00, 0.50]
+    # deltas = [0.00, 0.75]
+    # deltas = [0.00, 1.00]
+    # deltas = [1.00, 1.00]
 
-    dF_2d, _ = phillips2d.forces_and_moments(V_inf, delta)
-    dF_3d, _ = phillips.forces_and_moments(V_inf, delta)
+    dF_2d, _ = wing2d.forces_and_moments(V_rel, *deltas)
+    dF_3d, _ = wing3d.forces_and_moments(V_rel, *deltas)
 
+    print("Plotting the forces")
+    fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
+    ax[0].plot(cp_y, dF_2d[:, 0], label='2D')
+    ax[0].plot(cp_y, dF_3d[:, 0], label='3D')
+    ax[1].plot(cp_y, dF_2d[:, 1], label='2D')
+    ax[1].plot(cp_y, dF_3d[:, 1], label='3D')
+    ax[2].plot(cp_y, dF_2d[:, 2], label='2D')
+    ax[2].plot(cp_y, dF_3d[:, 2], label='3D')
+    ax[0].set_xlabel('spanwise position')
+    ax[0].set_ylabel('Fx')
+    ax[1].set_ylabel('Fy')
+    ax[2].set_ylabel('Fz')
+    ax[0].grid(True)
+    ax[1].grid(True)
+    ax[2].grid(True)
+    ax[0].legend()
+    ax[1].legend()
+    ax[2].legend()
+    plt.show()
+
+
+    # ------------------------
+    glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)
+    UVW = np.asarray([[10.0, 0.0, 1.0]] * K)
+    R = 0
+    # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
+    PQR = np.array([0, 0, R])
+    # sec_wind = glider3d.section_wind(None, UVW, PQR)
+
+    xyz = glider3d.control_points(delta_w=1, delta_s=0)
+    dF, dM = glider3d.forces_and_moments(UVW, PQR, delta_Bl=0, delta_Br=0,
+                                         xyz=xyz)
     embed()
 
+    print("Plotting the forces")
+    fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
+    ax[0].plot(xyz[:, 1], dF[:, 0])
+    ax[1].plot(xyz[:, 1], dF[:, 1])
+    ax[2].plot(xyz[:, 1], dF[:, 2])
+    ax[0].set_xlabel('spanwise position')
+    ax[0].set_ylabel('Fx')
+    ax[1].set_ylabel('Fy')
+    ax[2].set_ylabel('Fz')
+    ax[0].grid(True)
+    ax[1].grid(True)
+    ax[2].grid(True)
+    plt.show()
 
-    # plot_coefficients(coefs)
-    # embed()
-
-    # input("\ncontinue with NACA?")
-    # print("\nNACA4412 wing\n")
-    # nacacoefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
-    # nacawing = build_elliptical(
-    #     MAC=2.5, AR=4, taper=0.05, dMed=-30, dMax=-70,
-    #     sMed=5, airfoil_geo=Airfoil.NACA4(4412), coefs=nacacoefs)
-
-    # embed()
+    embed()
 
 
 if __name__ == "__main__":

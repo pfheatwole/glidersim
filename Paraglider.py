@@ -2,8 +2,19 @@ import numpy as np
 
 from IPython import embed
 
-
 class Paraglider:
+    """
+
+
+    FIXME: I need to think through the purpose of this class
+
+
+    Notes
+    -----
+    This is a 7 DoF model: there is no relative motion between the wing and
+    the glider system, except for weight shift (y-axis displacement of the cm).
+    """
+
     def __init__(self, wing, m_cg, S_cg, CD_cg):
         """
         Parameters
@@ -21,14 +32,42 @@ class Paraglider:
         self.S_cg = S_cg  # FIXME: move into a Harness?
         self.CD_cg = CD_cg  # FIXME: move into a Harness?
 
-    def section_wind(self, y, UVW, PQR, control=None):
+    def control_points(self, delta_w=0, delta_s=0):
+        # FIXME: this seems poorly thought out
+        #
+        #        Ah! Because it's incomplete? What about the relative wind on
+        #        the harness? Or maybe at the lines? etc.
+        #
+        #        Each component with an aerodynamic force will need a wind
+        #        vector. This might be a good spot for the Paraglider to
+        #        signal all those points, which are then separated into their
+        #        constituent components later.
+        return self.wing.control_points(delta_w=delta_w, delta_s=delta_s)
+
+    def section_wind(self, y, UVW, PQR, controls=None):
+        # FIXME: remove the explicit `y` parameter?
+
+
+
+        # FIXME: this is duplicated in `forces_and_moments`
+        #
+        #        Also, isn't this a more general idea? It doesn't just apply
+        #        to the wing; it applies to the harness, and any other points
+        #        that contributed an aerodynamic force. So "section wind" is
+        #        really "control point relative wind", for ALL cps, not just
+        #        those on the wing. This will come into play if I place the
+        #        harness below the cg, for example.
+
+
+
         # Compute the local relative wind for parafoil sections
         #
         # FIXME: finish the docstring
         # FIXME: this is incomplete. It doesn't have a parameter for the wind.
         #        (UVW is the motion of the cg relative to the inertial frame)
 
-        delta_s = None  # FIXME: should be part of the control
+        delta_w = 0  # FIXME: should be part of the control?
+        delta_s = 0  # FIXME: should be part of the control?
 
         # Version 1: PFD eqs 4.10-4.12, p73
         # uL = U + z*Q - y*R
@@ -44,80 +83,101 @@ class Paraglider:
         # Version 2: 'Aircraft Control and Simulation', Eq:1.4-2, p17 (31)
         # Assumes the ParagliderWing is mounted exactly at the cg
         # FIXME: this does not account for the orientation of the wing!!!
-        raise NotImplementedError("FIXME: finish implementation+testing")
+
+        # FIXME: testing
+
         v_b2w = UVW + 0  # FIXME: what is v_{body/wind} ?
-        xyz = self.wing.control_points(delta_s)
+        xyz = self.wing.control_points(delta_w, delta_s)
         v_rel = v_b2w + np.cross(PQR, xyz)
         return v_rel
 
-    def forces_and_moments(self, UVW, PQR, delta_Bl, delta_Br, delta_s,
-                           g=None, v_w_b=None, xyz=None):
+    def forces_and_moments(self, UVW, PQR,
+                           delta_Bl=0, delta_Br=0,
+                           delta_w=0, delta_s=0,
+                           v_w2e=None, xyz=None):
         """
+        Compute the aerodynamic force and moment about the center of gravity.
 
-        Interesting to note: you can use v_wb in two different ways:
-         1. A constant wind field (the wind is uniform across the wing)
-         2. A varying wind field (the wind varies across the wing)
+        FIXME: how is this function useful? The simulator doesn't care about
+               forces, it cares about rates-of-change of the state variables
+               The key goal are the _accelerations_, not the forces.
 
-        In both cases, you compute the relwind for each control point in the
-        same way, but in the constant wind field `v_we` is a scalar, and for
-        the variable wind field `v_we` is a vector, with one wind vector for
-        each control point.
-
-        This does require some extra work on the part of the simulator: for the
-        variable wind vector field, the simulator will need to query the glider
-        to determine the position of the control points, so it can pass in the
-        correct wind values at those points. In the case of a uniform wind
-        field, the value of the wind at the glider cg is sufficient, since it
-        will be the same at all the control points.
+        FIXME: should this function compute ALL forces, including gravity?
+               Related: the function name should match what it does.
+        FIXME: separate the section and resultant force computations?
+        FIXME: needs a design review; the `xyz` parameter name in particular
+        FIXME: the input sanitation is messy
+        FIXME: review the docstring
+        FIXME: TEST TEST TEST
 
         Parameters
         ----------
-        v_w_b : float, or array of 3-vectors of floats, shape (K,)
-            Wind vectors relative to the body in frd coordinates. If a scalar,
-            then the wind is a uniform vector field; if a vector, then the wind
-            is non-uniform around the paraglider, and was calculated relative
-            to the control points, `xyz`.
+        UVW : array of float, shape (3,) [m/s]
+            Translational velocity of the body, in frd coordinates.
+        PQR : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in frd coordinates.
+        delta_Bl : float [percentage]
+            The fraction of maximum left brake
+        delta_Br : float [percentage]
+            The fraction of maximum right brake
+        delta_w : float [percentage]
+            The fraction of maximum weight shift
+        delta_s : float [percentage]
+            The fraction of maximum speed bar
+        v_w2e : ndarray of float, shape (3,) or (K,3)
+            The wind relative to the earth, in frd coordinates. If it is a
+            single vector, then the wind is uniform everywhere on the wing. If
+            it is an ndarray, then it is the wind at each control point.
+        xyz : ndarray of float, shape (K,3) [meters] (optional)
+            The control points, in frd coordinates. These are optional if the
+            wind field is uniform, but for non-uniform wind fields the
+            simulator used these coordinates to determine the wind vectors
+            at each control point.
 
-        g : array of float, shape (3,)
-            The gravity vector in frd coordinates.
-            FIXME: optional?
+        Returns
+        -------
+        F : array of float, shape (3,) [N]
+            The total aerodynamic force applied at the cg
+        M : array of float, shape (3,) [N*m]
+            The total aerodynamic torque applied at the cg
 
-        xyz : array of 3-vectors of floats, shape (K,) [meters] (optional)
-            If provided, it contains the positions of the control points on the
-            parafoil, relative to the mounting point of the parafoil, in frd
-            coordinates. This is used for non-uniform wind fields, where the
-            simulator used these control points for calculating the relative
-            wind vectors.
+        Notes
+        -----
+        There are two use cases:
+         1. Uniform global wind across the wing (v_w2e.shape == (3,))
+         2. Non-uniform global wind across the wing (v_w2e.shape == (K,3))
+
+        If the wind is locally uniform across the wing, then the simulator
+        can pass the wind vector with no knowledge of the control points.
+        If the wind is non-uniform across the wing, then the simulator will
+        need the control point coordinates in order to query the global wind
+        field; for the non-uniform case, the control points are a required
+        parameter to eliminate their redundant computation.
         """
-        if v_w_b is None:
-            v_w_b = np.array([0, 0, 0])
-        if v_w_b.ndim > 1 and xyz is None:
+        if v_w2e is None:
+            v_w2e = np.array([0, 0, 0])
+        if v_w2e.ndim > 1 and xyz is None:
             raise ValueError("Control point relative winds require xyz")
-        if v_w_b.ndim > 1 and v_w_b.shape[0] != xyz.shape[0]:
+        if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
-
-        # FIXME: check that len(xyz) == len(self.parafoil.estimator.cps) ?
-
-        # If xyz is none, then v_we is a scalar of the wind at the cg.
-        # If xyz is not none, then v_we is a vector of the wind at each cp
         if xyz is None:
-            xyz = self.wing.control_points(delta_s)
+            xyz = self.wing.control_points(delta_w, delta_s)
 
-        # Compute the relative wind at the control points
-        # Implicit in this: the wing is mounted at the Paraglider cg
-        # ref: 'Aircraft Control and Simulation', Eq:1.4-2, p17 (31)
-        # FIXME: verify this math
-        v_cm_w = UVW - v_w_b  # `v_cm_w` is also known as `v_rel`
-        v_cp_w = v_cm_w + np.cross(PQR, xyz)  # Wind at each control point
+        # Compute the velocity of each control point relative to the air
+        v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
+        v_cp2w = v_cm2w + np.cross(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
-        dF, dM = self.wing.forces_and_moments(v_cp_w, delta_Bl, delta_Br)
+        # Compute the resultant force and moment about the cg
+        dF, dM = self.wing.forces_and_moments(v_cp2w, delta_Bl, delta_Br)
+        return dF, dM
 
-        if g is not None:
-            # FIXME: do stuff?
-            pass
-
-        # Compute the resultants
-        raise NotImplementedError("FIXME: finish implementation+testing")
+        # Alternative: return the resultants
+        # if dM is None:
+        #     print("FIXME: the wing didn't return the moments yet")
+        #     dM = np.array([0, 0, 0])
+        # F = np.sum(dF, axis=0)
+        # M = np.sum(dM + np.cross(xyz, dF), axis=0)
+        # return F, M
 
     def equilibrium_glide(self, delta_B, delta_S, rho=1):
         """
@@ -146,6 +206,10 @@ class Paraglider:
         in the pitch angle does not necessarily indicate a equal change in the
         position of the wing overhead, such as when using the speed bar.
         """
+
+        # FIXME: redesign (probably in terms of forces, not coefficients?)
+        raise NotImplementedError("This was broken by the refactored code")
+
         alpha_eq = self.wing.alpha_eq(delta_B, delta_S)
         CL = self.wing.parafoil_coefs.CL(alpha_eq, delta_B)
         CD = self.wing.parafoil_coefs.CD(alpha_eq, delta_B)
