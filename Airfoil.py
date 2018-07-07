@@ -19,7 +19,7 @@ class Airfoil:
     def __init__(self, coefficients, geometry=None):
 
         if not isinstance(coefficients, AirfoilCoefficients):
-            raise ValueError("geometry is not an AirfoilGeometry")
+            raise ValueError("geometry is not an AirfoilCoefficients")
 
         if geometry is None:
             geometry = NACA4(2415)
