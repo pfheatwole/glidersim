@@ -218,7 +218,6 @@ class AirfoilGeometry(abc.ABC):
     @abc.abstractmethod
     def t(self):
         """Maximum airfoil thickness as a percentage of chord length"""
-        # ref PFD 48 (46)
 
     @abc.abstractmethod
     def yc(self, x):
