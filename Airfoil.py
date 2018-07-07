@@ -170,9 +170,12 @@ class GridCoefficients(AirfoilCoefficients):
             data['alpha'] = np.deg2rad(data.alpha)
             data['flap'] = np.deg2rad(data.flap)
 
-        self._Cl = LinearNDInterpolator(data[['alpha', 'flap']], data.CL)
-        self._Cd = LinearNDInterpolator(data[['alpha', 'flap']], data.CD)
-        self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
+        # Pre-transform local flap angles into into chord-global delta angles
+        data['delta'] = data['flap'] * (1 - self.xhinge)
+
+        self._Cl = LinearNDInterpolator(data[['alpha', 'delta']], data.CL)
+        self._Cd = LinearNDInterpolator(data[['alpha', 'delta']], data.CD)
+        self._Cm = LinearNDInterpolator(data[['alpha', 'delta']], data.Cm)
 
         # Construct another grid for the derivative of Cl vs alpha
         # FIXME: needs a design review
@@ -184,27 +187,22 @@ class GridCoefficients(AirfoilCoefficients):
                     flap))
                 continue
             poly = Polynomial.fit(group['alpha'], group['CL'], 7)
-            Cl_alphas = poly.deriv()(group['alpha'])
-            flaps = np.full(group.shape[0], flap)
-            points.append(np.vstack((group['alpha'], flaps, Cl_alphas)).T)
-        points = np.vstack(points)
+            Cl_alphas = poly.deriv()(group['alpha'])[:, None]
+            points.append(np.hstack((group[['alpha', 'delta']], Cl_alphas)))
+        points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
         self._Cl_alpha = LinearNDInterpolator(points[:, :2], points[:, 2])
 
     def Cl(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cl(alpha, flap)
+        return self._Cl(alpha, delta)
 
     def Cd(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cd(alpha, flap)
+        return self._Cd(alpha, delta)
 
     def Cm0(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cm(alpha, flap)
+        return self._Cm(alpha, delta)
 
     def Cl_alpha(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cl_alpha(alpha, flap)
+        return self._Cl_alpha(alpha, delta)
 
 
 # ---------------------------------------------------------------------------
