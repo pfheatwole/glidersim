@@ -288,7 +288,7 @@ class NACA4(AirfoilGeometry):
 
     @property
     def t(self):
-        return (self.code % 100) / 100
+        return self.tcr
 
     def yc(self, x):
         m = self.m
