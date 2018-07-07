@@ -274,6 +274,11 @@ class NACA4(AirfoilGeometry):
         chord : float
             The length of the chord
         """
+        if not isinstance(code, int):
+            raise ValueError("The code must be an integer")
+        if len(str(code)) != 4:
+            raise ValueError("The code must be 4 digits long")
+
         self.chord = chord
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
