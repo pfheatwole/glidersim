@@ -88,7 +88,7 @@ class AirfoilCoefficients(abc.ABC):
             measured as a fraction of the chord length.
         """
 
-    def Cl_alpha(self, alpha, delta=0):
+    def Cl_alpha(self, alpha, delta):
         """
         Derivative of the lift coefficient versus angle of attack
 
