@@ -21,6 +21,7 @@ class Airfoil:
         if not isinstance(coefficients, AirfoilCoefficients):
             raise ValueError("geometry is not an AirfoilCoefficients")
 
+        # FIXME: bad idea if the geometry is used for the inertia calculations
         if geometry is None:
             geometry = NACA4(2415)
 
@@ -211,7 +212,9 @@ class GridCoefficients(AirfoilCoefficients):
 
 class AirfoilGeometry(abc.ABC):
     """
-    These are used for drawing the 3D wing, and have no effect on performance.
+    These are useful for calculating the surface area and volume distributions
+    of the parafoil (which determine the moment of inertia), as well as for
+    drawing the wing.
     """
     @property
     @abc.abstractmethod
