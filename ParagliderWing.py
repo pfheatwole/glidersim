@@ -12,37 +12,47 @@ from util import trapz
 
 
 class ParagliderWing:
-    def __init__(self, parafoil, brake_geo, d_cg, h_cg, kappa_S):
+    # FIXME: review weight shift and speedbar designs. Why use percentage-based
+    #        controls?
+
+    def __init__(self, parafoil, brake_geo, d_riser, z_riser,
+                 kappa_w=0, kappa_s=0):
         """
         Parameters
         ----------
         parafoil : Parafoil
-        d_cg : float [percentage]
-            Distance of the cg from the central chord leading edge, as a
-            percentage of the chord length, where 0 < d_cg < 1
-        h_cg : float [meters]
-            Perpendiular distance from the cg to the central chord
-        kappa_S : float [meters]
+        d_riser : float [percentage]
+            The longitudinal distance from the risers to the central leading
+            edge, as a percentage of the chord length.
+        z_riser : float [meters]
+            The vertical distance from the risers to the central chord
+        kappa_w : float [meters] (optional)
+            The maximum weight shift distance. This is a lateral displacement
+            of the cg relative to the nominal mounting position.
+        kappa_s : float [meters] (optional)
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
         self.parafoil = parafoil
         self.brake_geo = brake_geo
-        self.d_cg = d_cg  # FIXME: reparametrize. d_cg -> x_cg (absolute)
-        self.h_cg = h_cg  # FIXME: rename. h_cg -> z_cg (absolute)
-        self.kappa_S = kappa_S  # FIXME: strange notation. Why `kappa`?
+        self.kappa_w = kappa_w  # FIXME: strange notation. Why `kappa`?
+        self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
 
-        self.C0 = parafoil.geometry.fc(0)
-        self.LE = np.sqrt(h_cg**2 + (d_cg*self.C0)**2)
-        self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*self.C0)**2)
+        # The ParagliderWing coordinate system is a shifted version of the
+        # one defined by the Parafoil. The axes of both systems are parallel,
+        # but the origin moves from the central leading edge to the midpoint
+        # of the risers.
+        self.c0 = parafoil.geometry.fc(0)
+        foil_x = d_riser * self.c0
+        foil_z = -z_riser
+        self.LE = np.sqrt(foil_x**2 + foil_z**2)
+        self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
         # Precompute some useful values
         self.y = parafoil.control_points[:, 1]  # Control point y-coordinates
         self.c = parafoil.geometry.fc(self.y)  # Chord lengths
 
-        # FIXME: pre-compute the `body->local` transformation matrices here?
-
-    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, delta_a):
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
 
         Parameters
@@ -56,36 +66,36 @@ class ParagliderWing:
 
         Returns
         -------
-        dF, dM : array of float, shape (K,)
-            Forces and moments for each section.
+        dF, dM : array of float, shape (K,3)
+            Forces and moments for each section
         """
         delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
         dF, dM = self.parafoil.forces_and_moments(V_cp2w, delta)
         return dF, dM
 
-    def cg_position(self, delta_S):
+    def foil_origin(self, delta_w=0, delta_s=0):
         """
-        Compute {d_cg, h_cg} for a given speed bar position
+        Compute the origin of the Parafoil coordinate system in ParagliderWing
+        coordinates.
 
         Parameters
         ----------
-        delta_S : float or array of float
-            Fraction of speed bar application
+        delta_w : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum weight shift
+        delta_s : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum speed bar application
 
         Returns
         -------
-        d_cg : float or array of float [percent]
-            The horizontal position of the cg relative to the central leading
-            edge as a fraction of the central chord.
-        h_cg : float or array of float [m]
-            The vertical position of the cg relative to the central chord.
+        foil_origin : array of float, shape (3,) [meters]
+            The offset of the origin of the Parafoil coordinate system in
+            ParagliderWing coordinates.
         """
-        c = self.parafoil.geometry.fc(0)
-        delta_LE = delta_S * self.kappa_S
-        d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - c**2)/(-2*c**2)
-        h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*c)**2)
-
-        return d_cg, h_cg
+        LE = self.LE - (delta_s * self.kappa_s)
+        foil_x = (LE**2 - self.TE**2 + self.c0**2)/(2*self.c0)
+        foil_y = -(delta_w * self.kappa_w)
+        foil_z = -np.sqrt(LE**2 - foil_x**2)
+        return np.array([foil_x, foil_y, foil_z])
 
     def alpha_eq(self, delta_B, delta_S):
         """
@@ -126,25 +136,24 @@ class ParagliderWing:
 
         return r.x
 
-    def control_points(self, delta_s):
+    def control_points(self, delta_w=0, delta_s=0):
         """
-        Compute the coordinates of the control points for force estimation.
+        The Parafoil control points in ParagliderWing coordinates.
 
         Parameters
         ----------
-        delta_s : float [percentage?]
-            The amount of speedbar
+        delta_w : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum weight shift
+        delta_s : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum speed bar application
 
         Returns
         -------
         cps : ndarray of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        cps = self.parafoil.control_points.copy()  # In Parafoil coordinates
-        d_cg, h_cg = self.cg_position(delta_s)
-        cps[:, 0] += (d_cg - 1/4) * self.C0
-        cps[:, 2] += h_cg
-        return cps
+        foil_cps = self.parafoil.control_points  # In Parafoil coordinates
+        return foil_cps + self.foil_origin(delta_w, delta_s)
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
