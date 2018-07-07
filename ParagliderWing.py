@@ -12,57 +12,90 @@ from util import trapz
 
 
 class ParagliderWing:
-    def __init__(self, parafoil, parafoil_coefs, d_cg, h_cg, kappa_S):
+    # FIXME: review weight shift and speedbar designs. Why use percentage-based
+    #        controls?
+
+    def __init__(self, parafoil, brake_geo, d_riser, z_riser,
+                 kappa_w=0, kappa_s=0):
         """
         Parameters
         ----------
         parafoil : Parafoil
-        d_cg : float [percentage]
-            Distance of the cg from the central chord leading edge, as a
-            percentage of the chord length, where 0 < d_cg < 1
-        h_cg : float [meters]
-            Perpendiular distance from the cg to the central chord
-        kappa_S : float [meters]
+        d_riser : float [percentage]
+            The longitudinal distance from the risers to the central leading
+            edge, as a percentage of the chord length.
+        z_riser : float [meters]
+            The vertical distance from the risers to the central chord
+        kappa_w : float [meters] (optional)
+            The maximum weight shift distance. This is a lateral displacement
+            of the cg relative to the nominal mounting position.
+        kappa_s : float [meters] (optional)
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
-        # FIXME: kappa_S is a strange notation?
         self.parafoil = parafoil
-        self.parafoil_coefs = parafoil_coefs
-        self.d_cg = d_cg
-        self.h_cg = h_cg
-        self.kappa_S = kappa_S
+        self.brake_geo = brake_geo
+        self.kappa_w = kappa_w  # FIXME: strange notation. Why `kappa`?
+        self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
 
-        C0 = parafoil.geometry.fc(0)
-        self.LE = np.sqrt(h_cg**2 + (d_cg*C0)**2)
-        self.TE = np.sqrt(h_cg**2 + ((1-d_cg)*C0)**2)
+        # The ParagliderWing coordinate system is a shifted version of the
+        # one defined by the Parafoil. The axes of both systems are parallel,
+        # but the origin moves from the central leading edge to the midpoint
+        # of the risers.
+        self.c0 = parafoil.geometry.fc(0)
+        foil_x = d_riser * self.c0
+        foil_z = -z_riser
+        self.LE = np.sqrt(foil_x**2 + foil_z**2)
+        self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
-        # FIXME: pre-compute the `body->local` transformation matrices here?
-        # FIXME: lots more to implement
+        # Precompute some useful values
+        self.y = parafoil.control_points[:, 1]  # Control point y-coordinates
+        self.c = parafoil.geometry.fc(self.y)  # Chord lengths
 
-    def cg_position(self, delta_S):
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
-        Compute {d_cg, h_cg} for a given speed bar position
 
         Parameters
         ----------
-        delta_S : float or array of float
-            Fraction of speed bar application
+        V_cp2w : ndarray of floats, shape (K,3) [m/s]
+            The relative velocity of each control point vs the fluid
+        delta_Bl : float [percentage]
+            The amount of left brake
+        delta_Br : float [percentage]
+            The amount of right brake
 
         Returns
         -------
-        d_cg : float or array of float [percent]
-            The horizontal position of the cg relative to the central leading
-            edge as a fraction of the central chord.
-        h_cg : float or array of float [m]
-            The vertical position of the cg relative to the central chord.
+        dF, dM : array of float, shape (K,3)
+            Forces and moments for each section
         """
-        c = self.parafoil.geometry.fc(0)
-        delta_LE = delta_S * self.kappa_S
-        d_cg = (self.TE**2 - (self.LE-delta_LE)**2 - c**2)/(-2*c**2)
-        h_cg = np.sqrt((self.LE-delta_LE)**2 - (d_cg*c)**2)
+        delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
+        dF, dM = self.parafoil.forces_and_moments(V_cp2w, delta)
+        return dF, dM
 
-        return d_cg, h_cg
+    def foil_origin(self, delta_w=0, delta_s=0):
+        """
+        Compute the origin of the Parafoil coordinate system in ParagliderWing
+        coordinates.
+
+        Parameters
+        ----------
+        delta_w : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum weight shift
+        delta_s : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum speed bar application
+
+        Returns
+        -------
+        foil_origin : array of float, shape (3,) [meters]
+            The offset of the origin of the Parafoil coordinate system in
+            ParagliderWing coordinates.
+        """
+        LE = self.LE - (delta_s * self.kappa_s)
+        foil_x = (LE**2 - self.TE**2 + self.c0**2)/(2*self.c0)
+        foil_y = -(delta_w * self.kappa_w)
+        foil_z = -np.sqrt(LE**2 - foil_x**2)
+        return np.array([foil_x, foil_y, foil_z])
 
     def alpha_eq(self, delta_B, delta_S):
         """
@@ -81,6 +114,7 @@ class ParagliderWing:
         """
 
         def moment_factor(delta_B, delta_S, alpha):
+            raise RuntimeError("FIXME: broken. Wrong implementaion anyway.")
             CL = self.parafoil_coefs.CL(alpha, delta_B)
             CD = self.parafoil_coefs.CD(alpha, delta_B)
             CM_c4 = self.parafoil_coefs.CM(alpha, delta_B)
@@ -102,33 +136,24 @@ class ParagliderWing:
 
         return r.x
 
-    def section_wind(self, y, state, control=None):
-        # FIXME: Document
-        # compute the local relative wind for parafoil sections
-        U, V, W, P, Q, R = state
+    def control_points(self, delta_w=0, delta_s=0):
+        """
+        The Parafoil control points in ParagliderWing coordinates.
 
-        # Compute the local section wind
-        # PFD eqs 4.10-4.12, p73
-        #
-        # FIXME: rewrite this as a matrix equation?
-        #  * Ref: 'Aircraft Control and Simulation', Eq:1.4-2, p31
+        Parameters
+        ----------
+        delta_w : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum weight shift
+        delta_s : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum speed bar application
 
-        delta_a = 0  # FIXME: should be a parameter
-
-        # FIXME: shouldn't this be {d_prime, h_prime}?
-        #  * IIRC, those are the approximate position of the center of pressure
-        #  * The CP is where the forces can be assumed to occur, and thus where
-        #    the moment arms should be measured.
-        C0 = self.parafoil.geometry.fc(0)
-        d_cg, h_cg = self.cg_position(delta_a)
-
-        x = self.geometry.fx(y) + (d_cg - 1/4)*C0  # FIXME?
-        z = self.geometry.fz(y) + h_cg  # FIXME?
-        uL = U + z*Q - y*R
-        vL = V - z*P + x*R
-        wL = W + y*P - x*Q
-
-        return uL, vL, wL
+        Returns
+        -------
+        cps : ndarray of floats, shape (K,3) [meters]
+            The control points in ParagliderWing coordinates
+        """
+        foil_cps = self.parafoil.control_points  # In Parafoil coordinates
+        return foil_cps + self.foil_origin(delta_w, delta_s)
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
@@ -159,7 +184,7 @@ class ParagliderWing:
 
         # FIXME: technically, the speedbar would rotate the foil coordinates.
         #        The {fx, fz} should be corrected for that.
-
+        # FIXME: linear distribution? A cosine is probably more suitable
         N = 501
         dy = self.geometry.b/(N - 1)  # Include the endpoints
         y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
@@ -168,8 +193,7 @@ class ParagliderWing:
         fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
         fc = self.fc(y)
 
-        # FIXME: needs verification
-        # FIXME: this is a crude rectangle rule integration
+        # FIXME: needs verification. What about weight shifting? Speed bar?
         Sx = trapz((y**2 + fz**2)*fc, dy)
         Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
         Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)
