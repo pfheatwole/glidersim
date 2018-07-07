@@ -121,18 +121,18 @@ class LinearCoefficients(AirfoilCoefficients):
         self.D0 = D0
         self._Cm0 = Cm0  # FIXME: seems clunky; change the naming?
 
-    def Cl(self, alpha, delta=0):
+    def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
         delta_angle = arctan(delta)  # tan(delta_angle) = delta/chord
         return self.a0 * (alpha + delta_angle - self.i0)
 
-    def Cd(self, alpha, delta=0):
+    def Cd(self, alpha, delta):
         return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
-    def Cm0(self, alpha, delta=0):
+    def Cm0(self, alpha, delta):
         return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
 
-    def Cl_alpha(self, alpha, delta=0):
+    def Cl_alpha(self, alpha, delta):
         return self.a0
 
 
@@ -192,16 +192,16 @@ class GridCoefficients(AirfoilCoefficients):
         points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
         self._Cl_alpha = LinearNDInterpolator(points[:, :2], points[:, 2])
 
-    def Cl(self, alpha, delta=0):
+    def Cl(self, alpha, delta):
         return self._Cl(alpha, delta)
 
-    def Cd(self, alpha, delta=0):
+    def Cd(self, alpha, delta):
         return self._Cd(alpha, delta)
 
-    def Cm0(self, alpha, delta=0):
+    def Cm0(self, alpha, delta):
         return self._Cm(alpha, delta)
 
-    def Cl_alpha(self, alpha, delta=0):
+    def Cl_alpha(self, alpha, delta):
         return self._Cl_alpha(alpha, delta)
 
 
