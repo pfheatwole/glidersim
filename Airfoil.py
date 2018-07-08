@@ -268,15 +268,18 @@ class NACA4(AirfoilGeometry):
 
         Parameters
         ----------
-        code : integer
-            The 4-digit NACA code
+        code : integer or string
+            The 4-digit NACA code. If the code is an integer less than 1000,
+            leading zeros are implicitly added; for example, 12 becomes 0012.
         chord : float
             The length of the chord
         """
+        if isinstance(code, str):
+            code = int(code)  # Let the ValueError exception through
         if not isinstance(code, int):
-            raise ValueError("The code must be an integer")
-        if len(str(code)) != 4:
-            raise ValueError("The code must be 4 digits long")
+            raise ValueError("The NACA4 code must be an integer")
+        if code < 0 or code > 9999:  # Leading zeros are implicit
+            raise ValueError("Invalid 4-digit NACA code: '{}'".format(code))
 
         self.chord = chord
         self.code = code
