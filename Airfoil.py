@@ -13,7 +13,6 @@ import pandas as pd
 from scipy.interpolate import LinearNDInterpolator
 from numpy.polynomial import Polynomial
 
-from IPython import embed
 
 class Airfoil:
     def __init__(self, coefficients, geometry=None):
