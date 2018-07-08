@@ -9,13 +9,18 @@ from util import trapz
 class ParafoilGeometry(abc.ABC):
     @property
     @abc.abstractmethod
+    def b(self):
+        """Span of the inflated wing"""
+
+    @property
+    @abc.abstractmethod
     def S(self):
-        """Projected surface area"""
+        """Projected surface area of the inflated wing"""
 
     @property
     @abc.abstractmethod
     def AR(self):
-        """Aspect ratio"""
+        """Aspect ratio of the inflated wing"""
 
     @property
     @abc.abstractmethod
@@ -50,8 +55,8 @@ class ParafoilGeometry(abc.ABC):
         # ref: PFD p46 (54)
         # FIXME: untested
         N = 501
-        dy = self.geometry.b/(N - 1)  # Include the endpoints
-        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        dy = self.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.b/2, self.b/2, N)
         return trapz(self.fc(y) * sqrt(self.dfzdy(y)**2 + 1), dy)
 
     @property
@@ -60,8 +65,8 @@ class ParafoilGeometry(abc.ABC):
         # ref: PFD p47 (54)
         # FIXME: untested
         N = 501
-        dy = self.geometry.b/(N - 1)  # Include the endpoints
-        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        dy = self.b/(N - 1)  # Include the endpoints
+        y = np.linspace(-self.b/2, self.b/2, N)
         return trapz(sqrt(self.dfzdy(y)**2 + 1), dy)
 
     @property
@@ -89,7 +94,7 @@ class Elliptical(ParafoilGeometry):
 
     def __init__(self, b, c0, taper, dihedralMed, dihedralMax,
                  sweepMed, sweepMax, torsion=0, linear_torsion=False):
-        self.b = b
+        self._b = b
         self.c0 = c0
         self.taper = taper
         self.dihedralMed = deg2rad(dihedralMed)
@@ -98,6 +103,10 @@ class Elliptical(ParafoilGeometry):
         self.sweepMax = deg2rad(sweepMax)
         self.torsion = deg2rad(torsion)
         self.linear_torsion = linear_torsion
+
+    @property
+    def b(self):
+        return self._b
 
     @property
     def S(self):
