@@ -88,7 +88,7 @@ class Elliptical(ParafoilGeometry):
     """
 
     def __init__(self, b, c0, taper, dihedralMed, dihedralMax,
-                 sweepMed, sweepMax, torsion=0):
+                 sweepMed, sweepMax, torsion=0, linear_torsion=False):
         self.b = b
         self.c0 = c0
         self.taper = taper
@@ -97,6 +97,7 @@ class Elliptical(ParafoilGeometry):
         self.sweepMed = deg2rad(sweepMed)
         self.sweepMax = deg2rad(sweepMax)
         self.torsion = deg2rad(torsion)
+        self.linear_torsion = linear_torsion
 
     @property
     def S(self):
@@ -187,8 +188,8 @@ class Elliptical(ParafoilGeometry):
         Bc = self.c0
         return Bc * sqrt(1 - (y**2)/Ac**2)
 
-    def ftheta(self, y, linear=False):
-        if linear:
+    def ftheta(self, y):
+        if self.linear_torsion:
             return 2*self.torsion/self.b*np.abs(y)  # Linear
         else:  # Use an exponential distribution of geometric torsion
             k = self.torsion/(np.exp(self.b/2) - 1)
