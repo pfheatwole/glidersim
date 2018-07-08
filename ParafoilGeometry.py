@@ -180,6 +180,7 @@ class Elliptical(ParafoilGeometry):
 
     def Lambda(self, y):
         """Sweep angle"""
+        # FIXME: should this be part of the ParafoilGeometry interface?
         return arctan(self.dfxdy(y))
 
     def dfzdy(self, y):
