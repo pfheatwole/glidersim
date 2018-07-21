@@ -6,13 +6,14 @@ from numpy import double
 
 @njit(cache=True)
 def trapz(y, dx):
-    # Trapezoidal integrator
+    # Trapezoidal integrator with regularly spaced sample points
     return np.sum(y[1:] + y[:-1]) / 2.0 * dx
 
 
 def integrate(f, a, b, N):
     if N % 2 == 0:
         raise ValueError("trapezoid integration requires odd N")
+        # Wait, what? Why?
     x = np.linspace(a, b, N)
     dx = (b - a)/(N - 1)  # Include the endpoints
     y = f(x)
