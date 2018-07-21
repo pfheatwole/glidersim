@@ -292,11 +292,11 @@ class AirfoilGeometry(abc.ABC):
         Ixz = Ixz_o - self.area*xbar*zbar
         Iy = Ix + Iz  # Perpendicular axis theorem
 
-        # Area moment of inertia tensor, treating the plane as a 3D object
+        # Area inertia tensor, treating the plane as a 3D object
         self.area_inertia = np.array(
-            [[Ix, 0, Ixz],
+            [[Ix, 0, -Ixz],
              [0, Iy, 0],
-             [Ixz, 0, Iz]])
+             [-Ixz, 0, Iz]])
 
         # -------------------------------------------------------------------
         # 2. Surface line calculations
