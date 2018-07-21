@@ -81,19 +81,20 @@ class Parafoil:
         # FIXME: rename: "extrudo" isn't English
 
         if xa is None:
-            xa = np.linspace(0, 1, N)
+            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
 
         fc = self.geometry.fc(y)  # Chord length at `y` on the span
-        upper = fc*self.airfoil.geometry.fE(xa)  # Scaled airfoil
-        xs, zs = upper[:, 0], upper[:, 1]
+        upper = fc*self.airfoil.geometry.upper_curve(xa)  # Scaled airfoil
+        # FIXME: Shouldn't this ^ use a ParafoilSection interface?
+        xU, zU = upper[:, 0], upper[:, 1]
 
         theta = self.geometry.ftheta(y)
         Gamma = self.geometry.Gamma(y)
 
-        x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) - zs*sin(theta)
-        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
+        x = self.geometry.fx(y) + (fc/4 - xU)*cos(theta) - zU*sin(theta)
+        _y = y + ((fc/4 - xU)*sin(theta) + zU*cos(theta))*sin(Gamma)
         z = self.geometry.fz(y) - \
-            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
+            ((fc/4 - xU)*sin(theta) + zU*cos(theta))*cos(Gamma)
 
         return np.c_[x, _y, z]
 
@@ -113,19 +114,20 @@ class Parafoil:
         # FIXME: rename: "intrudo" isn't English
 
         if xa is None:
-            xa = np.linspace(0, 1, N)
+            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
 
         fc = self.geometry.fc(y)  # Chord length at `y` on the span
-        upper = fc*self.airfoil.geometry.fI(xa)  # Scaled airfoil
-        xs, zs = upper[:, 0], upper[:, 1]
+        lower = fc*self.airfoil.geometry.lower_curve(xa)  # Scaled airfoil
+        # FIXME: Shouldn't this ^ use a ParafoilSection interface?
+        xL, zL = lower[:, 0], lower[:, 1]
 
         theta = self.geometry.ftheta(y)
         Gamma = self.geometry.Gamma(y)
 
-        x = self.geometry.fx(y) + (fc/4 - xs)*cos(theta) + zs*sin(theta)
-        _y = y + ((fc/4 - xs)*sin(theta) + zs*cos(theta))*sin(Gamma)
+        x = self.geometry.fx(y) + (fc/4 - xL)*cos(theta) + zL*sin(theta)
+        _y = y + ((fc/4 - xL)*sin(theta) + zL*cos(theta))*sin(Gamma)
         z = self.geometry.fz(y) - \
-            ((fc/4 - xs)*sin(theta) + zs*cos(theta))*cos(Gamma)
+            ((fc/4 - xL)*sin(theta) + zL*cos(theta))*cos(Gamma)
 
         return np.c_[x, _y, z]
 

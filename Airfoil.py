@@ -10,6 +10,7 @@ import numpy as np
 from numpy import arctan
 
 import pandas as pd
+from scipy.integrate import simps
 from scipy.interpolate import LinearNDInterpolator
 from numpy.polynomial import Polynomial
 
@@ -20,7 +21,7 @@ class Airfoil:
         if not isinstance(coefficients, AirfoilCoefficients):
             raise ValueError("geometry is not an AirfoilCoefficients")
 
-        # FIXME: bad idea if the geometry is used for the inertia calculations
+        # FIXME: reasonable default for inertia calculations?
         if geometry is None:
             geometry = NACA4(2415)
 
@@ -209,10 +210,139 @@ class GridCoefficients(AirfoilCoefficients):
 
 class AirfoilGeometry(abc.ABC):
     """
-    These are useful for calculating the surface area and volume distributions
-    of the parafoil (which determine the moment of inertia), as well as for
-    drawing the wing.
+    This class provides the parametric curves that define the upper and lower
+    surfaces of an airfoil. It also provides the magnitudes, centroids, and
+    inertia tensors of the upper curve, lower curve, and planar area. These are
+    useful for calculating the surface areas and internal volume of a parafoil,
+    and their individual moments of inertia. The curves are also useful for
+    drawing a 3D wing.
+
+    FIXME: finish the docstring
+    FIXME: explicitly state that the units depend on the inputs?
+
+    Attributes
+    ----------
+    area : float
+        The area of the airfoil
+    area_centroid : ndarray of float, shape (2,)
+        The centroid of the area as [centroid_x, centroid_z]
+    area_inertia : ndarray of float, shape (3,3)
+        The inertia tensor of the area
+    lower_length : float
+        The total length of the lower surface curve
+    lower_centroid : ndarray of float, shape (2,)
+        The centroid of the lower surface curve as [centroid_x, centroid_z]
+    lower_inertia : ndarray of float, shape (3,3)
+        The inertia tensor of the lower surface curve
+    upper_length : float
+        The total length of the lower surface curve
+    upper_centroid : ndarray of float, shape (2,)
+        The centroid of the lower surface curve as [centroid_x, centroid_z]
+    upper_inertia : ndarray of float, shape (3,3)
+        The inertia tensor of the upper surface curve
     """
+
+    def __init__(self):
+        self._compute_inertia_tensors()  # Adds new instance members
+
+    def _compute_inertia_tensors(self, N=200):
+        """
+        Calculate the inertia tensors for the the planar area and curves by
+        treating them as (flat) 3D objects.
+
+        Parameters
+        ----------
+        N : integer
+            The number of chordwise sample points. Used to create the vertical
+            strips for calculating the area, and for creating line segments of
+            the parametric curves for the upper and lower surfaces.
+
+        Notes
+        -----
+        These use the standard airfoil coordinate axes: the origin is fixed at
+        the leading edge, the chord lies on the positive x-axis, and the z-axis
+        points upward. Also, a y-axis that satisfies the right hand rule is
+        added, for the purpose of creating a well-defined inertia tensor.
+        """
+
+        x = np.linspace(0, 1, N)  # FIXME: okay to assume a normalized airfoil?
+
+        upper = self.upper_curve(x)
+        lower = self.lower_curve(x)
+        xU, zU = upper[:, 0], upper[:, 1]
+        xL, zL = lower[:, 0], lower[:, 1]
+
+        # -------------------------------------------------------------------
+        # 1. Area calculations
+
+        self.area = simps(zU, xU) - simps(zL, xL)
+        xbar = (simps(xU*zU, xU) - simps(xL*zL, xL)) / self.area
+        zbar = (simps(zU**2/2, xU) + simps(zL**2/2, xL)) / self.area
+        self.area_centroid = np.array([xbar, zbar])
+
+        # Moments of inertia about the origin
+        # FIXME: verify, including for airfoils where some `zL > 0`
+        Ix_o = 1/3 * (simps(zU**3, xU) - simps(zL**3, xL))
+        Iz_o = simps(xU**2 * zU, xU) - simps(xL**2 * zL, xL)
+        Ixz_o = 1/2 * (simps(xU*(zU**2), xU) - simps(xL*(zL**2), xL))  # FIXME?
+
+        # Use the parallel axis theorem to find the inertias about the centroid
+        Ix = Ix_o - self.area*zbar**2
+        Iz = Iz_o - self.area*xbar**2
+        Ixz = Ixz_o - self.area*xbar*zbar
+        Iy = Ix + Iz  # Perpendicular axis theorem
+
+        # Area moment of inertia tensor, treating the plane as a 3D object
+        self.area_inertia = np.array(
+            [[Ix, 0, Ixz],
+             [0, Iy, 0],
+             [Ixz, 0, Iz]])
+
+        # -------------------------------------------------------------------
+        # 2. Surface line calculations
+
+        # Line segment lengths and midpoints
+        norm_U = np.linalg.norm(np.diff(upper, axis=0), axis=1)
+        norm_L = np.linalg.norm(np.diff(lower, axis=0), axis=1)
+        mid_U = (upper[:-1] + upper[1:])/2  # Midpoints of the upper segments
+        mid_L = (lower[:-1] + lower[1:])/2  # Midpoints of the lower segments
+
+        # Surface line lengths
+        self.upper_length = norm_U.sum()  # Total upper line length
+        self.lower_length = norm_L.sum()  # Total lower line length
+        UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
+
+        # Surface line centroids
+        self.upper_centroid = np.einsum('ij,i->j', mid_U, norm_U) / UL
+        self.lower_centroid = np.einsum('ij,i->j', mid_L, norm_L) / LL
+
+        # Surface line inertias about their centroids
+        # FIXME: not proper line integral: treats segments as point masses
+        cmUx, cmUz = self.upper_centroid
+        mid_Ux, mid_Uz = mid_U[:, 0], mid_U[:, 1]
+        Ix_U = np.sum(mid_Uz**2 * norm_U) - UL*cmUz**2
+        Iz_U = np.sum(mid_Ux**2 * norm_U) - UL*cmUx**2
+        Ixz_U = np.sum(mid_Ux * mid_Uz * norm_U) - UL*cmUx*cmUz
+        Iy_U = Ix_U + Iz_U
+
+        cmLx, cmLz = self.lower_centroid
+        mid_Lx, mid_Lz = mid_L[:, 0], mid_L[:, 1]
+        Ix_L = np.sum(mid_Lz**2 * norm_L) - LL*cmLz**2
+        Iz_L = np.sum(mid_Lx**2 * norm_L) - LL*cmLx**2
+        Ixz_L = np.sum(mid_Lx * mid_Lz * norm_L) - LL*cmLx*cmLz
+        Iy_L = Ix_L + Iz_L
+
+        # Line inertia tensors, treating the lines as 3D objects
+        self.upper_inertia = np.array(
+            [[Ix_U, 0, -Ixz_U],
+             [0, Iy_U, 0],
+             [-Ixz_U, 0, Iz_U]])
+
+        self.lower_inertia = np.array(
+            [[Ix_L, 0, -Ixz_L],
+             [0, Iy_L, 0],
+             [-Ixz_L, 0, Iz_L]])
+
     @property
     @abc.abstractmethod
     def t(self):
@@ -239,7 +369,7 @@ class AirfoilGeometry(abc.ABC):
         """
 
     @abc.abstractmethod
-    def fE(self, x):
+    def upper_curve(self, x):
         """Upper surface coordinate
 
         Parameters
@@ -249,7 +379,7 @@ class AirfoilGeometry(abc.ABC):
         """
 
     @abc.abstractmethod
-    def fI(self, x):
+    def lower_curve(self, x):
         """Lower surface coordinate
 
         Parameters
@@ -260,11 +390,9 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA4(AirfoilGeometry):
-    """Airfoil geometry using a NACA4 parameterization"""
-
     def __init__(self, code, chord=1):
         """
-        Generate a NACA4 airfoil
+        Generate an airfoil using a NACA4 parameterization
 
         Parameters
         ----------
@@ -287,6 +415,8 @@ class NACA4(AirfoilGeometry):
         self.p = ((code // 100) % 10) / 10  # location of max camber
         self.tcr = (code % 100) / 100       # Thickness to chord ratio
         self.pc = self.p * self.chord
+
+        super().__init__()  # Add the centroids, inertias, etc
 
     @property
     def t(self):
@@ -342,7 +472,7 @@ class NACA4(AirfoilGeometry):
 
         return arctan(dyc)
 
-    def fE(self, x):
+    def upper_curve(self, x):
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
@@ -352,7 +482,7 @@ class NACA4(AirfoilGeometry):
         yc = self.yc(x)
         return np.c_[x - yt*np.sin(theta), yc + yt*np.cos(theta)]
 
-    def fI(self, x):
+    def lower_curve(self, x):
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
