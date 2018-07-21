@@ -266,14 +266,13 @@ class Phillips(ForceEstimator):
         assert np.allclose(norm(self.u_a, axis=1), 1)
         assert np.allclose(norm(self.u_n, axis=1), 1)
 
-        # Define the differential areas. Uses a trapezoidal area by assuming a
-        # linear chord variation between nodes.
+        # Define the differential areas as parallelograms by assuming a linear
+        # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        c_nodes = self.parafoil.geometry.fc(self.nodes[:, 1])
-        self.c_avg = (c_nodes[1:] + c_nodes[:-1])/2
-        self.dA = self.c_avg * norm(self.dl, axis=1)
-        print("DEBUG> using the dl to compute dA")
-        # FIXME: does the planform area use dl or dy?
+        node_chords = self.parafoil.geometry.fc(self.nodes[:, 1])
+        c_avg = (node_chords[1:] + node_chords[:-1])/2
+        chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
+        self.dA = norm(cross(chord_vectors, self.dl), axis=1)
 
         # --------------------------------------------------------------------
         # For debugging purposes: plot the quarter chord line, and segments
@@ -611,16 +610,13 @@ class Phillips2D(ForceEstimator):
         assert np.allclose(norm(self.u_a, axis=1), 1)
         assert np.allclose(norm(self.u_n, axis=1), 1)
 
-        # Define the differential areas. Uses a trapezoidal area by assuming a
-        # linear chord variation between nodes.
+        # Define the differential areas as parallelograms by assuming a linear
+        # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        c_nodes = self.parafoil.geometry.fc(self.nodes[:, 1])
-        self.c_avg = (c_nodes[1:] + c_nodes[:-1])/2
-        # self.dA = c_avg * np.diff(self.nodes[:, 1])  # ignores dihedral
-        # self.dA = self.c_avg * np.diff(self.nodes[:, 1]) / cos(self.parafoil.geometry.Gamma(self.cps[:, 1]))
-        self.dA = self.c_avg * norm(self.dl, axis=1)
-        print("DEBUG> using the dl to compute dA")
-        # FIXME: does the planform area use dl or dy?
+        node_chords = self.parafoil.geometry.fc(self.nodes[:, 1])
+        c_avg = (node_chords[1:] + node_chords[:-1])/2
+        chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
+        self.dA = norm(cross(chord_vectors, self.dl), axis=1)
 
     @property
     def control_points(self):
