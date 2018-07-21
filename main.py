@@ -14,8 +14,8 @@ from Wing import Wing, EllipticalWing
 
 def plot_airfoil(foil):
     x = np.linspace(0, 1, 1500)
-    upper = foil.fE(x)
-    lower = foil.fI(x)
+    upper = foil.upper_surface(x)
+    lower = foil.lower_surface(x)
 
     fig, ax = plt.subplots()
     ax.plot(x, foil.yc(x), label='mean camber line')
@@ -68,10 +68,10 @@ def plot_wing(wing):
 
     b = wing.geometry.b
     for y in np.linspace(-b/2, b/2, 21):
-        coords = wing.fI(y, N=50)
+        coords = wing.lower_surface(y, N=50)
         ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='r', zorder=.9,
                 lw=0.8)
-        coords = wing.fE(y, N=50)
+        coords = wing.upper_surface(y, N=50)
         ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='b', lw=0.8)
 
     y = np.linspace(-b/2, b/2, 51)
@@ -118,14 +118,14 @@ def animated_wing_plotter():
 
         # Update the bottom lines
         for n in range(N):
-            coords = wing.fI(ys[n], N=50)
+            coords = wing.lower_surface(ys[n], N=50)
             coords[:, 2] = -coords[:, 2]
             lines[n].set_data(coords[:, 0:2].T)
             lines[n].set_3d_properties(coords[:, 2])
 
         # Update the top lines
         for n in range(N):
-            coords = wing.fE(ys[n], N=50)
+            coords = wing.upper_surface(ys[n], N=50)
             coords[:, 2] = -coords[:, 2]
             lines[n+N].set_data(coords[:, 0:2].T)
             lines[n+N].set_3d_properties(coords[:, 2])
@@ -165,14 +165,14 @@ def animate_wing_torsion():
 
         # Update the bottom lines
         for n in range(N):
-            coords = wing.fI(ys[n], N=50)
+            coords = wing.lower_surface(ys[n], N=50)
             coords[:, 2] = -coords[:, 2]
             lines[n].set_data(coords[:, 0:2].T)
             lines[n].set_3d_properties(coords[:, 2])
 
         # Update the top lines
         for n in range(N):
-            coords = wing.fE(ys[n], N=50)
+            coords = wing.upper_surface(ys[n], N=50)
             coords[:, 2] = -coords[:, 2]
             lines[n+N].set_data(coords[:, 0:2].T)
             lines[n+N].set_3d_properties(coords[:, 2])

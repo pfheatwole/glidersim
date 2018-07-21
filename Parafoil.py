@@ -63,8 +63,8 @@ class Parafoil:
         #        Also, I think it's wrong? should be `p_air = p*MAC*t/3`
         return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
 
-    def fE(self, y, xa=None, N=150):
-        """Airfoil upper camber line on the 3D wing
+    def upper_surface(self, y, xa=None, N=150):
+        """Airfoil upper surface curve on the 3D parafoil
 
         Parameters
         ----------
@@ -76,7 +76,7 @@ class Parafoil:
             If xa is `None`, sample `N` points along the chord
         """
 
-        # FIXME: rename: "extrudo" isn't English
+        # FIXME: support `y` broadcasting?
 
         if xa is None:
             xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
@@ -96,8 +96,8 @@ class Parafoil:
 
         return np.c_[x, _y, z]
 
-    def fI(self, y, xa=None, N=150):
-        """Airfoil lower camber line on the 3D wing
+    def lower_surface(self, y, xa=None, N=150):
+        """Airfoil lower surface curve on the 3D parafoil
 
         Parameters
         ----------
@@ -109,7 +109,7 @@ class Parafoil:
             If xa is `None`, sample `N` points along the chord
         """
 
-        # FIXME: rename: "intrudo" isn't English
+        # FIXME: support `y` broadcasting?
 
         if xa is None:
             xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
