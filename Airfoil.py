@@ -433,7 +433,7 @@ class NACA4(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > c):
             raise ValueError("x must be between 0 and the chord length")
 
-        f = x <= pc  # Filter for the two cases, `x <= pc` and `x > pc`
+        f = (x <= pc)  # Filter for the two cases, `x <= pc` and `x > pc`
         cl = np.empty_like(x)
         cl[f] = (m/p**2)*(2*p*(x[f]/c) - (x[f]/c)**2)
         cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]/c) - (x[~f]/c)**2)
