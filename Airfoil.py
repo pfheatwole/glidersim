@@ -13,14 +13,14 @@ import pandas as pd
 from scipy.interpolate import LinearNDInterpolator
 from numpy.polynomial import Polynomial
 
-from IPython import embed
 
 class Airfoil:
     def __init__(self, coefficients, geometry=None):
 
         if not isinstance(coefficients, AirfoilCoefficients):
-            raise ValueError("geometry is not an AirfoilGeometry")
+            raise ValueError("geometry is not an AirfoilCoefficients")
 
+        # FIXME: bad idea if the geometry is used for the inertia calculations
         if geometry is None:
             geometry = NACA4(2415)
 
@@ -87,7 +87,7 @@ class AirfoilCoefficients(abc.ABC):
             measured as a fraction of the chord length.
         """
 
-    def Cl_alpha(self, alpha, delta=0):
+    def Cl_alpha(self, alpha, delta):
         """
         Derivative of the lift coefficient versus angle of attack
 
@@ -120,18 +120,18 @@ class LinearCoefficients(AirfoilCoefficients):
         self.D0 = D0
         self._Cm0 = Cm0  # FIXME: seems clunky; change the naming?
 
-    def Cl(self, alpha, delta=0):
+    def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
         delta_angle = arctan(delta)  # tan(delta_angle) = delta/chord
         return self.a0 * (alpha + delta_angle - self.i0)
 
-    def Cd(self, alpha, delta=0):
+    def Cd(self, alpha, delta):
         return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
-    def Cm0(self, alpha, delta=0):
+    def Cm0(self, alpha, delta):
         return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
 
-    def Cl_alpha(self, alpha, delta=0):
+    def Cl_alpha(self, alpha, delta):
         return self.a0
 
 
@@ -169,9 +169,12 @@ class GridCoefficients(AirfoilCoefficients):
             data['alpha'] = np.deg2rad(data.alpha)
             data['flap'] = np.deg2rad(data.flap)
 
-        self._Cl = LinearNDInterpolator(data[['alpha', 'flap']], data.CL)
-        self._Cd = LinearNDInterpolator(data[['alpha', 'flap']], data.CD)
-        self._Cm = LinearNDInterpolator(data[['alpha', 'flap']], data.Cm)
+        # Pre-transform local flap angles into into chord-global delta angles
+        data['delta'] = data['flap'] * (1 - self.xhinge)
+
+        self._Cl = LinearNDInterpolator(data[['alpha', 'delta']], data.CL)
+        self._Cd = LinearNDInterpolator(data[['alpha', 'delta']], data.CD)
+        self._Cm = LinearNDInterpolator(data[['alpha', 'delta']], data.Cm)
 
         # Construct another grid for the derivative of Cl vs alpha
         # FIXME: needs a design review
@@ -183,27 +186,22 @@ class GridCoefficients(AirfoilCoefficients):
                     flap))
                 continue
             poly = Polynomial.fit(group['alpha'], group['CL'], 7)
-            Cl_alphas = poly.deriv()(group['alpha'])
-            flaps = np.full(group.shape[0], flap)
-            points.append(np.vstack((group['alpha'], flaps, Cl_alphas)).T)
-        points = np.vstack(points)
+            Cl_alphas = poly.deriv()(group['alpha'])[:, None]
+            points.append(np.hstack((group[['alpha', 'delta']], Cl_alphas)))
+        points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
         self._Cl_alpha = LinearNDInterpolator(points[:, :2], points[:, 2])
 
-    def Cl(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cl(alpha, flap)
+    def Cl(self, alpha, delta):
+        return self._Cl(alpha, delta)
 
-    def Cd(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cd(alpha, flap)
+    def Cd(self, alpha, delta):
+        return self._Cd(alpha, delta)
 
-    def Cm0(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cm(alpha, flap)
+    def Cm0(self, alpha, delta):
+        return self._Cm(alpha, delta)
 
-    def Cl_alpha(self, alpha, delta=0):
-        flap = delta/(1 - self.xhinge)
-        return self._Cl_alpha(alpha, flap)
+    def Cl_alpha(self, alpha, delta):
+        return self._Cl_alpha(alpha, delta)
 
 
 # ---------------------------------------------------------------------------
@@ -211,13 +209,14 @@ class GridCoefficients(AirfoilCoefficients):
 
 class AirfoilGeometry(abc.ABC):
     """
-    These are used for drawing the 3D wing, and have no effect on performance.
+    These are useful for calculating the surface area and volume distributions
+    of the parafoil (which determine the moment of inertia), as well as for
+    drawing the wing.
     """
     @property
     @abc.abstractmethod
     def t(self):
         """Maximum airfoil thickness as a percentage of chord length"""
-        # ref PFD 48 (46)
 
     @abc.abstractmethod
     def yc(self, x):
@@ -226,7 +225,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
@@ -236,27 +235,27 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
     def fE(self, x):
-        """Upper camber line corresponding to the point `x` on the chord
+        """Upper surface coordinate
 
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
     @abc.abstractmethod
     def fI(self, x):
-        """Lower camber line corresponding to the point `x` on the chord
+        """Lower surface coordinate
 
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= chord`
         """
 
 
@@ -269,11 +268,19 @@ class NACA4(AirfoilGeometry):
 
         Parameters
         ----------
-        code : integer
-            The 4-digit NACA code
+        code : integer or string
+            The 4-digit NACA code. If the code is an integer less than 1000,
+            leading zeros are implicitly added; for example, 12 becomes 0012.
         chord : float
             The length of the chord
         """
+        if isinstance(code, str):
+            code = int(code)  # Let the ValueError exception through
+        if not isinstance(code, int):
+            raise ValueError("The NACA4 code must be an integer")
+        if code < 0 or code > 9999:  # Leading zeros are implicit
+            raise ValueError("Invalid 4-digit NACA code: '{}'".format(code))
+
         self.chord = chord
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
@@ -283,7 +290,7 @@ class NACA4(AirfoilGeometry):
 
     @property
     def t(self):
-        return (self.code % 100) / 100
+        return self.tcr
 
     def yc(self, x):
         m = self.m
