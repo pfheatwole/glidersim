@@ -269,22 +269,22 @@ class AirfoilGeometry(abc.ABC):
 
         upper = self.upper_curve(x)
         lower = self.lower_curve(x)
-        xU, zU = upper[:, 0], upper[:, 1]
-        xL, zL = lower[:, 0], lower[:, 1]
+        Ux, Uz = upper[:, 0], upper[:, 1]
+        Lx, Lz = lower[:, 0], lower[:, 1]
 
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        self.area = simps(zU, xU) - simps(zL, xL)
-        xbar = (simps(xU*zU, xU) - simps(xL*zL, xL)) / self.area
-        zbar = (simps(zU**2/2, xU) + simps(zL**2/2, xL)) / self.area
+        self.area = simps(Uz, Ux) - simps(Lz, Lx)
+        xbar = (simps(Ux*Uz, Ux) - simps(Lx*Lz, Lx)) / self.area
+        zbar = (simps(Uz**2/2, Ux) + simps(Lz**2/2, Lx)) / self.area
         self.area_centroid = np.array([xbar, zbar])
 
-        # Moments of inertia about the origin
-        # FIXME: verify, including for airfoils where some `zL > 0`
-        Ix_o = 1/3 * (simps(zU**3, xU) - simps(zL**3, xL))
-        Iz_o = simps(xU**2 * zU, xU) - simps(xL**2 * zL, xL)
-        Ixz_o = 1/2 * (simps(xU*(zU**2), xU) - simps(xL*(zL**2), xL))  # FIXME?
+        # Area moments of inertia about the origin
+        # FIXME: verify, including for airfoils where some `Lz > 0`
+        Ix_o = 1/3 * (simps(Uz**3, Ux) - simps(Lz**3, Lx))
+        Iz_o = simps(Ux**2 * Uz, Ux) - simps(Lx**2 * Lz, Lx)
+        Ixz_o = 1/2 * (simps(Ux*(Uz**2), Ux) - simps(Lx*(Lz**2), Lx))  # FIXME?
 
         # Use the parallel axis theorem to find the inertias about the centroid
         Ix = Ix_o - self.area*zbar**2
