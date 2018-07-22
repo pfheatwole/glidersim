@@ -76,7 +76,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm0(self, alpha, delta):
+    def Cm(self, alpha, delta):
         """
         The pitching coefficient of the airfoil
 
@@ -124,11 +124,11 @@ class LinearCoefficients(AirfoilCoefficients):
     FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
     """
 
-    def __init__(self, a0, i0, D0, Cm0):
+    def __init__(self, a0, i0, D0, Cm):
         self.a0 = a0  # [1/rad]
         self.i0 = np.deg2rad(i0)
         self.D0 = D0
-        self._Cm0 = Cm0  # FIXME: seems clunky; change the naming?
+        self._Cm = Cm  # FIXME: seems clunky; change the naming?
 
     def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
@@ -138,8 +138,8 @@ class LinearCoefficients(AirfoilCoefficients):
     def Cd(self, alpha, delta):
         return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
-    def Cm0(self, alpha, delta):
-        return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
+    def Cm(self, alpha, delta):
+        return np.full_like(alpha, self._Cm, dtype=self._Cm.dtype)
 
     def Cl_alpha(self, alpha, delta):
         return self.a0
@@ -207,7 +207,7 @@ class GridCoefficients(AirfoilCoefficients):
     def Cd(self, alpha, delta):
         return self._Cd(alpha, delta)
 
-    def Cm0(self, alpha, delta):
+    def Cm(self, alpha, delta):
         return self._Cm(alpha, delta)
 
     def Cl_alpha(self, alpha, delta):

@@ -181,7 +181,7 @@ class ConstantCoefficients(ParafoilSections):
     def Cm(self, y, alpha, delta):
         if np.isscalar(alpha):
             alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
-        return self.airfoil.coefficients.Cm0(alpha, delta)
+        return self.airfoil.coefficients.Cm(alpha, delta)
 
 
 # ----------------------------------------------------------------------------
