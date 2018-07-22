@@ -34,7 +34,7 @@ class Airfoil:
 
 class AirfoilCoefficients(abc.ABC):
     """
-    Provides functions for the aerodynamic coefficients of a wing section.
+    Provides the aerodynamic coefficients of a wing section.
 
     FIXME: needs a better description
     """
@@ -42,7 +42,7 @@ class AirfoilCoefficients(abc.ABC):
     @abc.abstractmethod
     def Cl(self, alpha, delta):
         """
-        Lift coefficient of the airfoil at the given angle of attack
+        The lift coefficient of the airfoil
 
         Parameters
         ----------
@@ -51,12 +51,16 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cl : float
         """
 
     @abc.abstractmethod
     def Cd(self, alpha, delta):
         """
-        Form drag coefficient of the airfoil at the given angle of attack
+        The drag coefficient of the airfoil
 
         Parameters
         ----------
@@ -66,18 +70,15 @@ class AirfoilCoefficients(abc.ABC):
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
 
-        Notes
-        -----
-        This is pressure drag only (asymmetric pressure forces across the
-        airfoil due to flow separation). Calculating the skin friction drag of
-        a section requires surface material properties, which are a property
-        of the wing, not the airfoil (the shape of a wing cross-section).
+        Returns
+        -------
+        Cd : float
         """
 
     @abc.abstractmethod
     def Cm0(self, alpha, delta):
         """
-        Pitching coefficient of the airfoil at the given angle of attack
+        The pitching coefficient of the airfoil
 
         Parameters
         ----------
@@ -86,11 +87,15 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cm : float
         """
 
     def Cl_alpha(self, alpha, delta):
         """
-        Derivative of the lift coefficient versus angle of attack
+        The derivative of the lift coefficient versus angle of attack
 
         Parameters
         ----------
@@ -99,6 +104,10 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cl_alpha : float
         """
 
 
