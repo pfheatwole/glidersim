@@ -354,47 +354,69 @@ class AirfoilGeometry(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def t(self):
-        """Maximum airfoil thickness as a percentage of chord length"""
+    def tcr(self):
+        """Maximum airfoil thickness-to-chord ratio"""
+        # FIXME: does this belong in the API? When is this useful?
 
     @abc.abstractmethod
-    def yc(self, x):
-        """Compute the y-coordinate of the mean camber line
+    def camber_curve(self, x):
+        """Mean camber line coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
     @abc.abstractmethod
-    def yt(self, x):
+    def thickness(self, x):
         """Airfoil thickness, perpendicular to the camber line
+
+        FIXME: there are two versions of this idea:
+         1. Perpendicular to the camber line ("American convention")
+         2. Vertical ("British convention")
+         * Allow the class to specify the convention?
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe
         """
 
     @abc.abstractmethod
     def upper_curve(self, x):
-        """Upper surface coordinate
+        """Upper surface coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
     @abc.abstractmethod
     def lower_curve(self, x):
-        """Lower surface coordinate
+        """Lower surface coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
 
@@ -422,16 +444,16 @@ class NACA4(AirfoilGeometry):
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
         self.p = ((code // 100) % 10) / 10  # location of max camber
-        self.tcr = (code % 100) / 100       # Thickness to chord ratio
+        self._tcr = (code % 100) / 100      # Thickness to chord ratio
         self.pc = self.p * self.chord
 
         super().__init__()  # Add the centroids, inertias, etc
 
     @property
-    def t(self):
-        return self.tcr
+    def tcr(self):
+        return self._tcr
 
-    def yc(self, x):
+    def camber_curve(self, x):
         m = self.m
         c = self.chord
         p = self.p
@@ -446,17 +468,15 @@ class NACA4(AirfoilGeometry):
         cl = np.empty_like(x)
         cl[f] = (m/p**2)*(2*p*(x[f]/c) - (x[f]/c)**2)
         cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]/c) - (x[~f]/c)**2)
-        return cl
+        return np.c_[x, cl]
 
-    def yt(self, x):
-        t = self.tcr
-
+    def thickness(self, x):
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
 
-        return 5*t*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
-                    .2843*x**3 - .1015*x**4)
+        return 5*self.tcr*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
+                           .2843*x**3 - .1015*x**4)
 
     def _theta(self, x):
         """Angle of the mean camber line
@@ -487,9 +507,9 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and the chord length")
 
         theta = self._theta(x)
-        yt = self.yt(x)
-        yc = self.yc(x)
-        return np.c_[x - yt*np.sin(theta), yc + yt*np.cos(theta)]
+        t = self.thickness(x)
+        yc = self.camber_curve(x)[:, 1]
+        return np.c_[x - t*np.sin(theta), yc + t*np.cos(theta)]
 
     def lower_curve(self, x):
         x = np.asarray(x)
@@ -497,6 +517,6 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and the chord length")
 
         theta = self._theta(x)
-        yt = self.yt(x)
-        yc = self.yc(x)
-        return np.c_[x + yt*np.sin(theta), yc - yt*np.cos(theta)]
+        t = self.thickness(x)
+        yc = self.camber_curve(x)[:, 1]
+        return np.c_[x + t*np.sin(theta), yc - t*np.cos(theta)]
