@@ -268,44 +268,51 @@ class AirfoilGeometry(abc.ABC):
 
         Notes
         -----
-        These use the standard airfoil coordinate axes: the origin is fixed at
-        the leading edge, the chord lies on the positive x-axis, and the z-axis
-        points upward. Also, a y-axis that satisfies the right hand rule is
-        added, for the purpose of creating a well-defined inertia tensor.
+        A z-axis that satisfies the right hand rule is added for the purpose of
+        creating a well-defined inertia tensor. It is important to note that
+        this xyz coordinate system is different from the `frd` coordinate axes
+        used by a Parafoil. It is used to maintain consistency with traditional
+        airfoil definitions in literature.
+
+        To convert from this airfoil coordinate system ("acs") to frd:
+
+        >>> C = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
+        >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z=0
+        >>> inertia_frd = C @ inertia_acs @ C
         """
 
         x = np.linspace(0, 1, N)  # FIXME: okay to assume a normalized airfoil?
 
         upper = self.upper_curve(x)
         lower = self.lower_curve(x)
-        Ux, Uz = upper[:, 0], upper[:, 1]
-        Lx, Lz = lower[:, 0], lower[:, 1]
+        Ux, Uy = upper[:, 0], upper[:, 1]
+        Lx, Ly = lower[:, 0], lower[:, 1]
 
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        self.area = simps(Uz, Ux) - simps(Lz, Lx)
-        xbar = (simps(Ux*Uz, Ux) - simps(Lx*Lz, Lx)) / self.area
-        zbar = (simps(Uz**2/2, Ux) + simps(Lz**2/2, Lx)) / self.area
-        self.area_centroid = np.array([xbar, zbar])
+        self.area = simps(Uy, Ux) - simps(Ly, Lx)
+        xbar = (simps(Ux*Uy, Ux) - simps(Lx*Ly, Lx)) / self.area
+        ybar = (simps(Uy**2 / 2, Ux) + simps(Ly**2 / 2, Lx)) / self.area
+        self.area_centroid = np.array([xbar, ybar])
 
         # Area moments of inertia about the origin
-        # FIXME: verify, including for airfoils where some `Lz > 0`
-        Ix_o = 1/3 * (simps(Uz**3, Ux) - simps(Lz**3, Lx))
-        Iz_o = simps(Ux**2 * Uz, Ux) - simps(Lx**2 * Lz, Lx)
-        Ixz_o = 1/2 * (simps(Ux*(Uz**2), Ux) - simps(Lx*(Lz**2), Lx))  # FIXME?
+        # FIXME: verify, including for airfoils where some `Ly > 0`
+        Ixx_o = 1/3 * (simps(Uy**3, Ux) - simps(Ly**3, Lx))
+        Iyy_o = simps(Ux**2 * Uy, Ux) - simps(Lx**2 * Ly, Lx)
+        Ixy_o = 1/2 * (simps(Ux * Uy**2, Ux) - simps(Lx * Ly**2, Lx))  # FIXME?
 
         # Use the parallel axis theorem to find the inertias about the centroid
-        Ix = Ix_o - self.area*zbar**2
-        Iz = Iz_o - self.area*xbar**2
-        Ixz = Ixz_o - self.area*xbar*zbar
-        Iy = Ix + Iz  # Perpendicular axis theorem
+        Ixx = Ixx_o - self.area * ybar**2
+        Iyy = Iyy_o - self.area * xbar**2
+        Ixy = Ixy_o - self.area*xbar*ybar
+        Izz = Ixx + Iyy  # Perpendicular axis theorem
 
         # Area inertia tensor, treating the plane as a 3D object
         self.area_inertia = np.array(
-            [[Ix, 0, -Ixz],
-             [0, Iy, 0],
-             [-Ixz, 0, Iz]])
+            [[ Ixx, -Ixy,   0],
+             [-Ixy,  Iyy,   0],
+             [   0,    0, Izz]])
 
         # -------------------------------------------------------------------
         # 2. Surface line calculations
@@ -316,9 +323,9 @@ class AirfoilGeometry(abc.ABC):
         mid_U = (upper[:-1] + upper[1:])/2  # Midpoints of the upper segments
         mid_L = (lower[:-1] + lower[1:])/2  # Midpoints of the lower segments
 
-        # Surface line lengths
-        self.upper_length = norm_U.sum()  # Total upper line length
-        self.lower_length = norm_L.sum()  # Total lower line length
+        # Total surface line lengths
+        self.upper_length = norm_U.sum()
+        self.lower_length = norm_L.sum()
         UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
 
         # Surface line centroids
@@ -327,30 +334,30 @@ class AirfoilGeometry(abc.ABC):
 
         # Surface line moments of inertia about their centroids
         # FIXME: not proper line integrals: treats segments as point masses
-        cmUx, cmUz = self.upper_centroid
-        mid_Ux, mid_Uz = mid_U[:, 0], mid_U[:, 1]
-        Ix_U = np.sum(mid_Uz**2 * norm_U) - UL*cmUz**2
-        Iz_U = np.sum(mid_Ux**2 * norm_U) - UL*cmUx**2
-        Ixz_U = np.sum(mid_Ux * mid_Uz * norm_U) - UL*cmUx*cmUz
-        Iy_U = Ix_U + Iz_U
+        cmUx, cmUy = self.upper_centroid
+        mid_Ux, mid_Uy = mid_U[:, 0], mid_U[:, 1]
+        Ixx_U = np.sum(mid_Uy**2 * norm_U) - UL*cmUy**2
+        Iyy_U = np.sum(mid_Ux**2 * norm_U) - UL*cmUx**2
+        Ixy_U = np.sum(mid_Ux*mid_Uy*norm_U) - UL*cmUx*cmUy
+        Izz_U = Ixx_U + Iyy_U
 
-        cmLx, cmLz = self.lower_centroid
-        mid_Lx, mid_Lz = mid_L[:, 0], mid_L[:, 1]
-        Ix_L = np.sum(mid_Lz**2 * norm_L) - LL*cmLz**2
-        Iz_L = np.sum(mid_Lx**2 * norm_L) - LL*cmLx**2
-        Ixz_L = np.sum(mid_Lx * mid_Lz * norm_L) - LL*cmLx*cmLz
-        Iy_L = Ix_L + Iz_L
+        cmLx, cmLy = self.lower_centroid
+        mid_Lx, mid_Ly = mid_L[:, 0], mid_L[:, 1]
+        Ixx_L = np.sum(mid_Ly**2 * norm_L) - LL*cmLy**2
+        Iyy_L = np.sum(mid_Lx**2 * norm_L) - LL*cmLx**2
+        Ixy_L = np.sum(mid_Lx*mid_Ly*norm_L) - LL*cmLx*cmLy
+        Izz_L = Ixx_L + Iyy_L
 
         # Line inertia tensors, treating the lines as 3D objects
         self.upper_inertia = np.array(
-            [[Ix_U, 0, -Ixz_U],
-             [0, Iy_U, 0],
-             [-Ixz_U, 0, Iz_U]])
+            [[ Ixx_U, -Ixy_U,     0],
+             [-Ixy_U,  Iyy_U,     0],
+             [     0,      0, Izz_U]])
 
         self.lower_inertia = np.array(
-            [[Ix_L, 0, -Ixz_L],
-             [0, Iy_L, 0],
-             [-Ixz_L, 0, Iz_L]])
+            [[ Ixx_L, -Ixy_L,     0],
+             [-Ixy_L,  Iyy_L,     0],
+             [     0,      0, Izz_L]])
 
     @property
     @abc.abstractmethod
