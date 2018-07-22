@@ -34,7 +34,7 @@ class Airfoil:
 
 class AirfoilCoefficients(abc.ABC):
     """
-    Provides functions for the aerodynamic coefficients of a wing section.
+    Provides the aerodynamic coefficients of a wing section.
 
     FIXME: needs a better description
     """
@@ -42,7 +42,7 @@ class AirfoilCoefficients(abc.ABC):
     @abc.abstractmethod
     def Cl(self, alpha, delta):
         """
-        Lift coefficient of the airfoil at the given angle of attack
+        The lift coefficient of the airfoil
 
         Parameters
         ----------
@@ -51,12 +51,16 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cl : float
         """
 
     @abc.abstractmethod
     def Cd(self, alpha, delta):
         """
-        Form drag coefficient of the airfoil at the given angle of attack
+        The drag coefficient of the airfoil
 
         Parameters
         ----------
@@ -66,18 +70,15 @@ class AirfoilCoefficients(abc.ABC):
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
 
-        Notes
-        -----
-        This is pressure drag only (asymmetric pressure forces across the
-        airfoil due to flow separation). Calculating the skin friction drag of
-        a section requires surface material properties, which are a property
-        of the wing, not the airfoil (the shape of a wing cross-section).
+        Returns
+        -------
+        Cd : float
         """
 
     @abc.abstractmethod
-    def Cm0(self, alpha, delta):
+    def Cm(self, alpha, delta):
         """
-        Pitching coefficient of the airfoil at the given angle of attack
+        The pitching coefficient of the airfoil
 
         Parameters
         ----------
@@ -86,11 +87,15 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cm : float
         """
 
     def Cl_alpha(self, alpha, delta):
         """
-        Derivative of the lift coefficient versus angle of attack
+        The derivative of the lift coefficient versus angle of attack
 
         Parameters
         ----------
@@ -99,6 +104,10 @@ class AirfoilCoefficients(abc.ABC):
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+
+        Returns
+        -------
+        Cl_alpha : float
         """
 
 
@@ -115,11 +124,11 @@ class LinearCoefficients(AirfoilCoefficients):
     FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
     """
 
-    def __init__(self, a0, i0, D0, Cm0):
+    def __init__(self, a0, i0, D0, Cm):
         self.a0 = a0  # [1/rad]
         self.i0 = np.deg2rad(i0)
         self.D0 = D0
-        self._Cm0 = Cm0  # FIXME: seems clunky; change the naming?
+        self._Cm = Cm  # FIXME: seems clunky; change the naming?
 
     def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
@@ -129,8 +138,8 @@ class LinearCoefficients(AirfoilCoefficients):
     def Cd(self, alpha, delta):
         return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
 
-    def Cm0(self, alpha, delta):
-        return np.full_like(alpha, self._Cm0, dtype=self._Cm0.dtype)
+    def Cm(self, alpha, delta):
+        return np.full_like(alpha, self._Cm, dtype=self._Cm.dtype)
 
     def Cl_alpha(self, alpha, delta):
         return self.a0
@@ -198,7 +207,7 @@ class GridCoefficients(AirfoilCoefficients):
     def Cd(self, alpha, delta):
         return self._Cd(alpha, delta)
 
-    def Cm0(self, alpha, delta):
+    def Cm(self, alpha, delta):
         return self._Cm(alpha, delta)
 
     def Cl_alpha(self, alpha, delta):
@@ -269,22 +278,22 @@ class AirfoilGeometry(abc.ABC):
 
         upper = self.upper_curve(x)
         lower = self.lower_curve(x)
-        xU, zU = upper[:, 0], upper[:, 1]
-        xL, zL = lower[:, 0], lower[:, 1]
+        Ux, Uz = upper[:, 0], upper[:, 1]
+        Lx, Lz = lower[:, 0], lower[:, 1]
 
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        self.area = simps(zU, xU) - simps(zL, xL)
-        xbar = (simps(xU*zU, xU) - simps(xL*zL, xL)) / self.area
-        zbar = (simps(zU**2/2, xU) + simps(zL**2/2, xL)) / self.area
+        self.area = simps(Uz, Ux) - simps(Lz, Lx)
+        xbar = (simps(Ux*Uz, Ux) - simps(Lx*Lz, Lx)) / self.area
+        zbar = (simps(Uz**2/2, Ux) + simps(Lz**2/2, Lx)) / self.area
         self.area_centroid = np.array([xbar, zbar])
 
-        # Moments of inertia about the origin
-        # FIXME: verify, including for airfoils where some `zL > 0`
-        Ix_o = 1/3 * (simps(zU**3, xU) - simps(zL**3, xL))
-        Iz_o = simps(xU**2 * zU, xU) - simps(xL**2 * zL, xL)
-        Ixz_o = 1/2 * (simps(xU*(zU**2), xU) - simps(xL*(zL**2), xL))  # FIXME?
+        # Area moments of inertia about the origin
+        # FIXME: verify, including for airfoils where some `Lz > 0`
+        Ix_o = 1/3 * (simps(Uz**3, Ux) - simps(Lz**3, Lx))
+        Iz_o = simps(Ux**2 * Uz, Ux) - simps(Lx**2 * Lz, Lx)
+        Ixz_o = 1/2 * (simps(Ux*(Uz**2), Ux) - simps(Lx*(Lz**2), Lx))  # FIXME?
 
         # Use the parallel axis theorem to find the inertias about the centroid
         Ix = Ix_o - self.area*zbar**2
@@ -292,11 +301,11 @@ class AirfoilGeometry(abc.ABC):
         Ixz = Ixz_o - self.area*xbar*zbar
         Iy = Ix + Iz  # Perpendicular axis theorem
 
-        # Area moment of inertia tensor, treating the plane as a 3D object
+        # Area inertia tensor, treating the plane as a 3D object
         self.area_inertia = np.array(
-            [[Ix, 0, Ixz],
+            [[Ix, 0, -Ixz],
              [0, Iy, 0],
-             [Ixz, 0, Iz]])
+             [-Ixz, 0, Iz]])
 
         # -------------------------------------------------------------------
         # 2. Surface line calculations
@@ -316,8 +325,8 @@ class AirfoilGeometry(abc.ABC):
         self.upper_centroid = np.einsum('ij,i->j', mid_U, norm_U) / UL
         self.lower_centroid = np.einsum('ij,i->j', mid_L, norm_L) / LL
 
-        # Surface line inertias about their centroids
-        # FIXME: not proper line integral: treats segments as point masses
+        # Surface line moments of inertia about their centroids
+        # FIXME: not proper line integrals: treats segments as point masses
         cmUx, cmUz = self.upper_centroid
         mid_Ux, mid_Uz = mid_U[:, 0], mid_U[:, 1]
         Ix_U = np.sum(mid_Uz**2 * norm_U) - UL*cmUz**2
@@ -345,47 +354,69 @@ class AirfoilGeometry(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def t(self):
-        """Maximum airfoil thickness as a percentage of chord length"""
+    def tcr(self):
+        """Maximum airfoil thickness-to-chord ratio"""
+        # FIXME: does this belong in the API? When is this useful?
 
     @abc.abstractmethod
-    def yc(self, x):
-        """Compute the y-coordinate of the mean camber line
+    def camber_curve(self, x):
+        """Mean camber line coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
     @abc.abstractmethod
-    def yt(self, x):
+    def thickness(self, x):
         """Airfoil thickness, perpendicular to the camber line
+
+        FIXME: there are two versions of this idea:
+         1. Perpendicular to the camber line ("American convention")
+         2. Vertical ("British convention")
+         * Allow the class to specify the convention?
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe
         """
 
     @abc.abstractmethod
     def upper_curve(self, x):
-        """Upper surface coordinate
+        """Upper surface coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
     @abc.abstractmethod
     def lower_curve(self, x):
-        """Lower surface coordinate
+        """Lower surface coordinates
 
         Parameters
         ----------
         x : float
             Position on the chord line, where `0 <= x <= chord`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
         """
 
 
@@ -413,16 +444,16 @@ class NACA4(AirfoilGeometry):
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
         self.p = ((code // 100) % 10) / 10  # location of max camber
-        self.tcr = (code % 100) / 100       # Thickness to chord ratio
+        self._tcr = (code % 100) / 100      # Thickness to chord ratio
         self.pc = self.p * self.chord
 
         super().__init__()  # Add the centroids, inertias, etc
 
     @property
-    def t(self):
-        return self.tcr
+    def tcr(self):
+        return self._tcr
 
-    def yc(self, x):
+    def camber_curve(self, x):
         m = self.m
         c = self.chord
         p = self.p
@@ -433,21 +464,19 @@ class NACA4(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > c):
             raise ValueError("x must be between 0 and the chord length")
 
-        f = x <= pc  # Filter for the two cases, `x <= pc` and `x > pc`
+        f = (x <= pc)  # Filter for the two cases, `x <= pc` and `x > pc`
         cl = np.empty_like(x)
         cl[f] = (m/p**2)*(2*p*(x[f]/c) - (x[f]/c)**2)
         cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]/c) - (x[~f]/c)**2)
-        return cl
+        return np.c_[x, cl]
 
-    def yt(self, x):
-        t = self.tcr
-
+    def thickness(self, x):
         x = np.asarray(x)
         if np.any(x < 0) or np.any(x > self.chord):
             raise ValueError("x must be between 0 and the chord length")
 
-        return 5*t*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
-                    .2843*x**3 - .1015*x**4)
+        return 5*self.tcr*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
+                           .2843*x**3 - .1015*x**4)
 
     def _theta(self, x):
         """Angle of the mean camber line
@@ -478,9 +507,9 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and the chord length")
 
         theta = self._theta(x)
-        yt = self.yt(x)
-        yc = self.yc(x)
-        return np.c_[x - yt*np.sin(theta), yc + yt*np.cos(theta)]
+        t = self.thickness(x)
+        yc = self.camber_curve(x)[:, 1]
+        return np.c_[x - t*np.sin(theta), yc + t*np.cos(theta)]
 
     def lower_curve(self, x):
         x = np.asarray(x)
@@ -488,6 +517,6 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and the chord length")
 
         theta = self._theta(x)
-        yt = self.yt(x)
-        yc = self.yc(x)
-        return np.c_[x + yt*np.sin(theta), yc - yt*np.cos(theta)]
+        t = self.thickness(x)
+        yc = self.camber_curve(x)[:, 1]
+        return np.c_[x + t*np.sin(theta), yc - t*np.cos(theta)]
