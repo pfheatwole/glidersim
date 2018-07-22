@@ -316,8 +316,8 @@ class AirfoilGeometry(abc.ABC):
         self.upper_centroid = np.einsum('ij,i->j', mid_U, norm_U) / UL
         self.lower_centroid = np.einsum('ij,i->j', mid_L, norm_L) / LL
 
-        # Surface line inertias about their centroids
-        # FIXME: not proper line integral: treats segments as point masses
+        # Surface line moments of inertia about their centroids
+        # FIXME: not proper line integrals: treats segments as point masses
         cmUx, cmUz = self.upper_centroid
         mid_Ux, mid_Uz = mid_U[:, 0], mid_U[:, 1]
         Ix_U = np.sum(mid_Uz**2 * norm_U) - UL*cmUz**2
