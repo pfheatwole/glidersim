@@ -18,7 +18,7 @@ from Paraglider import Paraglider
 
 
 def build_elliptical_geo(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
-                     torsion=0, airfoil_geo=None, sections=None):
+                         torsion=0, airfoil_geo=None, sections=None):
     if dMax is None:
         dMax = 2*dMed - 1  # ref page 48 (56)
         print("Using minimum max dihedral ({})".format(dMax))
@@ -142,10 +142,9 @@ def main():
         sMed=5, airfoil_geo=Airfoil.NACA4(4412), sections=sections)
 
     # Same geometry, two different force estimation methods
-    parafoil2d = Parafoil.Parafoil(parafoil_geo, sections, Parafoil.Phillips2D)
-    parafoil3d = Parafoil.Parafoil(parafoil_geo, sections, Parafoil.Phillips)
+    parafoil = Parafoil.Parafoil(parafoil_geo, sections)
 
-    b = parafoil2d.geometry.b
+    b = parafoil.geometry.b
 
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
     # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
@@ -159,9 +158,11 @@ def main():
     brakes = bCubic65
 
     # Build a wings with the different force estimation methods
-    wing2d = ParagliderWing(parafoil2d, brakes, d_riser=0.5, z_riser=7,
+    wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,
+                            d_riser=0.5, z_riser=7,
                             kappa_w=0.3, kappa_s=0.4)
-    wing3d = ParagliderWing(parafoil3d, brakes, d_riser=0.5, z_riser=7,
+    wing3d = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
+                            d_riser=0.5, z_riser=7,
                             kappa_w=0.3, kappa_s=0.4)
 
     glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
@@ -204,7 +205,6 @@ def main():
     ax[1].legend()
     ax[2].legend()
     plt.show()
-
 
     # ------------------------
     glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)

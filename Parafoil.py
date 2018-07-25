@@ -44,18 +44,9 @@ def set_axes_equal(ax):
 
 
 class Parafoil:
-    def __init__(self, geometry, sections, force_estimator):
+    def __init__(self, geometry, sections):
         self.geometry = geometry
         self.sections = sections  # Provides the airfoils for each section
-
-        # The estimator owns the control points for the force estimation
-        # FIXME: this design is inconvenient for configuring the estimator
-        self.forces_and_moments = force_estimator(self)
-
-    @property
-    def control_points(self):
-        # FIXME: needs a design review, this is weird
-        return self.forces_and_moments.control_points
 
     @property
     def density_factor(self):

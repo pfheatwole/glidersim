@@ -15,12 +15,14 @@ class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
-    def __init__(self, parafoil, brake_geo, d_riser, z_riser,
+    def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
                  kappa_w=0, kappa_s=0):
         """
         Parameters
         ----------
         parafoil : Parafoil
+        force_estimator : ForceEstimator
+            Calculates the aerodynamic forces and moments on the parafoil
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -34,6 +36,7 @@ class ParagliderWing:
             in the length of the lines to the leading edge.
         """
         self.parafoil = parafoil
+        self.force_estimator = force_estimator(parafoil)
         self.brake_geo = brake_geo
         self.kappa_w = kappa_w  # FIXME: strange notation. Why `kappa`?
         self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
@@ -49,8 +52,8 @@ class ParagliderWing:
         self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
         # Precompute some useful values
-        self.y = parafoil.control_points[:, 1]  # Control point y-coordinates
-        self.c = parafoil.geometry.fc(self.y)  # Chord lengths
+        self.y = self.control_points()[:, 1]  # Control point y-coordinates
+        self.c = self.parafoil.geometry.fc(self.y)  # Chord lengths
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
@@ -70,7 +73,7 @@ class ParagliderWing:
             Forces and moments for each section
         """
         delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
-        dF, dM = self.parafoil.forces_and_moments(V_cp2w, delta)
+        dF, dM = self.force_estimator(V_cp2w, delta)
         return dF, dM
 
     def foil_origin(self, delta_w=0, delta_s=0):
@@ -152,8 +155,8 @@ class ParagliderWing:
         cps : ndarray of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        foil_cps = self.parafoil.control_points  # In Parafoil coordinates
-        return foil_cps + self.foil_origin(delta_w, delta_s)
+        cps = self.force_estimator.control_points  # In Parafoil coordinates
+        return cps + self.foil_origin(delta_w, delta_s)  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
