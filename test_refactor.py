@@ -160,10 +160,10 @@ def main():
     # Build a wings with the different force estimation methods
     wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,
                             d_riser=0.5, z_riser=7,
-                            kappa_w=0.3, kappa_s=0.4)
+                            kappa_s=0.4)
     wing3d = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
                             d_riser=0.5, z_riser=7,
-                            kappa_w=0.3, kappa_s=0.4)
+                            kappa_s=0.4)
 
     glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
     glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
@@ -214,7 +214,7 @@ def main():
     PQR = np.array([0, 0, R])
     # sec_wind = glider3d.section_wind(None, UVW, PQR)
 
-    xyz = glider3d.control_points(delta_w=0, delta_s=0)
+    xyz = glider3d.control_points(delta_s=0)
     dF, dM = glider3d.forces_and_moments(UVW, PQR, delta_Bl=0, delta_Br=0,
                                          xyz=xyz)
     embed()

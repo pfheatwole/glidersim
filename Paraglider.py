@@ -32,17 +32,38 @@ class Paraglider:
         self.S_cg = S_cg  # FIXME: move into a Harness?
         self.CD_cg = CD_cg  # FIXME: move into a Harness?
 
-    def control_points(self, delta_w=0, delta_s=0):
-        # FIXME: this seems poorly thought out
-        #
-        #        Ah! Because it's incomplete? What about the relative wind on
-        #        the harness? Or maybe at the lines? etc.
-        #
-        #        Each component with an aerodynamic force will need a wind
-        #        vector. This might be a good spot for the Paraglider to
-        #        signal all those points, which are then separated into their
-        #        constituent components later.
-        return self.wing.control_points(delta_w=delta_w, delta_s=delta_s)
+    def control_points(self, delta_s=0):
+        """
+        Compute the all the reference points on the Paraglider system.
+
+        All the components of the Paraglider that experience aerodynamic forces
+        need the relative wind vectors. Each component is responsible for
+        creating a list of the coordinates where they need the value of the
+        wind.
+
+        Given each component's set of control points, this function then
+        transforms them as necessary into body coordinates. For example:
+
+        ```
+            foil_cps = self.wing.control_points(delta_s=delta_s)
+            foil_cps[:, 1] = foil_cps[:, 1] - (delta_w * self.kappa_w)
+        ```
+
+        For this simple model, where the cg is defined as the origin of the
+        Parafoil, it's pretty simple. But if you get more complicated, such as
+        non-spherical harness that isn't exactly at the cg, line drag, etc,
+        it gets more interesting.
+
+
+        Keep in mind: I'm anticipating that the simulator will query this
+        function FIRST in order to determine the CP coordinates in Earth
+        coordinates, so it can query the wind field at each point.
+
+           *** THIS NEEDS A DESIGN REVIEW ***
+
+
+        """
+        return self.wing.control_points(delta_s=delta_s)
 
     def section_wind(self, y, UVW, PQR, controls=None):
         # FIXME: remove the explicit `y` parameter?
@@ -66,7 +87,6 @@ class Paraglider:
         # FIXME: this is incomplete. It doesn't have a parameter for the wind.
         #        (UVW is the motion of the cg relative to the inertial frame)
 
-        delta_w = 0  # FIXME: should be part of the control?
         delta_s = 0  # FIXME: should be part of the control?
 
         # Version 1: PFD eqs 4.10-4.12, p73
@@ -87,13 +107,13 @@ class Paraglider:
         # FIXME: testing
 
         v_b2w = UVW + 0  # FIXME: what is v_{body/wind} ?
-        xyz = self.wing.control_points(delta_w, delta_s)
+        xyz = self.wing.control_points(delta_s)
         v_rel = v_b2w + np.cross(PQR, xyz)
         return v_rel
 
     def forces_and_moments(self, UVW, PQR,
                            delta_Bl=0, delta_Br=0,
-                           delta_w=0, delta_s=0,
+                           delta_s=0,
                            v_w2e=None, xyz=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
@@ -120,8 +140,6 @@ class Paraglider:
             The fraction of maximum left brake
         delta_Br : float [percentage]
             The fraction of maximum right brake
-        delta_w : float [percentage]
-            The fraction of maximum weight shift
         delta_s : float [percentage]
             The fraction of maximum speed bar
         v_w2e : ndarray of float, shape (3,) or (K,3)
@@ -161,7 +179,7 @@ class Paraglider:
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
-            xyz = self.wing.control_points(delta_w, delta_s)
+            xyz = self.wing.control_points(delta_s)
 
         # Compute the velocity of each control point relative to the air
         v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
