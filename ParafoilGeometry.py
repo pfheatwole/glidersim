@@ -174,9 +174,9 @@ class Elliptical(ParafoilGeometry):
         # FIXME: untested
         tMed = tan(self.sweepMed)
         tMax = tan(self.sweepMax)
-        Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
+        Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
+        Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        return Bx * -y / (Ax**2 * sqrt(1 - y**2/Ax**2))
 
     def Lambda(self, y):
         """Sweep angle"""
