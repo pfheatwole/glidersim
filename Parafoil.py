@@ -54,71 +54,81 @@ class Parafoil:
         #        Also, I think it's wrong? should be `p_air = p*MAC*t/3`
         return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
 
-    def upper_surface(self, y, xa=None, N=150):
+    def upper_surface(self, t, xa=None, N=150):
         """Airfoil upper surface curve on the 3D parafoil
 
         Parameters
         ----------
-        y : float
-            Position on the span, where `-b/2 < y < b/2`
+        t : float
+            Position on the parametric curve, where `-1 <= t <= 1`
         xa : float or array of float, optional
             Positions on the chord line, where all `0 < xa < chord`
         N : integer, optional
             If xa is `None`, sample `N` points along the chord
+
+        Returns
+        -------
+        FIXME
         """
 
-        # FIXME: support `y` broadcasting?
+        # FIXME: support `t` broadcasting?
 
         if xa is None:
             xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
 
-        fc = self.geometry.fc(y)  # Chord length at `y` on the span
+        fc = self.geometry.fc(t)
         upper = fc*self.airfoil.geometry.upper_curve(xa)  # Scaled airfoil
-        # FIXME: Shouldn't this ^ use a ParafoilSection interface?
+        # FIXME: this ^ should use a ParafoilSection interface
         xU, zU = upper[:, 0], upper[:, 1]
 
-        theta = self.geometry.ftheta(y)
-        Gamma = self.geometry.Gamma(y)
+        theta = self.geometry.ftheta(t)
+        Gamma = self.geometry.Gamma(t)
 
-        x = self.geometry.fx(y) + (fc/4 - xU)*cos(theta) - zU*sin(theta)
-        _y = y + ((fc/4 - xU)*sin(theta) + zU*cos(theta))*sin(Gamma)
-        z = self.geometry.fz(y) - \
+        x = self.geometry.fx(t) + (fc/4 - xU)*cos(theta) - zU*sin(theta)
+        y = self.geometry.fy(t) + \
+            ((fc/4 - xU)*sin(theta) + zU*cos(theta))*sin(Gamma)
+        z = self.geometry.fz(t) - \
             ((fc/4 - xU)*sin(theta) + zU*cos(theta))*cos(Gamma)
 
-        return np.c_[x, _y, z]
+        return np.c_[x, y, z]
 
-    def lower_surface(self, y, xa=None, N=150):
+    def lower_surface(self, t, xa=None, N=150):
         """Airfoil lower surface curve on the 3D parafoil
 
         Parameters
         ----------
-        y : float
-            Position on the span, where `-b/2 < y < b/2`
+        t : float
+            Position on the parametric curve, where `-1 <= t <= 1`
         xa : float or array of float, optional
             Positions on the chord line, where all `0 < xa < chord`
         N : integer, optional
             If xa is `None`, sample `N` points along the chord
+
+        Returns
+        -------
+        FIXME
         """
 
-        # FIXME: support `y` broadcasting?
+        # FIXME: support `t` broadcasting?
 
         if xa is None:
             xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
 
-        fc = self.geometry.fc(y)  # Chord length at `y` on the span
+        fc = self.geometry.fc(t)
         lower = fc*self.airfoil.geometry.lower_curve(xa)  # Scaled airfoil
-        # FIXME: Shouldn't this ^ use a ParafoilSection interface?
+        # FIXME: this ^ should use a ParafoilSection interface
         xL, zL = lower[:, 0], lower[:, 1]
 
-        theta = self.geometry.ftheta(y)
-        Gamma = self.geometry.Gamma(y)
+        theta = self.geometry.ftheta(t)
+        Gamma = self.geometry.Gamma(t)
 
-        x = self.geometry.fx(y) + (fc/4 - xL)*cos(theta) + zL*sin(theta)
-        _y = y + ((fc/4 - xL)*sin(theta) + zL*cos(theta))*sin(Gamma)
-        z = self.geometry.fz(y) - \
+        x = self.geometry.fx(t) + (fc/4 - xL)*cos(theta) + zL*sin(theta)
+        y = self.geometry.fy(t) + \
+            ((fc/4 - xL)*sin(theta) + zL*cos(theta))*sin(Gamma)
+        z = self.geometry.fz(t) - \
             ((fc/4 - xL)*sin(theta) + zL*cos(theta))*cos(Gamma)
 
-        return np.c_[x, _y, z]
+        return np.c_[x, y, z]
 
 
 # ----------------------------------------------------------------------------
@@ -129,19 +139,19 @@ class ParafoilSections(abc.ABC):
     # FIXME: bad naming? An instance of this class isn't a Parafoil section.
 
     @abc.abstractmethod
-    def Cl_alpha(self, y, alpha, delta):
+    def Cl_alpha(self, t, alpha, delta):
         """The derivative of the lift coefficient vs alpha for the section"""
 
     @abc.abstractmethod
-    def Cl(self, y, alpha, delta):
+    def Cl(self, t, alpha, delta):
         """The lift coefficient for the section"""
 
     @abc.abstractmethod
-    def Cd(self, y, alpha, delta):
+    def Cd(self, t, alpha, delta):
         """The drag coefficient for the section"""
 
     @abc.abstractmethod
-    def Cm(self, y, alpha, delta):
+    def Cm(self, t, alpha, delta):
         """The pitching moment coefficient for the section"""
 
 
@@ -153,25 +163,25 @@ class ConstantCoefficients(ParafoilSections):
     def __init__(self, airfoil):
         self.airfoil = airfoil
 
-    def Cl_alpha(self, y, alpha, delta):
+    def Cl_alpha(self, t, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-    def Cl(self, y, alpha, delta):
+    def Cl(self, t, alpha, delta):
         # FIXME: make AirfoilCoefficients responsible for broadcasting `alpha`?
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cl(alpha, delta)
 
-    def Cd(self, y, alpha, delta):
+    def Cd(self, t, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cd(alpha, delta)
 
-    def Cm(self, y, alpha, delta):
+    def Cm(self, t, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(y) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cm(alpha, delta)
 
 
@@ -220,20 +230,20 @@ class Phillips(ForceEstimator):
         # FIXME: Phillips indexes the nodal points from zero, and the control
         #        points from 1. Should I do the same?
         # FIXME: how many segments for reasonable accuracy?
-        self.K = 51  # The number of bound vortex segments for the entire span
-        k = np.arange(self.K+1)
-        b = self.parafoil.geometry.b
+        self.K = 31  # The number of bound vortex segments for the entire span
 
         # Nodes are indexed from 0..K+1
-        node_y = (-b/2) * np.cos(k * np.pi / self.K)
-        node_x = self.parafoil.geometry.fx(node_y)
-        node_z = self.parafoil.geometry.fz(node_y)
+        self.t_nodes = np.linspace(-1, 1, self.K+1)
+        node_x = self.parafoil.geometry.fx(self.t_nodes)
+        node_y = self.parafoil.geometry.fy(self.t_nodes)
+        node_z = self.parafoil.geometry.fz(self.t_nodes)
         self.nodes = np.c_[node_x, node_y, node_z]
 
         # Control points are indexed from 0..K
-        cp_y = (-b/2) * (np.cos(np.pi/(2*self.K) + k[:-1]*np.pi/self.K))
-        cp_x = self.parafoil.geometry.fx(cp_y)
-        cp_z = self.parafoil.geometry.fz(cp_y)
+        self.t_cps = (self.t_nodes[1:] + self.t_nodes[:-1])/2
+        cp_x = self.parafoil.geometry.fx(self.t_cps)
+        cp_y = self.parafoil.geometry.fy(self.t_cps)
+        cp_z = self.parafoil.geometry.fz(self.t_cps)
         self.cps = np.c_[cp_x, cp_y, cp_z]
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
@@ -245,11 +255,11 @@ class Phillips(ForceEstimator):
         # Define the orthogonal unit vectors for each control point
         # FIXME: these need verification; their orientation in particular
         # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(cp_y)
-        twist = self.parafoil.geometry.ftheta(cp_y)  # Angle of incidence
+        dihedral = self.parafoil.geometry.Gamma(self.t_cps)
+        twist = self.parafoil.geometry.ftheta(self.t_cps)  # Angle of incidence
         sd, cd = sin(dihedral), cos(dihedral)
         st, ct = sin(twist), cos(twist)
-        self.u_s = np.c_[np.zeros_like(cp_y), cd, sd]  # Spanwise
+        self.u_s = np.c_[np.zeros_like(self.t_cps), cd, sd]  # Spanwise
         self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
         self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
 
@@ -260,7 +270,7 @@ class Phillips(ForceEstimator):
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.geometry.fc(self.nodes[:, 1])
+        node_chords = self.parafoil.geometry.fc(self.t_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)
@@ -276,7 +286,10 @@ class Phillips(ForceEstimator):
 
             # Plot the actual quarter chord
             # y = np.linspace(-b/2, b/2, 51)
-            # ax.plot(self.parafoil.geometry.fx(y), y, -self.parafoil.geometry.fz(y), 'g--', lw=0.8)
+            # t = np.linspace(-1, 1, 51)
+            # ax.plot(self.parafoil.geometry.fx(t),
+            #         self.parafoil.geometry.fy(t),
+            #         -self.parafoil.geometry.fz(t), 'g--', lw=0.8)
 
             # Plot the segments and their nodes
             # ax.plot(self.nodes[:, 0], self.nodes[:, 1], -self.nodes[:, 2], marker='.')
@@ -457,7 +470,7 @@ class Phillips(ForceEstimator):
             # embed()
             # input('continue?')
 
-            Cl = self.parafoil.sections.Cl(cp_y, alpha, delta)
+            Cl = self.parafoil.sections.Cl(self.t_cps, alpha, delta)
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
@@ -473,7 +486,7 @@ class Phillips(ForceEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            Cl_alpha = self.parafoil.sections.Cl_alpha(cp_y, alpha, delta)
+            Cl_alpha = self.parafoil.sections.Cl_alpha(self.t_cps, alpha, delta)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
@@ -564,20 +577,20 @@ class Phillips2D(ForceEstimator):
         # FIXME: Phillips indexes the nodal points from zero, and the control
         #        points from 1. Should I do the same?
         # FIXME: how many segments for reasonable accuracy?
-        self.K = 51  # The number of bound vortex segments for the entire span
-        k = np.arange(self.K+1)
-        b = self.parafoil.geometry.b
+        self.K = 31  # The number of bound vortex segments for the entire span
 
         # Nodes are indexed from 0..K+1
-        node_y = (-b/2) * np.cos(k * np.pi / self.K)
-        node_x = self.parafoil.geometry.fx(node_y)
-        node_z = self.parafoil.geometry.fz(node_y)
+        self.t_nodes = np.linspace(-1, 1, self.K+1)
+        node_x = self.parafoil.geometry.fx(self.t_nodes)
+        node_y = self.parafoil.geometry.fy(self.t_nodes)
+        node_z = self.parafoil.geometry.fz(self.t_nodes)
         self.nodes = np.c_[node_x, node_y, node_z]
 
         # Control points are indexed from 0..K
-        cp_y = (-b/2) * (np.cos(np.pi/(2*self.K) + k[:-1]*np.pi/self.K))
-        cp_x = self.parafoil.geometry.fx(cp_y)
-        cp_z = self.parafoil.geometry.fz(cp_y)
+        self.t_cps = (self.t_nodes[1:] + self.t_nodes[:-1])/2
+        cp_x = self.parafoil.geometry.fx(self.t_cps)
+        cp_y = self.parafoil.geometry.fy(self.t_cps)
+        cp_z = self.parafoil.geometry.fz(self.t_cps)
         self.cps = np.c_[cp_x, cp_y, cp_z]
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
@@ -589,11 +602,11 @@ class Phillips2D(ForceEstimator):
         # Define the orthogonal unit vectors for each control point
         # FIXME: these need verification; their orientation in particular
         # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(cp_y)
-        twist = self.parafoil.geometry.ftheta(cp_y)  # Angle of incidence
+        dihedral = self.parafoil.geometry.Gamma(self.t_cps)
+        twist = self.parafoil.geometry.ftheta(self.t_cps)  # Angle of incidence
         sd, cd = sin(dihedral), cos(dihedral)
         st, ct = sin(twist), cos(twist)
-        self.u_s = np.c_[np.zeros_like(cp_y), cd, sd]  # Spanwise
+        self.u_s = np.c_[np.zeros_like(self.t_cps), cd, sd]  # Spanwise
         self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
         self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
 
@@ -604,7 +617,7 @@ class Phillips2D(ForceEstimator):
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.geometry.fc(self.nodes[:, 1])
+        node_chords = self.parafoil.geometry.fc(self.t_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)
@@ -619,16 +632,14 @@ class Phillips2D(ForceEstimator):
         # FIXME: dependency on rho?
         assert np.shape(V_rel) == (self.K, 3)
 
-        cp_y = self.cps[:, 1]
-
         # Compute the section local angle of attack
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
         V_a = einsum('ik,ik->i', V_rel, self.u_a)  # Chordwise
         V_n = einsum('ik,ik->i', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
-        CL = self.parafoil.sections.Cl(cp_y, alpha, delta)
-        CD = self.parafoil.sections.Cd(cp_y, alpha, delta)
+        CL = self.parafoil.sections.Cl(self.t_cps, alpha, delta)
+        CD = self.parafoil.sections.Cd(self.t_cps, alpha, delta)
 
         dL_hat = cross(self.dl, V_rel)
         dL_hat = dL_hat / norm(dL_hat, axis=1)[:, None]  # Lift unit vectors

@@ -28,25 +28,29 @@ class ParafoilGeometry(abc.ABC):
         """Mean aerodynamic chord"""
 
     @abc.abstractmethod
-    def fx(self, y):
-        """Section quarter chord projected onto the XY plane"""
+    def fx(self, t):
+        """Section quarter chord x coordinate"""
 
     @abc.abstractmethod
-    def fz(self, y):
-        """Section quarter chord projected onto the YZ plane"""
+    def fy(self, t):
+        """Section quarter chord y coordinate"""
 
     @abc.abstractmethod
-    def fc(self, y):
+    def fz(self, t):
+        """Section quarter chord z coordinate"""
+
+    @abc.abstractmethod
+    def fc(self, t):
         """Section chord length"""
 
     @abc.abstractmethod
-    def ftheta(self, y):
+    def ftheta(self, t):
         """
         Section chord angle relative to the central airfoil (geometric torsion)
         """
 
     @abc.abstractmethod
-    def Gamma(self, y):
+    def Gamma(self, t):
         """Dihedral angle"""
 
     @property
@@ -54,6 +58,7 @@ class ParafoilGeometry(abc.ABC):
         """Area of the flattened wing"""
         # ref: PFD p46 (54)
         # FIXME: untested
+        raise NotImplementedError("FIXME: broken by reparametrization!")
         N = 501
         dy = self.b/(N - 1)  # Include the endpoints
         y = np.linspace(-self.b/2, self.b/2, N)
@@ -64,6 +69,7 @@ class ParafoilGeometry(abc.ABC):
         """Span of the flattened wing"""
         # ref: PFD p47 (54)
         # FIXME: untested
+        raise NotImplementedError("FIXME: broken by reparametrization!")
         N = 501
         dy = self.b/(N - 1)  # Include the endpoints
         y = np.linspace(-self.b/2, self.b/2, N)
@@ -103,6 +109,21 @@ class Elliptical(ParafoilGeometry):
         self.sweepMax = deg2rad(sweepMax)
         self.torsion = deg2rad(torsion)
         self.linear_torsion = linear_torsion
+
+        # Ellipse coefficients for quarter-chord projected on the xy plane
+        #  * Note: this is for the arcced wing, not the planform
+        tMed = tan(self.sweepMed)
+        tMax = tan(self.sweepMax)
+        self.Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
+        self.Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        self.Cx = -self.Bx - self.c0/4
+
+        # Ellipse coefficients for quarter-chord projected on the yz plane
+        tMed = tan(self.dihedralMed)
+        tMax = tan(self.dihedralMax)
+        self.Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
+        self.Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        self.Cz = -self.Bz
 
     @property
     def b(self):
@@ -147,63 +168,65 @@ class Elliptical(ParafoilGeometry):
         ratio = (sMax - min_sMax)/(np.pi/2 - min_sMax)
         return (1 - ratio)*100
 
-    def fx(self, y):
-        tMed = tan(self.sweepMed)
-        tMax = tan(self.sweepMax)
+    def fx(self, t):
+        # Map the -1..1 parameter onto a parameter for the truncated ellipse
+        # FIXME: needs a serious design review
+        tbar_min = np.arccos(self.b/(2*self.Ax))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        return self.Bx * np.sin(tbar) + self.Cx
 
-        Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        # Cx = -Bx + (self.dcg - 1/4)*self.c0
-        # Cx = -Bx  # Modified from the original definition in PFD
-        Cx = -Bx - self.c0/4  # Modified v2: set the central LE as the origin
+    def fy(self, t):
+        # Map the -1..1 parameter onto a parameter for the truncated ellipse
+        # FIXME: needs a serious design review
+        tbar_min = np.arccos(self.b/(2*self.Az))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        return self.Az * np.cos(tbar)
 
-        return Bx * sqrt(1 - (y**2)/Ax**2) + Cx
+    def fz(self, t):
+        # Map the -1..1 parameter onto a parameter for the truncated ellipse
+        # FIXME: needs a serious design review
+        tbar_min = np.arccos(self.b/(2*self.Az))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        return self.Bz * np.sin(tbar) + self.Cz
 
-    def fz(self, y):
-        tMed = tan(self.dihedralMed)
-        tMax = tan(self.dihedralMax)
-
-        Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        # Cz = -Bz - self.h0
-        Cz = -Bz  # Modified from the original definition in PFD
-
-        return Bz * sqrt(1 - (y**2)/Az**2) + Cz
-
-    def dfxdy(self, y):
+    def dfxdy(self, t):
         # FIXME: untested
-        tMed = tan(self.sweepMed)
-        tMax = tan(self.sweepMax)
-        Ax = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        Bx = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        return Bx * -y / (Ax**2 * sqrt(1 - y**2/Ax**2))
+        tbar_min = np.arccos(self.b/(2*self.Ax))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        # FIXME: needs the dtbar/dt factor?
+        return -self.Bx/self.Ax/np.tan(tbar)
 
-    def Lambda(self, y):
+    def Lambda(self, t):
         """Sweep angle"""
         # FIXME: should this be part of the ParafoilGeometry interface?
-        return arctan(self.dfxdy(y))
+        return arctan(self.dfxdy(t))
 
-    def dfzdy(self, y):
-        tMed = tan(self.dihedralMed)
-        tMax = tan(self.dihedralMax)
-        Az = (self.b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        Bz = (self.b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        return Bz * -y / (Az**2 * sqrt(1 - y**2/Az**2))
+    def dfzdy(self, t):
+        # FIXME: untested
+        tbar_min = np.arccos(self.b/(2*self.Az))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        # FIXME: needs the dtbar/dt factor?
+        return -self.Bz/self.Az/np.tan(tbar)
 
-    def Gamma(self, y):
-        return arctan(self.dfzdy(y))
+    def Gamma(self, t):
+        return arctan(self.dfzdy(t))
 
-    def fc(self, y):
+    def fc(self, t):
+        # FIXME: untested
         Ac = (self.b/2) / sqrt(1 - self.taper**2)
         Bc = self.c0
-        return Bc * sqrt(1 - (y**2)/Ac**2)
+        tbar_min = np.arccos(self.b/(2*Ac))
+        tbar = np.pi/2 - t*(np.pi/2 - tbar_min)
+        return Bc * np.sin(tbar)
 
-    def ftheta(self, y):
-        if self.linear_torsion:
-            return 2*self.torsion/self.b*np.abs(y)  # Linear
-        else:  # Use an exponential distribution of geometric torsion
-            k = self.torsion/(np.exp(self.b/2) - 1)
-            return k*(np.exp(np.abs(y)) - 1)
+    def ftheta(self, t):
+        # if self.linear_torsion:
+        #     return 2*self.torsion*np.abs(y)  # Linear
+        # else:  # Use an exponential distribution of geometric torsion
+        #     k = self.torsion/(np.exp(self.b/2) - 1)
+        #     return k*(np.exp(np.abs(y)) - 1)
+        print("DEBUG> ftheta: FIXME: implement for the t parametrization")
+        return np.zeros_like(t)
 
     @staticmethod
     def MAC_to_c0(MAC, taper):

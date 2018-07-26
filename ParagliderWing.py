@@ -48,8 +48,12 @@ class ParagliderWing:
         self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
         # Precompute some useful values
+        #
+        # FIXME: this is incorrect thinking: the CPs aren't necessarily fixed
+        #        Also, grabbing `t_cps` directly is poor design.
+        #
         self.y = self.control_points()[:, 1]  # Control point y-coordinates
-        self.c = self.parafoil.geometry.fc(self.y)  # Chord lengths
+        self.c = self.parafoil.geometry.fc(self.force_estimator.t_cps)  # Chord lengths
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """

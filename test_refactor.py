@@ -149,7 +149,7 @@ def main():
     # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
     # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
 
-    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil_geo.fc(b/2)
+    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil_geo.fc(1)
     bQuadratic = BrakeGeometry.Quadratic(b, delta_max)
     bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
     bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
