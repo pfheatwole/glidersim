@@ -201,12 +201,14 @@ class ForceEstimator(abc.ABC):
 
 class Phillips(ForceEstimator):
     """
-    Supposed to work with wings with sweep and dihedral, but much more complex.
+    A numerical lifting-line method that uses a set of spanwise bound vortices
+    instead of a single, uniform lifting line. Unlike the Prandtl's classic
+    lifting-line theory, this method allows for wing sweep and dihedral.
 
     References
     ----------
     .. [1] Phillips and Snyder, "Modern Adaptation of Prandtl’s Classic
-       Lifting- Line Theory", Journal of Aircraft, 2000
+       Lifting-Line Theory", Journal of Aircraft, 2000
 
     .. [2] McLeanauth, "Understanding Aerodynamics - Arguing from the Real
        Physics", p382
@@ -216,6 +218,11 @@ class Phillips(ForceEstimator):
 
     Notes
     -----
+    This implementation uses a single, linear point distribution in terms of
+    the normalized span coordinate `s`. This is suitable for parafoils, but for
+    wings with left and right segments you should distribute the points across
+    each span independently. See _[1].
+
     This method does suffer an issue where induced velocity goes to infinity as
     the segment length is decreased. See _[2], section 8.2.3.
     """
@@ -560,10 +567,11 @@ class Phillips(ForceEstimator):
 
 class Phillips2D(ForceEstimator):
     """
-    This is a finite-element method, based on Phillips, but it uses the 2D
-    section lift coefficients directly instead of calculating the bound
-    vorticity. This is equivalent to neglecting the induced velocities from
-    other segments.
+    This estimator is based on `Phillips` but it uses the 2D section lift
+    coefficients directly instead of calculating the bound vorticity. This is
+    equivalent to neglecting the induced velocities from other segments.
+
+    See the documentation for `Phillips` for more information.
     """
 
     def __init__(self, parafoil):
