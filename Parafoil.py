@@ -223,6 +223,10 @@ class Phillips(ForceEstimator):
     def __init__(self, parafoil):
         self.parafoil = parafoil
 
+
+        # FIXME: lobe_args?
+
+
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
         #       and right segments, you should distribute the points across
@@ -233,18 +237,12 @@ class Phillips(ForceEstimator):
         self.K = 31  # The number of bound vortex segments for the entire span
 
         # Nodes are indexed from 0..K+1
-        self.t_nodes = np.linspace(-1, 1, self.K+1)
-        node_x = self.parafoil.geometry.fx(self.t_nodes)
-        node_y = self.parafoil.geometry.fy(self.t_nodes)
-        node_z = self.parafoil.geometry.fz(self.t_nodes)
-        self.nodes = np.c_[node_x, node_y, node_z]
+        self.s_nodes = np.linspace(-1, 1, self.K+1)
+        self.nodes = self.parafoil.geometry.c4(self.s_nodes)
 
         # Control points are indexed from 0..K
-        self.t_cps = (self.t_nodes[1:] + self.t_nodes[:-1])/2
-        cp_x = self.parafoil.geometry.fx(self.t_cps)
-        cp_y = self.parafoil.geometry.fy(self.t_cps)
-        cp_z = self.parafoil.geometry.fz(self.t_cps)
-        self.cps = np.c_[cp_x, cp_y, cp_z]
+        self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
+        self.cps = self.parafoil.geometry.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -255,25 +253,26 @@ class Phillips(ForceEstimator):
         # Define the orthogonal unit vectors for each control point
         # FIXME: these need verification; their orientation in particular
         # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(self.t_cps)
-        twist = self.parafoil.geometry.ftheta(self.t_cps)  # Angle of incidence
+        dihedral = self.parafoil.geometry.Gamma(self.s_cps)
+        twist = self.parafoil.geometry.ftheta(self.s_cps)  # Angle of incidence
         sd, cd = sin(dihedral), cos(dihedral)
         st, ct = sin(twist), cos(twist)
-        self.u_s = np.c_[np.zeros_like(self.t_cps), cd, sd]  # Spanwise
         self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
+        self.u_s = np.c_[np.zeros_like(self.s_cps), cd, sd]  # Spanwise
         self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
 
-        assert np.allclose(norm(self.u_s, axis=1), 1)
         assert np.allclose(norm(self.u_a, axis=1), 1)
+        assert np.allclose(norm(self.u_s, axis=1), 1)
         assert np.allclose(norm(self.u_n, axis=1), 1)
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
-        self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.geometry.fc(self.t_nodes)
+        self.dl = self.nodes[1:] - self.nodes[:-1]  # `R1 + R2`?
+        node_chords = self.parafoil.geometry.fc(self.s_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)
+        # FIXME: faster+correct to post_multiply the scalars `c_avg`?
 
         # --------------------------------------------------------------------
         # For debugging purposes: plot the quarter chord line, and segments
@@ -470,7 +469,7 @@ class Phillips(ForceEstimator):
             # embed()
             # input('continue?')
 
-            Cl = self.parafoil.sections.Cl(self.t_cps, alpha, delta)
+            Cl = self.parafoil.sections.Cl(self.s_cps, alpha, delta)
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
@@ -486,7 +485,7 @@ class Phillips(ForceEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            Cl_alpha = self.parafoil.sections.Cl_alpha(self.t_cps, alpha, delta)
+            Cl_alpha = self.parafoil.sections.Cl_alpha(self.s_cps, alpha, delta)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
@@ -570,6 +569,10 @@ class Phillips2D(ForceEstimator):
     def __init__(self, parafoil):
         self.parafoil = parafoil
 
+
+        # FIXME: lobe_args?
+
+
         # Define the spanwise and nodal and control points
         # NOTE: this is suitable for parafoils, but for wings made of left
         #       and right segments, you should distribute the points across
@@ -580,18 +583,12 @@ class Phillips2D(ForceEstimator):
         self.K = 31  # The number of bound vortex segments for the entire span
 
         # Nodes are indexed from 0..K+1
-        self.t_nodes = np.linspace(-1, 1, self.K+1)
-        node_x = self.parafoil.geometry.fx(self.t_nodes)
-        node_y = self.parafoil.geometry.fy(self.t_nodes)
-        node_z = self.parafoil.geometry.fz(self.t_nodes)
-        self.nodes = np.c_[node_x, node_y, node_z]
+        self.s_nodes = np.linspace(-1, 1, self.K+1)
+        self.nodes = self.parafoil.geometry.c4(self.s_nodes)
 
         # Control points are indexed from 0..K
-        self.t_cps = (self.t_nodes[1:] + self.t_nodes[:-1])/2
-        cp_x = self.parafoil.geometry.fx(self.t_cps)
-        cp_y = self.parafoil.geometry.fy(self.t_cps)
-        cp_z = self.parafoil.geometry.fz(self.t_cps)
-        self.cps = np.c_[cp_x, cp_y, cp_z]
+        self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
+        self.cps = self.parafoil.geometry.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -602,25 +599,26 @@ class Phillips2D(ForceEstimator):
         # Define the orthogonal unit vectors for each control point
         # FIXME: these need verification; their orientation in particular
         # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(self.t_cps)
-        twist = self.parafoil.geometry.ftheta(self.t_cps)  # Angle of incidence
+        dihedral = self.parafoil.geometry.Gamma(self.s_cps)
+        twist = self.parafoil.geometry.ftheta(self.s_cps)  # Angle of incidence
         sd, cd = sin(dihedral), cos(dihedral)
         st, ct = sin(twist), cos(twist)
-        self.u_s = np.c_[np.zeros_like(self.t_cps), cd, sd]  # Spanwise
         self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
+        self.u_s = np.c_[np.zeros_like(self.s_cps), cd, sd]  # Spanwise
         self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
 
-        assert np.allclose(norm(self.u_s, axis=1), 1)
         assert np.allclose(norm(self.u_a, axis=1), 1)
+        assert np.allclose(norm(self.u_s, axis=1), 1)
         assert np.allclose(norm(self.u_n, axis=1), 1)
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
-        self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.geometry.fc(self.t_nodes)
+        self.dl = self.nodes[1:] - self.nodes[:-1]  # `R1 + R2`?
+        node_chords = self.parafoil.geometry.fc(self.s_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)
+        # FIXME: faster+correct to post_multiply the scalars `c_avg`?
 
     @property
     def control_points(self):
@@ -638,8 +636,8 @@ class Phillips2D(ForceEstimator):
         V_n = einsum('ik,ik->i', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
-        CL = self.parafoil.sections.Cl(self.t_cps, alpha, delta)
-        CD = self.parafoil.sections.Cd(self.t_cps, alpha, delta)
+        CL = self.parafoil.sections.Cl(self.s_cps, alpha, delta)
+        CD = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
 
         dL_hat = cross(self.dl, V_rel)
         dL_hat = dL_hat / norm(dL_hat, axis=1)[:, None]  # Lift unit vectors
