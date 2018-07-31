@@ -139,19 +139,19 @@ class ParafoilSections(abc.ABC):
     # FIXME: bad naming? An instance of this class isn't a Parafoil section.
 
     @abc.abstractmethod
-    def Cl_alpha(self, t, alpha, delta):
+    def Cl_alpha(self, s, alpha, delta):
         """The derivative of the lift coefficient vs alpha for the section"""
 
     @abc.abstractmethod
-    def Cl(self, t, alpha, delta):
+    def Cl(self, s, alpha, delta):
         """The lift coefficient for the section"""
 
     @abc.abstractmethod
-    def Cd(self, t, alpha, delta):
+    def Cd(self, s, alpha, delta):
         """The drag coefficient for the section"""
 
     @abc.abstractmethod
-    def Cm(self, t, alpha, delta):
+    def Cm(self, s, alpha, delta):
         """The pitching moment coefficient for the section"""
 
 
@@ -163,25 +163,25 @@ class ConstantCoefficients(ParafoilSections):
     def __init__(self, airfoil):
         self.airfoil = airfoil
 
-    def Cl_alpha(self, t, alpha, delta):
+    def Cl_alpha(self, s, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-    def Cl(self, t, alpha, delta):
+    def Cl(self, s, alpha, delta):
         # FIXME: make AirfoilCoefficients responsible for broadcasting `alpha`?
         if np.isscalar(alpha):
-            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cl(alpha, delta)
 
-    def Cd(self, t, alpha, delta):
+    def Cd(self, s, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cd(alpha, delta)
 
-    def Cm(self, t, alpha, delta):
+    def Cm(self, s, alpha, delta):
         if np.isscalar(alpha):
-            alpha = np.ones_like(t) * alpha  # FIXME: replace with `full`
+            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cm(alpha, delta)
 
 
