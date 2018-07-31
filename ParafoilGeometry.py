@@ -75,13 +75,8 @@ class ParafoilGeometry:
     def section(self, s):
         # FIXME: needs a design review
         # Does it makes sense that a "section" is a normalized airfoil?
-        """
-        How is the `sections` object instantiated? Does it require knowledge
-        of the planform? For example, does the section care about the chord
-        lengths, or is the ParafoilGeometry responsible for scaling each
-        section accordingly?
-        """
-        raise NotImplementedError
+        """Section airfoil"""
+        return self.sections(s)
 
     def inertias(self, s):
         """
