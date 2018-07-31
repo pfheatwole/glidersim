@@ -148,15 +148,18 @@ class EllipticalPlanform(ParafoilPlanform):
 
     ref: PFD p43 (51)
     """
-    def __init__(self, b_flat, c0, taper, sweepMed, sweepMax, torsion,
-                 linear_torsion=False):
+    def __init__(self, b_flat, c0, taper, sweepMed, sweepMax,
+                 torsion_exponent=5, torsion_max=0):
         self.b_flat = b_flat
         self.c0 = c0
         self.taper = taper
         self.sweepMed = deg2rad(sweepMed)
         self.sweepMax = deg2rad(sweepMax)
-        self.torsion = deg2rad(torsion)
-        self.linear_torsion = linear_torsion
+        self.torsion_exponent = torsion_exponent
+        self.torsion_max = np.deg2rad(torsion_max)
+
+        if torsion_exponent < 1:
+            raise ValueError("torsion_exponent must be >= 1")
 
         # Ellipse coefficients for quarter-chord projected on the xy plane
         tMed = tan(self.sweepMed)
@@ -236,13 +239,8 @@ class EllipticalPlanform(ParafoilPlanform):
         return self.Bc * np.sin(t)
 
     def ftheta(self, s):
-        # if self.linear_torsion:
-        #     return 2*self.torsion*np.abs(y)  # Linear
-        # else:  # Use an exponential distribution of geometric torsion
-        #     k = self.torsion/(np.exp(self.b/2) - 1)
-        #     return k*(np.exp(np.abs(y)) - 1)
-        print("DEBUG> ftheta: FIXME: implement for the reparametrization")
-        return np.zeros_like(s)
+        """Geometric torsion angle"""
+        return self.torsion_max * np.abs(s)**self.torsion_exponent
 
     def _dfxdy(self, s):
         # FIXME: untested
