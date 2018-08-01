@@ -9,7 +9,6 @@ import Airfoil
 import Parafoil
 
 import BrakeGeometry
-import ParafoilGeometry
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
@@ -34,12 +33,12 @@ def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, sections,
         sMax = (2*sMed) + 1  # ref page 48 (56)
         print("Using minimum max sweep ({})".format(sMax))
 
-    c0 = ParafoilGeometry.EllipticalPlanform.MAC_to_c0(MAC, taper)
-    planform = ParafoilGeometry.EllipticalPlanform(
+    c0 = Parafoil.EllipticalPlanform.MAC_to_c0(MAC, taper)
+    planform = Parafoil.EllipticalPlanform(
         b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
-    lobe = ParafoilGeometry.EllipticalLobe(dMed, dMax)
+    lobe = Parafoil.EllipticalLobe(dMed, dMax)
 
-    return ParafoilGeometry.ParafoilGeometry(planform, lobe, sections)
+    return Parafoil.ParafoilGeometry(planform, lobe, sections)
 
 
 def plot_coefficients(coefs):
