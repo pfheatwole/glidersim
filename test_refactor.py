@@ -13,6 +13,8 @@ import ParafoilGeometry
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
+from plots import plot_airfoil_geo, plot_parafoil_geo
+
 
 def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, sections,
                               dMax=None, sMax=None,
@@ -118,6 +120,7 @@ def plot_polar(glider):
 
 def main():
     airfoil_geo = Airfoil.NACA4(4412)
+    plot_airfoil_geo(airfoil_geo)
 
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
     # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
@@ -156,6 +159,9 @@ def main():
 
     glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
     glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
+
+    print("Drawing the parafoil")
+    plot_parafoil_geo(parafoil)
 
     # ---------------------------------------------------------------------
     # Run some tests
