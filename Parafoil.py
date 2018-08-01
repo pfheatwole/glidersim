@@ -48,12 +48,6 @@ class Parafoil:
         self.geometry = geometry
         self.sections = sections  # Provides the airfoils for each section
 
-    @property
-    def density_factor(self):
-        # FIXME: I don't understand this. Ref: PFD 48 (56)
-        #        Also, I think it's wrong? should be `p_air = p*MAC*t/3`
-        return self.geometry.MAC * self.airfoil.t*self.airfoil.chord/3
-
     def upper_surface(self, t, xa=None, N=150):
         """Airfoil upper surface curve on the 3D parafoil
 
@@ -219,37 +213,39 @@ class Phillips(ForceEstimator):
     Notes
     -----
     This implementation uses a single, linear point distribution in terms of
-    the normalized span coordinate `s`. This is suitable for parafoils, but for
-    wings with left and right segments you should distribute the points across
-    each span independently. See _[1].
+    the normalized span coordinate `s`. Using a single distribution that covers
+    the entire span is suitable for parafoils, but for wings with left and
+    right segments separated by some discontinuity at the root you should
+    distribute the points across each semispan independently. Also, this method
+    assumes a linear distribution in `s` provides reasonable point spacing, but
+    depending on the wing curvature a different distribution, such as a cosine,
+    may be more applicable. See _[1].
 
     This method does suffer an issue where induced velocity goes to infinity as
-    the segment length is decreased. See _[2], section 8.2.3.
+    the segment lengths tend toward zero (as the number of segments increases,
+    or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil):
+    def __init__(self, parafoil, lobe_args={}):
         self.parafoil = parafoil
-
-
-        # FIXME: lobe_args?
-
+        self.lobe_args = lobe_args
 
         # Define the spanwise and nodal and control points
-        # NOTE: this is suitable for parafoils, but for wings made of left
-        #       and right segments, you should distribute the points across
-        #       each span independently. See _[1].
-        # FIXME: Phillips indexes the nodal points from zero, and the control
-        #        points from 1. Should I do the same?
-        # FIXME: how many segments for reasonable accuracy?
-        self.K = 31  # The number of bound vortex segments for the entire span
+
+        # Option 1: linear distribution; less likely to induce large velocties
+        self.K = 31  # The number of bound vortex segments
+        self.s_nodes = np.linspace(-1, 1, self.K+1)
+
+        # Option 2: cosine distribution; fast, very sensitive to segment length
+        # self.K = 13  # The number of bound vortex segments
+        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
-        self.s_nodes = np.linspace(-1, 1, self.K+1)
-        self.nodes = self.parafoil.geometry.c4(self.s_nodes)
+        self.nodes = self.parafoil.c4(self.s_nodes)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
-        self.cps = self.parafoil.geometry.c4(self.s_cps)
+        self.cps = self.parafoil.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -257,25 +253,15 @@ class Phillips(ForceEstimator):
         self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
         self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
-        # Define the orthogonal unit vectors for each control point
-        # FIXME: these need verification; their orientation in particular
-        # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(self.s_cps)
-        twist = self.parafoil.geometry.ftheta(self.s_cps)  # Angle of incidence
-        sd, cd = sin(dihedral), cos(dihedral)
-        st, ct = sin(twist), cos(twist)
-        self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
-        self.u_s = np.c_[np.zeros_like(self.s_cps), cd, sd]  # Spanwise
-        self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
-
-        assert np.allclose(norm(self.u_a, axis=1), 1)
-        assert np.allclose(norm(self.u_s, axis=1), 1)
-        assert np.allclose(norm(self.u_n, axis=1), 1)
+        # Wing section orientation unit vectors at each control point
+        # FIXME: is there a better way to select the column vectors?
+        u = self.parafoil.section_orientation(self.s_cps, lobe_args)
+        self.u_a, self.u_s, self.u_n = u[:, :, 0], u[:, :, 1], u[:, :, 2]
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]  # `R1 + R2`?
-        node_chords = self.parafoil.geometry.fc(self.s_nodes)
+        node_chords = self.parafoil.planform.fc(self.s_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)
@@ -408,14 +394,14 @@ class Phillips(ForceEstimator):
 
         # 3. Propose an initial distribution for Gamma
         #  * For now, use an elliptical Gamma
-        b = self.parafoil.geometry.b
+        b = self.parafoil.b
         cp_y = self.cps[:, 1]
         Gamma0 = 5
 
         # Alternative initial proposal
         # avg_brake = (delta_Bl + delta_Br)/2
         # CL_2d = self.coefs.CL(np.arctan2(u_inf[2], u_inf[0]), avg_brake)
-        # S = self.parafoil.geometry.S
+        # S = self.parafoil.S
         # Gamma0 = 2*norm(V_rel[self.K//2])*S*CL_2d/(np.pi*b)  # c0 circulation
 
         Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/b)**2)
@@ -574,29 +560,26 @@ class Phillips2D(ForceEstimator):
     See the documentation for `Phillips` for more information.
     """
 
-    def __init__(self, parafoil):
+    def __init__(self, parafoil, lobe_args={}):
         self.parafoil = parafoil
-
-
-        # FIXME: lobe_args?
-
+        self.lobe_args = lobe_args
 
         # Define the spanwise and nodal and control points
-        # NOTE: this is suitable for parafoils, but for wings made of left
-        #       and right segments, you should distribute the points across
-        #       each span independently. See _[1].
-        # FIXME: Phillips indexes the nodal points from zero, and the control
-        #        points from 1. Should I do the same?
-        # FIXME: how many segments for reasonable accuracy?
-        self.K = 31  # The number of bound vortex segments for the entire span
+
+        # Option 1: linear distribution; less likely to induce large velocties
+        self.K = 31  # The number of bound vortex segments
+        self.s_nodes = np.linspace(-1, 1, self.K+1)
+
+        # Option 2: cosine distribution; fast, very sensitive to segment length
+        # self.K = 13  # The number of bound vortex segments
+        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
-        self.s_nodes = np.linspace(-1, 1, self.K+1)
-        self.nodes = self.parafoil.geometry.c4(self.s_nodes)
+        self.nodes = self.parafoil.c4(self.s_nodes)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
-        self.cps = self.parafoil.geometry.c4(self.s_cps)
+        self.cps = self.parafoil.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -604,25 +587,14 @@ class Phillips2D(ForceEstimator):
         self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
         self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
-        # Define the orthogonal unit vectors for each control point
-        # FIXME: these need verification; their orientation in particular
-        # FIXME: also, check their magnitudes
-        dihedral = self.parafoil.geometry.Gamma(self.s_cps)
-        twist = self.parafoil.geometry.ftheta(self.s_cps)  # Angle of incidence
-        sd, cd = sin(dihedral), cos(dihedral)
-        st, ct = sin(twist), cos(twist)
-        self.u_a = np.c_[ct, st*sd, st*cd]  # Chordwise
-        self.u_s = np.c_[np.zeros_like(self.s_cps), cd, sd]  # Spanwise
-        self.u_n = np.cross(self.u_a, self.u_s)  # Normal to the span and chord
-
-        assert np.allclose(norm(self.u_a, axis=1), 1)
-        assert np.allclose(norm(self.u_s, axis=1), 1)
-        assert np.allclose(norm(self.u_n, axis=1), 1)
+        # Wing section orientation unit vectors at each control point
+        u = self.parafoil.section_orientation(self.s_cps, lobe_args)
+        self.u_a, self.u_s, self.u_n = u[:, 0], u[:, 1], u[:, 2]
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]  # `R1 + R2`?
-        node_chords = self.parafoil.geometry.fc(self.s_nodes)
+        node_chords = self.parafoil.planform.fc(self.s_nodes)
         c_avg = (node_chords[1:] + node_chords[:-1])/2
         chord_vectors = c_avg[:, None] * self.u_a  # FIXME: verify
         self.dA = norm(cross(chord_vectors, self.dl), axis=1)

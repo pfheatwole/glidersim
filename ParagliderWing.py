@@ -41,7 +41,7 @@ class ParagliderWing:
         # one defined by the Parafoil. The axes of both systems are parallel,
         # but the origin moves from the central leading edge to the midpoint
         # of the risers.
-        self.c0 = parafoil.geometry.fc(0)
+        self.c0 = parafoil.planform.fc(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
         self.LE = np.sqrt(foil_x**2 + foil_z**2)
@@ -53,7 +53,7 @@ class ParagliderWing:
         #        Also, grabbing `s_cps` directly is poor design.
         #
         self.y = self.control_points()[:, 1]  # Control point y-coordinates
-        self.c = self.parafoil.geometry.fc(self.force_estimator.s_cps)  # Chord lengths
+        self.c = self.parafoil.planform.fc(self.force_estimator.s_cps)  # Chord lengths
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
@@ -94,7 +94,7 @@ class ParagliderWing:
         """
         LE = self.LE - (delta_s * self.kappa_s)
         foil_x = (LE**2 - self.TE**2 + self.c0**2)/(2*self.c0)
-        foil_y = 0
+        foil_y = 0  # FIXME: not with weight shift?
         foil_z = -np.sqrt(LE**2 - foil_x**2)
         return np.array([foil_x, foil_y, foil_z])
 

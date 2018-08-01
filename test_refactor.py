@@ -1,10 +1,7 @@
-from functools import partial
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 import numpy as np
-from scipy.optimize import minimize_scalar
 
 from IPython import embed
 
@@ -12,13 +9,21 @@ import Airfoil
 import Parafoil
 
 import BrakeGeometry
-from ParafoilGeometry import Elliptical
+import ParafoilGeometry
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
 
-def build_elliptical_geo(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
-                         torsion=0, airfoil_geo=None, sections=None):
+def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, sections,
+                              dMax=None, sMax=None,
+                              torsion_max=0, torsion_exponent=6):
+
+    if dMed > 0 or (dMax is not None and dMax > 0):
+        raise ValueError("dihedral must be negative")
+
+    if sMed < 0 or (sMax is not None and sMax < 0):
+        raise ValueError("sweep must be positive")  # FIXME: why?
+
     if dMax is None:
         dMax = 2*dMed - 1  # ref page 48 (56)
         print("Using minimum max dihedral ({})".format(dMax))
@@ -27,17 +32,12 @@ def build_elliptical_geo(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         sMax = (2*sMed) + 1  # ref page 48 (56)
         print("Using minimum max sweep ({})".format(sMax))
 
-    # Compute some missing data in reverse
-    c0 = Elliptical.MAC_to_c0(MAC, taper)
-    b = Elliptical.AR_to_b(c0, AR, taper)
+    c0 = ParafoilGeometry.EllipticalPlanform.MAC_to_c0(MAC, taper)
+    planform = ParafoilGeometry.EllipticalPlanform(
+        b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
+    lobe = ParafoilGeometry.EllipticalLobe(dMed, dMax)
 
-    if sections is None:
-        raise ValueError("FIXME: the `sections` parameter is mandatory")
-
-    # FIXME: this naming is confusing. Elliptical is a geometry, not a wing
-    foil_geo = Elliptical(b, c0, taper, dMed, dMax, sMed, sMax, torsion)
-
-    return foil_geo
+    return ParafoilGeometry.ParafoilGeometry(planform, lobe, sections)
 
 
 def plot_coefficients(coefs):
@@ -117,7 +117,7 @@ def plot_polar(glider):
 
 
 def main():
-    airfoil_geo = Airfoil.NACA4(4412)  # For graphical purposes only
+    airfoil_geo = Airfoil.NACA4(4412)
 
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
     # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
@@ -125,31 +125,20 @@ def main():
     print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
     airfoil_coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv', 0.8)
 
-    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
-
-    sections = Parafoil.ConstantCoefficients(airfoil)
-
     # print("\nNACA4412 LinearCoefficients airfoil\n")
-    # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
+    # airfoil_coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
 
     # print("\nPFD example LinearCoefficients airfoil\n")
-    # coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
+    # airfoil_coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
 
-    parafoil_geo = build_elliptical_geo(
-        # MAC=2.5, AR=3.9, taper=0.15, dMed=-20, dMax=-50,
-        MAC=2.5, AR=3.9, taper=0.15, dMed=-25, dMax=-70,
-        # MAC=2.5, AR=3.9, taper=0.15, dMed=-1, dMax=-2,
-        sMed=5, airfoil_geo=Airfoil.NACA4(4412), sections=sections)
+    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+    sections = Parafoil.ConstantCoefficients(airfoil)
+    parafoil = build_elliptical_parafoil(
+        b_flat=10, MAC=2.5, taper=0.15, dMed=-25, dMax=-70,
+        sMed=5, torsion_max=0, sections=sections)
 
-    # Same geometry, two different force estimation methods
-    parafoil = Parafoil.Parafoil(parafoil_geo, sections)
-
-    b = parafoil.geometry.b
-
-    # brakes = BrakeGeometry.PFD(foil.geometry.b, .25, .025)  # FIXME: values?
-    # brakes = BrakeGeometry.Exponential(b, .65, np.deg2rad(10))
-
-    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil_geo.fc(1)
+    b = parafoil.b
+    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil.planform.fc(1)
     bQuadratic = BrakeGeometry.Quadratic(b, delta_max)
     bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
     bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
@@ -176,24 +165,25 @@ def main():
     V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
 
     #          Bl     Br
-    # deltas = [0.00, 0.00]
+    deltas = [0.00, 0.00]
     # deltas = [0.00, 0.25]
-    deltas = [0.00, 0.50]
+    # deltas = [0.00, 0.50]
     # deltas = [0.00, 0.75]
     # deltas = [0.00, 1.00]
     # deltas = [1.00, 1.00]
 
+    print("Computing the forces and moments for the 2D and 3D wings")
     dF_2d, _ = wing2d.forces_and_moments(V_rel, *deltas)
     dF_3d, _ = wing3d.forces_and_moments(V_rel, *deltas)
 
     print("Plotting the forces")
     fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
     ax[0].plot(cp_y, dF_2d[:, 0], label='2D')
-    ax[0].plot(cp_y, dF_3d[:, 0], label='3D')
+    ax[0].plot(cp_y, dF_3d[:, 0], label='3D', marker='.')
     ax[1].plot(cp_y, dF_2d[:, 1], label='2D')
-    ax[1].plot(cp_y, dF_3d[:, 1], label='3D')
+    ax[1].plot(cp_y, dF_3d[:, 1], label='3D', marker='.')
     ax[2].plot(cp_y, dF_2d[:, 2], label='2D')
-    ax[2].plot(cp_y, dF_3d[:, 2], label='3D')
+    ax[2].plot(cp_y, dF_3d[:, 2], label='3D', marker='.')
     ax[0].set_xlabel('spanwise position')
     ax[0].set_ylabel('Fx')
     ax[1].set_ylabel('Fy')

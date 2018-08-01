@@ -10,6 +10,7 @@ class ParafoilGeometry:
         self.planform = planform
         self.lobe = lobe
         self.sections = sections  # Provides the airfoils for each section
+        self.span_factor = planform.b_flat / lobe.span_ratio  # FIXME: API?
 
     @property
     def b(self):
@@ -17,7 +18,7 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated span? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        return 2*self.lobe.fy(1)
+        return self.span_factor * 2 * self.lobe.fy(1)
 
     @property
     def S(self):
@@ -59,15 +60,15 @@ class ParafoilGeometry:
 
     def fy(self, s, lobe_args={}):
         """Section quarter-chord y coordinate"""
-        return self.lobe.fy(s, **lobe_args)
+        return self.span_factor * self.lobe.fy(s, **lobe_args)
 
     def fz(self, s, lobe_args={}):
         """Section quarter-chord z coordinate"""
-        return self.lobe.fz(s, **lobe_args)
+        return self.span_factor * self.lobe.fz(s, **lobe_args)
 
     def c4(self, s, lobe_args={}):
         """Section quarter-chord coordinates"""
-        x = self.fx(s, lobe_args)
+        x = self.fx(s)
         y = self.fy(s, lobe_args)
         z = self.fz(s, lobe_args)
         return np.c_[x, y, z]  # FIXME: switch to an array of column vectors?
@@ -78,7 +79,21 @@ class ParafoilGeometry:
         """Section airfoil"""
         return self.sections(s)
 
-    def inertias(self, s):
+    def section_orientation(self, s, lobe_args={}):
+        """Section orientation unit vectors
+
+        Axes are defined as chordwise, section orthogonal, and vertical. This
+        corresponds to the <x, y, z> unit vectors first being transformed by
+        the planform geometric torsion, then by the lobe dihedral.
+        """
+        # FIXME: finish documenting
+        # FIXME: this assumes the planform chords are all in the xz plane, and
+        #        thus the only transformation is the torsion. Is that correct?
+        torsion = self.planform.orientation(s)
+        dihedral = self.lobe.orientation(s, **lobe_args)
+        return dihedral @ torsion  # (N,3,3) ndarray, column unit vectors
+
+    def inertias(self, s, lobe_args={}):
         """
         The three inertia tensors and centroids of the parafoil components:
          1. Upper surface
@@ -88,7 +103,8 @@ class ParafoilGeometry:
         The surfaces should be scaled by the areal densities of the wing
         materials, the volume should be scaled by the volumetric air density.
         """
-        raise NotImplementedError
+        # FIXME: document
+        raise NotImplementedError("FIXME: implement")
 
 
 # ---------------------------------------------------------------------------
@@ -107,20 +123,19 @@ class ParafoilPlanform(abc.ABC):
 
     @property
     def b(self):
-        FIXME
+        return 2*self.fy(1)
 
     @property
     def S(self):
-        # FIXME: implement a general method?
-        FIXME
+        raise NotImplementedError("FIXME: implement")
 
     @property
     def AR(self):
-        FIXME
+        raise NotImplementedError("FIXME: implement")
 
     @property
     def MAC(self):
-        FIXME
+        raise NotImplementedError("FIXME: implement")
 
     @abc.abstractmethod
     def fx(self, s):
@@ -139,6 +154,13 @@ class ParafoilPlanform(abc.ABC):
         """Section geometric torsion
 
         That is, the section chord pitch angle relative to the central chord.
+        """
+
+    @abc.abstractmethod
+    def orientation(self, s):
+        """Section orientation unit vectors
+
+        Defined as the chordwise, section orthogonal, and vertical axes.
         """
 
 
@@ -169,7 +191,7 @@ class EllipticalPlanform(ParafoilPlanform):
         self.Cx = -self.Bx - self.c0/4
 
         # Ellipse coefficients for the chord lengths
-        self.Ac = (self.b/2) / sqrt(1 - self.taper**2)
+        self.Ac = (b_flat/2) / sqrt(1 - self.taper**2)
         self.Bc = self.c0
 
         # The span is parametrized by the normalized span position `s`, but the
@@ -177,16 +199,16 @@ class EllipticalPlanform(ParafoilPlanform):
         # transformations are needed. There isn't a closed form solution for
         # the arc length of an ellipse (which is essentially `s`), so
         # pre-compute the mapping and fit it with a spline.
-        t_min_x = np.arccos(self.b/(2*self.Ax))  # (np.pi-t_min) <= t <= t_min
+        t_min_x = np.arccos(b_flat/(2*self.Ax))  # (np.pi-t_min) <= t <= t_min
         t = np.linspace(np.pi - t_min_x, t_min_x, 500)
-        p = np.vstack((self.Ax*np.cos(t), self.Bx*np.sin(t) + self.Cx))
+        p = np.vstack((self.Ax*np.cos(t), self.Bx*np.sin(t) + self.Cx)).T
         s = np.r_[0, np.cumsum(np.linalg.norm(p[1:] - p[:-1], axis=1))]
         s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
         self.s2tx = UnivariateSpline(s, t, k=5)
 
-        t_min_c = np.arccos(self.b/(2*self.Ac))  # (np.pi-t_min) <= t <= t_min
+        t_min_c = np.arccos(b_flat/(2*self.Ac))  # (np.pi-t_min) <= t <= t_min
         t = np.linspace(np.pi - t_min_c, t_min_c, 500)
-        p = np.vstack((self.Ac*np.cos(t), self.Bc*np.sin(t)))
+        p = np.vstack((self.Ac*np.cos(t), self.Bc*np.sin(t))).T
         s = np.r_[0, np.cumsum(np.linalg.norm(p[1:] - p[:-1], axis=1))]
         s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
         self.s2tc = UnivariateSpline(s, t, k=5)
@@ -195,7 +217,7 @@ class EllipticalPlanform(ParafoilPlanform):
     def S(self):
         # This is the flat planform area, right?
         # ref: PFD Table:3-6, p46 (54)
-        FIXME
+        raise NotImplementedError("FIXME: implement")
         t = self.taper
         taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
         return self.c0 * self.b/2 * taper_factor
@@ -204,7 +226,7 @@ class EllipticalPlanform(ParafoilPlanform):
     def AR(self):
         """Aspect ratio of the flattened wing"""
         # ref: PFD Table:3-6, p46 (54)
-        FIXME
+        raise NotImplementedError("FIXME: implement")
         t = self.taper
         taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
         return 2 * self.b / (self.c0*taper_factor)
@@ -212,7 +234,7 @@ class EllipticalPlanform(ParafoilPlanform):
     @property
     def MAC(self):
         # ref: PFD Table:3-6, p46 (54)
-        FIXME
+        raise NotImplementedError("FIXME: implement")
         t = self.taper
         taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
         return (2/3) * self.c0 * (2 + t**2) / taper_factor
@@ -242,6 +264,18 @@ class EllipticalPlanform(ParafoilPlanform):
         """Geometric torsion angle"""
         return self.torsion_max * np.abs(s)**self.torsion_exponent
 
+    def orientation(self, s):
+        theta = self.ftheta(s)
+        ct, st = np.cos(theta), np.sin(theta)
+        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        torsion = np.array([
+            [ct,  _0, st],
+            [_0,  _1, _0],
+            [-st, _0, ct]])
+
+        # Rearrange the axes to allow for section-wise matrix multiplication
+        return np.moveaxis(torsion, [0, 1, 2], [1, 2, 0])
+
     def _dfxdy(self, s):
         # FIXME: untested
         # FIXME: needs a ds/dt factor?
@@ -249,6 +283,7 @@ class EllipticalPlanform(ParafoilPlanform):
 
     def Lambda(self, s):
         """Sweep angle"""
+        # FIXME: rewrite in terms of dx/ds and dy/ds?
         # FIXME: should this be part of the ParafoilGeometry interface?
         return arctan(self._dfxdy(s))
 
@@ -282,6 +317,7 @@ class ParafoilLobe:
     def span_ratio(self):
         """Ratio of the planform span to the projected span"""
         # FIXME: should this be cached?
+        # FIXME: is this always the nominal value, or does it deform?
         N = 500
         s = np.linspace(-1, 1, N)
         points = np.c_[self.fy(s), self.fz(s)]
@@ -294,6 +330,10 @@ class ParafoilLobe:
 
     @abc.abstractmethod
     def fz(self, s):
+        """FIXME: docstring"""
+
+    @abc.abstractmethod
+    def orientation(self, s):
         """FIXME: docstring"""
 
     @abc.abstractmethod
@@ -328,7 +368,7 @@ class EllipticalLobe(ParafoilLobe):
         # the mapping and fit it with a spline.
         t_min_z = np.arccos(1/(2*self.Az))  # (np.pi-t_min) <= t <= t_min
         t = np.linspace(np.pi - t_min_z, t_min_z, 500)
-        p = np.vstack((self.Az*np.cos(t), self.Bz*np.sin(t) + self.Cz))
+        p = np.vstack((self.Az*np.cos(t), self.Bz*np.sin(t) + self.Cz)).T
         s = np.r_[0, np.cumsum(np.linalg.norm(p[1:] - p[:-1], axis=1))]
         s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
         self.s2t = UnivariateSpline(s, t, k=5)
@@ -340,6 +380,24 @@ class EllipticalLobe(ParafoilLobe):
     def fz(self, s):
         t = self.s2t(s)
         return self.Bz * np.sin(t) + self.Cz
+
+    def orientation(self, s):
+        t = self.s2t(s)
+        # FIXME: review these definitions; I'm feeling groggy
+        dydt = self.Az * np.sin(t)  # Negated because `t` increases clockwise
+        dzdt = -self.Bz * np.cos(t)  # Negated because the z-axis is inverted
+
+        # FIXME: better way to get tangent+normal UNIT vectors for an ellipse?
+        n = np.sqrt(dydt**2 + dzdt**2)  # Faster version of 1d L2-norm
+        dydt, dzdt = dydt/n, dzdt/n  # Normalize into unit vectors
+        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        dihedral = np.array([
+            [_1,   _0,    _0],
+            [_0, dydt, -dzdt],
+            [_0, dzdt, dydt]])
+
+        # Rearrange the axes to allow for section-wise matrix multiplication
+        return np.moveaxis(dihedral, [0, 1, 2], [1, 2, 0])
 
     def _dfzdy(self, s):
         # FIXME: untested
