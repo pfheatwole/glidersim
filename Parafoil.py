@@ -131,6 +131,8 @@ class ParafoilSections(abc.ABC):
     """Defines the spanwise variation of the Parafoil sections"""
 
     # FIXME: bad naming? An instance of this class isn't a Parafoil section.
+    #        Plus, these docstrings are highly redundant with Airfoil's.
+    #        Should this API *access* the airfoils, or *return* an Airfoil?
 
     @abc.abstractmethod
     def Cl_alpha(self, s, alpha, delta):
@@ -147,6 +149,14 @@ class ParafoilSections(abc.ABC):
     @abc.abstractmethod
     def Cm(self, s, alpha, delta):
         """The pitching moment coefficient for the section"""
+
+    @abc.abstractmethod
+    def upper_curve(self, s, xa):
+        """The upper airfoil curve for the section"""
+
+    @abc.abstractmethod
+    def lower_curve(self, s, xa):
+        """The lower airfoil curve for the section"""
 
 
 class ConstantCoefficients(ParafoilSections):
@@ -178,8 +188,15 @@ class ConstantCoefficients(ParafoilSections):
             alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
         return self.airfoil.coefficients.Cm(alpha, delta)
 
+    def upper_curve(self, s, xa):
+        return self.airfoil.geometry.upper_curve(xa)
+
+    def lower_curve(self, s, xa):
+        return self.airfoil.geometry.lower_curve(xa)
+
 
 # ----------------------------------------------------------------------------
+
 
 class ForceEstimator(abc.ABC):
 
