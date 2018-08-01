@@ -106,6 +106,66 @@ class ParafoilGeometry:
         # FIXME: document
         raise NotImplementedError("FIXME: implement")
 
+    def upper_surface(self, s, xa=None, N=50):
+        """Airfoil upper surface curve on the 3D parafoil
+
+        Parameters
+        ----------
+        s : float
+            Normalized span position, where `-1 <= s <= 1`
+        xa : float or array of float, optional
+            Positions on the chord line, where all `0 < xa < chord`
+        N : integer, optional
+            If xa is `None`, sample `N` points along the chord
+
+        Returns
+        -------
+        FIXME
+        """
+        # FIXME: support `s` broadcasting?
+        if not np.isscalar(s):
+            raise ValueError("`s` must be a scalar between -1..1")
+
+        if xa is None:
+            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
+
+        fc = self.planform.fc(s)
+        upper = fc*self.sections.upper_curve(s, xa)  # Scaled airfoil
+        upper = np.c_[-upper[:, 0], np.zeros(N), -upper[:, 1]]  # Row vectors
+        surface = (self.section_orientation(s) @ upper.T) + self.c4(s).T
+        surface[0, :] = surface[0, :] + fc/4
+        return surface.T  # Return as row vectors
+
+    def lower_surface(self, s, xa=None, N=50):
+        """Airfoil upper surface curve on the 3D parafoil
+
+        Parameters
+        ----------
+        s : float
+            Normalized span position, where `-1 <= s <= 1`
+        xa : float or array of float, optional
+            Positions on the chord line, where all `0 < xa < chord`
+        N : integer, optional
+            If xa is `None`, sample `N` points along the chord
+
+        Returns
+        -------
+        FIXME
+        """
+        # FIXME: support `s` broadcasting?
+        if not np.isscalar(s):
+            raise ValueError("`s` must be a scalar between -1..1")
+
+        if xa is None:
+            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
+
+        fc = self.planform.fc(s)
+        lower = fc*self.sections.lower_curve(s, xa)  # Scaled airfoil
+        lower = np.c_[-lower[:, 0], np.zeros(N), -lower[:, 1]]  # Row vectors
+        surface = (self.section_orientation(s) @ lower.T) + self.c4(s).T
+        surface[0, :] = surface[0, :] + fc/4
+        return surface.T  # Return as row vectors
+
 
 # ---------------------------------------------------------------------------
 
