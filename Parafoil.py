@@ -10,122 +10,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
 from util import cross3
+from plots import set_axes_equal
 
 from IPython import embed
 
 
-def set_axes_equal(ax):
-    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
-    cubes as cubes, etc..  This is one possible solution to Matplotlib's
-    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
-
-    Input
-      ax: a matplotlib axis, e.g., as output from plt.gca().
-    '''
-
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-
-    x_range = abs(x_limits[1] - x_limits[0])
-    x_middle = np.mean(x_limits)
-    y_range = abs(y_limits[1] - y_limits[0])
-    y_middle = np.mean(y_limits)
-    z_range = abs(z_limits[1] - z_limits[0])
-    z_middle = np.mean(z_limits)
-
-    # The plot bounding box is a sphere in the sense of the infinity
-    # norm, hence I call half the max range the plot radius.
-    plot_radius = 0.5*max([x_range, y_range, z_range])
-
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
-
-
-class Parafoil:
-    def __init__(self, geometry, sections):
-        self.geometry = geometry
-        self.sections = sections  # Provides the airfoils for each section
-
-    def upper_surface(self, t, xa=None, N=150):
-        """Airfoil upper surface curve on the 3D parafoil
-
-        Parameters
-        ----------
-        t : float
-            Position on the parametric curve, where `-1 <= t <= 1`
-        xa : float or array of float, optional
-            Positions on the chord line, where all `0 < xa < chord`
-        N : integer, optional
-            If xa is `None`, sample `N` points along the chord
-
-        Returns
-        -------
-        FIXME
-        """
-
-        # FIXME: support `t` broadcasting?
-
-        if xa is None:
-            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
-
-        fc = self.geometry.fc(t)
-        upper = fc*self.airfoil.geometry.upper_curve(xa)  # Scaled airfoil
-        # FIXME: this ^ should use a ParafoilSection interface
-        xU, zU = upper[:, 0], upper[:, 1]
-
-        theta = self.geometry.ftheta(t)
-        Gamma = self.geometry.Gamma(t)
-
-        x = self.geometry.fx(t) + (fc/4 - xU)*cos(theta) - zU*sin(theta)
-        y = self.geometry.fy(t) + \
-            ((fc/4 - xU)*sin(theta) + zU*cos(theta))*sin(Gamma)
-        z = self.geometry.fz(t) - \
-            ((fc/4 - xU)*sin(theta) + zU*cos(theta))*cos(Gamma)
-
-        return np.c_[x, y, z]
-
-    def lower_surface(self, t, xa=None, N=150):
-        """Airfoil lower surface curve on the 3D parafoil
-
-        Parameters
-        ----------
-        t : float
-            Position on the parametric curve, where `-1 <= t <= 1`
-        xa : float or array of float, optional
-            Positions on the chord line, where all `0 < xa < chord`
-        N : integer, optional
-            If xa is `None`, sample `N` points along the chord
-
-        Returns
-        -------
-        FIXME
-        """
-
-        # FIXME: support `t` broadcasting?
-
-        if xa is None:
-            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
-
-        fc = self.geometry.fc(t)
-        lower = fc*self.airfoil.geometry.lower_curve(xa)  # Scaled airfoil
-        # FIXME: this ^ should use a ParafoilSection interface
-        xL, zL = lower[:, 0], lower[:, 1]
-
-        theta = self.geometry.ftheta(t)
-        Gamma = self.geometry.Gamma(t)
-
-        x = self.geometry.fx(t) + (fc/4 - xL)*cos(theta) + zL*sin(theta)
-        y = self.geometry.fy(t) + \
-            ((fc/4 - xL)*sin(theta) + zL*cos(theta))*sin(Gamma)
-        z = self.geometry.fz(t) - \
-            ((fc/4 - xL)*sin(theta) + zL*cos(theta))*cos(Gamma)
-
-        return np.c_[x, y, z]
-
-
 # ----------------------------------------------------------------------------
+
 
 class ParafoilSections(abc.ABC):
     """Defines the spanwise variation of the Parafoil sections"""
