@@ -15,42 +15,45 @@ class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
-    def __init__(self, parafoil, brake_geo, d_riser, z_riser,
-                 kappa_w=0, kappa_s=0):
+    def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
+                 kappa_s=0):
         """
         Parameters
         ----------
         parafoil : Parafoil
+        force_estimator : ForceEstimator
+            Calculates the aerodynamic forces and moments on the parafoil
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
         z_riser : float [meters]
             The vertical distance from the risers to the central chord
-        kappa_w : float [meters] (optional)
-            The maximum weight shift distance. This is a lateral displacement
-            of the cg relative to the nominal mounting position.
         kappa_s : float [meters] (optional)
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
         self.parafoil = parafoil
+        self.force_estimator = force_estimator(parafoil)
         self.brake_geo = brake_geo
-        self.kappa_w = kappa_w  # FIXME: strange notation. Why `kappa`?
         self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
 
         # The ParagliderWing coordinate system is a shifted version of the
         # one defined by the Parafoil. The axes of both systems are parallel,
         # but the origin moves from the central leading edge to the midpoint
         # of the risers.
-        self.c0 = parafoil.geometry.fc(0)
+        self.c0 = parafoil.planform.fc(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
         self.LE = np.sqrt(foil_x**2 + foil_z**2)
         self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
         # Precompute some useful values
-        self.y = parafoil.control_points[:, 1]  # Control point y-coordinates
-        self.c = parafoil.geometry.fc(self.y)  # Chord lengths
+        #
+        # FIXME: this is incorrect thinking: the CPs aren't necessarily fixed
+        #        Also, grabbing `s_cps` directly is poor design.
+        #
+        self.y = self.control_points()[:, 1]  # Control point y-coordinates
+        self.c = self.parafoil.planform.fc(self.force_estimator.s_cps)  # Chord lengths
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
@@ -70,18 +73,16 @@ class ParagliderWing:
             Forces and moments for each section
         """
         delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
-        dF, dM = self.parafoil.forces_and_moments(V_cp2w, delta)
+        dF, dM = self.force_estimator(V_cp2w, delta)
         return dF, dM
 
-    def foil_origin(self, delta_w=0, delta_s=0):
+    def foil_origin(self, delta_s=0):
         """
         Compute the origin of the Parafoil coordinate system in ParagliderWing
         coordinates.
 
         Parameters
         ----------
-        delta_w : float or array of float, shape (N,) [percentage] (optional)
-            Fraction of maximum weight shift
         delta_s : float or array of float, shape (N,) [percentage] (optional)
             Fraction of maximum speed bar application
 
@@ -93,7 +94,7 @@ class ParagliderWing:
         """
         LE = self.LE - (delta_s * self.kappa_s)
         foil_x = (LE**2 - self.TE**2 + self.c0**2)/(2*self.c0)
-        foil_y = -(delta_w * self.kappa_w)
+        foil_y = 0  # FIXME: not with weight shift?
         foil_z = -np.sqrt(LE**2 - foil_x**2)
         return np.array([foil_x, foil_y, foil_z])
 
@@ -136,14 +137,12 @@ class ParagliderWing:
 
         return r.x
 
-    def control_points(self, delta_w=0, delta_s=0):
+    def control_points(self, delta_s=0):
         """
         The Parafoil control points in ParagliderWing coordinates.
 
         Parameters
         ----------
-        delta_w : float or array of float, shape (N,) [percentage] (optional)
-            Fraction of maximum weight shift
         delta_s : float or array of float, shape (N,) [percentage] (optional)
             Fraction of maximum speed bar application
 
@@ -152,8 +151,8 @@ class ParagliderWing:
         cps : ndarray of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        foil_cps = self.parafoil.control_points  # In Parafoil coordinates
-        return foil_cps + self.foil_origin(delta_w, delta_s)
+        cps = self.force_estimator.control_points  # In Parafoil coordinates
+        return cps + self.foil_origin(delta_s)  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
