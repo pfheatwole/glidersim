@@ -407,18 +407,19 @@ class EllipticalLobe(ParafoilLobe):
 
     def orientation(self, s):
         t = self.s2t(s)
-        # FIXME: review these definitions; I'm feeling groggy
-        dydt = self.Az * np.sin(t)  # Negated because `t` increases clockwise
-        dzdt = -self.Bz * np.cos(t)  # Negated because the z-axis is inverted
+        dydt = -self.Az * np.sin(t)
+        dzdt = self.Bz * np.cos(t)
 
-        # FIXME: better way to get tangent+normal UNIT vectors for an ellipse?
-        n = np.sqrt(dydt**2 + dzdt**2)  # Faster version of 1d L2-norm
-        dydt, dzdt = dydt/n, dzdt/n  # Normalize into unit vectors
+        # Normalize the derivatives into unit vectors, and negate to orient
+        # them with increasing `s` instead of increasing `t`
+        K = np.sqrt(dydt**2 + dzdt**2)  # Faster version of 1d L2-norm
+        dydt, dzdt = -dydt/K, -dzdt/K
+
         _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
         dihedral = np.array([
             [_1,   _0,    _0],
             [_0, dydt, -dzdt],
-            [_0, dzdt, dydt]])
+            [_0, dzdt,  dydt]])
 
         # Rearrange the axes to allow for section-wise matrix multiplication
         if dihedral.ndim == 3:  # `s` was an array_like
