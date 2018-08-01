@@ -783,7 +783,6 @@ class Phillips(ForceEstimator):
         v = np.empty_like(R1)
 
         indices = [(i, j) for i in range(self.K) for j in range(self.K)]
-        print()
         for ij in indices:
             v[ij] = cross(u_inf, R2[ij]) / \
                 (r2[ij] * (r2[ij] - dot(u_inf, R2[ij])))
@@ -810,7 +809,6 @@ class Phillips(ForceEstimator):
                 v = np.empty_like(R1)
 
                 indices = [(i, j) for i in range(K) for j in range(K)]
-                print()
                 for ij in indices:
                     v[ij] = cross3(u_inf, R2[ij]) / \
                         (r2[ij] * (r2[ij] - dot(u_inf, R2[ij])))
