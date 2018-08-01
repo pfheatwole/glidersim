@@ -160,7 +160,16 @@ class ParafoilPlanform(abc.ABC):
     def orientation(self, s):
         """Section orientation unit vectors
 
-        Defined as the chordwise, section orthogonal, and vertical axes.
+        Parameters
+        ----------
+        s : float, or array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`
+
+        Returns
+        -------
+        torsion : ndarray of float, shape (3,3) or (N,3,3)
+            The orientation matrices at each section. The columns of each
+            matrix are the transformed <x,y,z> unit vectors.
         """
 
 
@@ -334,7 +343,19 @@ class ParafoilLobe:
 
     @abc.abstractmethod
     def orientation(self, s):
-        """FIXME: docstring"""
+        """Section orientation unit vectors
+
+        Parameters
+        ----------
+        s : float, or array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`
+
+        Returns
+        -------
+        dihedral : ndarray of float, shape (3,3) or (N,3,3)
+            The orientation matrices at each section. The columns of each
+            matrix are the transformed <x,y,z> unit vectors.
+        """
 
     @abc.abstractmethod
     def Gamma(self, s):
