@@ -283,7 +283,9 @@ class EllipticalPlanform(ParafoilPlanform):
             [-st, _0, ct]])
 
         # Rearrange the axes to allow for section-wise matrix multiplication
-        return np.moveaxis(torsion, [0, 1, 2], [1, 2, 0])
+        if torsion.ndim == 3:  # `s` was an array_like
+            torsion = np.moveaxis(torsion, [0, 1, 2], [1, 2, 0])
+        return torsion
 
     def _dfxdy(self, s):
         # FIXME: untested
@@ -419,7 +421,9 @@ class EllipticalLobe(ParafoilLobe):
             [_0, dzdt, dydt]])
 
         # Rearrange the axes to allow for section-wise matrix multiplication
-        return np.moveaxis(dihedral, [0, 1, 2], [1, 2, 0])
+        if dihedral.ndim == 3:  # `s` was an array_like
+            dihedral = np.moveaxis(dihedral, [0, 1, 2], [1, 2, 0])
+        return dihedral
 
     def _dfzdy(self, s):
         # FIXME: untested
