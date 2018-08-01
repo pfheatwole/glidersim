@@ -357,8 +357,9 @@ class EllipticalLobe(ParafoilLobe):
         #        correctly
         tMed = tan(self.dihedralMed)
         tMax = tan(self.dihedralMax)
-        self.Az = (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        self.Bz = tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        b = 1  # Explicitly highlight that this class assumes a unit span
+        self.Az = (b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
+        self.Bz = (b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
         self.Cz = -self.Bz
 
         # The span is parametrized by the normalized span position `s`, but the
@@ -366,7 +367,7 @@ class EllipticalLobe(ParafoilLobe):
         # transformation is needed. There isn't a closed form solution for the
         # arc length of an ellipse (which is essentially `s`), so pre-compute
         # the mapping and fit it with a spline.
-        t_min_z = np.arccos(1/(2*self.Az))  # (np.pi-t_min) <= t <= t_min
+        t_min_z = np.arccos(b/(2*self.Az))  # (np.pi-t_min) <= t <= t_min
         t = np.linspace(np.pi - t_min_z, t_min_z, 500)
         p = np.vstack((self.Az*np.cos(t), self.Bz*np.sin(t) + self.Cz)).T
         s = np.r_[0, np.cumsum(np.linalg.norm(p[1:] - p[:-1], axis=1))]
