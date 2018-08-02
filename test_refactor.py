@@ -164,10 +164,10 @@ def main():
 
     # ---------------------------------------------------------------------
     # Run some tests
-    cp_y = wing2d.control_points(0)[:, 1]
+    cp_y = wing2d.control_points(0)[1]
     K = len(cp_y)
-    V_rel = np.asarray([[10.0, 0.0, 1.0]] * K)
-    V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
+    V_rel = np.asarray([[10.0, 0.0, 1.0]] * K).T
+    V_rel[0] += np.linspace(0, 1, K)**2 * 2  # spinning!
 
     #          Bl     Br
     deltas = [0.00, 0.00]
@@ -183,12 +183,12 @@ def main():
 
     print("Plotting the forces")
     fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
-    ax[0].plot(cp_y, dF_2d[:, 0], label='2D')
-    ax[0].plot(cp_y, dF_3d[:, 0], label='3D', marker='.')
-    ax[1].plot(cp_y, dF_2d[:, 1], label='2D')
-    ax[1].plot(cp_y, dF_3d[:, 1], label='3D', marker='.')
-    ax[2].plot(cp_y, dF_2d[:, 2], label='2D')
-    ax[2].plot(cp_y, dF_3d[:, 2], label='3D', marker='.')
+    ax[0].plot(cp_y, dF_2d[0], label='2D')
+    ax[0].plot(cp_y, dF_3d[0], label='3D', marker='.')
+    ax[1].plot(cp_y, dF_2d[1], label='2D')
+    ax[1].plot(cp_y, dF_3d[1], label='3D', marker='.')
+    ax[2].plot(cp_y, dF_2d[2], label='2D')
+    ax[2].plot(cp_y, dF_3d[2], label='3D', marker='.')
     ax[0].set_xlabel('spanwise position')
     ax[0].set_ylabel('Fx')
     ax[1].set_ylabel('Fy')
@@ -203,7 +203,7 @@ def main():
 
     # ------------------------
     glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)
-    UVW = np.asarray([[10.0, 0.0, 1.0]] * K)
+    UVW = np.asarray([[10.0, 0.0, 1.0]] * K).T
     R = 0
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     PQR = np.array([0, 0, R])
@@ -216,9 +216,9 @@ def main():
 
     print("Plotting the forces")
     fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
-    ax[0].plot(xyz[:, 1], dF[:, 0])
-    ax[1].plot(xyz[:, 1], dF[:, 1])
-    ax[2].plot(xyz[:, 1], dF[:, 2])
+    ax[0].plot(xyz[1], dF[0])
+    ax[1].plot(xyz[1], dF[1])
+    ax[2].plot(xyz[1], dF[2])
     ax[0].set_xlabel('spanwise position')
     ax[0].set_ylabel('Fx')
     ax[1].set_ylabel('Fy')

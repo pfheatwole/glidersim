@@ -14,10 +14,10 @@ def plot_airfoil_geo(foil_geo):
 
     fig, ax = plt.subplots()
     ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
-    ax.plot(upper[:, 0], upper[:, 1], c='r', lw=0.75)
-    ax.plot(lower[:, 0], lower[:, 1], c='b', lw=0.75)
-    ax.scatter(foil_geo.camber_curve(0.25)[0, 0],
-               foil_geo.camber_curve(0.25)[0, 1], c='k')
+    ax.plot(upper[0], upper[1], c='r', lw=0.75)
+    ax.plot(lower[0], lower[1], c='b', lw=0.75)
+    ax.scatter(foil_geo.camber_curve(0.25)[0],
+               foil_geo.camber_curve(0.25)[1], c='k')
     ax.set_aspect('equal')
     ax.legend()
     ax.set_xlim(-0.05, 1.05)
@@ -64,14 +64,14 @@ def plot_parafoil_geo(parafoil):
 
     for s in np.linspace(-1, 1, 21):
         coords = parafoil.lower_surface(s)
-        ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='r', zorder=.9,
+        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9,
                 lw=0.8)
         coords = parafoil.upper_surface(s)
-        ax.plot(coords[:, 0], coords[:, 1], -coords[:, 2], c='b', lw=0.8)
+        ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
 
     s = np.linspace(-1, 1, 51)
     c4 = parafoil.c4(s)
-    ax.plot(c4[:, 0], c4[:, 1], -c4[:, 2], 'g--', lw=0.8)
+    ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
 
     set_axes_equal(ax)
     plt.show()

@@ -285,8 +285,8 @@ class AirfoilGeometry(abc.ABC):
 
         upper = self.upper_curve(x)
         lower = self.lower_curve(x)
-        Ux, Uy = upper[:, 0], upper[:, 1]
-        Lx, Ly = lower[:, 0], lower[:, 1]
+        Ux, Uy = upper[0], upper[1]
+        Lx, Ly = lower[0], lower[1]
 
         # -------------------------------------------------------------------
         # 1. Area calculations
@@ -318,10 +318,10 @@ class AirfoilGeometry(abc.ABC):
         # 2. Surface line calculations
 
         # Line segment lengths and midpoints
-        norm_U = np.linalg.norm(np.diff(upper, axis=0), axis=1)
-        norm_L = np.linalg.norm(np.diff(lower, axis=0), axis=1)
-        mid_U = (upper[:-1] + upper[1:])/2  # Midpoints of the upper segments
-        mid_L = (lower[:-1] + lower[1:])/2  # Midpoints of the lower segments
+        norm_U = np.linalg.norm(np.diff(upper, axis=1), axis=0)
+        norm_L = np.linalg.norm(np.diff(lower, axis=1), axis=0)
+        mid_U = (upper[:, :-1] + upper[:, 1:])/2  # Midpoints of `upper`
+        mid_L = (lower[:, :-1] + lower[:, 1:])/2  # Midpoints of `lower`
 
         # Total surface line lengths
         self.upper_length = norm_U.sum()
@@ -329,20 +329,20 @@ class AirfoilGeometry(abc.ABC):
         UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
 
         # Surface line centroids
-        self.upper_centroid = np.einsum('ij,i->j', mid_U, norm_U) / UL
-        self.lower_centroid = np.einsum('ij,i->j', mid_L, norm_L) / LL
+        self.upper_centroid = np.einsum('ij,j->i', mid_U, norm_U) / UL
+        self.lower_centroid = np.einsum('ij,j->i', mid_L, norm_L) / LL
 
         # Surface line moments of inertia about their centroids
         # FIXME: not proper line integrals: treats segments as point masses
         cmUx, cmUy = self.upper_centroid
-        mid_Ux, mid_Uy = mid_U[:, 0], mid_U[:, 1]
+        mid_Ux, mid_Uy = mid_U[0], mid_U[1]
         Ixx_U = np.sum(mid_Uy**2 * norm_U) - UL*cmUy**2
         Iyy_U = np.sum(mid_Ux**2 * norm_U) - UL*cmUx**2
         Ixy_U = np.sum(mid_Ux*mid_Uy*norm_U) - UL*cmUx*cmUy
         Izz_U = Ixx_U + Iyy_U
 
         cmLx, cmLy = self.lower_centroid
-        mid_Lx, mid_Ly = mid_L[:, 0], mid_L[:, 1]
+        mid_Lx, mid_Ly = mid_L[0], mid_L[1]
         Ixx_L = np.sum(mid_Ly**2 * norm_L) - LL*cmLy**2
         Iyy_L = np.sum(mid_Lx**2 * norm_L) - LL*cmLx**2
         Ixy_L = np.sum(mid_Lx*mid_Ly*norm_L) - LL*cmLx*cmLy
@@ -475,7 +475,7 @@ class NACA4(AirfoilGeometry):
         cl = np.empty_like(x)
         cl[f] = (m/p**2)*(2*p*(x[f]/c) - (x[f]/c)**2)
         cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]/c) - (x[~f]/c)**2)
-        return np.c_[x, cl]
+        return np.array([x, cl])
 
     def thickness(self, x):
         x = np.asarray(x)
@@ -515,8 +515,8 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[:, 1]
-        return np.c_[x - t*np.sin(theta), yc + t*np.cos(theta)]
+        yc = self.camber_curve(x)[1]
+        return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)])
 
     def lower_curve(self, x):
         x = np.asarray(x)
@@ -525,5 +525,5 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[:, 1]
-        return np.c_[x + t*np.sin(theta), yc - t*np.cos(theta)]
+        yc = self.camber_curve(x)[1]
+        return np.array([x + t*np.sin(theta), yc - t*np.cos(theta)])

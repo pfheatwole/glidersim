@@ -52,7 +52,7 @@ class ParagliderWing:
         # FIXME: this is incorrect thinking: the CPs aren't necessarily fixed
         #        Also, grabbing `s_cps` directly is poor design.
         #
-        self.y = self.control_points()[:, 1]  # Control point y-coordinates
+        self.y = self.control_points()[1]  # Control point y-coordinates
         self.c = self.parafoil.planform.fc(self.force_estimator.s_cps)  # Chord lengths
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
@@ -60,7 +60,7 @@ class ParagliderWing:
 
         Parameters
         ----------
-        V_cp2w : ndarray of floats, shape (K,3) [m/s]
+        V_cp2w : ndarray of floats, shape (3,K) [m/s]
             The relative velocity of each control point vs the fluid
         delta_Bl : float [percentage]
             The amount of left brake
@@ -69,7 +69,7 @@ class ParagliderWing:
 
         Returns
         -------
-        dF, dM : array of float, shape (K,3)
+        dF, dM : array of float, shape (3,K)
             Forces and moments for each section
         """
         delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
@@ -148,11 +148,11 @@ class ParagliderWing:
 
         Returns
         -------
-        cps : ndarray of floats, shape (K,3) [meters]
+        cps : ndarray of floats, shape (3,K) [meters]
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
-        return cps + self.foil_origin(delta_s)  # In Wing coordinates
+        return cps + self.foil_origin(delta_s)[:, None]  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):
