@@ -113,17 +113,15 @@ class ParafoilGeometry:
         # FIXME: document
         raise NotImplementedError("FIXME: implement")
 
-    def upper_surface(self, s, xa=None, N=50):
+    def upper_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
 
         Parameters
         ----------
         s : float
             Normalized span position, where `-1 <= s <= 1`
-        xa : float or array of float, optional
-            Positions on the chord line, where all `0 < xa < chord`
         N : integer, optional
-            If xa is `None`, sample `N` points along the chord
+            The number of sample points along the chord. Default: 50
 
         Returns
         -------
@@ -132,27 +130,25 @@ class ParafoilGeometry:
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
             raise ValueError("`s` must be a scalar between -1..1")
+        if not isinstance(N, int) or N < 1:
+            raise ValueError("`N` must be a positive integer")
 
-        if xa is None:
-            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
-
+        xa = np.linspace(0, 1, N)
         upper = self.sections.upper_curve(s, xa)  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         upper[0] += 1/4  # Parafoil section coordinates are given at c/4
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
         return surface + self.c4(s).reshape(3, -1)  # Convert 1d arrays to 2d
 
-    def lower_surface(self, s, xa=None, N=50):
+    def lower_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
 
         Parameters
         ----------
         s : float
             Normalized span position, where `-1 <= s <= 1`
-        xa : float or array of float, optional
-            Positions on the chord line, where all `0 < xa < chord`
         N : integer, optional
-            If xa is `None`, sample `N` points along the chord
+            The number of sample points along the chord. Default: 50
 
         Returns
         -------
@@ -161,10 +157,10 @@ class ParafoilGeometry:
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
             raise ValueError("`s` must be a scalar between -1..1")
+        if not isinstance(N, int) or N < 1:
+            raise ValueError("`N` must be a positive integer")
 
-        if xa is None:
-            xa = np.linspace(0, 1, N)  # FIXME: assume normalized airfoils?
-
+        xa = np.linspace(0, 1, N)
         lower = self.sections.lower_curve(s, xa)  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         lower[0] += 1/4  # Parafoil section coordinates are given at c/4
