@@ -281,7 +281,7 @@ class AirfoilGeometry(abc.ABC):
         >>> inertia_frd = C @ inertia_acs @ C
         """
 
-        x = np.linspace(0, 1, N)  # FIXME: okay to assume a normalized airfoil?
+        x = np.linspace(0, 1, N)
 
         upper = self.upper_curve(x)
         lower = self.lower_curve(x)
@@ -372,7 +372,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 <= x <= chord`
+            Position on the chord line, where `0 <= x <= 1`
 
         Returns
         -------
@@ -391,7 +391,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 <= x <= chord`
+            Position on the chord line, where `0 <= x <= 1`
 
         Returns
         -------
@@ -405,7 +405,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 <= x <= chord`
+            Position on the chord line, where `0 <= x <= 1`
 
         Returns
         -------
@@ -419,7 +419,7 @@ class AirfoilGeometry(abc.ABC):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 <= x <= chord`
+            Position on the chord line, where `0 <= x <= 1`
 
         Returns
         -------
@@ -428,7 +428,7 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA4(AirfoilGeometry):
-    def __init__(self, code, chord=1):
+    def __init__(self, code):
         """
         Generate an airfoil using a NACA4 parameterization
 
@@ -437,8 +437,6 @@ class NACA4(AirfoilGeometry):
         code : integer or string
             The 4-digit NACA code. If the code is an integer less than 1000,
             leading zeros are implicitly added; for example, 12 becomes 0012.
-        chord : float
-            The length of the chord
         """
         if isinstance(code, str):
             code = int(code)  # Let the ValueError exception through
@@ -447,12 +445,10 @@ class NACA4(AirfoilGeometry):
         if code < 0 or code > 9999:  # Leading zeros are implicit
             raise ValueError("Invalid 4-digit NACA code: '{}'".format(code))
 
-        self.chord = chord
         self.code = code
         self.m = (code // 1000) / 100       # Maximum camber
         self.p = ((code // 100) % 10) / 10  # location of max camber
         self._tcr = (code % 100) / 100      # Thickness to chord ratio
-        self.pc = self.p * self.chord
 
         super().__init__()  # Add the centroids, inertias, etc
 
@@ -462,25 +458,21 @@ class NACA4(AirfoilGeometry):
 
     def camber_curve(self, x):
         m = self.m
-        c = self.chord
         p = self.p
-        pc = self.pc
+        x = np.asarray(x, dtype=float)
+        if np.any(x < 0) or np.any(x > 1):
+            raise ValueError("x must be between 0 and 1")
 
-        x = np.asarray(x)
-
-        if np.any(x < 0) or np.any(x > c):
-            raise ValueError("x must be between 0 and the chord length")
-
-        f = (x <= pc)  # Filter for the two cases, `x <= pc` and `x > pc`
+        f = (x <= p)  # Filter for the two cases, `x <= p` and `x > p`
         cl = np.empty_like(x)
-        cl[f] = (m/p**2)*(2*p*(x[f]/c) - (x[f]/c)**2)
-        cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]/c) - (x[~f]/c)**2)
+        cl[f] = (m/p**2)*(2*p*(x[f]) - (x[f])**2)
+        cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]) - (x[~f])**2)
         return np.array([x, cl])
 
     def thickness(self, x):
-        x = np.asarray(x)
-        if np.any(x < 0) or np.any(x > self.chord):
-            raise ValueError("x must be between 0 and the chord length")
+        x = np.asarray(x, dtype=float)
+        if np.any(x < 0) or np.any(x > 1):
+            raise ValueError("x must be between 0 and 1")
 
         return 5*self.tcr*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
                            .2843*x**3 - .1015*x**4)
@@ -491,27 +483,25 @@ class NACA4(AirfoilGeometry):
         Parameters
         ----------
         x : float
-            Position on the chord line, where `0 < x < chord`
+            Position on the chord line, where `0 <= x <= 1`
         """
         m = self.m
         p = self.p
-        c = self.chord
-        pc = self.pc
 
-        x = np.asarray(x)
-        assert np.all(x >= 0) and np.all(x <= self.chord)
+        x = np.asarray(x, dtype=float)
+        assert np.all(x >= 0) and np.all(x <= 1)
 
-        f = x <= pc  # Filter for the two cases, `x <= pc` and `x > pc`
+        f = x <= p  # Filter for the two cases, `x <= p` and `x > p`
         dyc = np.empty_like(x)
-        dyc[f] = (2*m/p**2)*(p - x[f]/c)
-        dyc[~f] = (2*m/(1-p)**2)*(p - x[~f]/c)
+        dyc[f] = (2*m/p**2)*(p - x[f])
+        dyc[~f] = (2*m/(1-p)**2)*(p - x[~f])
 
         return arctan(dyc)
 
     def upper_curve(self, x):
-        x = np.asarray(x)
-        if np.any(x < 0) or np.any(x > self.chord):
-            raise ValueError("x must be between 0 and the chord length")
+        x = np.asarray(x, dtype=float)
+        if np.any(x < 0) or np.any(x > 1):
+            raise ValueError("x must be between 0 and 1")
 
         theta = self._theta(x)
         t = self.thickness(x)
@@ -519,9 +509,9 @@ class NACA4(AirfoilGeometry):
         return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)])
 
     def lower_curve(self, x):
-        x = np.asarray(x)
-        if np.any(x < 0) or np.any(x > self.chord):
-            raise ValueError("x must be between 0 and the chord length")
+        x = np.asarray(x, dtype=float)
+        if np.any(x < 0) or np.any(x > 1):
+            raise ValueError("x must be between 0 and 1")
 
         theta = self._theta(x)
         t = self.thickness(x)
