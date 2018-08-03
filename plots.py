@@ -55,18 +55,18 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
-def plot_parafoil_geo(parafoil):
+def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     """Make a plot of a 3D wing"""
 
     fig = plt.figure(figsize=(16, 16))
     ax = fig.gca(projection='3d')
     ax.view_init(azim=-130, elev=25)
 
-    for s in np.linspace(-1, 1, 21):
-        coords = parafoil.lower_surface(s)
+    for s in np.linspace(-1, 1, N_sections):
+        coords = parafoil.lower_surface(s, N_points)
         ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9,
                 lw=0.8)
-        coords = parafoil.upper_surface(s)
+        coords = parafoil.upper_surface(s, N_points)
         ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
 
     s = np.linspace(-1, 1, 51)

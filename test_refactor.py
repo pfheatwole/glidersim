@@ -160,7 +160,7 @@ def main():
     glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
 
     print("Drawing the parafoil")
-    plot_parafoil_geo(parafoil)
+    plot_parafoil_geo(parafoil, N_sections=25)
 
     # ---------------------------------------------------------------------
     # Run some tests
