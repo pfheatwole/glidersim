@@ -136,8 +136,8 @@ def main():
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
     sections = Parafoil.ConstantCoefficients(airfoil)
     parafoil = build_elliptical_parafoil(
-        b_flat=10, MAC=2.5, taper=0.15, dMed=-25, dMax=-70,
-        sMed=5, torsion_max=0, sections=sections)
+        b_flat=10, MAC=2.5, taper=0.35, dMed=-25, dMax=-70,
+        sMed=15, torsion_max=0, sections=sections)
 
     b = parafoil.b
     delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil.planform.fc(1)
