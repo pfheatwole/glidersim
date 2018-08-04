@@ -139,14 +139,9 @@ def main():
         b_flat=10, MAC=2.5, taper=0.35, dMed=-25, dMax=-70,
         sMed=15, torsion_max=0, sections=sections)
 
-    b = parafoil.b
-    delta_max = np.deg2rad(50)*(1 - 0.8) * parafoil.planform.fc(1)
-    bQuadratic = BrakeGeometry.Quadratic(b, delta_max)
-    bCubic25 = BrakeGeometry.Cubic(b, 0.25, delta_max)
-    bCubic45 = BrakeGeometry.Cubic(b, 0.45, delta_max)
-    bCubic65 = BrakeGeometry.Cubic(b, 0.65, delta_max)
-    # brakes = bQuadratic
-    brakes = bCubic65
+    p_start, p_peak = 0.05, 0.75
+    delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
+    brakes = BrakeGeometry.Cubic(parafoil.b, p_start, p_peak, delta_max)
 
     # Build a wings with the different force estimation methods
     wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,

@@ -72,7 +72,7 @@ class ParagliderWing:
         dF, dM : array of float, shape (3,K)
             Forces and moments for each section
         """
-        delta = self.brake_geo(self.y, delta_Bl, delta_Br) / self.c
+        delta = self.brake_geo(self.y, delta_Bl, delta_Br)
         dF, dM = self.force_estimator(V_cp2w, delta)
         return dF, dM
 
