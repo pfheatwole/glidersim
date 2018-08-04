@@ -11,6 +11,8 @@ from IPython import embed
 
 from util import cross3
 
+import matplotlib.pyplot as plt
+
 
 class ParafoilGeometry:
     def __init__(self, planform, lobe, sections):
@@ -861,7 +863,7 @@ class Phillips(ForceEstimator):
         #  * For now, use an elliptical Gamma
         b = self.parafoil.b
         cp_y = self.cps[1]
-        Gamma0 = 5
+        Gamma0 = 10
 
         # Alternative initial proposal
         # avg_brake = (delta_Bl + delta_Br)/2
@@ -878,6 +880,7 @@ class Phillips(ForceEstimator):
         fs = []
         Js = []
         alphas = []
+        Cls = []
         Cl_alphas = []
 
         # FIXME: very ad-hoc way to prevent large negative AoA at the wing tips
@@ -885,11 +888,11 @@ class Phillips(ForceEstimator):
         # M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
         # base_Omega, min_Omega = 0.2, 0.05
         # Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
-        Omega = 0.1
+        Omega = 0.5
 
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
-            max_runs = 30
+            max_runs = 5
 
         # FIXME: don't use a fixed number of runs
         # FIXME: how much faster is `opt_einsum` versus the scipy version?
@@ -976,6 +979,7 @@ class Phillips(ForceEstimator):
             Gammas.append(Gamma)
             fs.append(f)
             Js.append(J)
+            Cls.append(Cl)
             Cl_alphas.append(Cl_alpha)
 
             # print("finished run", n_runs)
@@ -983,6 +987,7 @@ class Phillips(ForceEstimator):
             # 1/0
 
             # FIXME: ad-hoc workaround to avoid massively negative AoA
+            # print("DEBUG> Omega:", Omega)
             Omega += (1 - Omega)/4
 
             n_runs += 1
