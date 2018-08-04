@@ -26,6 +26,41 @@ def plot_airfoil_geo(foil_geo):
     plt.show()
 
 
+def plot_airfoil_coef(airfoil, coef, N=100):
+    """
+    Parameters
+    ----------
+    airfoil : Airfoil
+    coef : string
+        The airfoil coefficient to plot: 'cl', 'cl_alpha', 'cd', or 'cm'
+        (case insensitive)
+    N : integer
+        The number of sample points per dimension
+    """
+
+    alpha = np.deg2rad(np.linspace(-3, 22, N))
+    delta = np.deg2rad(np.linspace(0, 50*(1-0.8), N))
+    grid = np.meshgrid(alpha, delta)
+
+    coef = coef.lower()
+    if coef == 'cl':
+        values = airfoil.coefficients.Cl(grid[0], grid[1])
+    elif coef == 'cl_alpha':
+        values = airfoil.coefficients.Cl_alpha(grid[0], grid[1])
+    elif coef == 'cd':
+        values = airfoil.coefficients.Cd(grid[0], grid[1])
+    elif coef == 'cm':
+        values = airfoil.coefficients.Cd(grid[0], grid[1])
+
+    fig = plt.figure(figsize=(13, 10))
+    ax = fig.gca(projection='3d')
+    ax.plot_surface(grid[0], grid[1], values)
+    ax.set_xlabel('alpha [rad]')
+    ax.set_ylabel('delta [rad]')
+    ax.set_zlabel(coef)
+    plt.show()
+
+
 def set_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
