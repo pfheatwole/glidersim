@@ -4,7 +4,7 @@ import numpy as np
 
 
 class BrakeGeometry(abc.ABC):
-    def __call__(self, y, delta_Bl, delta_Br):
+    def __call__(self, s, delta_Bl, delta_Br):
         """
         Computes the trailing edge deflection due to the application of brakes.
 
@@ -12,8 +12,8 @@ class BrakeGeometry(abc.ABC):
 
         Parameters
         ----------
-        y : float [meters]
-            The wing section position on the span, -b/2 <= y <= b/2
+        s : float, or array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`
         delta_Bl : float [percentage]
             Left brake application as a fraction of maximum braking
         delta_Br : float [percentage]
@@ -41,7 +41,6 @@ class BrakeGeometry(abc.ABC):
         considered final. It may be useful to switch to a brake geometry that
         returns distances instead of angles.
         """
-        # FIXME: reparametrize in terms of the normalized span coordinate `s`?
 
 
 class Cubic(BrakeGeometry):
@@ -69,12 +68,10 @@ class Cubic(BrakeGeometry):
 
     """
 
-    def __init__(self, b, p_start, p_peak, delta_max):
+    def __init__(self, p_start, p_peak, delta_max):
         """
         Parameters
         ----------
-        b : float
-            The projected span of the inflated parafoil
         p_start : float
             The start of the brake deflection as a fraction of the semispan.
         p_peak : float
@@ -84,7 +81,6 @@ class Cubic(BrakeGeometry):
         delta_max : float [radians]
             The maximum deflection angle, which occurs at p_peak
         """
-        self.b = b
         self.p_start = p_start
         self.p_peak = p_peak
         if p_peak < self.p_peak_min(p_start):
@@ -93,12 +89,12 @@ class Cubic(BrakeGeometry):
         self.K1 = -2*delta_max/((p_peak - p_start)**3)
         self.K2 = 3*delta_max/(p_peak - p_start)**2
 
-    def __call__(self, y, delta_Bl, delta_Br):
-        p = np.abs(y/(self.b/2))  # left and right side are symmetric
-        fraction = np.choose(y < 0, [delta_Br, delta_Bl])
-        fraction[p < self.p_start] = 0
-        pn = p - self.p_start
-        return fraction * (self.K1 * pn**3 + self.K2 * pn**2)
+    def __call__(self, s, delta_Bl, delta_Br):
+        fraction = np.choose(s < 0, [delta_Br, delta_Bl])
+        s = np.abs(s)  # left and right side are symmetric
+        fraction = fraction * (s > self.p_start)  # Boolean hack
+        p = s - self.p_start  # The cubic uses a shifted origin, `p_start`
+        return fraction * (self.K1 * p**3 + self.K2 * p**2)
 
     @staticmethod
     def p_peak_min(p_start):

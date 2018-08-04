@@ -141,7 +141,7 @@ def main():
 
     p_start, p_peak = 0.05, 0.75
     delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
-    brakes = BrakeGeometry.Cubic(parafoil.b, p_start, p_peak, delta_max)
+    brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
     # Build a wings with the different force estimation methods
     wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,

@@ -47,14 +47,6 @@ class ParagliderWing:
         self.LE = np.sqrt(foil_x**2 + foil_z**2)
         self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
 
-        # Precompute some useful values
-        #
-        # FIXME: this is incorrect thinking: the CPs aren't necessarily fixed
-        #        Also, grabbing `s_cps` directly is poor design.
-        #
-        self.y = self.control_points()[1]  # Control point y-coordinates
-        self.c = self.parafoil.planform.fc(self.force_estimator.s_cps)  # Chord lengths
-
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
 
@@ -72,7 +64,7 @@ class ParagliderWing:
         dF, dM : array of float, shape (3,K)
             Forces and moments for each section
         """
-        delta = self.brake_geo(self.y, delta_Bl, delta_Br)
+        delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)
         dF, dM = self.force_estimator(V_cp2w, delta)
         return dF, dM
 
