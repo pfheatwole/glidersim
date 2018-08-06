@@ -75,8 +75,22 @@ class ParafoilGeometry:
         """Section quarter-chord z coordinate"""
         return self.span_factor * self.lobe.fz(s, **lobe_args)
 
+    def c0(self, s, lobe_args={}):
+        """Section leading-edge coordinates
+
+        Useful for points given in the local section coordinate system, such
+        as for surface curves or the airfoil centroid.
+        """
+        u = self.section_orientation(s, lobe_args)
+        c = self.planform.fc(s)
+        return self.c4(s, lobe_args) + (c/4 * u[0])
+
     def c4(self, s, lobe_args={}):
-        """Section quarter-chord coordinates"""
+        """Section quarter-chord coordinates
+
+        Useful as the point of application for section forces (if you assume
+        the aerodynamic center of that section lies on the quarter chord).
+        """
         x = self.fx(s)
         y = self.fy(s, lobe_args)
         z = self.fz(s, lobe_args)
@@ -138,9 +152,8 @@ class ParafoilGeometry:
         xa = np.linspace(0, 1, N)
         upper = self.sections.upper_curve(s, xa)  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
-        upper[0] += 1/4  # Parafoil section coordinates are given at c/4
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
-        return surface + self.c4(s).reshape(3, -1)  # Convert 1d arrays to 2d
+        return surface + self.c0(s).reshape(3, -1)  # Convert 1d arrays to 2d
 
     def lower_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
@@ -165,9 +178,8 @@ class ParafoilGeometry:
         xa = np.linspace(0, 1, N)
         lower = self.sections.lower_curve(s, xa)  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
-        lower[0] += 1/4  # Parafoil section coordinates are given at c/4
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
-        return surface + self.c4(s).reshape(3, -1)  # Convert 1d arrays to 2d
+        return surface + self.c0(s).reshape(3, -1)  # Convert 1d arrays to 2d
 
 
 # ---------------------------------------------------------------------------
