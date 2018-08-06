@@ -277,7 +277,7 @@ class AirfoilGeometry(abc.ABC):
         To convert from this airfoil coordinate system ("acs") to frd:
 
         >>> C = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
-        >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z=0
+        >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
         >>> inertia_frd = C @ inertia_acs @ C
         """
 
