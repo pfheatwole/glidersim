@@ -15,7 +15,7 @@ from Paraglider import Paraglider
 from plots import plot_airfoil_geo, plot_parafoil_geo
 
 
-def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, sections,
+def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, airfoil,
                               dMax=None, sMax=None,
                               torsion_max=0, torsion_exponent=6):
 
@@ -38,7 +38,7 @@ def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, sections,
         b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
     lobe = Parafoil.EllipticalLobe(dMed, dMax)
 
-    return Parafoil.ParafoilGeometry(planform, lobe, sections)
+    return Parafoil.ParafoilGeometry(planform, lobe, airfoil)
 
 
 def plot_coefficients(coefs):
@@ -134,10 +134,9 @@ def main():
     # airfoil_coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
 
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
-    sections = Parafoil.ConstantCoefficients(airfoil)
     parafoil = build_elliptical_parafoil(
         b_flat=10, MAC=2.5, taper=0.35, dMed=-25, dMax=-70,
-        sMed=15, torsion_max=0, sections=sections)
+        sMed=15, torsion_max=0, airfoil=airfoil)
 
     # print("Drawing the parafoil")
     # plot_parafoil_geo(parafoil, N_sections=25)

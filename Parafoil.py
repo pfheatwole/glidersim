@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 
 
 class ParafoilGeometry:
-    def __init__(self, planform, lobe, sections):
+    def __init__(self, planform, lobe, airfoil):
         self.planform = planform
         self.lobe = lobe
-        self.sections = sections  # Provides the airfoils for each section
+        self.airfoil = airfoil
         self.span_factor = planform.b_flat / lobe.span_ratio  # FIXME: API?
 
     @property
@@ -96,12 +96,6 @@ class ParafoilGeometry:
         z = self.fz(s, lobe_args)
         return np.array([x, y, z]).T
 
-    def section(self, s):
-        # FIXME: needs a design review
-        # Does it makes sense that a "section" is a normalized airfoil?
-        """Section airfoil"""
-        return self.sections(s)
-
     def section_orientation(self, s, lobe_args={}):
         """Section orientation unit vectors
 
@@ -150,7 +144,7 @@ class ParafoilGeometry:
             raise ValueError("`N` must be a positive integer")
 
         xa = np.linspace(0, 1, N)
-        upper = self.sections.upper_curve(s, xa).T  # Unscaled airfoil
+        upper = self.airfoil.geometry.upper_curve(xa).T  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
         return surface.T + self.c0(s)
@@ -176,7 +170,7 @@ class ParafoilGeometry:
             raise ValueError("`N` must be a positive integer")
 
         xa = np.linspace(0, 1, N)
-        lower = self.sections.lower_curve(s, xa).T  # Unscaled airfoil
+        lower = self.airfoil.geometry.lower_curve(xa).T  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
         return surface.T + self.c0(s)
@@ -589,78 +583,7 @@ class DeformingLobe:
 #       return b
 
 
-# ----------------------------------------------------------------------------
-
-
-class ParafoilSections(abc.ABC):
-    """Defines the spanwise variation of the Parafoil sections"""
-
-    # FIXME: bad naming? An instance of this class isn't a Parafoil section.
-    #        Plus, these docstrings are highly redundant with Airfoil's.
-    #        Should this API *access* the airfoils, or *return* an Airfoil?
-
-    @abc.abstractmethod
-    def Cl_alpha(self, s, alpha, delta):
-        """The derivative of the lift coefficient vs alpha for the section"""
-
-    @abc.abstractmethod
-    def Cl(self, s, alpha, delta):
-        """The lift coefficient for the section"""
-
-    @abc.abstractmethod
-    def Cd(self, s, alpha, delta):
-        """The drag coefficient for the section"""
-
-    @abc.abstractmethod
-    def Cm(self, s, alpha, delta):
-        """The pitching moment coefficient for the section"""
-
-    @abc.abstractmethod
-    def upper_curve(self, s, xa):
-        """The upper airfoil curve for the section"""
-
-    @abc.abstractmethod
-    def lower_curve(self, s, xa):
-        """The lower airfoil curve for the section"""
-
-
-class ConstantCoefficients(ParafoilSections):
-    """
-    Uses the same airfoil for all wing sections, no spanwise variation.
-    """
-
-    def __init__(self, airfoil):
-        self.airfoil = airfoil
-
-    def Cl_alpha(self, s, alpha, delta):
-        if np.isscalar(alpha):
-            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
-        return self.airfoil.coefficients.Cl_alpha(alpha, delta)
-
-    def Cl(self, s, alpha, delta):
-        # FIXME: make AirfoilCoefficients responsible for broadcasting `alpha`?
-        if np.isscalar(alpha):
-            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
-        return self.airfoil.coefficients.Cl(alpha, delta)
-
-    def Cd(self, s, alpha, delta):
-        if np.isscalar(alpha):
-            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
-        return self.airfoil.coefficients.Cd(alpha, delta)
-
-    def Cm(self, s, alpha, delta):
-        if np.isscalar(alpha):
-            alpha = np.ones_like(s) * alpha  # FIXME: replace with `full`
-        return self.airfoil.coefficients.Cm(alpha, delta)
-
-    def upper_curve(self, s, xa):
-        return self.airfoil.geometry.upper_curve(xa)
-
-    def lower_curve(self, s, xa):
-        return self.airfoil.geometry.lower_curve(xa)
-
-
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 
 class ForceEstimator(abc.ABC):
@@ -940,7 +863,7 @@ class Phillips(ForceEstimator):
             # embed()
             # input('continue?')
 
-            Cl = self.parafoil.sections.Cl(self.s_cps, alpha, delta)
+            Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
@@ -956,7 +879,7 @@ class Phillips(ForceEstimator):
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
-            Cl_alpha = self.parafoil.sections.Cl_alpha(self.s_cps, alpha, delta)
+            Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
             # plt.plot(cp_y, Cl_alpha)
             # plt.ylabel('local section Cl_alpha')
@@ -1024,12 +947,12 @@ class Phillips(ForceEstimator):
 
     def __call__(self, V_rel, delta, rho=1):
         Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
-        Cd = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
+        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
         dF_viscid = Gamma * cross(self.dl, V).T
         dF_viscous = -1/2 * V.T**2 * Cd * self.dA  # V = V_cp2w = -V_w2cp
         dF = dF_viscid.T + dF_viscous.T
 
-        Cm = self.parafoil.sections.Cm(self.s_cps, alpha, delta)
+        Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
         Mi = 1/2 * (V**2).sum(axis=1) * Cm * self.dA * self.c_avg
         dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
 
@@ -1102,8 +1025,8 @@ class Phillips2D(ForceEstimator):
         V_n = einsum('ki,ki->k', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
-        CL = self.parafoil.sections.Cl(self.s_cps, alpha, delta)
-        CD = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
+        CL = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+        CD = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
 
         dL_hat = cross(self.dl, V_rel)
         dL_hat = dL_hat.T / norm(dL_hat, axis=1)  # Lift unit vectors
