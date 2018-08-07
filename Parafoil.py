@@ -1020,15 +1020,20 @@ class Phillips(ForceEstimator):
         # plt.grid(True)
         # plt.show()
 
-        return Gamma, V
+        return Gamma, V, alpha
 
     def __call__(self, V_rel, delta, rho=1):
-        # FIXME: depenency on rho?
-        # FIXME: include viscous effects as well; ref: the Phillips paper
-        Gamma, V = self._vortex_strengths(V_rel, delta)
-        dF = Gamma * cross(self.dl, V, axis=0)
-        dM = None
-        return dF, dM
+        Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
+        Cd = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
+        dF_viscid = Gamma * cross(self.dl, V, axis=0)
+        dF_viscous = -1/2 * V**2 * Cd * self.dA  # V = V_cp2w = -V_w2cp
+        dF = dF_viscid + dF_viscous
+
+        Cm = self.parafoil.sections.Cm(self.s_cps, alpha, delta)
+        M_sections = 1/2 * (V**2).sum(axis=0) * Cm * self.dA * self.c_avg
+        dM = M_sections * self.u_s  # Pitching moments are about section y-axes
+
+        return rho * dF, rho * dM
 
 
 class Phillips2D(ForceEstimator):
@@ -1087,6 +1092,9 @@ class Phillips2D(ForceEstimator):
     def __call__(self, V_rel, delta, rho=1):
         # FIXME: dependency on rho?
         assert np.shape(V_rel) == (3, self.K)
+
+        # FIXME: add pitching moment calculations
+        # FIXME: this seems way too complicated; compare to `Phillips`
 
         # Compute the section local angle of attack
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
