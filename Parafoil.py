@@ -81,9 +81,9 @@ class ParafoilGeometry:
         Useful for points given in the local section coordinate system, such
         as for surface curves or the airfoil centroid.
         """
-        u = self.section_orientation(s, lobe_args)
+        u = self.section_orientation(s, lobe_args).T
         c = self.planform.fc(s)
-        return self.c4(s, lobe_args) + (c/4 * u[0])
+        return self.c4(s, lobe_args) + (c/4 * u[0]).T
 
     def c4(self, s, lobe_args={}):
         """Section quarter-chord coordinates
@@ -94,7 +94,7 @@ class ParafoilGeometry:
         x = self.fx(s)
         y = self.fy(s, lobe_args)
         z = self.fz(s, lobe_args)
-        return np.array([x, y, z])
+        return np.array([x, y, z]).T
 
     def section(self, s):
         # FIXME: needs a design review
@@ -150,10 +150,10 @@ class ParafoilGeometry:
             raise ValueError("`N` must be a positive integer")
 
         xa = np.linspace(0, 1, N)
-        upper = self.sections.upper_curve(s, xa)  # Unscaled airfoil
+        upper = self.sections.upper_curve(s, xa).T  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
-        return surface + self.c0(s).reshape(3, -1)  # Convert 1d arrays to 2d
+        return surface.T + self.c0(s)
 
     def lower_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
@@ -176,10 +176,10 @@ class ParafoilGeometry:
             raise ValueError("`N` must be a positive integer")
 
         xa = np.linspace(0, 1, N)
-        lower = self.sections.lower_curve(s, xa)  # Unscaled airfoil
+        lower = self.sections.lower_curve(s, xa).T  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
-        return surface + self.c0(s).reshape(3, -1)  # Convert 1d arrays to 2d
+        return surface.T + self.c0(s)
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ class EllipticalPlanform(ParafoilPlanform):
             [_0,  _1, _0],
             [-st, _0, ct]])
 
-        # Rearrange the axes to allow for section-wise matrix multiplication
+        # Rearrange into a (K,3,3) if necessary
         if torsion.ndim == 3:  # `s` was an array_like
             torsion = np.moveaxis(torsion, [0, 1, 2], [1, 2, 0])
         return torsion
@@ -496,7 +496,7 @@ class EllipticalLobe(ParafoilLobe):
             [_0, dydt, -dzdt],
             [_0, dzdt,  dydt]])
 
-        # Rearrange the axes to allow for section-wise matrix multiplication
+        # Rearrange into a (K,3,3) if necessary
         if dihedral.ndim == 3:  # `s` was an array_like
             dihedral = np.moveaxis(dihedral, [0, 1, 2], [1, 2, 0])
         return dihedral
@@ -730,21 +730,21 @@ class Phillips(ForceEstimator):
         self.cps = self.parafoil.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
-        self.R1 = (self.cps.T - self.nodes.T[:-1, None])
-        self.R2 = (self.cps.T - self.nodes.T[1:, None])
+        self.R1 = self.cps - self.nodes[:-1, None]
+        self.R2 = self.cps - self.nodes[1:, None]
         self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
         self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
         # Wing section orientation unit vectors at each control point
         u = self.parafoil.section_orientation(self.s_cps, lobe_args).T
-        self.u_a, self.u_s, self.u_n = u[0], u[1], u[2]
+        self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
-        self.dl = self.nodes[:, 1:] - self.nodes[:, :-1]
+        self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1])/2
-        self.dA = self.c_avg * norm(cross(self.u_a, self.dl, axis=0), axis=0)
+        self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
 
         # --------------------------------------------------------------------
         # For debugging purposes: plot the quarter chord line, and segments
@@ -839,7 +839,7 @@ class Phillips(ForceEstimator):
 
         Parameters
         ----------
-        V_rel : array of float, shape (K,) [meters/second]
+        V_rel : array of float, shape (K,3) [meters/second]
             Fluid velocity vectors for each section, in body coordinates. This
             is equal to the relative wind "far" from each wing section, which
             is absent of circulation effects.
@@ -859,10 +859,10 @@ class Phillips(ForceEstimator):
         # FIXME: find a better initial proposal
         # FIXME: return the induced AoA? Could be interesting
 
-        assert np.shape(V_rel) == (3, self.K)
+        assert np.shape(V_rel) == (self.K, 3)
 
         # FIXME: is using the freestream velocity at the central chord okay?
-        u_inf = V_rel[:, self.K // 2]
+        u_inf = V_rel[self.K // 2]
         u_inf = u_inf / norm(u_inf)
 
         # 2. Compute the "induced velocity" unit vectors
@@ -872,7 +872,7 @@ class Phillips(ForceEstimator):
         # 3. Propose an initial distribution for Gamma
         #  * For now, use an elliptical Gamma
         b = self.parafoil.b
-        cp_y = self.cps[1]
+        cp_y = self.cps[:, 1]
         Gamma0 = 10
 
         # Alternative initial proposal
@@ -913,12 +913,12 @@ class Phillips(ForceEstimator):
             # 4. Compute the local fluid velocities
             #  * ref: Hunsaker-Snyder Eq:5
             #  * ref: Phillips Eq:5 (nondimensional version)
-            V = V_rel + einsum('i,ijk->kj', Gamma, v)
+            V = V_rel + einsum('i,ijk->jk', Gamma, v)
 
             # 5. Compute the section local angle of attack
             #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-            V_a = einsum('ki,ki->i', V, self.u_a)  # Chordwise
-            V_n = einsum('ki,ki->i', V, self.u_n)  # Normal-wise
+            V_a = einsum('ki,ki->k', V, self.u_a)  # Chordwise
+            V_n = einsum('ki,ki->k', V, self.u_n)  # Normal-wise
             alpha = arctan2(V_n, V_a)
 
             min_alpha = min(alpha)
@@ -950,9 +950,9 @@ class Phillips(ForceEstimator):
 
             # 6. Compute the residual error
             #  * ref: Phillips Eq:15, or Hunsaker-Snyder Eq:8
-            W = cross(V, self.dl, axis=0)
-            W_norm = norm(W, axis=0)
-            f = 2 * Gamma * W_norm - (V*V).sum(axis=0) * self.dA * Cl
+            W = cross(V, self.dl)
+            W_norm = norm(W, axis=1)
+            f = 2 * Gamma * W_norm - (V*V).sum(axis=1) * self.dA * Cl
 
             # 7. Compute the gradient
             #  * ref: Hunsaker-Snyder Eq:11
@@ -968,13 +968,13 @@ class Phillips(ForceEstimator):
 
             # J is a Jordan matrix, where `J[ij] = d(F_i)/d(Gamma_j)`
             J1 = 2 * np.diag(W_norm)  # terms for i==j
-            J2 = 2 * einsum('ki,ijk->ij', W, cross(vT, self.dl.T))
-            J2 = J2 * (Gamma / W_norm)
-            J3 = (einsum('i,jik,ki->ij', V_a, v, self.u_n) -
-                  einsum('i,jik,ki->ij', V_n, v, self.u_a))
-            J3 = J3 * ((V*V).sum(axis=0) * self.dA * Cl_alpha)
-            J3 = J3 / (V_a**2 + V_n**2)
-            J4 = 2*self.dA*Cl*einsum('ki,jik->ij', V, v)
+            J2 = 2 * einsum('ik,ijk->ij', W, cross(vT, self.dl))
+            J2 = J2 * (Gamma / W_norm)[:, None]
+            J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n) -
+                  einsum('i,jik,ik->ij', V_n, v, self.u_a))
+            J3 = J3 * ((V*V).sum(axis=1)*self.dA*Cl_alpha)[:, None]
+            J3 = J3 / (V_a**2 + V_n**2)[:, None]
+            J4 = 2*self.dA*Cl*einsum('ik,jik->ij', V, v)
             J = J1 + J2 - J3 - J4
 
             # Compute the Gamma update term
@@ -1025,13 +1025,13 @@ class Phillips(ForceEstimator):
     def __call__(self, V_rel, delta, rho=1):
         Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
         Cd = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
-        dF_viscid = Gamma * cross(self.dl, V, axis=0)
-        dF_viscous = -1/2 * V**2 * Cd * self.dA  # V = V_cp2w = -V_w2cp
-        dF = dF_viscid + dF_viscous
+        dF_viscid = Gamma * cross(self.dl, V).T
+        dF_viscous = -1/2 * V.T**2 * Cd * self.dA  # V = V_cp2w = -V_w2cp
+        dF = dF_viscid.T + dF_viscous.T
 
         Cm = self.parafoil.sections.Cm(self.s_cps, alpha, delta)
-        M_sections = 1/2 * (V**2).sum(axis=0) * Cm * self.dA * self.c_avg
-        dM = M_sections * self.u_s  # Pitching moments are about section y-axes
+        Mi = 1/2 * (V**2).sum(axis=1) * Cm * self.dA * self.c_avg
+        dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
 
         return rho * dF, rho * dM
 
@@ -1067,21 +1067,21 @@ class Phillips2D(ForceEstimator):
         self.cps = self.parafoil.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
-        self.R1 = (self.cps.T - self.nodes.T[:-1, None])
-        self.R2 = (self.cps.T - self.nodes.T[1:, None])
+        self.R1 = self.cps - self.nodes[:-1, None]
+        self.R2 = self.cps - self.nodes[1:, None]
         self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
         self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
         # Wing section orientation unit vectors at each control point
         u = self.parafoil.section_orientation(self.s_cps, lobe_args).T
-        self.u_a, self.u_s, self.u_n = u[0], u[1], u[2]
+        self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
-        self.dl = self.nodes[:, 1:] - self.nodes[:, :-1]
+        self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1])/2
-        self.dA = self.c_avg * norm(cross(self.u_a, self.dl, axis=0), axis=0)
+        self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
 
     @property
     def control_points(self):
@@ -1091,28 +1091,28 @@ class Phillips2D(ForceEstimator):
 
     def __call__(self, V_rel, delta, rho=1):
         # FIXME: dependency on rho?
-        assert np.shape(V_rel) == (3, self.K)
+        assert np.shape(V_rel) == (self.K, 3)
 
         # FIXME: add pitching moment calculations
         # FIXME: this seems way too complicated; compare to `Phillips`
 
         # Compute the section local angle of attack
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-        V_a = einsum('ki,ki->i', V_rel, self.u_a)  # Chordwise
-        V_n = einsum('ki,ki->i', V_rel, self.u_n)  # Normal-wise
+        V_a = einsum('ki,ki->k', V_rel, self.u_a)  # Chordwise
+        V_n = einsum('ki,ki->k', V_rel, self.u_n)  # Normal-wise
         alpha = arctan2(V_n, V_a)
 
         CL = self.parafoil.sections.Cl(self.s_cps, alpha, delta)
         CD = self.parafoil.sections.Cd(self.s_cps, alpha, delta)
 
-        dL_hat = cross(self.dl, V_rel, axis=0)
-        dL_hat = dL_hat / norm(dL_hat, axis=0)  # Lift unit vectors
-        dL = (1/2 * np.sum(V_rel**2, axis=0) * self.dA * CL) * dL_hat
+        dL_hat = cross(self.dl, V_rel)
+        dL_hat = dL_hat.T / norm(dL_hat, axis=1)  # Lift unit vectors
+        dL = 1/2 * np.sum(V_rel**2, axis=1) * self.dA * CL * dL_hat
 
-        dD_hat = -(V_rel / norm(V_rel, axis=0))  # Drag unit vectors
-        dD = (1/2 * np.sum(V_rel**2, axis=0) * self.dA * CD) * dD_hat
+        dD_hat = -V_rel.T / norm(V_rel, axis=1)  # Drag unit vectors
+        dD = 1/2 * np.sum(V_rel**2, axis=1) * self.dA * CD * dD_hat
 
-        dF = dL + dD
+        dF = dL.T + dD.T
         dM = 0
 
         return dF, dM

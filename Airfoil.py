@@ -4,6 +4,7 @@ graphical purposes, such as drawing the wing. Coefficient models are for
 evaluating the section coefficients for lift, drag, and pitching moment.
 """
 
+from IPython import embed
 import abc
 
 import numpy as np
@@ -283,8 +284,8 @@ class AirfoilGeometry(abc.ABC):
 
         x = np.linspace(0, 1, N)
 
-        upper = self.upper_curve(x)
-        lower = self.lower_curve(x)
+        upper = self.upper_curve(x).T
+        lower = self.lower_curve(x).T
         Ux, Uy = upper[0], upper[1]
         Lx, Ly = lower[0], lower[1]
 
@@ -318,8 +319,8 @@ class AirfoilGeometry(abc.ABC):
         # 2. Surface line calculations
 
         # Line segment lengths and midpoints
-        norm_U = np.linalg.norm(np.diff(upper, axis=1), axis=0)
-        norm_L = np.linalg.norm(np.diff(lower, axis=1), axis=0)
+        norm_U = np.linalg.norm(np.diff(upper), axis=0)
+        norm_L = np.linalg.norm(np.diff(lower), axis=0)
         mid_U = (upper[:, :-1] + upper[:, 1:])/2  # Midpoints of `upper`
         mid_L = (lower[:, :-1] + lower[:, 1:])/2  # Midpoints of `lower`
 
@@ -329,6 +330,7 @@ class AirfoilGeometry(abc.ABC):
         UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
 
         # Surface line centroids
+        #
         self.upper_centroid = np.einsum('ij,j->i', mid_U, norm_U) / UL
         self.lower_centroid = np.einsum('ij,j->i', mid_L, norm_L) / LL
 
@@ -467,7 +469,7 @@ class NACA4(AirfoilGeometry):
         cl = np.empty_like(x)
         cl[f] = (m/p**2)*(2*p*(x[f]) - (x[f])**2)
         cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]) - (x[~f])**2)
-        return np.array([x, cl])
+        return np.array([x, cl]).T
 
     def thickness(self, x):
         x = np.asarray(x, dtype=float)
@@ -505,8 +507,8 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[1]
-        return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)])
+        yc = self.camber_curve(x)[:, 1]
+        return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
 
     def lower_curve(self, x):
         x = np.asarray(x, dtype=float)
@@ -515,5 +517,5 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[1]
-        return np.array([x + t*np.sin(theta), yc - t*np.cos(theta)])
+        yc = self.camber_curve(x)[:, 1]
+        return np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T

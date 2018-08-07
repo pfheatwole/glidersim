@@ -52,7 +52,7 @@ class ParagliderWing:
 
         Parameters
         ----------
-        V_cp2w : ndarray of floats, shape (3,K) [m/s]
+        V_cp2w : ndarray of floats, shape (K,3) [m/s]
             The relative velocity of each control point vs the fluid
         delta_Bl : float [percentage]
             The amount of left brake
@@ -61,7 +61,7 @@ class ParagliderWing:
 
         Returns
         -------
-        dF, dM : array of float, shape (3,K)
+        dF, dM : array of float, shape (K,3)
             Forces and moments for each section
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)
@@ -140,11 +140,11 @@ class ParagliderWing:
 
         Returns
         -------
-        cps : ndarray of floats, shape (3,K) [meters]
+        cps : ndarray of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
-        return cps + self.foil_origin(delta_s)[:, None]  # In Wing coordinates
+        return cps + self.foil_origin(delta_s)  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self):

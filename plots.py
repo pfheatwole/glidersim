@@ -8,8 +8,8 @@ from IPython import embed
 
 def plot_airfoil_geo(foil_geo):
     x = np.linspace(0, 1, 250)
-    upper = foil_geo.upper_curve(x)
-    lower = foil_geo.lower_curve(x)
+    upper = foil_geo.upper_curve(x).T
+    lower = foil_geo.lower_curve(x).T
     camberline = foil_geo.camber_curve(x)
 
     fig, ax = plt.subplots()
@@ -98,14 +98,14 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     ax.view_init(azim=-130, elev=25)
 
     for s in np.linspace(-1, 1, N_sections):
-        coords = parafoil.lower_surface(s, N_points)
+        coords = parafoil.lower_surface(s, N_points).T
         ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9,
                 lw=0.8)
-        coords = parafoil.upper_surface(s, N_points)
+        coords = parafoil.upper_surface(s, N_points).T
         ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
 
     s = np.linspace(-1, 1, 51)
-    c4 = parafoil.c4(s)
+    c4 = parafoil.c4(s).T
     ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
 
     set_axes_equal(ax)

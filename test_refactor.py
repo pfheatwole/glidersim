@@ -119,7 +119,7 @@ def plot_polar(glider):
 
 def main():
     airfoil_geo = Airfoil.NACA4(4412)
-    plot_airfoil_geo(airfoil_geo)
+    # plot_airfoil_geo(airfoil_geo)
 
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
     # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
@@ -139,6 +139,9 @@ def main():
         b_flat=10, MAC=2.5, taper=0.35, dMed=-25, dMax=-70,
         sMed=15, torsion_max=0, sections=sections)
 
+    # print("Drawing the parafoil")
+    # plot_parafoil_geo(parafoil, N_sections=25)
+
     p_start, p_peak = 0.05, 0.75
     delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
@@ -154,15 +157,12 @@ def main():
     glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
     glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
 
-    print("Drawing the parafoil")
-    plot_parafoil_geo(parafoil, N_sections=25)
-
     # ---------------------------------------------------------------------
     # Run some tests
-    cp_y = wing2d.control_points(0)[1]
+    cp_y = wing2d.control_points(delta_s=0)[:, 1]
     K = len(cp_y)
-    V_rel = np.asarray([[10.0, 0.0, 1.0]] * K).T
-    V_rel[0] += np.linspace(0, 1, K)**2 * 2  # spinning!
+    V_rel = np.asarray([[10.0, 0.0, 1.0]] * K)  # V_cp2w in frd
+    V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
 
     #          Bl     Br
     deltas = [0.00, 0.00]
@@ -177,6 +177,7 @@ def main():
     dF_3d, _ = wing3d.forces_and_moments(V_rel, *deltas)
 
     print("Plotting the forces")
+    dF_2d, dF_3d = dF_2d.T, dF_3d.T
     fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
     ax[0].plot(cp_y, dF_2d[0], label='2D')
     ax[0].plot(cp_y, dF_3d[0], label='3D', marker='.')
@@ -198,7 +199,7 @@ def main():
 
     # ------------------------
     glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)
-    UVW = np.asarray([[10.0, 0.0, 1.0]] * K).T
+    UVW = np.asarray([10.0, 0.0, 1.0])  # V_cm2e in frd
     R = 0
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     PQR = np.array([0, 0, R])
@@ -210,6 +211,7 @@ def main():
     embed()
 
     print("Plotting the forces")
+    xyz, dF = xyz.T, dF.T
     fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
     ax[0].plot(xyz[1], dF[0])
     ax[1].plot(xyz[1], dF[1])

@@ -142,11 +142,11 @@ class Paraglider:
             The fraction of maximum right brake
         delta_s : float [percentage]
             The fraction of maximum speed bar
-        v_w2e : ndarray of float, shape (3,) or (3,K)
+        v_w2e : ndarray of float, shape (3,) or (K,3)
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
-        xyz : ndarray of float, shape (3,K) [meters] (optional)
+        xyz : ndarray of float, shape (K,3) [meters] (optional)
             The control points, in frd coordinates. These are optional if the
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
@@ -181,9 +181,12 @@ class Paraglider:
         if xyz is None:
             xyz = self.wing.control_points(delta_s)
 
+        if UVW.shape != (3,):
+            raise ValueError("UVW must be a 3-vector velocity of the body cm")
+
         # Compute the velocity of each control point relative to the air
-        v_cm2w = UVW - v_w2e.reshape(3, -1)  # ref: ACS Eq:1.4-2, p17 (31)
-        v_cp2w = v_cm2w + np.cross(PQR, xyz, axis=0)  # ref: ACS, Eq:1.7-14, p40 (54)
+        v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
+        v_cp2w = v_cm2w + np.cross(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
         # Compute the resultant force and moment about the cg
         dF, dM = self.wing.forces_and_moments(v_cp2w, delta_Bl, delta_Br)
