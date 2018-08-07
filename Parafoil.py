@@ -743,10 +743,8 @@ class Phillips(ForceEstimator):
         # chord variation between nodes.
         self.dl = self.nodes[:, 1:] - self.nodes[:, :-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
-        c_avg = (node_chords[1:] + node_chords[:-1])/2
-        chord_vectors = c_avg * self.u_a  # FIXME: verify
-        self.dA = norm(cross(chord_vectors, self.dl, axis=0), axis=0)
-        # FIXME: faster+correct to post_multiply the scalars `c_avg`?
+        self.c_avg = (node_chords[1:] + node_chords[:-1])/2
+        self.dA = self.c_avg * norm(cross(self.u_a, self.dl, axis=0), axis=0)
 
         # --------------------------------------------------------------------
         # For debugging purposes: plot the quarter chord line, and segments
@@ -1077,10 +1075,8 @@ class Phillips2D(ForceEstimator):
         # chord variation between nodes.
         self.dl = self.nodes[:, 1:] - self.nodes[:, :-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
-        c_avg = (node_chords[1:] + node_chords[:-1])/2
-        chord_vectors = c_avg * self.u_a  # FIXME: verify
-        self.dA = norm(cross(chord_vectors, self.dl, axis=0), axis=0)
-        # FIXME: faster+correct to post_multiply the scalars `c_avg`?
+        self.c_avg = (node_chords[1:] + node_chords[:-1])/2
+        self.dA = self.c_avg * norm(cross(self.u_a, self.dl, axis=0), axis=0)
 
     @property
     def control_points(self):
