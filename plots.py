@@ -99,8 +99,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
 
     for s in np.linspace(-1, 1, N_sections):
         coords = parafoil.lower_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9,
-                lw=0.8)
+        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9, lw=0.8)
         coords = parafoil.upper_surface(s, N_points).T
         ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
 
@@ -108,5 +107,36 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     c4 = parafoil.c4(s).T
     ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
 
+    set_axes_equal(ax)
+    plt.show()
+
+
+def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
+    """Make a plot of a 3D wing"""
+    # Not very elegant, but it gets the job done.
+
+    fig = plt.figure(figsize=(16, 16))
+    ax = fig.gca(projection='3d')
+    ax.view_init(azim=-130, elev=25)
+
+    xa = np.linspace(0, 1, N_points)
+    lower = parafoil.airfoil.geometry.lower_curve(xa).T
+    lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
+    upper = parafoil.airfoil.geometry.upper_curve(xa).T
+    upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
+
+    for s in np.linspace(-1, 1, N_sections):
+        c = parafoil.planform.fc(s)
+        u = parafoil.planform.orientation(s)
+        c0 = np.array([parafoil.planform.fx(s), parafoil.planform.fy(s), 0])
+        surface = ((u @ lower_curve * c).T + c0).T
+        ax.plot(surface[0], surface[1], -surface[2], c='r', zorder=.9, lw=0.8)
+        surface = ((u @ upper_curve * c).T + c0).T
+        ax.plot(surface[0], surface[1], -surface[2], c='g', zorder=.9, lw=0.8)
+
+    s = np.linspace(-1, 1, 50)
+    ax.plot(parafoil.planform.fx(s) - parafoil.planform.fc(s)/4,
+            parafoil.planform.fy(s), np.zeros(50),
+            'g--', lw=0.8)
     set_axes_equal(ax)
     plt.show()

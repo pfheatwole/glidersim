@@ -12,7 +12,7 @@ import BrakeGeometry
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
-from plots import plot_airfoil_geo, plot_parafoil_geo
+from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
 
 
 def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, airfoil,
@@ -139,7 +139,8 @@ def main():
         sMed=15, torsion_max=0, airfoil=airfoil)
 
     # print("Drawing the parafoil")
-    # plot_parafoil_geo(parafoil, N_sections=25)
+    plot_parafoil_planform(parafoil)
+    plot_parafoil_geo(parafoil, N_sections=25)
 
     p_start, p_peak = 0.05, 0.75
     delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
