@@ -272,25 +272,6 @@ class EllipticalPlanform(ParafoilPlanform):
         self.Ac = (b_flat/2) / sqrt(1 - self.taper**2)
         self.Bc = self.c0
 
-        # The span is parametrized by the normalized span position `s`, but the
-        # ellipses are parametrized by angles `t`, so change of variable
-        # transformations are needed. There isn't a closed form solution for
-        # the arc length of an ellipse (which is essentially `s`), so
-        # pre-compute the mapping and fit it with a spline.
-        t_min_x = np.arccos(b_flat/(2*self.Ax))  # (np.pi-t_min) <= t <= t_min
-        t = np.linspace(np.pi - t_min_x, t_min_x, 500)
-        p = np.vstack((self.Ax*np.cos(t), self.Bx*np.sin(t) + self.Cx))
-        s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
-        s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
-        self.s2tx = UnivariateSpline(s, t, k=5)
-
-        t_min_c = np.arccos(b_flat/(2*self.Ac))  # (np.pi-t_min) <= t <= t_min
-        t = np.linspace(np.pi - t_min_c, t_min_c, 500)
-        p = np.vstack((self.Ac*np.cos(t), self.Bc*np.sin(t)))
-        s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
-        s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
-        self.s2tc = UnivariateSpline(s, t, k=5)
-
     @property
     def S(self):
         # This is the flat planform area, right?
@@ -327,16 +308,15 @@ class EllipticalPlanform(ParafoilPlanform):
         return (1 - ratio)*100
 
     def fx(self, s):
-        t = self.s2tx(s)
-        return self.Bx * np.sin(t) + self.Cx
+        y = self.b_flat/2 * s
+        return self.Bx * np.sqrt(1 - y**2/self.Ax**2) + self.Cx
 
     def fy(self, s):
-        t = self.s2tx(s)
-        return self.Ax * np.cos(t)
+        return self.b_flat/2 * s
 
     def fc(self, s):
-        t = self.s2tc(s)
-        return self.Bc * np.sin(t)
+        y = self.b_flat/2 * s
+        return self.Bc * np.sqrt(1 - y**2/self.Ac**2)
 
     def ftheta(self, s):
         """Geometric torsion angle"""
@@ -459,7 +439,7 @@ class EllipticalLobe(ParafoilLobe):
         # transformation is needed. There isn't a closed form solution for the
         # arc length of an ellipse (which is essentially `s`), so pre-compute
         # the mapping and fit it with a spline.
-        t_min_z = np.arccos(b/(2*self.Az))  # (np.pi-t_min) <= t <= t_min
+        t_min_z = np.arccos(b/(2*self.Az))  # t_min <= t <= (np.pi-t_min)
         t = np.linspace(np.pi - t_min_z, t_min_z, 500)
         p = np.vstack((self.Az*np.cos(t), self.Bz*np.sin(t) + self.Cz))
         s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
