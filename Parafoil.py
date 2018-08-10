@@ -190,7 +190,7 @@ class ParafoilGeometry:
 
         # Scaling factors for converting 2d airfoils into 3d sections
         # Approximates each section chord area as parallelograms
-        u_a = u.T[0].T
+        u_a = u.T[0].T  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
         section_chord_area = np.linalg.norm(np.cross(u_a, dl), axis=1)
         Kl = chords * section_chord_area  # surface lines into surface area
