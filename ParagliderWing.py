@@ -174,17 +174,17 @@ class ParagliderWing:
         x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
         c = self.parafoil.planform.fc(s)
 
-        Sx = simps((y**2 + z**2)*c, y)
-        Sy = simps((3*x**2 - x*c + (7/32)*c**2 + 6*z**2)*c, y)/6
-        Sz = simps((3*x**2 - x*c + (7/32)*c**2 + 6*y**2)*c, y)/6
+        Sxx = simps((y**2 + z**2)*c, y)
+        Syy = simps((3*x**2 - x*c + (7/32)*c**2 + 6*z**2)*c, y)/6
+        Szz = simps((3*x**2 - x*c + (7/32)*c**2 + 6*y**2)*c, y)/6
         Sxy = 0
         Sxz = simps((2*x - c/2)*z*c, y)
         Syz = 0
 
         S = np.array([
-            [Sx, -Sxy, -Sxz],
-            [-Sxy, Sy, -Syz],
-            [-Sxz, -Syz, Sz]])
+            [ Sxx, -Sxy, -Sxz],
+            [-Sxy,  Syy, -Syz],
+            [-Sxz, -Syz,  Szz]])
 
         return S
 
