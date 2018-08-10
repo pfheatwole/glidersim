@@ -118,20 +118,23 @@ def plot_polar(glider):
 
 
 def main():
-    airfoil_geo = Airfoil.NACA4(4412)
-    # plot_airfoil_geo(airfoil_geo)
-
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
+    # TODO: AirfoilGeometry importer for .DAT files (`gnulab3.dat`)
     # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
 
+    # print("\nAirfoil: NACA2412, simple flap, hinge at 80%")
+    # airfoil_geo = Airfoil.NACA4(2412)
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca2412_xhinge80_yhinge_50.csv', 0.8)
+
     print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
+    airfoil_geo = Airfoil.NACA4(4412)
     airfoil_coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv', 0.8)
 
-    # print("\nNACA4412 LinearCoefficients airfoil\n")
-    # airfoil_coefs = Airfoil.LinearCoefficients(5.73, -2, 0.007, -0.05)
+    # print("\nAirfoil: NACA4415, simple flap, hinge at 80%")
+    # airfoil_geo = Airfoil.NACA4(4415)
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50.csv', 0.8)
 
-    # print("\nPFD example LinearCoefficients airfoil\n")
-    # airfoil_coefs = Airfoil.LinearCoefficients(5.73, -2, 0.011, -0.05)
+    # plot_airfoil_geo(airfoil_geo)
 
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
     parafoil = build_elliptical_parafoil(
