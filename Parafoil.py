@@ -357,8 +357,20 @@ class EllipticalPlanform(ParafoilPlanform):
         for that wing.
         """
         # ref: PFD Table:3-6, p46 (54)
-        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-        c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
+        # tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
+        # c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
+
+        #
+        # New version (mine):
+        # MAC = (1/b)*integral(B/A * sqrt(A**2 - y**2))
+        # Compute that integral using a table, then use `B = c0` to rearrange
+        # for `c0`. Here I call The integral+constants `K`, so c0 = MAC/K
+        #
+        L = 1 - taper**2
+        K = (np.sqrt(L)/2 * (
+                np.sqrt(1/L - 1) + (1/L)*np.arctan(1/np.sqrt(1/L - 1))))
+        c0 = MAC / K
+
         return c0
 
 
