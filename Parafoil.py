@@ -630,12 +630,12 @@ class Phillips(ForceEstimator):
         # Define the spanwise and nodal and control points
 
         # Option 1: linear distribution; less likely to induce large velocties
-        self.K = 31  # The number of bound vortex segments
-        self.s_nodes = np.linspace(-1, 1, self.K+1)
+        # self.K = 31  # The number of bound vortex segments
+        # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
         # Option 2: cosine distribution; fast, very sensitive to segment length
-        # self.K = 13  # The number of bound vortex segments
-        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
+        self.K = 13  # The number of bound vortex segments
+        self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
         self.nodes = self.parafoil.c4(self.s_nodes)
@@ -967,12 +967,12 @@ class Phillips2D(ForceEstimator):
         # Define the spanwise and nodal and control points
 
         # Option 1: linear distribution; less likely to induce large velocties
-        self.K = 31  # The number of bound vortex segments
-        self.s_nodes = np.linspace(-1, 1, self.K+1)
+        # self.K = 31  # The number of bound vortex segments
+        # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
         # Option 2: cosine distribution; fast, very sensitive to segment length
-        # self.K = 13  # The number of bound vortex segments
-        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
+        self.K = 13  # The number of bound vortex segments
+        self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
         self.nodes = self.parafoil.c4(self.s_nodes)
