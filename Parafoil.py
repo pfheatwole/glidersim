@@ -211,14 +211,10 @@ class ParafoilGeometry:
         lower_centroid = (section_lower_area * section_lower_cm.T).T.sum(axis=0) / lower_area
 
         # Section inertia tensors in body FRD coordinates
-        # FIXME: is this correct for reorienting the inertia tensors?
         Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
-        section_upper_J = u @ T @ (Kl * geo.upper_inertia) @ T @ u_inv
-        section_volume_J = u @ T @ (Ka * geo.area_inertia) @ T @ u_inv
-        section_lower_J = u @ T @ (Kl * geo.lower_inertia) @ T @ u_inv
-        # section_upper_J = T @ (Kl * geo.upper_inertia) @ T
-        # section_volume_J = T @ (Ka * geo.area_inertia) @ T
-        # section_lower_J = T @ (Kl * geo.lower_inertia) @ T
+        section_upper_J = u_inv @ T @ (Kl * geo.upper_inertia) @ T @ u
+        section_volume_J = u_inv @ T @ (Ka * geo.area_inertia) @ T @ u
+        section_lower_J = u_inv @ T @ (Kl * geo.lower_inertia) @ T @ u
 
         # Parallel axis distances of each section
         Ru = upper_centroid - section_upper_cm
