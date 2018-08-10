@@ -52,14 +52,6 @@ class ParafoilGeometry:
         # FIXME: untested
         return (1 - self.S/self.planform.S)*100
 
-    @property
-    def MAC(self):
-        """Mean aerodynamic chord"""
-        # FIXME: if I make this a property, I'd never be able to pass it a
-        #        `planform_args` dictionary. (Unless I define it as the nominal
-        #        value of the MAC. I think I'm overthinking this.
-        raise NotImplementedError("FIXME: implement")
-
     def fx(self, s):
         """Section quarter-chord x coordinate"""
         # If the wing curvature defined by the lobe is strictly limited to the
