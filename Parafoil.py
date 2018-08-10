@@ -110,19 +110,6 @@ class ParafoilGeometry:
         dihedral = self.lobe.orientation(s, **lobe_args)
         return dihedral @ torsion  # (N,3,3) ndarray, column unit vectors
 
-    def inertias(self, s, lobe_args={}):
-        """
-        The three inertia tensors and centroids of the parafoil components:
-         1. Upper surface
-         2. Volume
-         3. Lower surface
-
-        The surfaces should be scaled by the areal densities of the wing
-        materials, the volume should be scaled by the volumetric air density.
-        """
-        # FIXME: document
-        raise NotImplementedError("FIXME: implement")
-
     def upper_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
 
@@ -175,6 +162,100 @@ class ParafoilGeometry:
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
         return surface.T + self.c0(s)
 
+    def mass_properties(self, lobe_args={}, N=250):
+        """
+        FIXME: docstring
+
+        Breaks the wing into N sections, and assumes a constant airfoil and
+        chord for each section. The airfoil for each section is extruded along
+        the span using the perpendicular axis theorem, then oriented into body
+        coordinates, and translated to the global centroid using the parallel
+        axis theorem.
+
+        The parafoil is treated as three separate components, so the sections
+        are composites of three groups: the upper surface, the internal volume,
+        and the lower surface.
+        """
+        s_nodes = np.cos(np.linspace(np.pi, 0, N+1))
+        s_mid_nodes = (s_nodes[1:] + s_nodes[:-1])/2  # Section midpoints
+        nodes = self.c4(s_nodes, lobe_args)  # Section endpoints
+        geo = self.airfoil.geometry
+        node_chords = self.planform.fc(s_nodes)
+        chords = (node_chords[1:] + node_chords[:-1])/2  # Just a dumb average
+        T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
+        u = self.section_orientation(s_mid_nodes, lobe_args)
+        u_inv = np.linalg.inv(u)
+
+        # Section centroids
+        airfoil_centroids = np.array([
+            [*geo.upper_centroid, 0],
+            [*geo.area_centroid, 0],
+            [*geo.lower_centroid, 0]])
+        section_origins = self.c0(s_mid_nodes)
+        section_upper_cm, section_volume_cm, section_lower_cm = \
+            (einsum('K,Kij,jk,Gk->GKi', chords, u, T, airfoil_centroids) +
+             section_origins[None, ...])
+
+        # Scaling factors for converting 2d airfoils into 3d sections
+        # Approximates each section chord area as parallelograms
+        u_a = u.T[0].T
+        dl = nodes[1:] - nodes[:-1]
+        section_chord_area = np.linalg.norm(np.cross(u_a, dl), axis=1)
+        Kl = chords * section_chord_area  # surface lines into surface area
+        Ka = chords**2 * section_chord_area  # airfoil area into section volume
+
+        section_upper_area = Kl * geo.upper_length
+        section_volume = Ka * geo.area
+        section_lower_area = Kl * geo.lower_length
+
+        # Surface areas (upper and lower) and the internal volume
+        upper_area = section_upper_area.sum()
+        volume = section_volume.sum()
+        lower_area = section_lower_area.sum()
+
+        # The upper/volume/lower centroids
+        upper_centroid = (section_upper_area * section_upper_cm.T).T.sum(axis=0) / upper_area
+        volume_centroid = (section_volume * section_volume_cm.T).T.sum(axis=0) / volume
+        lower_centroid = (section_lower_area * section_lower_cm.T).T.sum(axis=0) / lower_area
+
+        # Section inertia tensors in body FRD coordinates
+        # FIXME: is this correct for reorienting the inertia tensors?
+        Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
+        section_upper_J = u @ T @ (Kl * geo.upper_inertia) @ T @ u_inv
+        section_volume_J = u @ T @ (Ka * geo.area_inertia) @ T @ u_inv
+        section_lower_J = u @ T @ (Kl * geo.lower_inertia) @ T @ u_inv
+        # section_upper_J = T @ (Kl * geo.upper_inertia) @ T
+        # section_volume_J = T @ (Ka * geo.area_inertia) @ T
+        # section_lower_J = T @ (Kl * geo.lower_inertia) @ T
+
+        # Parallel axis distances of each section
+        Ru = upper_centroid - section_upper_cm
+        Rv = volume_centroid - section_volume_cm
+        Rl = lower_centroid - section_lower_cm
+
+        # Section distances to the group centroids
+        R = np.array([Ru, Rv, Rl])
+        D = (np.einsum('Rij,Rij->Ri', R, R)[..., None, None] * np.eye(3) -
+             np.einsum('Rki,Rkj->Rkij', R, R))
+        Du, Dv, Dl = D
+
+        # And finally, apply the parallel axis theorem
+        upper_J = (section_upper_J + (section_upper_area * Du.T).T).sum(axis=0)
+        volume_J = (section_volume_J + (section_volume * Dv.T).T).sum(axis=0)
+        lower_J = (section_lower_J + (section_lower_area * Dl.T).T).sum(axis=0)
+
+        mass_properties = {
+            'upper_area': upper_area,
+            'upper_centroid': upper_centroid,
+            'upper_inertia': upper_J,
+            'volume': volume,
+            'volume_centroid': volume_centroid,
+            'volume_inertia': volume_J,
+            'lower_area': lower_area,
+            'lower_centroid': lower_centroid,
+            'lower_inertia': lower_J}
+
+        return mass_properties
 
 # ---------------------------------------------------------------------------
 

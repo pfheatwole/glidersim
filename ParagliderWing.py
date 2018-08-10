@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 
 from scipy.optimize import minimize_scalar
+from scipy.integrate import simps
 
 from IPython import embed
 
@@ -46,6 +47,10 @@ class ParagliderWing:
         foil_z = -z_riser
         self.LE = np.sqrt(foil_x**2 + foil_z**2)
         self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
+
+        # For testing, from a Hook 3
+        self.rho_upper = 40/1000  # kg/m2
+        self.rho_lower = 35/1000  # kg/m2
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
         """
@@ -147,7 +152,7 @@ class ParagliderWing:
         return cps + self.foil_origin(delta_s)  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
-    def surface_distributions(self):
+    def surface_distributions(self, delta_s=0):
         """The surface area distributions for computing inertial moments.
 
         The moments of inertia for the parafoil are the mass distribution of
@@ -162,62 +167,79 @@ class ParagliderWing:
         Returns
         ------
         S : 3x3 matrix of float
-            The surface distributions, such that `J = (p_w + p_air)*s`
+            The surface distributions, such that `J = (p_w + p_air)*S`
         """
-
-        # FIXME: this was moved from Parafoil when creating ParagliderWing.
-        #        That move eliminated dcg/h0 from the ParafoilGeometry, so
-        #        ParafoilGeometry.fx and ParafoilGeometry.fz no longer position
-        #        the Parafoil relative to the cg. Calculating the moments of
-        #        inertia requires that the ParagliderWing add those terms back.
-        print("BROKEN! See the source FIXME")
-        1/0
-
-        # FIXME: technically, the speedbar would rotate the foil coordinates.
-        #        The {fx, fz} should be corrected for that.
-        # FIXME: linear distribution? A cosine is probably more suitable
         N = 501
-        dy = self.geometry.b/(N - 1)  # Include the endpoints
-        y = np.linspace(-self.geometry.b/2, self.geometry.b/2, N)
+        s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
+        x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
+        c = self.parafoil.planform.fc(s)
 
-        fx = self.fx(y)  # FIXME: add the `dcg` term after moving to Glider
-        fz = self.fz(y)  # FIXME: add the h0 term after moving to Glider
-        fc = self.fc(y)
-
-        # FIXME: needs verification. What about weight shifting? Speed bar?
-        Sx = trapz((y**2 + fz**2)*fc, dy)
-        Sy = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*fz**2)*fc, dy)
-        Sz = trapz((3*fx**2 - fx*fc + (7/32)*fc**2 + 6*y**2)*fc, dy)
+        Sx = simps((y**2 + z**2)*c, y)
+        Sy = simps((3*x**2 - x*c + (7/32)*c**2 + 6*z**2)*c, y)/6
+        Sz = simps((3*x**2 - x*c + (7/32)*c**2 + 6*y**2)*c, y)/6
         Sxy = 0
-        Sxz = trapz((2*fx - fc/2)*fz*fc, dy)
+        Sxz = simps((2*x - c/2)*z*c, y)
         Syz = 0
 
         S = np.array([
-            [Sx, Sxy, Sxz],
-            [Sxy, Sy, Syz],
-            [Sxz, Syz, Sz]])
+            [Sx, -Sxy, -Sxz],
+            [-Sxy, Sy, -Syz],
+            [-Sxz, -Syz, Sz]])
 
         return S
 
     # FIXME: moved from Parafoil. Verify and test.
     def J(self, rho=1.3, N=2000):
+        raise NotImplementedError("BROKEN!")
+        S = self.geometry.surface_distributions(N=N)
+        wing_air_density = rho*self.density_factor
+        surface_density = self.wing_density + wing_air_density
+        return surface_density * S
+
+    def inertia(self, lobe_args={}, delta_s=0, rho_air=1.2985, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
         Parameters
         ----------
-        rho : float
-            Volumetric air density of the atmosphere
+        lobe_args : dictionary, optional
+            FIXME: when is this used? Wouldn't the wing create it?
+        delta_s : float [percentage]
+            Percentage of speed bar application
+        rho_air : float [kg/m^3]
+            Volumetric air density of the atmosphere (default: 1.2985, ISA)
         N : integer
             The number of points for integration across the span
 
         Returns
         -------
         J : 3x3 matrix of float
-                [[Jxx Jxy Jxz]
-            J =  [Jxy Jyy Jyz]
-                 [Jxz Jyz Jzz]]
+            The inertia tensor of the wing
+
+                [[ Jxx -Jxy -Jxz]
+            J =  [-Jxy  Jyy -Jyz]
+                 [-Jxz -Jyz  Jzz]]
         """
-        S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho*self.density_factor
-        surface_density = self.wing_density + wing_air_density
-        return surface_density * S
+        p = self.parafoil.mass_properties(lobe_args, N)
+
+        # Storing this here for now: calculate the total mass and centroid
+        # upper_mass = self.rho_upper * p['upper_area']
+        # air_mass = rho_air * p['volume']
+        # lower_mass = self.rho_lower * p['lower_area']
+        # total_mass = upper_mass + air_mass + lower_mass
+        # parafoil_cm = (upper_mass * p['upper_centroid'] +
+        #                air_mass * p['volume_centroid'] +
+        #                lower_mass * p['lower_centroid']) / total_mass
+
+        o = -self.foil_origin(delta_s)  # Stupid origin is `risers->origin`
+        Ru = o - p['upper_centroid']
+        Rv = o - p['volume_centroid']
+        Rl = o - p['lower_centroid']
+        Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
+        Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
+        Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
+
+        J_wing = (self.rho_upper * (p['upper_inertia'] + p['upper_area']*Du) +
+                  rho_air * (p['volume_inertia'] + p['volume'] * Dv) +
+                  self.rho_lower * (p['lower_inertia'] + p['lower_area']*Dl))
+
+        return J_wing
