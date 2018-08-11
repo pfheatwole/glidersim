@@ -15,22 +15,15 @@ class Paraglider:
     the glider system, except for weight shift (y-axis displacement of the cm).
     """
 
-    def __init__(self, wing, m_cg, S_cg, CD_cg):
+    def __init__(self, wing, harness):
         """
         Parameters
         ----------
         wing : ParagliderWing
-        m_cg : float [kilograms]
-            Total mass at the center of gravity
-        S_cg : float [meters**2]
-            Spherical surface area of the center of gravity
-        CD_cg : float [N/m**2]
-            Isotropic drag coefficient of the center of gravity
+        harness : Harness
         """
         self.wing = wing
-        self.m_cg = m_cg
-        self.S_cg = S_cg  # FIXME: move into a Harness?
-        self.CD_cg = CD_cg  # FIXME: move into a Harness?
+        self.harness = harness
 
     def control_points(self, delta_s=0):
         """
@@ -63,7 +56,9 @@ class Paraglider:
 
 
         """
-        return self.wing.control_points(delta_s=delta_s)
+        wing_cps = self.wing.control_points(delta_s=delta_s)
+        harness_cps = self.harness.control_points()
+        return np.vstack((wing_cps, harness_cps))
 
     def section_wind(self, y, UVW, PQR, controls=None):
         # FIXME: remove the explicit `y` parameter?
@@ -188,68 +183,74 @@ class Paraglider:
         v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
         v_cp2w = v_cm2w + np.cross(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
+        # FIXME: how does this Glider know which v_cp2w goes to the wing and
+        #        which to the harness? Those components must declare how many
+        #        control points they're using.
+        # FIXME: define an API for separating the v_cp2w
+        v_wing = v_cp2w[:-1]
+        v_harness = v_cp2w[-1]
+
         # Compute the resultant force and moment about the cg
-        dF, dM = self.wing.forces_and_moments(v_cp2w, delta_Bl, delta_Br)
+        dF_w, dM_w = self.wing.forces_and_moments(v_wing, delta_Bl, delta_Br)
+        dF_h, dM_h = self.harness.forces_and_moments(v_harness)
+        dF = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
+        dM = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
+
+        # FIXME: compute the glider center of mass
+        # FIXME: apply the forces about the cm to compute the correct moment
+
         return dF, dM
 
-        # Alternative: return the resultants
-        # if dM is None:
-        #     print("FIXME: the wing didn't return the moments yet")
-        #     dM = np.array([0, 0, 0])
-        # F = np.sum(dF, axis=0)
-        # M = np.sum(dM + np.cross(xyz, dF), axis=0)
-        # return F, M
-
-    def equilibrium_glide(self, delta_B, delta_S, rho=1):
-        """
-        Equilibrium pitch angle and airspeed for a given brake position.
-
-        Parameters
-        -----------
-        delta_B : float [percentage]
-            Percentage of symmetric brake application
-        delta_S : float [percentage]
-            Percentage of speed bar application
-        rho : float, optional [kg/m^3]
-            Air density. Default value is 1.
-
-        Returns
-        -------
-        Theta_eq : float [radians]
-            Steady-state pitch angle
-        VT_eq : float [meters/second]
-            Steady-state airspeed
-
-        Notes
-        -----
-        It is important to note that the pitch angle is always defined as the
-        angle between the (unbraked) central chord and the horizon. A change
-        in the pitch angle does not necessarily indicate a equal change in the
-        position of the wing overhead, such as when using the speed bar.
-        """
-
-        # FIXME: redesign (probably in terms of forces, not coefficients?)
-        raise NotImplementedError("This was broken by the refactored code")
-
-        alpha_eq = self.wing.alpha_eq(delta_B, delta_S)
-        CL = self.wing.parafoil_coefs.CL(alpha_eq, delta_B)
-        CD = self.wing.parafoil_coefs.CD(alpha_eq, delta_B)
-        Cx = CL*np.sin(alpha_eq) - CD*np.cos(alpha_eq)
-        Cz = -CL*np.cos(alpha_eq) - CD*np.sin(alpha_eq)  # FIXME: verify
-
-        D_cg = self.S_cg * self.CD_cg  # Total drag at the cg
-        S = self.wing.parafoil.geometry.S
-        g = 9.801  # FIXME: move the gravity somewhere standard
-
-        # PFD Eq:5.50, p121
-        # Note the negated `Cz` versus the PFD derivation
-        numerator = Cx - (np.cos(alpha_eq)**2 * D_cg/S)
-        denominator = -Cz + (np.sin(alpha_eq)**2 * D_cg/S)
-        Theta_eq = np.arctan(numerator/denominator)
-
-        # PFD Eq:5.51, p121
-        numerator = self.m_cg * g * np.sin(Theta_eq)
-        denominator = (rho/2) * (S*Cx - np.cos(alpha_eq)**2 * D_cg)
-        VT_eq = np.sqrt(numerator/denominator)
-
-        return Theta_eq, VT_eq
+    # def equilibrium_glide(self, delta_B, delta_S, rho=1):
+    #     """
+    #     Equilibrium pitch angle and airspeed for a given brake position.
+    #
+    #     Parameters
+    #     -----------
+    #     delta_B : float [percentage]
+    #         Percentage of symmetric brake application
+    #     delta_S : float [percentage]
+    #         Percentage of speed bar application
+    #     rho : float, optional [kg/m^3]
+    #         Air density. Default value is 1.
+    #
+    #     Returns
+    #     -------
+    #     Theta_eq : float [radians]
+    #         Steady-state pitch angle
+    #     VT_eq : float [meters/second]
+    #         Steady-state airspeed
+    #
+    #     Notes
+    #     -----
+    #     It is important to note that the pitch angle is always defined as the
+    #     angle between the (unbraked) central chord and the horizon. A change
+    #     in the pitch angle does not necessarily indicate a equal change in
+    #     the position of the wing overhead, such as when using the speed bar.
+    #     """
+    #
+    #     # FIXME: redesign (probably in terms of forces, not coefficients?)
+    #     raise NotImplementedError("This was broken by the refactored code")
+    #
+    #     alpha_eq = self.wing.alpha_eq(delta_B, delta_S)
+    #     CL = self.wing.parafoil_coefs.CL(alpha_eq, delta_B)
+    #     CD = self.wing.parafoil_coefs.CD(alpha_eq, delta_B)
+    #     Cx = CL*np.sin(alpha_eq) - CD*np.cos(alpha_eq)
+    #     Cz = -CL*np.cos(alpha_eq) - CD*np.sin(alpha_eq)  # FIXME: verify
+    #
+    #     D_cg = self.S_cg * self.CD_cg  # Total drag at the cg
+    #     S = self.wing.parafoil.geometry.S
+    #     g = 9.801  # FIXME: move the gravity somewhere standard
+    #
+    #     # PFD Eq:5.50, p121
+    #     # Note the negated `Cz` versus the PFD derivation
+    #     numerator = Cx - (np.cos(alpha_eq)**2 * D_cg/S)
+    #     denominator = -Cz + (np.sin(alpha_eq)**2 * D_cg/S)
+    #     Theta_eq = np.arctan(numerator/denominator)
+    #
+    #     # PFD Eq:5.51, p121
+    #     numerator = self.m_cg * g * np.sin(Theta_eq)
+    #     denominator = (rho/2) * (S*Cx - np.cos(alpha_eq)**2 * D_cg)
+    #     VT_eq = np.sqrt(numerator/denominator)
+    #
+    #     return Theta_eq, VT_eq

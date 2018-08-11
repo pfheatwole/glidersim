@@ -9,10 +9,18 @@ import Airfoil
 import Parafoil
 
 import BrakeGeometry
+import Harness
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 
 from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
+
+
+def LD_ratio(dF, alpha):
+    Fx, Fz = dF[0], dF[2]
+    L = Fx*np.sin(alpha) - Fz*np.cos(alpha)
+    D = -Fx*np.cos(alpha) - Fz*np.sin(alpha)
+    return L/D
 
 
 def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
@@ -195,16 +203,13 @@ def main():
                             d_riser=0.35, z_riser=7,
                             kappa_s=0.4)
 
-    glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
-    glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
-
     # ---------------------------------------------------------------------
     # Tests
 
     cp_y = wing2d.control_points(delta_s=0)[:, 1]
     K = len(cp_y)
     V_rel = np.asarray([[10.0, 0.0, 1.0]] * K)  # V_cp2w in frd
-    V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
+    # V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
 
     #          Bl     Br
     deltas = [0.00, 0.00]
@@ -240,35 +245,44 @@ def main():
     # plt.show()
     # dF_2d, dF_3d = dF_2d.T, dF_3d.T
 
-    # ------------------------
-    glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)
-    UVW = np.asarray([10.0, 0.0, 1.0])  # V_cm2e in frd
-    R = 0
-    # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
-    PQR = np.array([0, 0, R])
-    # sec_wind = glider3d.section_wind(None, UVW, PQR)
+    harness = Harness.Spherical(mass=80, z_riser=0.5, S=0.55, CD=0.7)
 
+    # Test the effect of the harness
+    Vmid = V_rel[K//2]
+    alpha = np.arctan2(Vmid[2], Vmid[0])
+    dF_harness, dM_harness = harness.forces_and_moments(Vmid)
+    print("LD ratio (w/o the harness):", LD_ratio(dF_3d.sum(axis=0), alpha))
+    print("LD ratio (w/ the harness): ",
+          LD_ratio(dF_3d.sum(axis=0) + dF_harness, alpha))
+
+    # Dynamics
+    J_wing = wing3d.inertia(N=5000)
+    o = -wing3d.foil_origin()
+    tau = (np.cross(wing3d.force_estimator.cps - o, dF_3d) + dM_3d).sum(axis=0)
+    alpha_rad = np.linalg.inv(J_wing) @ tau
+    print("angular acceleration in deg/s**2:", np.rad2deg(alpha_rad))
+    # print("\n---Skipping the rest---\n")
+    # embed()
+    # return
+
+    # ------------------------
+    glider3d = Paraglider(wing3d, harness)
+    UVW = np.asarray([10.0, 0.0, 1.0])  # V_cm2e in frd
+    P = np.deg2rad(15)
+    Q = np.deg2rad(-5)
+    # R = 0
+    R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
+    PQR = np.array([P, Q, R])
     xyz = glider3d.control_points(delta_s=0)
     dF, dM = glider3d.forces_and_moments(UVW, PQR, delta_Bl=0, delta_Br=0,
                                          xyz=xyz)
-    embed()
+    # embed()
 
-    print("Plotting the forces")
-    xyz, dF = xyz.T, dF.T
-    fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
-    ax[0].plot(xyz[1], dF[0])
-    ax[1].plot(xyz[1], dF[1])
-    ax[2].plot(xyz[1], dF[2])
-    ax[0].set_xlabel('spanwise position')
-    ax[0].set_ylabel('Fx')
-    ax[1].set_ylabel('Fy')
-    ax[2].set_ylabel('Fz')
-    ax[0].grid(True)
-    ax[1].grid(True)
-    ax[2].grid(True)
-    plt.show()
-
-    embed()
+    print("\nGlider results:")
+    print("UVW:", UVW.round(3))
+    print("PQR:", PQR.round(3))
+    print("dF: ", dF.round(3))
+    print("dM: ", dM.round(3))
 
 
 if __name__ == "__main__":
