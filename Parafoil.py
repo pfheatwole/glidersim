@@ -6,6 +6,7 @@ from numpy import arcsin, arctan, deg2rad, sqrt, tan
 from numpy.linalg import norm
 from numba import njit
 from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
+from scipy.integrate import simps
 
 from IPython import embed
 
@@ -27,7 +28,7 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated span? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        return self.span_factor * 2 * self.lobe.fy(1)
+        return 2 * self.fy(1)
 
     @property
     def S(self):
@@ -35,7 +36,8 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        raise NotImplementedError("FIXME: implement")
+        s = np.linspace(-1, 1, 5000)
+        return simps(self.planform.fc(s), self.fy(s))
 
     @property
     def AR(self):
@@ -49,7 +51,6 @@ class ParafoilGeometry:
     def flattening_ratio(self):
         """Percent reduction in area of the inflated wing vs the flat wing"""
         # ref: PFD p47 (54)
-        # FIXME: untested
         return (1 - self.S/self.planform.S)*100
 
     def fx(self, s):
@@ -261,19 +262,32 @@ class ParafoilPlanform(abc.ABC):
 
     @property
     def b(self):
+        """Flattened wing span"""
         return 2*self.fy(1)
 
     @property
+    def MAC(self):
+        """Mean aerodynamic chord"""
+        # Subclasses can redefine this brute method with an analytical solution
+        s = np.linspace(0, 1, 5000)
+        return (2 / self.S) * simps(self.fc(s)**2, self.fy(s))
+
+    @property
+    def SMC(self):
+        """Standard mean chord"""
+        # Subclasses can redefine this brute method with an analytical solution
+        s = np.linspace(-1, 1, 5000)
+        return np.mean(self.fc(s))
+
+    @property
     def S(self):
-        raise NotImplementedError("FIXME: implement")
+        """Flattened wing surface area"""
+        return self.SMC * self.b
 
     @property
     def AR(self):
-        raise NotImplementedError("FIXME: implement")
-
-    @property
-    def MAC(self):
-        raise NotImplementedError("FIXME: implement")
+        """Flattened wing aspect ratio"""
+        return self.b / self.SMC
 
     @abc.abstractmethod
     def fx(self, s):
@@ -342,30 +356,16 @@ class EllipticalPlanform(ParafoilPlanform):
         self.Bc = self.c0
 
     @property
-    def S(self):
-        # This is the flat planform area, right?
-        # ref: PFD Table:3-6, p46 (54)
-        raise NotImplementedError("FIXME: implement")
-        t = self.taper
-        taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
-        return self.c0 * self.b/2 * taper_factor
-
-    @property
-    def AR(self):
-        """Aspect ratio of the flattened wing"""
-        # ref: PFD Table:3-6, p46 (54)
-        raise NotImplementedError("FIXME: implement")
-        t = self.taper
-        taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
-        return 2 * self.b / (self.c0*taper_factor)
-
-    @property
     def MAC(self):
         # ref: PFD Table:3-6, p46 (54)
-        raise NotImplementedError("FIXME: implement")
-        t = self.taper
-        taper_factor = t + arcsin(sqrt(1 - t**2))/sqrt(1 - t**2)
-        return (2/3) * self.c0 * (2 + t**2) / taper_factor
+        tmp = arcsin(sqrt(1 - self.taper**2))/sqrt(1 - self.taper**2)
+        return (2/3 * self.c0 * (2 + self.taper**2)) / (self.taper + tmp)
+
+    @property
+    def SMC(self):
+        # ref: PFD Table:3-6, p46 (54)
+        L = 1 - self.taper**2
+        return self.c0 * 1/2 * (self.taper + np.arcsin(np.sqrt(L))/np.sqrt(L))
 
     @property
     def sweep_smoothness(self):
@@ -406,40 +406,35 @@ class EllipticalPlanform(ParafoilPlanform):
         return torsion
 
     def _dfxdy(self, s):
-        # FIXME: untested
-        # FIXME: needs a ds/dt factor?
-        return -self.Bx/self.Ax/np.tan(self.s2tx(s))
+        y = self.b_flat/2 * s
+        return -y * (self.Bx/self.Ax) / np.sqrt(self.Ax**2 - y**2)
 
     def Lambda(self, s):
         """Sweep angle"""
-        # FIXME: rewrite in terms of dx/ds and dy/ds?
         # FIXME: should this be part of the ParafoilGeometry interface?
         return arctan(self._dfxdy(s))
 
     @staticmethod
-    def MAC_to_c0(MAC, taper):
-        """Central chord length of a tapered elliptical wing
-
-        This geometry class is parametrized by the central chord, but the MAC
-        is more commonly known. If the MAC and taper of a wing are known, then
-        this function can be used to determine the equivalent central chord
-        for that wing.
+    def SMC_to_c0(SMC, taper):
         """
-        # ref: PFD Table:3-6, p46 (54)
-        # tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-        # c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
+        Compute the central chord of a tapered elliptical wing from the SMC.
 
-        #
-        # New version (mine):
-        # MAC = (1/b)*integral(B/A * sqrt(A**2 - y**2))
-        # Compute that integral using a table, then use `B = c0` to rearrange
-        # for `c0`. Here I call The integral+constants `K`, so c0 = MAC/K
-        #
+        This elliptical geometry is parametrized by the central chord, but the
+        SMC is more commonly known."""
         L = 1 - taper**2
-        K = (np.sqrt(L)/2 * (
-                np.sqrt(1/L - 1) + (1/L)*np.arctan(1/np.sqrt(1/L - 1))))
-        c0 = MAC / K
+        return SMC / (1/2 * (taper + np.arcsin(np.sqrt(L))/np.sqrt(L)))
 
+    @staticmethod
+    def MAC_to_c0(MAC, taper):
+        """
+        Compute the central chord of a tapered elliptical wing from the MAC.
+
+        If the MAC and taper of a wing are known, then this function can be
+        used to determine the equivalent central chord for that wing.
+        """
+        # PFD Table:3-6, p54
+        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
+        c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
         return c0
 
 
@@ -557,8 +552,6 @@ class EllipticalLobe(ParafoilLobe):
         return dihedral
 
     def _dfzdy(self, s):
-        # FIXME: untested
-        # FIXME: needs a ds/dt factor?
         t = self.s2t(s)
         return -self.Bz/self.Az/np.tan(t)
 

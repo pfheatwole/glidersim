@@ -15,9 +15,13 @@ from Paraglider import Paraglider
 from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
 
 
-def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, airfoil,
+def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
+                              SMC=None, MAC=None,
                               dMax=None, sMax=None,
                               torsion_max=0, torsion_exponent=6):
+
+    if SMC is None and MAC is None:
+        raise ValueError("One of the SMC or MAC are required")
 
     if dMed > 0 or (dMax is not None and dMax > 0):
         raise ValueError("dihedral must be negative")
@@ -33,7 +37,11 @@ def build_elliptical_parafoil(b_flat, MAC, taper, dMed, sMed, airfoil,
         sMax = (2*sMed) + 1  # ref page 48 (56)
         print("Using minimum max sweep ({})".format(sMax))
 
-    c0 = Parafoil.EllipticalPlanform.MAC_to_c0(MAC, taper)
+    if SMC is not None:
+        c0 = Parafoil.EllipticalPlanform.SMC_to_c0(SMC, taper)
+    else:
+        c0 = Parafoil.EllipticalPlanform.MAC_to_c0(MAC, taper)
+
     planform = Parafoil.EllipticalPlanform(
         b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
     lobe = Parafoil.EllipticalLobe(dMed, dMax)
@@ -118,6 +126,10 @@ def plot_polar(glider):
 
 
 def main():
+
+    # -----------------------------------------------------------------------
+    # Airfoil
+
     # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
     # TODO: AirfoilGeometry importer for .DAT files (`gnulab3.dat`)
     # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
@@ -136,32 +148,59 @@ def main():
 
     # plot_airfoil_geo(airfoil_geo)
 
+
+    # -----------------------------------------------------------------------
+    # Parafoil
+
+    # Hook3 specs:
+    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
+    SMC_flat = b_flat/AR_flat
+    S, b, AR = 19.55, 8.84, 4.00
+
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
     parafoil = build_elliptical_parafoil(
-        b_flat=10, MAC=2.5, taper=0.35, dMed=-25, dMax=-70,
-        sMed=15, torsion_max=0, airfoil=airfoil)
+        b_flat=b_flat, SMC=SMC_flat, taper=0.35, dMed=-32, dMax=-75,
+        sMed=13.5, torsion_max=0, airfoil=airfoil)
+
+    print("planform flat span:", parafoil.planform.b)
+    print("planform flat area:", parafoil.planform.S)
+    print("planform flat AR:  ", parafoil.planform.AR)
+    print("planform flat SMC: ", parafoil.planform.SMC)
+    print("planform flat MAC: ", parafoil.planform.MAC)
+
+    print("planform span:", parafoil.b)
+    print("planform area:", parafoil.S)
+    print("planform AR:  ", parafoil.AR)
 
     # print("Drawing the parafoil")
-    plot_parafoil_planform(parafoil)
-    plot_parafoil_geo(parafoil, N_sections=25)
+    # plot_parafoil_planform(parafoil)
+    # plot_parafoil_geo(parafoil, N_sections=25)
+
+    # -----------------------------------------------------------------------
+    # Brake geometry
 
     p_start, p_peak = 0.05, 0.75
     delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
-    # Build a wings with the different force estimation methods
+    # -----------------------------------------------------------------------
+    # Wing and glider (using two different force estimation methods)
+
     wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,
-                            d_riser=0.5, z_riser=7,
+                            # d_riser=0.5, z_riser=7,
+                            d_riser=0.35, z_riser=9,
                             kappa_s=0.4)
     wing3d = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                            d_riser=0.5, z_riser=7,
+                            # d_riser=0.5, z_riser=7,
+                            d_riser=0.35, z_riser=7,
                             kappa_s=0.4)
 
     glider2d = Paraglider(wing2d, 75, 0.55, 0.75)
     glider3d = Paraglider(wing3d, 75, 0.55, 0.75)
 
     # ---------------------------------------------------------------------
-    # Run some tests
+    # Tests
+
     cp_y = wing2d.control_points(delta_s=0)[:, 1]
     K = len(cp_y)
     V_rel = np.asarray([[10.0, 0.0, 1.0]] * K)  # V_cp2w in frd
@@ -176,29 +215,30 @@ def main():
     # deltas = [1.00, 1.00]
 
     print("Computing the forces and moments for the 2D and 3D wings")
-    dF_2d, _ = wing2d.forces_and_moments(V_rel, *deltas)
-    dF_3d, _ = wing3d.forces_and_moments(V_rel, *deltas)
+    dF_2d, dM_2d = wing2d.forces_and_moments(V_rel, *deltas)
+    dF_3d, dM_3d = wing3d.forces_and_moments(V_rel, *deltas)
 
-    print("Plotting the forces")
-    dF_2d, dF_3d = dF_2d.T, dF_3d.T
-    fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
-    ax[0].plot(cp_y, dF_2d[0], label='2D')
-    ax[0].plot(cp_y, dF_3d[0], label='3D', marker='.')
-    ax[1].plot(cp_y, dF_2d[1], label='2D')
-    ax[1].plot(cp_y, dF_3d[1], label='3D', marker='.')
-    ax[2].plot(cp_y, dF_2d[2], label='2D')
-    ax[2].plot(cp_y, dF_3d[2], label='3D', marker='.')
-    ax[0].set_xlabel('spanwise position')
-    ax[0].set_ylabel('Fx')
-    ax[1].set_ylabel('Fy')
-    ax[2].set_ylabel('Fz')
-    ax[0].grid(True)
-    ax[1].grid(True)
-    ax[2].grid(True)
-    ax[0].legend()
-    ax[1].legend()
-    ax[2].legend()
-    plt.show()
+    # print("Plotting the forces")
+    # dF_2d, dF_3d = dF_2d.T, dF_3d.T
+    # fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
+    # ax[0].plot(cp_y, dF_2d[0], label='2D')
+    # ax[0].plot(cp_y, dF_3d[0], label='3D', marker='.')
+    # ax[1].plot(cp_y, dF_2d[1], label='2D')
+    # ax[1].plot(cp_y, dF_3d[1], label='3D', marker='.')
+    # ax[2].plot(cp_y, dF_2d[2], label='2D')
+    # ax[2].plot(cp_y, dF_3d[2], label='3D', marker='.')
+    # ax[0].set_xlabel('spanwise position')
+    # ax[0].set_ylabel('Fx')
+    # ax[1].set_ylabel('Fy')
+    # ax[2].set_ylabel('Fz')
+    # ax[0].grid(True)
+    # ax[1].grid(True)
+    # ax[2].grid(True)
+    # ax[0].legend()
+    # ax[1].legend()
+    # ax[2].legend()
+    # plt.show()
+    # dF_2d, dF_3d = dF_2d.T, dF_3d.T
 
     # ------------------------
     glider3d = Paraglider(wing3d, m_cg=70, S_cg=1, CD_cg=1)
