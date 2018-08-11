@@ -643,7 +643,7 @@ class DeformingLobe:
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, V_rel, delta, rho=1):
+    def __call__(self, V_rel, delta):
         """Estimate the forces and moments on a Parafoil"""
 
     @property
@@ -999,7 +999,7 @@ class Phillips(ForceEstimator):
 
         return Gamma, V, alpha
 
-    def __call__(self, V_rel, delta, rho=1):
+    def __call__(self, V_rel, delta):
         Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
         dF_viscid = Gamma * cross(self.dl, V).T
@@ -1010,7 +1010,7 @@ class Phillips(ForceEstimator):
         Mi = 1/2 * (V**2).sum(axis=1) * Cm * self.dA * self.c_avg
         dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
 
-        return rho * dF, rho * dM
+        return dF, dM
 
 
 class Phillips2D(ForceEstimator):
@@ -1066,8 +1066,7 @@ class Phillips2D(ForceEstimator):
         cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
         return cps
 
-    def __call__(self, V_rel, delta, rho=1):
-        # FIXME: dependency on rho?
+    def __call__(self, V_rel, delta):
         assert np.shape(V_rel) == (self.K, 3)
 
         # FIXME: add pitching moment calculations
