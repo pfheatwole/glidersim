@@ -850,7 +850,7 @@ class Phillips(ForceEstimator):
         #  * For now, use an elliptical Gamma
         b = self.parafoil.b
         cp_y = self.cps[:, 1]
-        Gamma0 = 10
+        Gamma0 = np.linalg.norm(V_rel[self.K // 2])
 
         # Alternative initial proposal
         # avg_brake = (delta_Bl + delta_Br)/2
@@ -875,11 +875,11 @@ class Phillips(ForceEstimator):
         # M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
         # base_Omega, min_Omega = 0.2, 0.05
         # Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
-        Omega = 0.5
+        Omega = 0.5  # FIXME: tuning
 
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
-            max_runs = 5
+            max_runs = 15  # FIXME: tuning
 
         # FIXME: don't use a fixed number of runs
         # FIXME: how much faster is `opt_einsum` versus the scipy version?
