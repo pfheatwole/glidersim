@@ -113,17 +113,10 @@ class Paraglider:
         """
         Compute the aerodynamic force and moment about the center of gravity.
 
-        FIXME: how is this function useful? The simulator doesn't care about
-               forces, it cares about rates-of-change of the state variables
-               The key goal are the _accelerations_, not the forces.
-
         FIXME: should this function compute ALL forces, including gravity?
-               Related: the function name should match what it does.
-        FIXME: separate the section and resultant force computations?
         FIXME: needs a design review; the `xyz` parameter name in particular
         FIXME: the input sanitation is messy
         FIXME: review the docstring
-        FIXME: TEST TEST TEST
 
         Parameters
         ----------
