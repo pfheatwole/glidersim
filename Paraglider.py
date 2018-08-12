@@ -167,7 +167,7 @@ class Paraglider:
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
-            xyz = self.wing.control_points(delta_s)
+            xyz = self.control_points(delta_s)
 
         if UVW.shape != (3,):
             raise ValueError("UVW must be a 3-vector velocity of the body cm")
@@ -180,6 +180,7 @@ class Paraglider:
         #        which to the harness? Those components must declare how many
         #        control points they're using.
         # FIXME: define an API for separating the v_cp2w
+        cp_wing = xyz[:-1]
         v_wing = v_cp2w[:-1]
         v_harness = v_cp2w[-1]
 
@@ -188,6 +189,9 @@ class Paraglider:
         dF_h, dM_h = self.harness.forces_and_moments(v_harness)
         dF = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         dM = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
+
+        # Plus the moments from the wing forces
+        dM += np.cross(cp_wing + self.wing.foil_origin(), dF_w).sum(axis=0)
 
         # FIXME: compute the glider center of mass
         # FIXME: apply the forces about the cm to compute the correct moment
