@@ -54,9 +54,9 @@ def plot_airfoil_coef(airfoil, coef, N=100):
 
     fig = plt.figure(figsize=(13, 10))
     ax = fig.gca(projection='3d')
-    ax.plot_surface(grid[0], grid[1], values)
-    ax.set_xlabel('alpha [rad]')
-    ax.set_ylabel('delta [rad]')
+    ax.plot_surface(np.rad2deg(grid[0]), np.rad2deg(grid[1]), values)
+    ax.set_xlabel('alpha [degrees]')
+    ax.set_ylabel('delta [degrees]')
     ax.set_zlabel(coef)
     plt.show()
 
