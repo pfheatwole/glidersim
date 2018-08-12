@@ -72,7 +72,8 @@ class Spherical(Harness):
         return np.array([0, 0, self.z_riser])
 
     def forces_and_moments(self, v_cp2w):
-        dF = 1/2 * self.S * self.CD * -v_cp2w**2
+        V2 = (v_cp2w**2).sum()
+        u_drag = -v_cp2w/np.sqrt(V2)  # Drag force unit vector
+        dF = (1/2 * V2 * self.S * self.CD) * u_drag
         dM = np.zeros(3)
-
         return dF, dM
