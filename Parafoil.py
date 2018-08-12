@@ -1014,9 +1014,21 @@ class Phillips(ForceEstimator):
 
     def __call__(self, V_rel, delta):
         Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
-        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
         dF_viscid = Gamma * cross(self.dl, V).T
-        dF_viscous = -1/2 * V.T**2 * Cd * self.dA  # V = V_cp2w = -V_w2cp
+
+        # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
+        #  0. Nominal airfoil drag
+        #  1. Additional drag from the air intakes
+        #  2. Additional drag from "surface characteristics"
+        # FIXME: these terms have not been verified!!
+        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
+        Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        Cd += 0.004
+
+        V2 = (V**2).sum(axis=1)
+        u_drag = -V.T/np.sqrt(V2)  # V = V_cp2w = -V_w2cp
+        dF_viscous = 1/2 * V2 * Cd * self.dA * u_drag
+
         dF = dF_viscid.T + dF_viscous.T
 
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
