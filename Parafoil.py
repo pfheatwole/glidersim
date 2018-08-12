@@ -671,14 +671,10 @@ class Phillips(ForceEstimator):
 
     Notes
     -----
-    This implementation uses a single, linear point distribution in terms of
-    the normalized span coordinate `s`. Using a single distribution that covers
-    the entire span is suitable for parafoils, but for wings with left and
-    right segments separated by some discontinuity at the root you should
-    distribute the points across each semispan independently. Also, this method
-    assumes a linear distribution in `s` provides reasonable point spacing, but
-    depending on the wing curvature a different distribution, such as a cosine,
-    may be more applicable. See _[1].
+    This implementation uses a single distribution for the entire span, which
+    is suitable for parafoil,s but for wings with left and right segments
+    separated by some discontinuity at the root you should distribute the
+    points across each semispan independently. See _[1].
 
     This method does suffer an issue where induced velocity goes to infinity as
     the segment lengths tend toward zero (as the number of segments increases,
@@ -691,11 +687,11 @@ class Phillips(ForceEstimator):
 
         # Define the spanwise and nodal and control points
 
-        # Option 1: linear distribution; less likely to induce large velocties
+        # Option 1: linear distribution
         # self.K = 31  # The number of bound vortex segments
         # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
-        # Option 2: cosine distribution; fast, very sensitive to segment length
+        # Option 2: cosine distribution
         self.K = 31  # The number of bound vortex segments
         self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
@@ -1028,11 +1024,11 @@ class Phillips2D(ForceEstimator):
 
         # Define the spanwise and nodal and control points
 
-        # Option 1: linear distribution; less likely to induce large velocties
+        # Option 1: linear distribution
         # self.K = 31  # The number of bound vortex segments
         # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
-        # Option 2: cosine distribution; fast, very sensitive to segment length
+        # Option 2: cosine distribution
         self.K = 31  # The number of bound vortex segments
         self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
