@@ -190,7 +190,8 @@ class Paraglider:
         dF = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         dM = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
 
-        # Plus the moments from the wing forces
+        # Add the torque produced by the wing forces; the harness drag is
+        # applied at the center of mass, and so produces no additional torque.
         dM += np.cross(cp_wing + self.wing.foil_origin(), dF_w).sum(axis=0)
 
         # FIXME: compute the glider center of mass
