@@ -833,28 +833,43 @@ class Phillips(ForceEstimator):
         # FIXME: return the induced AoA? Could be interesting
 
         assert np.shape(V_rel) == (self.K, 3)
+        V_mid = V_rel[self.K // 2]
 
         # FIXME: is using the freestream velocity at the central chord okay?
-        u_inf = V_rel[self.K // 2]
-        u_inf = u_inf / norm(u_inf)
+        u_inf = V_mid / np.linalg.norm(V_mid)
 
         # 2. Compute the "induced velocity" unit vectors
         v = self._induced_velocities(u_inf)  # axes = (inducer, inducee)
         vT = np.swapaxes(v, 0, 1)  # Useful for broadcasting cross products
 
+        # --------------------------------------------------------------------
         # 3. Propose an initial distribution for Gamma
-        #  * For now, use an elliptical Gamma
+        # FIXME: this is full of hacks and really needs a thorough review
         b = self.parafoil.b
         cp_y = self.cps[:, 1]
-        Gamma0 = np.linalg.norm(V_rel[self.K // 2])
 
-        # Alternative initial proposal
-        # avg_brake = (delta_Bl + delta_Br)/2
-        # CL_2d = self.coefs.CL(np.arctan2(u_inf[2], u_inf[0]), avg_brake)
-        # S = self.parafoil.S
-        # Gamma0 = 2*norm(V_rel[self.K//2])*S*CL_2d/(np.pi*b)  # c0 circulation
-
+        # Option 1: elliptical using the mid-point velocity only
+        Gamma0 = np.linalg.norm(V_mid)
         Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/b)**2)
+
+        # Option 2: elliptical using each section velocity
+        # Gamma = np.linalg.norm(V_rel, axis=1) * np.sqrt(1 - ((2*cp_y)/b)**2)
+
+        # Next, it helps to scale the basic ellipse based on the section Cl
+        CL_2d = self.parafoil.airfoil.coefficients.Cl(
+                np.arctan2(V_rel[:, 2], V_rel[:, 0]), delta)
+        Gamma *= CL_2d
+
+        # As alpha increases, downwash increases and thus Gamma increases,
+        # so the Gamma tends to be higher than predicted by 2D flows
+        # FIXME: these are total hacks! They get "close enough", no more.
+        alpha_mid = np.arctan2(V_mid[2], V_mid[0])
+        if alpha_mid > np.deg2rad(5):
+            Gamma += 0.01*(V_mid.sum())  # Avoid extremely negative AoA at the tips
+            Gamma *= 1 + (alpha_mid - np.deg2rad(5))/np.deg2rad(20)
+
+        # --------------------------------------------------------------------
+        # Iterate the Gamma proposal until convergence
 
         # Save intermediate values for debugging purposes
         Vs = [V_rel]
@@ -866,20 +881,13 @@ class Phillips(ForceEstimator):
         Cls = []
         Cl_alphas = []
 
-        # FIXME: very ad-hoc way to prevent large negative AoA at the wing tips
-        # FIXME: why must Omega be so small? `Cl_alpha` sensitivity?
-        # M = max(delta_Bl, delta_Br)  # Assumes the delta_B are 0..1
-        # base_Omega, min_Omega = 0.2, 0.05
-        # Omega = base_Omega - (base_Omega - min_Omega)*np.sqrt(M)
         Omega = 0.5  # FIXME: tuning
 
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
-            max_runs = 15  # FIXME: tuning
+            max_runs = 50  # FIXME: tuning
 
-        # FIXME: don't use a fixed number of runs
-        # FIXME: how much faster is `opt_einsum` versus the scipy version?
-        # FIXME: if `coefs2d.Cl` was Numba compatible, what about this loop?
+        # FIXME: add oscillation detection to reduce Omega if necessary
         n_runs = 0
         while n_runs < max_runs:
             # print("run:", n_runs)
@@ -971,9 +979,18 @@ class Phillips(ForceEstimator):
 
             # FIXME: ad-hoc workaround to avoid massively negative AoA
             # print("DEBUG> Omega:", Omega)
-            Omega += (1 - Omega)/4
+            Omega += (1 - Omega)/2
 
             n_runs += 1
+
+            if abs(max(delta_Gamma/Gamma)) < 0.005:
+                print(f"Phillips: early termination after {n_runs} runs")
+                break
+
+            if n_runs == max_runs:
+                print("Phillips: Failed to converge")
+                embed()
+                break
 
         # embed()
 
