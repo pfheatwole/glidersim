@@ -17,7 +17,7 @@ class ParagliderWing:
     #        controls?
 
     def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
-                 kappa_s=0):
+                 pA, pC, kappa_s=0):
         """
         Parameters
         ----------
@@ -29,6 +29,10 @@ class ParagliderWing:
             edge, as a percentage of the chord length.
         z_riser : float [meters]
             The vertical distance from the risers to the central chord
+        pA, pC : float [percentage]
+            The position of the A and C lines as a fraction of the central
+            chord. The speedbar adjusts the length of the A lines, while C
+            remains fixed, causing a rotation about the point `pC`.
         kappa_s : float [meters] (optional)
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
@@ -36,6 +40,8 @@ class ParagliderWing:
         self.parafoil = parafoil
         self.force_estimator = force_estimator(parafoil)
         self.brake_geo = brake_geo
+        self.pA = pA
+        self.pC = pC
         self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
 
         # The ParagliderWing coordinate system is a shifted version of the
@@ -45,8 +51,11 @@ class ParagliderWing:
         self.c0 = parafoil.planform.fc(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
-        self.LE = np.sqrt(foil_x**2 + foil_z**2)
-        self.TE = np.sqrt((self.c0 - foil_x)**2 + foil_z**2)
+
+        # Nominal lengths of the A and C lines, and their connection distance
+        self.A = np.sqrt((foil_x - self.pA*self.c0)**2 + foil_z**2)
+        self.C = np.sqrt((self.pC * self.c0 - foil_x)**2 + foil_z**2)
+        self.AC = (self.pC - self.pA)*self.c0
 
         # For testing, from a Hook 3
         self.rho_upper = 40/1000  # kg/m2
@@ -89,10 +98,13 @@ class ParagliderWing:
             The offset of the origin of the Parafoil coordinate system in
             ParagliderWing coordinates.
         """
-        LE = self.LE - (delta_s * self.kappa_s)
-        foil_x = (LE**2 - self.TE**2 + self.c0**2)/(2*self.c0)
+        # Speedbar shortens the A lines, while AC and C remain fixed
+        A = self.A - (delta_s * self.kappa_s)
+        foil_x = (A**2 - self.C**2 + self.AC**2)/(2*self.AC)
         foil_y = 0  # FIXME: not with weight shift?
-        foil_z = -np.sqrt(LE**2 - foil_x**2)
+        foil_z = -np.sqrt(A**2 - foil_x**2)
+        foil_x += self.pA*self.c0  # Account for the start of the AC line
+
         return np.array([foil_x, foil_y, foil_z])
 
     def alpha_eq(self, delta_B, delta_S):
