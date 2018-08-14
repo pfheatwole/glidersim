@@ -1014,7 +1014,7 @@ class Phillips(ForceEstimator):
 
     def __call__(self, V_rel, delta):
         Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
-        dF_viscid = Gamma * cross(self.dl, V).T
+        dF_inviscid = Gamma * cross(self.dl, V).T
 
         # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
@@ -1029,10 +1029,10 @@ class Phillips(ForceEstimator):
         u_drag = -V.T/np.sqrt(V2)  # V = V_cp2w = -V_w2cp
         dF_viscous = 1/2 * V2 * Cd * self.dA * u_drag
 
-        dF = dF_viscid.T + dF_viscous.T
+        dF = dF_inviscid.T + dF_viscous.T
 
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
-        Mi = 1/2 * (V**2).sum(axis=1) * Cm * self.dA * self.c_avg
+        Mi = 1/2 * V2 * Cm * self.dA * self.c_avg
         dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
 
         return dF, dM
