@@ -188,56 +188,40 @@ class Paraglider:
 
         return dF, dM
 
-    # def equilibrium_glide(self, delta_B, delta_S, rho=1):
-    #     """
-    #     Equilibrium pitch angle and airspeed for a given brake position.
-    #
-    #     Parameters
-    #     -----------
-    #     delta_B : float [percentage]
-    #         Percentage of symmetric brake application
-    #     delta_S : float [percentage]
-    #         Percentage of speed bar application
-    #     rho : float, optional [kg/m^3]
-    #         Air density. Default value is 1.
-    #
-    #     Returns
-    #     -------
-    #     Theta_eq : float [radians]
-    #         Steady-state pitch angle
-    #     VT_eq : float [meters/second]
-    #         Steady-state airspeed
-    #
-    #     Notes
-    #     -----
-    #     It is important to note that the pitch angle is always defined as the
-    #     angle between the (unbraked) central chord and the horizon. A change
-    #     in the pitch angle does not necessarily indicate a equal change in
-    #     the position of the wing overhead, such as when using the speed bar.
-    #     """
-    #
-    #     # FIXME: redesign (probably in terms of forces, not coefficients?)
-    #     raise NotImplementedError("This was broken by the refactored code")
-    #
-    #     alpha_eq = self.wing.alpha_eq(delta_B, delta_S)
-    #     CL = self.wing.parafoil_coefs.CL(alpha_eq, delta_B)
-    #     CD = self.wing.parafoil_coefs.CD(alpha_eq, delta_B)
-    #     Cx = CL*np.sin(alpha_eq) - CD*np.cos(alpha_eq)
-    #     Cz = -CL*np.cos(alpha_eq) - CD*np.sin(alpha_eq)  # FIXME: verify
-    #
-    #     D_cg = self.S_cg * self.CD_cg  # Total drag at the cg
-    #     S = self.wing.parafoil.geometry.S
-    #     g = 9.801  # FIXME: move the gravity somewhere standard
-    #
-    #     # PFD Eq:5.50, p121
-    #     # Note the negated `Cz` versus the PFD derivation
-    #     numerator = Cx - (np.cos(alpha_eq)**2 * D_cg/S)
-    #     denominator = -Cz + (np.sin(alpha_eq)**2 * D_cg/S)
-    #     Theta_eq = np.arctan(numerator/denominator)
-    #
-    #     # PFD Eq:5.51, p121
-    #     numerator = self.m_cg * g * np.sin(Theta_eq)
-    #     denominator = (rho/2) * (S*Cx - np.cos(alpha_eq)**2 * D_cg)
-    #     VT_eq = np.sqrt(numerator/denominator)
-    #
-    #     return Theta_eq, VT_eq
+    def equilibrium_glide(self, delta_B, delta_S, alpha_eq=None, rho=1):
+        """Steady-state angle of attack, pitch angle, and airspeed.
+
+        Parameters
+        -----------
+        delta_B : float [percentage]
+            Percentage of symmetric brake application
+        delta_S : float [percentage]
+            Percentage of speed bar application
+        alpha_eq : float [radians] (optional)
+            Steady-state angle of attack
+        rho : float, optional [kg/m^3] (optional)
+            Air density. Default value is 1.
+
+        Returns
+        -------
+        alpha_eq : float [radians]
+            Steady-state angle of attack
+        Theta_eq : float [radians]
+            Steady-state pitch angle
+        V_eq : float [meters/second]
+            Steady-state airspeed
+        """
+        if alpha_eq is None:
+            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S)
+
+        g = np.zeros(3)  # Don't include the weight of the harness
+        V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+        dF_g, dM_g = self.forces_and_moments(V, [0, 0, 0], g, delta_B, delta_B,
+                                             delta_S, rho=rho)
+
+        # The forces are proportional to V**2, which were calculated for |V|=1,
+        # so you can scale the z-axis forces by V_eq^2 and solve for V_eq.
+        Theta_eq = np.arctan2(dF_g[0], -dF_g[2])
+        V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/dF_g[2])
+
+        return alpha_eq, Theta_eq, V_eq
