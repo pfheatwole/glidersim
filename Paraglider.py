@@ -27,34 +27,12 @@ class Paraglider:
 
     def control_points(self, delta_s=0):
         """
-        Compute the all the reference points on the Paraglider system.
+        Compute the reference points for the composite Paraglider system.
 
         All the components of the Paraglider that experience aerodynamic forces
-        need the relative wind vectors. Each component is responsible for
+        need their relative wind vectors. Each component is responsible for
         creating a list of the coordinates where they need the value of the
-        wind.
-
-        Given each component's set of control points, this function then
-        transforms them as necessary into body coordinates. For example:
-
-        ```
-            foil_cps = self.wing.control_points(delta_s=delta_s)
-            foil_cps[:, 1] = foil_cps[:, 1] - (delta_w * self.kappa_w)
-        ```
-
-        For this simple model, where the cg is defined as the origin of the
-        Parafoil, it's pretty simple. But if you get more complicated, such as
-        non-spherical harness that isn't exactly at the cg, line drag, etc,
-        it gets more interesting.
-
-
-        Keep in mind: I'm anticipating that the simulator will query this
-        function FIRST in order to determine the CP coordinates in Earth
-        coordinates, so it can query the wind field at each point.
-
-           *** THIS NEEDS A DESIGN REVIEW ***
-
-
+        wind. This function then transforms them into body coordinates.
         """
         wing_cps = self.wing.control_points(delta_s=delta_s)
         harness_cps = self.harness.control_points()
