@@ -692,7 +692,7 @@ class Phillips(ForceEstimator):
         # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
         # Option 2: cosine distribution
-        self.K = 31  # The number of bound vortex segments
+        self.K = 15  # The number of bound vortex segments
         self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
@@ -1058,7 +1058,7 @@ class Phillips2D(ForceEstimator):
         # self.s_nodes = np.linspace(-1, 1, self.K+1)
 
         # Option 2: cosine distribution
-        self.K = 31  # The number of bound vortex segments
+        self.K = 15  # The number of bound vortex segments
         self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
