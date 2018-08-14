@@ -157,7 +157,7 @@ class Paraglider:
         # FIXME: how does this Glider know which v_cp2w goes to the wing and
         #        which to the harness? Those components must declare how many
         #        control points they're using.
-        # FIXME: define an API for separating the v_cp2w
+        # FIXME: design a proper method for separating the v_cp2w
         cp_wing = xyz[:-1]
         v_wing = v_cp2w[:-1]
         v_harness = v_cp2w[-1]
