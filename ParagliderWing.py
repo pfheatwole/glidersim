@@ -107,44 +107,21 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def alpha_eq(self, delta_B, delta_S):
-        """
+    def equilibrium_alpha(self, deltaB, deltaS):
 
-        Parameters
-        ----------
-        delta_B : float [percentage]
-            Fraction of symmetric braking application
-        delta_S : float [percentage]
-            Fraction of speed bar application
+        def opt(deltaB, deltaS, alpha):
+            cp_wing = self.control_points(deltaS)
+            K = len(cp_wing)
+            v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
+            dF_w, dM_w = self.forces_and_moments(v_wing, deltaB, deltaB)
+            dM = dM_w.sum(axis=0)
+            dM += np.cross(cp_wing, dF_w).sum(axis=0)
+            return np.abs(dM[1])  # Return the total pitching moment
 
-        Returns
-        -------
-        alpha_eq : float [radians]
-            The equilibrium angle of attack for the given control inputs
-        """
-
-        def moment_factor(delta_B, delta_S, alpha):
-            raise RuntimeError("FIXME: broken. Wrong implementaion anyway.")
-            CL = self.parafoil_coefs.CL(alpha, delta_B)
-            CD = self.parafoil_coefs.CD(alpha, delta_B)
-            CM_c4 = self.parafoil_coefs.CM(alpha, delta_B)
-
-            Cx = CL*np.sin(alpha) - CD*np.cos(alpha)
-            Cz = -CL*np.cos(alpha) - CD*np.sin(alpha)  # FIXME: verify
-
-            MAC = self.parafoil.geometry.MAC
-            c = self.parafoil.geometry.fc(0)
-            d_cg, h_cg = self.cg_position(delta_S)
-
-            kMy = CM_c4*MAC - Cx*h_cg - Cz*((d_cg - 1/4)*c)
-
-            return np.abs(kMy)
-
-        f = partial(moment_factor, delta_B, delta_S)
-        alpha_min, alpha_max = np.deg2rad(-1.5), np.deg2rad(20)  # FIXME: magic
-        r = minimize_scalar(f, bounds=(alpha_min, alpha_max), method='Bounded')
-
-        return r.x
+        f = partial(opt, deltaB, deltaS)
+        bounds = np.deg2rad([0, 20])  # FIXME!! Mitigates an issue at high speedbar, but introduces serious errors
+        res = minimize_scalar(f, method='bounded', bounds=bounds)
+        return res.x
 
     def control_points(self, delta_s=0):
         """
