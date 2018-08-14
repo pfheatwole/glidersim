@@ -84,10 +84,11 @@ class Paraglider:
         v_rel = v_b2w + np.cross(PQR, xyz)
         return v_rel
 
-    def forces_and_moments(self, UVW, PQR,
+    def forces_and_moments(self, UVW, PQR, g,
                            delta_Bl=0, delta_Br=0,
                            delta_s=0,
-                           v_w2e=None, xyz=None):
+                           v_w2e=None, xyz=None,
+                           rho=1):
         """
         Compute the aerodynamic force and moment about the center of gravity.
 
@@ -117,6 +118,8 @@ class Paraglider:
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
             at each control point.
+        rho : float [kg/m^3]
+            The ambient air density
 
         Returns
         -------
@@ -170,7 +173,15 @@ class Paraglider:
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
-        dM += np.cross(cp_wing + self.wing.foil_origin(), dF_w).sum(axis=0)
+        dM += np.cross(cp_wing, dF_w).sum(axis=0)
+
+        # Scale the aerodynamic forces to account for the air density before
+        # adding the weight of the harness
+        dF, dM = rho*dF, rho*dM
+
+        # The harness also contributes a gravitational force
+        g = 9.8 * np.asarray(g)
+        dF += g*self.harness.mass  # FIXME: leaky abstraction
 
         # FIXME: compute the glider center of mass
         # FIXME: apply the forces about the cm to compute the correct moment
