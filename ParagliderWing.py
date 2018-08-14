@@ -75,8 +75,9 @@ class ParagliderWing:
 
         Returns
         -------
-        dF, dM : array of float, shape (K,3)
-            Forces and moments for each section
+        dF, dM : array of float, shape (K,3) [N]
+            Forces and moments for each section, proportional to the air
+            density in [kg/m^3]. (This function assumes an air density of 1.)
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)
         dF, dM = self.force_estimator(V_cp2w, delta)
