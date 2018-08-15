@@ -210,6 +210,16 @@ class Paraglider:
             Steady-state pitch angle
         V_eq : float [meters/second]
             Steady-state airspeed
+
+        Notes
+        -----
+        Calculating `V_eq` takes advantage of the fact that all the aerodynamic
+        forces are proportional to `V**2`. Thus, by calculating the forces for
+        `V = 1`, the following equation can be solved for `V_eq` directly:
+
+        .. math: V_{eq}^2 \cdot\Sigma F_{z,aero} + mg\cdot \text{sin}\left(\Theta \right ) = 0
+
+        where `m` is the mass of the harness+pilot.
         """
         if alpha_eq is None:
             alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S)
@@ -219,8 +229,6 @@ class Paraglider:
         dF_g, dM_g = self.forces_and_moments(V, [0, 0, 0], g, delta_B, delta_B,
                                              delta_S, rho=rho)
 
-        # The forces are proportional to V**2, which were calculated for |V|=1,
-        # so you can scale the z-axis forces by V_eq^2 and solve for V_eq.
         Theta_eq = np.arctan2(dF_g[0], -dF_g[2])
         V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/dF_g[2])
 
