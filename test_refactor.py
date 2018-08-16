@@ -188,7 +188,7 @@ def main():
     # deltas = [0.00, 0.75]
     # deltas = [0.00, 1.00]
     # deltas = [0.50, 1.00]
-    deltas = [1.00, 1.00]
+    # deltas = [1.00, 1.00]
 
     # print("Computing the forces and moments for the 2D and 3D wings")
     # dF_2d, dM_2d = wing2d.forces_and_moments(V_rel, *deltas)
@@ -214,8 +214,6 @@ def main():
     # plt.show()
     # dF_2d, dF_3d = dF_2d.T, dF_3d.T
 
-    harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
-
     # Dynamics
     # J_wing = wing3d.inertia(N=5000)
     # o = -wing3d.foil_origin()
@@ -227,6 +225,9 @@ def main():
     # return
 
     # ------------------------
+
+    harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+
     glider3d = Paraglider(wing3d, harness)
 
     alpha, Theta, V = glider3d.equilibrium_glide(0, 0, rho=1.2)
@@ -240,9 +241,9 @@ def main():
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
-    xyz = glider3d.control_points(delta_s=0)
-    # g = [0, 0, 1]  # Gravity acting directly *down*
-    g = [0, 0, 0]  # Disregard gravity acting on the harness
+    # g = [0, 0, 1]  # If `Theta = 0`
+    g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
+    # g = [0, 0, 0]  # Disregard gravity acting on the harness
     dF, dM = glider3d.forces_and_moments(UVW, PQR, g=g, rho=1.2,
                                          delta_Bl=0, delta_Br=0)
     print("\nGlider results:")
