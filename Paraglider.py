@@ -84,11 +84,10 @@ class Paraglider:
         v_rel = v_b2w + np.cross(PQR, xyz)
         return v_rel
 
-    def forces_and_moments(self, UVW, PQR, g,
+    def forces_and_moments(self, UVW, PQR, g, rho,
                            delta_Bl=0, delta_Br=0,
                            delta_s=0,
-                           v_w2e=None, xyz=None,
-                           rho=1):
+                           v_w2e=None, xyz=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
 
@@ -103,6 +102,10 @@ class Paraglider:
             Translational velocity of the body, in frd coordinates.
         PQR : array of float, shape (3,) [rad/s]
             Angular velocity of the body, in frd coordinates.
+        g : array_like of float, shape (3,)
+            The gravity unit vector
+        rho : float [kg/m^3]
+            The ambient air density
         delta_Bl : float [percentage]
             The fraction of maximum left brake
         delta_Br : float [percentage]
@@ -118,8 +121,6 @@ class Paraglider:
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
             at each control point.
-        rho : float [kg/m^3]
-            The ambient air density
 
         Returns
         -------
@@ -188,7 +189,7 @@ class Paraglider:
 
         return dF, dM
 
-    def equilibrium_glide(self, delta_B, delta_S, alpha_eq=None, rho=1):
+    def equilibrium_glide(self, delta_B, delta_S, rho, alpha_eq=None):
         """Steady-state angle of attack, pitch angle, and airspeed.
 
         Parameters
@@ -197,10 +198,10 @@ class Paraglider:
             Percentage of symmetric brake application
         delta_S : float [percentage]
             Percentage of speed bar application
+        rho : float [kg/m^3]
+            Air density. Default value is 1.
         alpha_eq : float [radians] (optional)
             Steady-state angle of attack
-        rho : float, optional [kg/m^3] (optional)
-            Air density. Default value is 1.
 
         Returns
         -------
@@ -226,8 +227,8 @@ class Paraglider:
 
         g = np.zeros(3)  # Don't include the weight of the harness
         V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-        dF_g, dM_g = self.forces_and_moments(V, [0, 0, 0], g, delta_B, delta_B,
-                                             delta_S, rho=rho)
+        dF_g, dM_g = self.forces_and_moments(V, [0, 0, 0], g, rho,
+                                             delta_B, delta_B, delta_S)
 
         Theta_eq = np.arctan2(dF_g[0], -dF_g[2])
         V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/dF_g[2])

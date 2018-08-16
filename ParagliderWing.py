@@ -179,24 +179,22 @@ class ParagliderWing:
         return S
 
     # FIXME: moved from Parafoil. Verify and test.
-    def J(self, rho=1.3, N=2000):
+    def J(self, rho, N=2000):
         raise NotImplementedError("BROKEN!")
         S = self.geometry.surface_distributions(N=N)
         wing_air_density = rho*self.density_factor
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 
-    def inertia(self, lobe_args={}, delta_s=0, rho_air=1.2985, N=200):
+    def inertia(self, rho_air, delta_s=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
         Parameters
         ----------
-        lobe_args : dictionary, optional
-            FIXME: when is this used? Wouldn't the wing create it?
-        delta_s : float [percentage]
-            Percentage of speed bar application
         rho_air : float [kg/m^3]
-            Volumetric air density of the atmosphere (default: 1.2985, ISA)
+            Volumetric air density of the atmosphere
+        delta_s : float [percentage] (optional)
+            Percentage of speed bar application
         N : integer
             The number of points for integration across the span
 
@@ -209,7 +207,7 @@ class ParagliderWing:
             J =  [-Jxy  Jyy -Jyz]
                  [-Jxz -Jyz  Jzz]]
         """
-        p = self.parafoil.mass_properties(lobe_args, N)
+        p = self.parafoil.mass_properties(N)
 
         # Storing this here for now: calculate the total mass and centroid
         # upper_mass = self.rho_upper * p['upper_area']

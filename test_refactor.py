@@ -180,7 +180,7 @@ def main():
     # ------------------------
     glider3d = Paraglider(wing3d, harness)
 
-    alpha, Theta, V = glider3d.equilibrium_glide(0, 0)
+    alpha, Theta, V = glider3d.equilibrium_glide(0, 0, rho=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
     # P = np.deg2rad(15)
@@ -191,9 +191,8 @@ def main():
     xyz = glider3d.control_points(delta_s=0)
     # g = [0, 0, 1]  # Gravity acting directly *down*
     g = [0, 0, 0]  # Disregard gravity acting on the harness
-    dF, dM = glider3d.forces_and_moments(UVW, PQR, g=g,
-                                         delta_Bl=0, delta_Br=0,
-                                         xyz=xyz)
+    dF, dM = glider3d.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+                                         delta_Bl=0, delta_Br=0)
     print("\nGlider results:")
     print("alpha:", np.rad2deg(np.arctan2(UVW[2], UVW[0])))
     print("UVW:  ", UVW.round(3))
@@ -206,7 +205,7 @@ def main():
     # embed()
     # return
 
-    alpha_eq, Theta_eq, V_eq = glider3d.equilibrium_glide(0, 0)
+    alpha_eq, Theta_eq, V_eq = glider3d.equilibrium_glide(0, 0, rho=1.2)
     gamma_eq = alpha_eq - Theta_eq
     print("Wing equilibrium angle of attack:", np.rad2deg(alpha_eq))
 
