@@ -12,7 +12,7 @@ from numpy import arctan
 
 import pandas as pd
 from scipy.integrate import simps
-from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
 from numpy.polynomial import Polynomial
 
 
@@ -183,9 +183,9 @@ class GridCoefficients(AirfoilCoefficients):
         # Pre-transform local flap angles into into chord-global delta angles
         data['delta'] = data['flap'] * (1 - self.xhinge)
 
-        self._Cl = LinearNDInterpolator(data[['alpha', 'delta']], data.CL)
-        self._Cd = LinearNDInterpolator(data[['alpha', 'delta']], data.CD)
-        self._Cm = LinearNDInterpolator(data[['alpha', 'delta']], data.Cm)
+        self._Cl = Clough2D(data[['alpha', 'delta']], data.CL)
+        self._Cd = Clough2D(data[['alpha', 'delta']], data.CD)
+        self._Cm = Clough2D(data[['alpha', 'delta']], data.Cm)
 
         # Construct another grid for the derivative of Cl vs alpha
         # FIXME: needs a design review
@@ -200,7 +200,7 @@ class GridCoefficients(AirfoilCoefficients):
             Cl_alphas = poly.deriv()(group['alpha'])[:, None]
             points.append(np.hstack((group[['alpha', 'delta']], Cl_alphas)))
         points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
-        self._Cl_alpha = LinearNDInterpolator(points[:, :2], points[:, 2])
+        self._Cl_alpha = Clough2D(points[:, :2], points[:, 2])
 
     def Cl(self, alpha, delta):
         return self._Cl(alpha, delta)
