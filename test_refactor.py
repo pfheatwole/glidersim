@@ -15,6 +15,55 @@ from Paraglider import Paraglider
 from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
 
 
+def plot_polar_curve(glider, N=21):
+    # Compute the equilibrium conditions and plot the polar curves
+    speedbar_equilibriums = np.empty((N, 5))
+    delta_ss = np.linspace(0, 1, N)
+    print("Calculating equilibriums over the range of speedbar")
+    for n, ds in enumerate(delta_ss):
+        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, ds, rho=1.2)
+        gamma_eq = alpha_eq - Theta_eq
+        GR = 1/np.tan(gamma_eq)
+        speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+
+    brake_equilibriums = np.empty((N, 5))
+    delta_Bs = np.linspace(0, 1, N)
+    print("Calculating equilibriums over the range of brake")
+    for n, db in enumerate(delta_Bs):
+        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(db, 0, rho=1.2)
+        gamma_eq = alpha_eq - Theta_eq
+        GR = 1/np.tan(gamma_eq)
+        brake_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+
+    # Build the polar curves
+    be, se = brake_equilibriums.T, speedbar_equilibriums.T
+    brake_polar = (be[4]*np.array([np.cos(be[2]), -np.sin(be[2])]))
+    speedbar_polar = se[4]*np.array([np.cos(se[2]), -np.sin(se[2])])
+    fig, ax = plt.subplots()
+
+    # For (m/s, km/h)
+    ax.plot(3.6*brake_polar[0], brake_polar[1], 'r', marker='x')
+    ax.plot(3.6*speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
+    ax.set_xlabel('airspeed [km/h]')
+
+    # For (m/s, m/s)
+    # ax.plot(brake_polar[0], brake_polar[1], 'r', marker='x')
+    # ax.plot(speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
+    # ax.set_aspect('equal')
+    # ax.set_xlabel('airspeed [m/s]')
+
+    ax.set_ylabel('sink rate [m/s]')
+    plt.show()
+
+    # Bonus plot: the glide ratios
+    plt.plot(delta_Bs, brake_equilibriums.T[3], 'r', label='braking')
+    plt.plot(delta_ss, speedbar_equilibriums.T[3], 'g', label='accelerating')
+    plt.xlabel('delta')
+    plt.ylabel('Glide ratio')
+    plt.legend()
+    plt.show()
+
+
 def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
                               SMC=None, MAC=None,
                               dMax=None, sMax=None,
@@ -219,51 +268,9 @@ def main():
 
     print("\n<pausing>\n")
     embed()
-    input("run the GR tests? Press any key")
 
-    # -----------------------------------------------------------------------
-    # Compute the equilibrium conditions and plot the polar curves
-
-    N = 21
-    speedbar_equilibriums = np.empty((N, 5))
-    delta_ss = np.linspace(0, 1, N)
-    print("Calculating equilibriums over the range of speedbar")
-    for n, ds in enumerate(delta_ss):
-        alpha_eq, Theta_eq, V_eq = glider3d.equilibrium_glide(0, ds, rho=1.2)
-        gamma_eq = alpha_eq - Theta_eq
-        GR = 1/np.tan(gamma_eq)
-        speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
-
-    brake_equilibriums = np.empty((N, 5))
-    delta_Bs = np.linspace(0, 1, N)
-    print("Calculating equilibriums over the range of brake")
-    for n, db in enumerate(delta_Bs):
-        alpha_eq, Theta_eq, V_eq = glider3d.equilibrium_glide(db, 0, rho=1.2)
-        gamma_eq = alpha_eq - Theta_eq
-        GR = 1/np.tan(gamma_eq)
-        brake_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
-
-    # Build the polar curves in (Kmh, m/s)
-    be, se = brake_equilibriums.T, speedbar_equilibriums.T
-    brake_polar = (be[4]*np.array([np.cos(be[2]), -np.sin(be[2])]))
-    speedbar_polar = se[4]*np.array([np.cos(se[2]), -np.sin(se[2])])
-    # brake_polar = (be[4]*np.array([3.6*np.cos(be[2]), -np.sin(be[2])]))
-    # speedbar_polar = se[4]*np.array([3.6*np.cos(se[2]), -np.sin(se[2])])
-    fig, ax = plt.subplots()
-    ax.plot(brake_polar[0], brake_polar[1], 'r', marker='x')
-    ax.plot(speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
-    # ax.xlabel('airspeed [km/h]')
-    ax.set_aspect('equal')
-    plt.xlabel('airspeed [m/s]')
-    plt.ylabel('sink rate [m/s]')
-    plt.show()
-
-    plt.plot(delta_Bs, brake_equilibriums.T[3], 'r')
-    plt.plot(delta_ss, speedbar_equilibriums.T[3], 'g')
-    plt.xlabel('delta')
-    plt.ylabel('Glide ratio')
-    plt.show()
-
+    input("Plot the polar curve?  Press any key")
+    plot_polar_curve(glider3d)
     embed()
 
 
