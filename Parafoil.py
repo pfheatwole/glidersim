@@ -1032,7 +1032,7 @@ class Phillips(ForceEstimator):
         dF = dF_inviscid.T + dF_viscous.T
 
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
-        Mi = 1/2 * V2 * Cm * self.dA * self.c_avg
+        Mi = 1/2 * V2 * Cm * self.dA
         dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
 
         return dF, dM
