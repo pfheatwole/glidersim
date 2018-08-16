@@ -245,12 +245,23 @@ def main():
 
     # Build the polar curves in (Kmh, m/s)
     be, se = brake_equilibriums.T, speedbar_equilibriums.T
-    brake_polar = (be[4]*np.array([3.6*np.cos(be[2]), -np.sin(be[2])]))
-    speedbar_polar = se[4]*np.array([3.6*np.cos(se[2]), -np.sin(se[2])])
-    plt.plot(brake_polar[0], brake_polar[1], 'r')
-    plt.plot(speedbar_polar[0], speedbar_polar[1], 'g')
-    plt.xlabel('airspeed [km/h]')
+    brake_polar = (be[4]*np.array([np.cos(be[2]), -np.sin(be[2])]))
+    speedbar_polar = se[4]*np.array([np.cos(se[2]), -np.sin(se[2])])
+    # brake_polar = (be[4]*np.array([3.6*np.cos(be[2]), -np.sin(be[2])]))
+    # speedbar_polar = se[4]*np.array([3.6*np.cos(se[2]), -np.sin(se[2])])
+    fig, ax = plt.subplots()
+    ax.plot(brake_polar[0], brake_polar[1], 'r', marker='x')
+    ax.plot(speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
+    # ax.xlabel('airspeed [km/h]')
+    ax.set_aspect('equal')
+    plt.xlabel('airspeed [m/s]')
     plt.ylabel('sink rate [m/s]')
+    plt.show()
+
+    plt.plot(delta_Bs, brake_equilibriums.T[3], 'r')
+    plt.plot(delta_ss, speedbar_equilibriums.T[3], 'g')
+    plt.xlabel('delta')
+    plt.ylabel('Glide ratio')
     plt.show()
 
     embed()
