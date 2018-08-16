@@ -183,6 +183,9 @@ def main():
     alpha, Theta, V = glider3d.equilibrium_glide(0, 0, rho=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
+    print("Equilibrium condition: alpha={:.3f}, Theta={:.3f}, V={}".format(
+        np.rad2deg(alpha), np.rad2deg(Theta), V))
+
     # P = np.deg2rad(15)
     # Q = np.deg2rad(-5)
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
@@ -212,6 +215,7 @@ def main():
     print("Glider Theta_eq:", np.rad2deg(Theta_eq))
     print("Glider equilibrium glide angle:", np.rad2deg(gamma_eq))
     print("Glider equilibrium glide ratio:", 1/np.tan(gamma_eq))
+    print("Glider equilibrium glide speed:", V_eq)
 
     print("\n<pausing>\n")
     embed()
