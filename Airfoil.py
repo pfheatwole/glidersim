@@ -152,53 +152,41 @@ class GridCoefficients(AirfoilCoefficients):
 
     The CSV must contain the following columns
      * alpha
-     * flap
+     * delta
      * CL
      * CD
      * Cm
-
-    This assumes a fixed-hinge design. A trailing edge deflection is simply a
-    rotation of some trailing section of the chord, rotated by the angle `flap`
-    about the point `xhinge`. That is: `delta = (1 - xhinge)*flap`, where
-    `0 < xhinge < 1`.
-
-    Note: this assumes normalized chord lengths; that is, `c = 1`.
     """
 
-    def __init__(self, filename, xhinge, convert_degrees=True):
+    def __init__(self, filename, convert_degrees=True):
         # FIXME: docstring
-        if (xhinge < 0) or (xhinge > 1):
-            raise ValueError("xhinge should be a fraction of the chord length")
-
-        # FIXME: add a dictionary for column name overrides?
 
         data = pd.read_csv(filename)
         self.data = data
-        self.xhinge = xhinge  # hinge position as a percentage of the chord
 
         if convert_degrees:
             data['alpha'] = np.deg2rad(data.alpha)
-            data['flap'] = np.deg2rad(data.flap)
-
-        # Pre-transform local flap angles into into chord-global delta angles
-        data['delta'] = data['flap'] * (1 - self.xhinge)
+            data['delta'] = np.deg2rad(data.delta)
 
         self._Cl = Clough2D(data[['alpha', 'delta']], data.CL)
         self._Cd = Clough2D(data[['alpha', 'delta']], data.CD)
         self._Cm = Clough2D(data[['alpha', 'delta']], data.Cm)
 
-        # Construct another grid for the derivative of Cl vs alpha
+        # Construct another grid with smoothed derivatives of Cl vs alpha
         # FIXME: needs a design review
+        alpha_min, delta_min = self._Cl.tri.min_bound
+        alpha_max, delta_max = self._Cl.tri.max_bound
+        alphas = np.linspace(alpha_min, alpha_max, 1000)
         points = []
-        for flap, group in data.groupby('flap'):
-            # FIXME: formalize the data sanitation strategy
-            if group.shape[0] < 10:
-                print("DEBUG> too few points for flap={}. Skipping.".format(
-                    flap))
-                continue
-            poly = Polynomial.fit(group['alpha'], group['CL'], 7)
-            Cl_alphas = poly.deriv()(group['alpha'])[:, None]
-            points.append(np.hstack((group[['alpha', 'delta']], Cl_alphas)))
+        for delta in np.linspace(delta_min, delta_max, 25):
+            deltas = np.full_like(alphas, delta)
+            CLs = self._Cl(alphas, deltas)
+            notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
+            alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
+            poly = Polynomial.fit(alphas, CLs, 7)
+            Cl_alphas = poly.deriv()(alphas)
+            points.append(np.array((alphas, deltas, Cl_alphas)).T)
+
         points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
         self._Cl_alpha = Clough2D(points[:, :2], points[:, 2])
 
