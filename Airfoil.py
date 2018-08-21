@@ -495,7 +495,7 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[:, 1]
+        yc = self.camber_curve(x).T[1]
         return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
 
     def lower_curve(self, x):
@@ -505,5 +505,5 @@ class NACA4(AirfoilGeometry):
 
         theta = self._theta(x)
         t = self.thickness(x)
-        yc = self.camber_curve(x)[:, 1]
+        yc = self.camber_curve(x).T[1]
         return np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
