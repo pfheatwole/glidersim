@@ -371,12 +371,11 @@ class AirfoilGeometry(abc.ABC):
 
     @abc.abstractmethod
     def thickness(self, x):
-        """Airfoil thickness, perpendicular to the camber line
+        """Airfoil thickness
 
-        FIXME: there are two versions of this idea:
-         1. Perpendicular to the camber line ("American convention")
-         2. Vertical ("British convention")
-         * Allow the class to specify the convention?
+        This measurement is perpendicular to either the camber line ('American'
+        convention) or the chord ('British' convention). Refer to the specific
+        AirfoilGeometry class documentation to determine which is being used.
 
         Parameters
         ----------
@@ -418,7 +417,7 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA4(AirfoilGeometry):
-    def __init__(self, code):
+    def __init__(self, code, open_TE=True, convention='American'):
         """
         Generate an airfoil using a NACA4 parameterization
 
@@ -427,6 +426,17 @@ class NACA4(AirfoilGeometry):
         code : integer or string
             The 4-digit NACA code. If the code is an integer less than 1000,
             leading zeros are implicitly added; for example, 12 becomes 0012.
+        open_TE : bool (optional)
+            Generate airfoils with an open trailing edge. Default: True
+        convention : string (optional)
+            The convention to use for calculating the airfoil thickness:
+             - 'American' (default)
+             - 'British'
+            The American convention measures airfoil thickness perpendicular to
+            the camber line. The British convention measures airfoil thickness
+            perpendicular to the chord. Most texts use the American definition
+            to define the NACA geometry, but beware that XFOIL uses the British
+            convention.
         """
         if isinstance(code, str):
             code = int(code)  # Let the ValueError exception through
@@ -436,6 +446,13 @@ class NACA4(AirfoilGeometry):
             raise ValueError("Invalid 4-digit NACA code: '{}'".format(code))
 
         self.code = code
+        self.open_TE = open_TE
+        self.convention = convention.lower()
+
+        valid_conventions = {'american', 'british'}
+        if self.convention not in valid_conventions:
+            raise ValueError("The convention must be 'American' or 'British'")
+
         self.m = (code // 1000) / 100       # Maximum camber
         self.p = ((code // 100) % 10) / 10  # location of max camber
         self._tcr = (code % 100) / 100      # Thickness to chord ratio
@@ -464,8 +481,10 @@ class NACA4(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        return 5*self.tcr*(.2969*np.sqrt(x) - .126*x - .3516*x**2 +
-                           .2843*x**3 - .1015*x**4)
+        open_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1015]
+        closed_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1036]
+        a0, a1, a2, a3, a4 = open_TE if self.open_TE else closed_TE
+        return 5*self.tcr*(a0*np.sqrt(x) - a1*x - a2*x**2 + a3*x**3 - a4*x**4)
 
     def _theta(self, x):
         """Angle of the mean camber line
@@ -493,17 +512,29 @@ class NACA4(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        theta = self._theta(x)
         t = self.thickness(x)
         yc = self.camber_curve(x).T[1]
-        return np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
+        if self.convention == 'american':  # Standard NACA definition
+            theta = self._theta(x)
+            curve = np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
+        elif self.convention == 'british':  # XFOIL style
+            curve = np.array([x, yc + t]).T
+        else:
+            raise RuntimeError(f"Invalid convention '{self.convention}'")
+        return curve
 
     def lower_curve(self, x):
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        theta = self._theta(x)
         t = self.thickness(x)
         yc = self.camber_curve(x).T[1]
-        return np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
+        if self.convention == 'american':  # Standard NACA definition
+            theta = self._theta(x)
+            curve = np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
+        elif self.convention == 'british':  # XFOIL style
+            curve = np.array([x, yc - t]).T
+        else:
+            raise RuntimeError(f"Invalid convention '{self.convention}'")
+        return curve
