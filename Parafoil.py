@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 from numpy import sin, cos, arctan2, dot, cross, einsum
-from numpy import arcsin, arctan, deg2rad, sqrt, tan
+from numpy import arcsin, arctan, deg2rad, rad2deg, sqrt, tan
 from numpy.linalg import norm
 from numba import njit
 from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
@@ -881,7 +881,7 @@ class Phillips(ForceEstimator):
         Cls = []
         Cl_alphas = []
 
-        Omega = 0.5  # FIXME: tuning
+        Omega = 1  # FIXME: tuning
 
         if max_runs is None:
             # max_runs = 5 + int(np.ceil(3*M))
@@ -889,6 +889,7 @@ class Phillips(ForceEstimator):
 
         # FIXME: add oscillation detection to reduce Omega if necessary
         n_runs = 0
+        delta_Gamma = None  # FIXME: HACK!!!
         while n_runs < max_runs:
             # print("run:", n_runs)
             # 4. Compute the local fluid velocities
@@ -902,10 +903,13 @@ class Phillips(ForceEstimator):
             V_n = einsum('ki,ki->k', V, self.u_n)  # Normal-wise
             alpha = arctan2(V_n, V_a)
 
-            min_alpha = min(alpha)
-            if np.rad2deg(min_alpha) < -11:
-                print("Encountered a very small alpha: {}".format(min_alpha))
-                embed()
+            min_alpha, max_alpha = rad2deg(min(alpha)), rad2deg(max(alpha))
+            if min_alpha < -12:
+                s_min = self.s_cps[np.argmin(alpha)]
+                print(f"Very small alpha ({min_alpha}) at s={s_min}")
+            if max_alpha > 15:
+                s_max = self.s_cps[np.argmin(alpha)]
+                print(f"Very large alpha ({max_alpha}) at s={s_max}")
 
             # plt.plot(cp_y, np.rad2deg(alpha))
             # plt.ylabel('local section alpha')
@@ -925,9 +929,17 @@ class Phillips(ForceEstimator):
 
             if np.any(np.isnan(Cl)):
                 print("Cl has nan's")
-                embed()
-                return
-                # FIXME: raise a RuntimeWarning?
+                # FIXME: handle the various causes
+                #  * Bad initial proposal for Gamma proposal
+                #  * Some `delta` might be OOB for the AirfoilCoefficients
+                #  * V_rel might produce alpha's that are OOB?
+                if delta_Gamma is not None:  # Overshot a valid configuration
+                    Omega /= 2  # Relax the correction factor
+                    Gamma -= Omega*delta_Gamma  # Undo half of the correction
+                else:  # The initial proposal was (possibly) poor
+                    Gamma *= 0.8
+                n_runs += 1
+                continue
 
             # 6. Compute the residual error
             #  * ref: Phillips Eq:15, or Hunsaker-Snyder Eq:8
@@ -977,22 +989,15 @@ class Phillips(ForceEstimator):
             # embed()
             # 1/0
 
-            # FIXME: ad-hoc workaround to avoid massively negative AoA
-            # print("DEBUG> Omega:", Omega)
             Omega += (1 - Omega)/2
-
             n_runs += 1
 
-            if abs(max(delta_Gamma/Gamma)) < 0.005:
-                print(f"Phillips: early termination after {n_runs} runs")
+            if abs(max(delta_Gamma/Gamma)) < 0.001:
+                # print(f"Phillips: early termination after {n_runs} runs")
                 break
 
-            if n_runs == max_runs:
-                print("Phillips: Failed to converge")
-                embed()
-                break
-
-        # embed()
+        if n_runs == max_runs:
+            print("\nPhillips: Failed to converge\n")
 
         # if n_runs < 10:
         #     thinning = 1
@@ -1009,6 +1014,10 @@ class Phillips(ForceEstimator):
         # plt.legend()
         # plt.grid(True)
         # plt.show()
+
+        # FIXME: the whole procedure needs much MUCH better error handling
+        if np.any(np.isnan(np.c_[V, Gamma, alpha])):
+            print("\nDEBUG: Phillip's produced NaNs\n")
 
         return Gamma, V, alpha
 
