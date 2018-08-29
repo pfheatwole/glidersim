@@ -15,21 +15,24 @@ from Paraglider import Paraglider
 from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
 
 
-def plot_polar_curve(glider, N=21):
+def plot_polar_curve(glider, N=51):
     # Compute the equilibrium conditions and plot the polar curves
     speedbar_equilibriums = np.empty((N, 5))
     delta_ss = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
     for n, ds in enumerate(delta_ss):
+        print("\rds: {:.2f}".format(ds), end="")
         alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, ds, rho=1.2)
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
         speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+    print()
 
     brake_equilibriums = np.empty((N, 5))
     delta_Bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
     for n, db in enumerate(delta_Bs):
+        print("\rdb: {:.2f}".format(db), end="")
         alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(db, 0, rho=1.2)
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
@@ -39,29 +42,86 @@ def plot_polar_curve(glider, N=21):
     be, se = brake_equilibriums.T, speedbar_equilibriums.T
     brake_polar = (be[4]*np.array([np.cos(be[2]), -np.sin(be[2])]))
     speedbar_polar = se[4]*np.array([np.cos(se[2]), -np.sin(se[2])])
-    fig, ax = plt.subplots()
 
+    fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
+
+    # alpha_eq
+    ax[0, 0].plot(-delta_Bs, brake_equilibriums.T[0], 'r')
+    ax[0, 0].plot(delta_ss, speedbar_equilibriums.T[0], 'g')
+    ax[0, 0].set_ylabel('alpha_eq [rad]')
+
+    # Polar curve
+    #
     # For (m/s, km/h)
-    ax.plot(3.6*brake_polar[0], brake_polar[1], 'r', marker='x')
-    ax.plot(3.6*speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
-    ax.set_xlabel('airspeed [km/h]')
-
+    # ax[0, 1].plot(3.6*brake_polar[0], brake_polar[1], 'r')
+    # ax[0, 1].plot(3.6*speedbar_polar[0], speedbar_polar[1], 'g')
+    # ax[0, 1].set_xlabel('airspeed [km/h]')
+    #
     # For (m/s, m/s)
-    # ax.plot(brake_polar[0], brake_polar[1], 'r', marker='x')
-    # ax.plot(speedbar_polar[0], speedbar_polar[1], 'g', marker='.')
-    # ax.set_aspect('equal')
-    # ax.set_xlabel('airspeed [m/s]')
+    ax[0, 1].plot(brake_polar[0], brake_polar[1], 'r')
+    ax[0, 1].plot(speedbar_polar[0], speedbar_polar[1], 'g')
+    ax[0, 1].set_aspect('equal')
+    ax[0, 1].set_xlabel('airspeed [m/s]')
+    ax[0, 1].set_xlim(0, 25)
+    ax[0, 1].set_ylim(-8, 0)
+    ax[0, 1].set_ylabel('sink rate [m/s]')
+    ax[0, 1].grid(which='both')
+    ax[0, 1].minorticks_on()
 
-    ax.set_ylabel('sink rate [m/s]')
+    # Theta_eq
+    ax[1, 0].plot(-delta_Bs, brake_equilibriums.T[1], 'r')
+    ax[1, 0].plot(delta_ss, speedbar_equilibriums.T[1], 'g')
+    ax[1, 0].set_xlabel('control input [percentage]')
+    ax[1, 0].set_ylabel('Theta_eq [rad]')
+
+    # Glide ratio
+    #
+    # For (m/s, km/h)
+    # ax[1, 1].plot(3.6*brake_polar[0], brake_equilibriums.T[3], 'r')
+    # ax[1, 1].plot(3.6*speedbar_polar[0], speedbar_equilibriums.T[3], 'g')
+    # ax[1, 1].set_xlabel('airspeed [km/h]')
+    #
+    # For (m/s, m/s)
+    ax[1, 1].plot(brake_polar[0], brake_equilibriums.T[3], 'r')
+    ax[1, 1].plot(speedbar_polar[0], speedbar_equilibriums.T[3], 'g')
+    ax[1, 1].set_xlim(0, 25)
+    ax[1, 1].set_xlabel('airspeed [m/s]')
+    ax[1, 1].set_ylabel('Glide ratio')
+
     plt.show()
 
-    # Bonus plot: the glide ratios
-    plt.plot(delta_Bs, brake_equilibriums.T[3], 'r', label='braking')
-    plt.plot(delta_ss, speedbar_equilibriums.T[3], 'g', label='accelerating')
-    plt.xlabel('delta')
-    plt.ylabel('Glide ratio')
-    plt.legend()
+    embed()
+
+
+def plot_CL_curve(glider, delta_B=0, delta_S=0):
+    alphas = np.deg2rad(np.linspace(-8, 20, 50))
+    Fs = []
+    for alpha in alphas:
+        g = [0, 0, 0]
+        UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
+        F, M = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=1.2, delta_Bl=delta_B, delta_Br=delta_B)
+        Fs.append(F)
+
+    CLs = []
+    CDs = []
+    for n, F in enumerate(Fs):
+        L = F[0]*np.sin(alphas[n]) - F[2]*np.cos(alphas[n])
+        D = -F[0]*np.cos(alphas[n]) - F[2]*np.sin(alphas[n])
+        CL = 2*L/(1.2 * glider.wing.parafoil.S)
+        CD = 2*D/(1.2 * glider.wing.parafoil.S)
+        CLs.append(CL)
+        CDs.append(CD)
+
+    fig, ax = plt.subplots(3)
+    ax[0].plot(np.rad2deg(alphas), CLs)
+    ax[1].plot(np.rad2deg(alphas), CDs)
+    ax[2].plot(np.rad2deg(alphas), np.array(CLs)/np.array(CDs))
+    ax[0].grid()
+    ax[1].grid()
+    ax[2].grid()
     plt.show()
+
+    embed()
 
 
 def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
