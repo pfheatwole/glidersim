@@ -7,7 +7,7 @@ from IPython import embed
 
 
 def plot_airfoil_geo(foil_geo):
-    x = np.linspace(0, 1, 250)
+    x = (1 - np.cos(np.linspace(0, np.pi, 250)))/2
     upper = foil_geo.upper_curve(x).T
     lower = foil_geo.lower_curve(x).T
     camberline = foil_geo.camber_curve(x)
