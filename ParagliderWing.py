@@ -207,7 +207,7 @@ class ParagliderWing:
             J =  [-Jxy  Jyy -Jyz]
                  [-Jxz -Jyz  Jzz]]
         """
-        p = self.parafoil.mass_properties(N)
+        p = self.parafoil.mass_properties(N=N)
 
         # Storing this here for now: calculate the total mass and centroid
         # upper_mass = self.rho_upper * p['upper_area']
