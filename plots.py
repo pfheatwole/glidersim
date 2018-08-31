@@ -140,3 +140,36 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
             'g--', lw=0.8)
     set_axes_equal(ax)
     plt.show()
+
+
+def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=50):
+    """Make a plot of a 3D wing"""
+
+    fig = plt.figure(figsize=(16, 16))
+    ax = fig.gca(projection='3d')
+    ax.view_init(azim=-130, elev=25)
+
+    for s in np.linspace(-1, 1, N_sections):
+        coords = wing.parafoil.lower_surface(s, N_points).T
+        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9, lw=0.8)
+        coords = wing.parafoil.upper_surface(s, N_points).T
+        ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
+
+    # Add the quarter chord line
+    s = np.linspace(-1, 1, 51)
+    c4 = wing.parafoil.c4(s).T
+    ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
+
+    # And the brake deflection line
+    s = np.linspace(-1, 1, 200)
+    delta = wing.brake_geo(s, delta_Bl, delta_Br)
+    flap = delta/.2
+    c = wing.parafoil.planform.fc(s)
+    orientations = wing.parafoil.section_orientation(s)
+    p = np.array([-0.8*c, np.zeros_like(s), np.zeros_like(s)]) + 0.2*c*np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)])
+    p = np.einsum('Sij,Sj->Si', orientations, p.T) + wing.parafoil.c0(s)
+    p = p.T
+    ax.plot(p[0], p[1], -p[2], 'k--', lw=0.8)
+
+    set_axes_equal(ax)
+    plt.show()
