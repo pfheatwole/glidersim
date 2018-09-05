@@ -7,10 +7,10 @@ from IPython import embed
 
 
 def plot_airfoil_geo(foil_geo):
-    x = (1 - np.cos(np.linspace(0, np.pi, 250)))/2
-    upper = foil_geo.upper_curve(x).T
-    lower = foil_geo.lower_curve(x).T
-    camberline = foil_geo.camber_curve(x)
+    s = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
+    upper = foil_geo.surface_curve(s).T
+    lower = foil_geo.surface_curve(-s).T
+    camberline = foil_geo.camber_curve(s)
 
     fig, ax = plt.subplots()
     ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
@@ -119,10 +119,10 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
     ax = fig.gca(projection='3d')
     ax.view_init(azim=-130, elev=25)
 
-    xa = np.linspace(0, 1, N_points)
-    lower = parafoil.airfoil.geometry.lower_curve(xa).T
+    sa = np.linspace(0, 1, N_points)
+    lower = parafoil.airfoil.geometry.surface_curve(-sa).T
     lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
-    upper = parafoil.airfoil.geometry.upper_curve(xa).T
+    upper = parafoil.airfoil.geometry.surface_curve(sa).T
     upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
 
     for s in np.linspace(-1, 1, N_sections):

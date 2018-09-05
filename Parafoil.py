@@ -123,8 +123,8 @@ class ParafoilGeometry:
         if not isinstance(N, int) or N < 1:
             raise ValueError("`N` must be a positive integer")
 
-        xa = np.linspace(0, 1, N)
-        upper = self.airfoil.geometry.upper_curve(xa).T  # Unscaled airfoil
+        sa = np.linspace(0, 1, N)
+        upper = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
         return surface.T + self.c0(s)
@@ -149,8 +149,8 @@ class ParafoilGeometry:
         if not isinstance(N, int) or N < 1:
             raise ValueError("`N` must be a positive integer")
 
-        xa = np.linspace(0, 1, N)
-        lower = self.airfoil.geometry.lower_curve(xa).T  # Unscaled airfoil
+        sa = np.linspace(0, -1, N)
+        lower = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
         return surface.T + self.c0(s)

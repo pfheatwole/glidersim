@@ -8,12 +8,14 @@ from IPython import embed
 import abc
 
 import numpy as np
-from numpy import arctan
-
+from numpy import arctan, cos, cumsum, sin
+from numpy.linalg import norm
+from numpy.polynomial import Polynomial
 import pandas as pd
 from scipy.integrate import simps
 from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
-from numpy.polynomial import Polynomial
+from scipy.interpolate import PchipInterpolator
+from scipy.optimize import newton
 
 
 class Airfoil:
@@ -240,8 +242,48 @@ class AirfoilGeometry(abc.ABC):
         The inertia tensor of the upper surface curve
     """
 
-    def __init__(self):
+    def __init__(self, points):
+        points = self._derotate_and_normalize(points)
+        self._curve, L = self._build_curve(points)
+        self.upper_length = self._find_LE(self._curve, L)
+        self.lower_length = L - self.upper_length
+
         self._compute_inertia_tensors()  # Adds new instance members
+
+    def _build_curve(self, points):
+        # The points must be sorted: upper TE first, then counter-clockwise
+        d = np.r_[0, cumsum(norm(np.diff(points.T), axis=0))]
+        L = d[-1]  # The total length of the curve
+        return PchipInterpolator(d, points), L
+
+    def _find_LE(self, curve, L):
+        # FIXME: this has not been thoroughly tested
+        deriv = curve.derivative()
+        TE = (curve(0) + curve(L)) / 2
+
+        def normed(v):
+            return v / np.linalg.norm(v)
+
+        def target(d):  # Optimization target: `tangent @ chord == 0`
+            dydx = deriv(d)
+            chord = curve(d) - TE  # The proposed chord line
+            return np.dot(normed(dydx), normed(chord))
+        d_LE = newton(target, L/2)  # FIXME: use x0 = the longest candidate?
+        return d_LE
+
+    def _derotate_and_normalize(self, points):
+        points = points.copy()
+        curve, L = self._build_curve(points)
+        LE = curve(self._find_LE(curve, L))
+        TE = (curve(0) + curve(L)) / 2
+        chord = LE - TE
+        delta = np.pi - np.arctan2(chord[1], chord[0])
+        points -= TE  # Temporarily shift the origin to the TE
+        R = np.array([[cos(delta), -sin(delta)], [sin(delta), cos(delta)]])
+        points = (R @ points.T).T  # Derotate
+        points /= np.linalg.norm(chord)  # Normalize the lengths
+        points += [1, 0]  # Restore the normalized trailing edge
+        return points
 
     def _compute_inertia_tensors(self, N=200):
         """
@@ -270,10 +312,13 @@ class AirfoilGeometry(abc.ABC):
         >>> inertia_frd = C @ inertia_acs @ C
         """
 
-        x = np.linspace(0, 1, N)
+        s = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
 
-        upper = self.upper_curve(x).T
-        lower = self.lower_curve(x).T
+        # FIXME: the upper and lower surfaces are probably not be defined by
+        #        the LE! Don't split at `s = 0`, split at configurable points
+        #        on the curve (which are likely determined by the air intakes).
+        upper = self.surface_curve(s).T
+        lower = self.surface_curve(-s).T
         Ux, Uy = upper[0], upper[1]
         Lx, Ly = lower[0], lower[1]
 
@@ -313,8 +358,10 @@ class AirfoilGeometry(abc.ABC):
         mid_L = (lower[:, :-1] + lower[:, 1:])/2  # Midpoints of `lower`
 
         # Total surface line lengths
-        self.upper_length = norm_U.sum()
-        self.lower_length = norm_L.sum()
+        # self.upper_length = norm_U.sum()
+        # self.lower_length = norm_L.sum()
+        assert np.isclose(norm_U.sum(), self.upper_length)
+        assert np.isclose(norm_L.sum(), self.lower_length)
         UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
 
         # Surface line centroids
@@ -355,8 +402,7 @@ class AirfoilGeometry(abc.ABC):
         """Maximum airfoil thickness-to-chord ratio"""
         # FIXME: does this belong in the API? When is this useful?
 
-    @abc.abstractmethod
-    def camber_curve(self, x):
+    def camber_curve(self, s):
         """Mean camber line coordinates
 
         Parameters
@@ -368,6 +414,37 @@ class AirfoilGeometry(abc.ABC):
         -------
         FIXME: describe the <x,y> array
         """
+        # FIXME verify; looks wonky after normalization?
+        s = np.asarray(s)
+        if np.any((s < 0) | (s > 1)):
+            raise ValueError("`s` must be between 0..1")
+
+        return (self.surface_curve(s) + self.surface_curve(-s)) / 2
+
+    def surface_curve(self, s):
+        """The airfoil boundary curve
+
+        Parameters
+        ----------
+        s : float
+            The curve parameter from -1..1, with -1 the lower surface trailing
+            edge, 0 is the leading edge, and +1 is the upper surface trailing
+            edge
+
+        Returns
+        -------
+        FIXME: describe
+        """
+        s = np.asarray(s)
+        if np.any(abs(s)) > 1:
+            raise ValueError("`s` must be between -1..1")
+
+        d = np.empty(s.shape)
+        mask = (s >= 0)
+        d[mask] = (1 - s[mask]) * self.upper_length
+        d[~mask] = (-s[~mask] * self.lower_length) + self.upper_length
+
+        return self._curve(d)
 
     @abc.abstractmethod
     def thickness(self, x):
@@ -385,34 +462,6 @@ class AirfoilGeometry(abc.ABC):
         Returns
         -------
         FIXME: describe
-        """
-
-    @abc.abstractmethod
-    def upper_curve(self, x):
-        """Upper surface coordinates
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
-
-        Returns
-        -------
-        FIXME: describe the <x,y> array
-        """
-
-    @abc.abstractmethod
-    def lower_curve(self, x):
-        """Lower surface coordinates
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
-
-        Returns
-        -------
-        FIXME: describe the <x,y> array
         """
 
 
@@ -457,24 +506,15 @@ class NACA4(AirfoilGeometry):
         self.p = ((code // 100) % 10) / 10  # location of max camber
         self._tcr = (code % 100) / 100      # Thickness to chord ratio
 
-        super().__init__()  # Add the centroids, inertias, etc
+        N = 5000
+        x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
+        xyu, xyl = self._yu(x), self._yl(x[1:])
+
+        super().__init__(np.r_[xyu[::-1], xyl])
 
     @property
     def tcr(self):
         return self._tcr
-
-    def camber_curve(self, x):
-        m = self.m
-        p = self.p
-        x = np.asarray(x, dtype=float)
-        if np.any(x < 0) or np.any(x > 1):
-            raise ValueError("x must be between 0 and 1")
-
-        f = (x <= p)  # Filter for the two cases, `x <= p` and `x > p`
-        cl = np.empty_like(x)
-        cl[f] = (m/p**2)*(2*p*(x[f]) - (x[f])**2)
-        cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]) - (x[~f])**2)
-        return np.array([x, cl]).T
 
     def thickness(self, x):
         x = np.asarray(x, dtype=float)
@@ -507,13 +547,28 @@ class NACA4(AirfoilGeometry):
 
         return arctan(dyc)
 
-    def upper_curve(self, x):
+    def _yc(self, x):
+        # The camber curve
+        m = self.m
+        p = self.p
+        x = np.asarray(x, dtype=float)
+        if np.any(x < 0) or np.any(x > 1):
+            raise ValueError("x must be between 0 and 1")
+
+        f = (x <= p)  # Filter for the two cases, `x <= p` and `x > p`
+        cl = np.empty_like(x)
+        cl[f] = (m/p**2)*(2*p*(x[f]) - (x[f])**2)
+        cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]) - (x[~f])**2)
+        return np.array([x, cl]).T
+
+    def _yu(self, x):
+        # The upper curve
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self.camber_curve(x).T[1]
+        yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
@@ -523,13 +578,14 @@ class NACA4(AirfoilGeometry):
             raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
 
-    def lower_curve(self, x):
+    def _yl(self, x):
+        # The lower curve
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self.camber_curve(x).T[1]
+        yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
