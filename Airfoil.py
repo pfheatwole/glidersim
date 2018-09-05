@@ -243,8 +243,8 @@ class AirfoilGeometry(abc.ABC):
     """
 
     def __init__(self, points):
-        points = self._derotate_and_normalize(points)
-        self._curve, L = self._build_curve(points)
+        normalized_points = self._derotate_and_normalize(points)
+        self._curve, L = self._build_curve(normalized_points)
         self.upper_length = self._find_LE(self._curve, L)
         self.lower_length = L - self.upper_length
 
@@ -272,6 +272,9 @@ class AirfoilGeometry(abc.ABC):
         return d_LE
 
     def _derotate_and_normalize(self, points):
+        # FIXME: this isn't quite right! Try zooming in on the new origin.
+        #        I think the problem is that `points` probably doesn't contain
+        #        a point directly on the new origin.
         points = points.copy()
         curve, L = self._build_curve(points)
         LE = curve(self._find_LE(curve, L))
@@ -421,6 +424,31 @@ class AirfoilGeometry(abc.ABC):
 
         return (self.surface_curve(s) + self.surface_curve(-s)) / 2
 
+    def _s2d(self, s):
+        """Reverse mapping: s->d
+
+        The two parametrizations for the the curve are:
+         * s: the normalized distance, moving clockwise, starting at the lower
+           trailing edge, from `-1 <= s <= 1`
+         * d: the absolute distance, moving counterclockwise, starting at the
+           upper trailing edge, from `0 <= d <= upper_length+lower_length`
+
+        These two parametrizations are in opposite directions because it seems
+        more natural to refer to the upper surface with a positive normalized
+        distance (`s`), but the points on an airfoil are traditionally
+        specified in a counterclockwise order (`d`).
+        """
+        s = np.asarray(s)
+        if np.any(abs(s)) > 1:
+            raise ValueError("`s` must be between -1..1")
+
+        d = np.empty(s.shape)
+        mask = (s >= 0)
+        d[mask] = (1 - s[mask]) * self.upper_length
+        d[~mask] = (-s[~mask] * self.lower_length) + self.upper_length
+
+        return d
+
     def surface_curve(self, s):
         """The airfoil boundary curve
 
@@ -435,16 +463,21 @@ class AirfoilGeometry(abc.ABC):
         -------
         FIXME: describe
         """
-        s = np.asarray(s)
-        if np.any(abs(s)) > 1:
-            raise ValueError("`s` must be between -1..1")
-
-        d = np.empty(s.shape)
-        mask = (s >= 0)
-        d[mask] = (1 - s[mask]) * self.upper_length
-        d[~mask] = (-s[~mask] * self.lower_length) + self.upper_length
-
+        d = self._s2d(s)
         return self._curve(d)
+
+    def surface_curve_tangent(self, s):
+        """The surface curve tangent unit vector"""
+        d = self._s2d(s)
+        dxdy = -self._curve.derivative()(d).T  # w.r.t. `s`
+        return (dxdy / np.linalg.norm(dxdy, axis=0)).T
+
+    def surface_curve_normal(self, s):
+        """The surface curve normal unit vector"""
+        d = self._s2d(s)
+        dxdy = (self._curve.derivative()(d) * [1, -1]).T
+        dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))  # w.r.t. `s`
+        return dxdy.T
 
     @abc.abstractmethod
     def thickness(self, x):
