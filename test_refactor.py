@@ -230,83 +230,26 @@ def main():
     # -----------------------------------------------------------------------
     # Brake geometry
 
-    p_start, p_peak = 0.05, 0.75
-    delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
+    p_start, p_peak = 0, 0.75
+    # p_start, p_peak = 0.00, BrakeGeometry.Cubic.p_peak_min(0.00)
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
     # -----------------------------------------------------------------------
-    # Wing and glider (using two different force estimation methods)
+    # Wing and glider
 
-    wing2d = ParagliderWing(parafoil, Parafoil.Phillips2D, brakes,
-                            d_riser=0.70, z_riser=6.8,
-                            pA=0., pC=0.75,
-                            kappa_s=0.15)
-    wing3d = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                            d_riser=0.70, z_riser=6.8,
-                            pA=0.1, pC=0.75,
-                            kappa_s=0.15)
-
-    # ---------------------------------------------------------------------
-    # Tests
-
-    cp_y = wing2d.control_points(delta_s=0)[:, 1]
-    K = len(cp_y)
-    alpha = np.deg2rad(6)
-    V_rel = 9.0*np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
-
-    # V_rel = np.asarray([[10.0, 0.0, 1.05]] * K)  # V_cp2w in frd
-    # V_rel[:, 0] += np.linspace(0, 1, K)**2 * 2  # spinning!
-
-    #          Bl     Br
-    # deltas = [0.00, 0.00]
-    # deltas = [0.00, 0.25]
-    # deltas = [0.00, 0.50]
-    # deltas = [0.00, 0.75]
-    # deltas = [0.00, 1.00]
-    # deltas = [0.50, 1.00]
-    # deltas = [1.00, 1.00]
-
-    # print("Computing the forces and moments for the 2D and 3D wings")
-    # dF_2d, dM_2d = wing2d.forces_and_moments(V_rel, *deltas)
-    # dF_3d, dM_3d = wing3d.forces_and_moments(V_rel, *deltas)
-    # dF_2d, dF_3d = dF_2d.T, dF_3d.T
-    # fig, ax = plt.subplots(3, sharex=True, figsize=(16, 10))
-    # ax[0].plot(cp_y, dF_2d[0], label='2D')
-    # ax[0].plot(cp_y, dF_3d[0], label='3D', marker='.')
-    # ax[1].plot(cp_y, dF_2d[1], label='2D')
-    # ax[1].plot(cp_y, dF_3d[1], label='3D', marker='.')
-    # ax[2].plot(cp_y, dF_2d[2], label='2D')
-    # ax[2].plot(cp_y, dF_3d[2], label='3D', marker='.')
-    # ax[0].set_xlabel('spanwise position')
-    # ax[0].set_ylabel('Fx')
-    # ax[1].set_ylabel('Fy')
-    # ax[2].set_ylabel('Fz')
-    # ax[0].grid(True)
-    # ax[1].grid(True)
-    # ax[2].grid(True)
-    # ax[0].legend()
-    # ax[1].legend()
-    # ax[2].legend()
-    # plt.show()
-    # dF_2d, dF_3d = dF_2d.T, dF_3d.T
-
-    # Dynamics
-    # J_wing = wing3d.inertia(N=5000)
-    # o = -wing3d.foil_origin()
-    # tau = (np.cross(wing3d.force_estimator.cps - o, dF_3d) + dM_3d).sum(axis=0)
-    # alpha_rad = np.linalg.inv(J_wing) @ tau
-    # print("angular acceleration in deg/s**2:", np.rad2deg(alpha_rad))
-    # print("\n---Skipping the rest---\n")
-    # embed()
-    # return
-
-    # ------------------------
+    wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
+                          d_riser=0.37, z_riser=6.8,
+                          pA=0.08, pC=0.80,
+                          kappa_s=0.15)
 
     harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
 
-    glider3d = Paraglider(wing3d, harness)
+    glider = Paraglider(wing, harness)
 
-    alpha, Theta, V = glider3d.equilibrium_glide(0, 0, rho=1.2)
+
+    # -----------------------------------------------------------------------
+    # Tests
+    alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
     print("Equilibrium condition: alpha={:.3f}, Theta={:.3f}, V={}".format(
@@ -317,10 +260,8 @@ def main():
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
-    # g = [0, 0, 1]  # If `Theta = 0`
     g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
-    # g = [0, 0, 0]  # Disregard gravity acting on the harness
-    dF, dM = glider3d.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+    dF, dM = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
                                          delta_Bl=0, delta_Br=0)
     print("\nGlider results:")
     print("alpha:", np.rad2deg(np.arctan2(UVW[2], UVW[0])))
@@ -330,11 +271,7 @@ def main():
     print("dM:   ", dM.astype(int))
     print()
 
-    # print("\n\n<Skipping the rest>\n")
-    # embed()
-    # return
-
-    alpha_eq, Theta_eq, V_eq = glider3d.equilibrium_glide(0, 0, rho=1.2)
+    alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, 0, rho=1.2)
     gamma_eq = alpha_eq - Theta_eq
     print("Wing equilibrium angle of attack:", np.rad2deg(alpha_eq))
 
@@ -347,8 +284,7 @@ def main():
     embed()
 
     input("Plot the polar curve?  Press any key")
-    plot_polar_curve(glider3d)
-    embed()
+    plot_polar_curve(glider)
 
 
 if __name__ == "__main__":
