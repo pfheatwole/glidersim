@@ -108,6 +108,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
 
     set_axes_equal(ax)
+    ax.invert_yaxis()
     plt.show()
 
 
@@ -139,6 +140,7 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
             parafoil.planform.fy(s), np.zeros(50),
             'g--', lw=0.8)
     set_axes_equal(ax)
+    ax.invert_yaxis()
     plt.show()
 
 
@@ -172,4 +174,5 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=5
     ax.plot(p[0], p[1], -p[2], 'k--', lw=0.8)
 
     set_axes_equal(ax)
+    ax.invert_yaxis()
     plt.show()
