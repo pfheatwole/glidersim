@@ -1029,7 +1029,8 @@ class Phillips(ForceEstimator):
         #  0. Nominal airfoil drag
         #  1. Additional drag from the air intakes
         #  2. Additional drag from "surface characteristics"
-        # FIXME: these terms have not been verified!!
+        # FIXME: these extra terms have not been verified
+        # FIXME: these extra terms do not belong here
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
         Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
