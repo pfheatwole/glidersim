@@ -260,14 +260,14 @@ def main():
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
     g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
-    dF, dM = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
-                                         delta_Bl=0, delta_Br=0)
+    F, M = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+                                     delta_Bl=0, delta_Br=0)
     print("\nGlider results:")
     print("alpha:", np.rad2deg(np.arctan2(UVW[2], UVW[0])))
-    print("UVW:  ", UVW.round(3))
-    print("PQR:  ", PQR.round(3))
-    print("dF:   ", dF.astype(int))
-    print("dM:   ", dM.astype(int))
+    print("UVW:  ", UVW.round(4))
+    print("PQR:  ", PQR.round(4))
+    print("F:    ", F.round(4))
+    print("M:    ", M.round(4))
     print()
 
     alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, 0, rho=1.2)
