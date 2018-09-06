@@ -242,9 +242,10 @@ class AirfoilGeometry(abc.ABC):
         The inertia tensor of the upper surface curve
     """
 
-    def __init__(self, points):
-        normalized_points = self._derotate_and_normalize(points)
-        self._curve, L = self._build_curve(normalized_points)
+    def __init__(self, points, normalize=True):
+        if normalize:
+            points = self._derotate_and_normalize(points)
+        self._curve, L = self._build_curve(points)
         self.upper_length = self._find_LE(self._curve, L)
         self.lower_length = L - self.upper_length
 
