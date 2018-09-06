@@ -38,8 +38,8 @@ def plot_airfoil_coef(airfoil, coef, N=100):
         The number of sample points per dimension
     """
 
-    alpha = np.deg2rad(np.linspace(-3, 22, N))
-    delta = np.deg2rad(np.linspace(0, 50*(1-0.8), N))
+    alpha = np.deg2rad(np.linspace(-10, 25, N))
+    delta = np.deg2rad(np.linspace(0, 15, N))
     grid = np.meshgrid(alpha, delta)
 
     coef = coef.lower()
@@ -51,10 +51,28 @@ def plot_airfoil_coef(airfoil, coef, N=100):
         values = airfoil.coefficients.Cd(grid[0], grid[1])
     elif coef == 'cm':
         values = airfoil.coefficients.Cd(grid[0], grid[1])
+    else:
+        raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
-    fig = plt.figure(figsize=(13, 10))
+    fig = plt.figure(figsize=(17, 15))
     ax = fig.gca(projection='3d')
     ax.plot_surface(np.rad2deg(grid[0]), np.rad2deg(grid[1]), values)
+
+    try:  # Kludge: Try to plot the raw coefficient data from the DataFrame
+        for delta, group in airfoil.coefficients.data.groupby('delta'):
+            deltas = np.full_like(group['alpha'], delta)
+            if coef == 'cl':
+                values = airfoil.coefficients.Cl(group['alpha'], deltas)
+            elif coef == 'cd':
+                values = airfoil.coefficients.Cd(group['alpha'], deltas)
+            elif coef == 'cm':
+                values = airfoil.coefficients.Cm(group['alpha'], deltas)
+            else:  # FIXME: does the data ever provide `cl_alpha` directly?
+                break
+            ax.plot(np.rad2deg(group['alpha']), np.rad2deg(deltas), values)
+    except AttributeError:
+        pass
+
     ax.set_xlabel('alpha [degrees]')
     ax.set_ylabel('delta [degrees]')
     ax.set_zlabel(coef)
