@@ -399,31 +399,6 @@ class AirfoilGeometry(abc.ABC):
              [-Ixy_L,  Iyy_L,     0],
              [     0,      0, Izz_L]])
 
-    @property
-    @abc.abstractmethod
-    def tcr(self):
-        """Maximum airfoil thickness-to-chord ratio"""
-        # FIXME: does this belong in the API? When is this useful?
-
-    def camber_curve(self, s):
-        """Mean camber line coordinates
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
-
-        Returns
-        -------
-        FIXME: describe the <x,y> array
-        """
-        # FIXME verify; looks wonky after normalization?
-        s = np.asarray(s)
-        if np.any((s < 0) | (s > 1)):
-            raise ValueError("`s` must be between 0..1")
-
-        return (self.surface_curve(s) + self.surface_curve(-s)) / 2
-
     def _s2d(self, s):
         """Reverse mapping: s->d
 
@@ -479,7 +454,9 @@ class AirfoilGeometry(abc.ABC):
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))  # w.r.t. `s`
         return dxdy.T
 
-    @abc.abstractmethod
+    def camber_curve(self, x):
+        raise NotImplementedError  # FIXME: design and implement
+
     def thickness(self, x):
         """Airfoil thickness
 
@@ -496,6 +473,7 @@ class AirfoilGeometry(abc.ABC):
         -------
         FIXME: describe
         """
+        raise NotImplementedError  # FIXME: design and implement
 
 
 class NACA4(AirfoilGeometry):
@@ -537,17 +515,13 @@ class NACA4(AirfoilGeometry):
 
         self.m = (code // 1000) / 100       # Maximum camber
         self.p = ((code // 100) % 10) / 10  # location of max camber
-        self._tcr = (code % 100) / 100      # Thickness to chord ratio
+        self.tcr = (code % 100) / 100      # Thickness to chord ratio
 
         N = 5000
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu, xyl = self._yu(x), self._yl(x[1:])
 
         super().__init__(np.r_[xyu[::-1], xyl])
-
-    @property
-    def tcr(self):
-        return self._tcr
 
     def thickness(self, x):
         x = np.asarray(x, dtype=float)
@@ -581,6 +555,17 @@ class NACA4(AirfoilGeometry):
         return arctan(dyc)
 
     def _yc(self, x):
+        """Mean camber line coordinates
+
+        Parameters
+        ----------
+        x : float
+            Position on the chord line, where `0 <= x <= 1`
+
+        Returns
+        -------
+        FIXME: describe the <x,y> array
+        """
         # The camber curve
         m = self.m
         p = self.p
