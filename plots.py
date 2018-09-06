@@ -10,14 +10,19 @@ def plot_airfoil_geo(foil_geo):
     s = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
     upper = foil_geo.surface_curve(s).T
     lower = foil_geo.surface_curve(-s).T
-    camberline = foil_geo.camber_curve(s)
-
     fig, ax = plt.subplots()
-    ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
     ax.plot(upper[0], upper[1], c='r', lw=0.75)
     ax.plot(lower[0], lower[1], c='b', lw=0.75)
-    ax.scatter(foil_geo.camber_curve(0.25)[0],
-               foil_geo.camber_curve(0.25)[1], c='k')
+
+    try:
+        x = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
+        camberline = foil_geo._yc(x)
+        ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
+        ax.scatter(foil_geo._yc(0.25)[0],
+                   foil_geo._yc(0.25)[1], c='k')
+    except AttributeError:
+        pass
+
     ax.set_aspect('equal')
     ax.legend()
     ax.set_xlim(-0.05, 1.05)
