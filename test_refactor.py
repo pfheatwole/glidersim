@@ -181,13 +181,19 @@ def main():
     # airfoil_geo = Airfoil.NACA4(4415)
     # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50.csv')
 
-    print("\nAirfoil: NACA4415, simple flap, hinge at 80%")
-    airfoil_geo = Airfoil.NACA4(4415)
-    airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50_Re2_cleaned.csv')
+    # print("\nAirfoil: NACA4415, simple flap, hinge at 80%")
+    # airfoil_geo = Airfoil.NACA4(4415)
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50_Re2_cleaned.csv')
+    # delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
 
     # print("\nAirfoil: NACA4415, simple flap, variable xhinge")
     # airfoil_geo = Airfoil.NACA4(4415)
     # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_fixed_flap65.csv')
+
+    print("\nAirfoil: NACA4418, curving flap")
+    airfoil_geo = Airfoil.NACA4(4418, open_TE=False, convention='british')
+    airfoil_coefs = Airfoil.GridCoefficients('polars/NACA4418_theta30_epsilon10_Ku4_Kl0.5_ver3.csv')
+    delta_max = np.deg2rad(10.8)  # FIXME: magic number
 
     # plot_airfoil_geo(airfoil_geo)
 
