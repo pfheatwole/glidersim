@@ -246,7 +246,6 @@ def main():
 
     glider = Paraglider(wing, harness)
 
-
     # -----------------------------------------------------------------------
     # Tests
     alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
