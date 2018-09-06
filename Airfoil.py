@@ -362,11 +362,9 @@ class AirfoilGeometry(abc.ABC):
         mid_L = (lower[:, :-1] + lower[:, 1:])/2  # Midpoints of `lower`
 
         # Total surface line lengths
-        # self.upper_length = norm_U.sum()
-        # self.lower_length = norm_L.sum()
-        assert np.isclose(norm_U.sum(), self.upper_length)
-        assert np.isclose(norm_L.sum(), self.lower_length)
-        UL, LL = self.upper_length, self.lower_length  # Convenient shorthand
+        UL, LL = norm_U.sum(), norm_L.sum()  # Convenient shorthand
+        assert np.isclose(UL, self.upper_length)
+        assert np.isclose(LL, self.lower_length)
 
         # Surface line centroids
         #
