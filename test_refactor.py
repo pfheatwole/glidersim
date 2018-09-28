@@ -213,11 +213,27 @@ def main():
     # print("\nAirfoil: NACA4415, simple flap, variable xhinge")
     # airfoil_geo = Airfoil.NACA4(4415)
     # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_fixed_flap65.csv')
+    # delta_max = np.deg2rad(10)  # FIXME: magic number
 
-    print("\nAirfoil: NACA4418, curving flap")
-    airfoil_geo = Airfoil.NACA4(4418, open_TE=False, convention='british')
-    airfoil_coefs = Airfoil.GridCoefficients('polars/NACA4418_theta30_epsilon10_Ku4_Kl0.5_ver3.csv')
-    delta_max = np.deg2rad(10.8)  # FIXME: magic number
+    # print("\nAirfoil: NACA4418, curving flap")
+    # airfoil_geo = Airfoil.NACA4(4418, open_TE=False, convention='british')
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA4418_theta30_epsilon10_Ku4_Kl0.5_ver3.csv')
+    # delta_max = np.deg2rad(10.8)  # FIXME: magic number
+
+    # print("\nAirfoil: NACA 23015, curving flap")
+    # airfoil_geo = Airfoil.NACA5(23015, convention='british')
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku3_Kl0.5.csv')  # delta_max = 13.84
+    # delta_max = np.deg2rad(13.8)  # FIXME: magic number
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku6_Kl0.75.csv')  # delta_max = 11.75
+    # delta_max = np.deg2rad(11.74)  # FIXME: magic number
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku3_Kl0.5_N0.1.csv')  # delta_max = 15.15
+    # delta_max = np.deg2rad(13)  # FIXME: magic number
+    # For a Hook 3, I want max brake to produce a mininum speed of ~6.6m/s
+
+    print("\nAirfoil: NACA 24018, curving flap")
+    airfoil_geo = Airfoil.NACA5(24018, convention='british')
+    airfoil_coefs = Airfoil.GridCoefficients('polars/NACA24018_theta30_epsilon10_Ku3_Kl0.5.csv')  # delta_max = 13.76
+    delta_max = np.deg2rad(13.75)  # FIXME: magic number
 
     # plot_airfoil_geo(airfoil_geo)
 
