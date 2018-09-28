@@ -114,13 +114,35 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
         CLs.append(CL)
         CDs.append(CD)
 
-    fig, ax = plt.subplots(3)
-    ax[0].plot(np.rad2deg(alphas), CLs)
-    ax[1].plot(np.rad2deg(alphas), CDs)
-    ax[2].plot(np.rad2deg(alphas), np.array(CLs)/np.array(CDs))
-    ax[0].grid()
-    ax[1].grid()
-    ax[2].grid()
+    deltas = np.full_like(alphas, delta_B)
+    Cls = glider.wing.parafoil.airfoil.coefficients.Cl(alphas, deltas)
+    Cds = glider.wing.parafoil.airfoil.coefficients.Cd(alphas, deltas)
+
+    fig, ax = plt.subplots(2, 2, figsize=(9, 8))
+    ax[0, 0].plot(np.rad2deg(alphas), CLs, label='CL')
+    ax[0, 0].plot(np.rad2deg(alphas), Cls, 'k--', linewidth=0.75, label='Cl')
+    ax[1, 0].plot(np.rad2deg(alphas), CDs, label='CD')
+    ax[1, 0].plot(np.rad2deg(alphas), Cds, 'k--', linewidth=0.75, label='Cd')
+    ax[0, 1].plot(np.rad2deg(alphas), np.array(CLs)/np.array(CDs))
+    ax[1, 1].plot(CDs, CLs)
+
+    ax[0, 0].set_xlabel('alpha [deg]')
+    ax[1, 0].set_xlabel('alpha [deg]')
+    ax[0, 1].set_xlabel('alpha [deg]')
+    ax[1, 1].set_xlabel('CD')
+
+    ax[0, 0].set_ylabel('Lift Coefficient')
+    ax[1, 0].set_ylabel('Drag Coefficient')
+    ax[0, 1].set_ylabel('CL/CD')
+    ax[1, 1].set_ylabel('CL')
+
+    ax[0, 0].legend()
+    ax[1, 0].legend()
+
+    ax[0, 0].grid()
+    ax[0, 1].grid()
+    ax[1, 0].grid()
+    ax[1, 1].grid()
     plt.show()
 
     embed()
