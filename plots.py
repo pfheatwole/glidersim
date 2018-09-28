@@ -55,7 +55,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     elif coef == 'cd':
         values = airfoil.coefficients.Cd(grid[0], grid[1])
     elif coef == 'cm':
-        values = airfoil.coefficients.Cd(grid[0], grid[1])
+        values = airfoil.coefficients.Cm(grid[0], grid[1])
     else:
         raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
