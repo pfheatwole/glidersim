@@ -169,25 +169,25 @@ class Paraglider:
         # Compute the resultant force and moment about the cg
         dF_w, dM_w = self.wing.forces_and_moments(v_wing, delta_Bl, delta_Br)
         dF_h, dM_h = self.harness.forces_and_moments(v_harness)
-        dF = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
-        dM = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
+        F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
+        M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
-        dM += np.cross(cp_wing, dF_w).sum(axis=0)
+        M += np.cross(cp_wing, dF_w).sum(axis=0)
 
         # Scale the aerodynamic forces to account for the air density before
         # adding the weight of the harness
-        dF, dM = rho*dF, rho*dM
+        F, M = rho*F, rho*M
 
         # The harness also contributes a gravitational force
         g = 9.8 * np.asarray(g)
-        dF += g*self.harness.mass  # FIXME: leaky abstraction
+        F += g*self.harness.mass  # FIXME: leaky abstraction
 
         # FIXME: compute the glider center of mass
         # FIXME: apply the forces about the cm to compute the correct moment
 
-        return dF, dM
+        return F, M
 
     def equilibrium_glide(self, delta_B, delta_S, rho, alpha_eq=None):
         """Steady-state angle of attack, pitch angle, and airspeed.
