@@ -200,7 +200,7 @@ class ParagliderWing:
 
         Returns
         -------
-        J : 3x3 matrix of float
+        J : ndarray of float, shape (3,3)
             The inertia tensor of the wing
 
                 [[ Jxx -Jxy -Jxz]
