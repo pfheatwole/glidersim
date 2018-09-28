@@ -94,13 +94,14 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_CL_curve(glider, delta_B=0, delta_S=0):
+def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-8, 20, 50))
     Fs = []
     for alpha in alphas:
         g = [0, 0, 0]
         UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
-        F, M = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=1.2, delta_Bl=delta_B, delta_Br=delta_B)
+        F, M = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
+                                         delta_Bl=delta_B, delta_Br=delta_B)
         Fs.append(F)
 
     CLs = []
@@ -108,8 +109,8 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0):
     for n, F in enumerate(Fs):
         L = F[0]*np.sin(alphas[n]) - F[2]*np.cos(alphas[n])
         D = -F[0]*np.cos(alphas[n]) - F[2]*np.sin(alphas[n])
-        CL = 2*L/(1.2 * glider.wing.parafoil.S)
-        CD = 2*D/(1.2 * glider.wing.parafoil.S)
+        CL = 2*L/(rho_air * glider.wing.parafoil.S)
+        CD = 2*D/(rho_air * glider.wing.parafoil.S)
         CLs.append(CL)
         CDs.append(CD)
 
