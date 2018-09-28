@@ -1,3 +1,21 @@
+Does my model demonstrate "control reversal" for small brake deflections?
+ * aka, "roll steering" instead of "skid steering"
+ * Tends to happen for flatter wings and/or as the angle of incidence becomes more negative (ie, the equilibrium `theta`, in my case)
+    * It would be interesting to have a flat wing with the risers placed forward of the c4 (thus a very negative `theta_eq` to observe this behavior)
+ * ref: "Apsects of control for a parafoil and payload system", Slegers and Costello, 2003
+
+Would be really cool to reproduce the wing used in "Wind Tunnel Investigation of a Rigid Paraglider Reference Wing" (Belloc, 2015)
+ * Includes full specs of the wing geometry?
+ * **Uses a NACA 23015, because "it is representative" of the design tradeoffs for paragliders!!**
+    * TODO: implement a NACA5!!
+    * Oh snap, **the 23015 is so so different from a 4418...**, might fix my Hook 3 performance issues (the 23015 has a much lower L/D so I might should overestimating my glide ratios!)
+
+
+If I'm using a UnivariateSpline for the airfoil coefs, I need to handle "out of bounds" better
+ * Catch ValueError and return `nan`?
+
+
+
 # General
  * Figure out why the polar curve look so terrible for small applications of brakes!!
  * Phillips should check for zero `Cl_alpha`
@@ -37,6 +55,7 @@
     * This assumption is almost surely incorrect in terms of parafoil construction. The heavier upper surface likely wraps beyond `d_LE` and down around the nose to the air intakes.
  * `AirfoilCoefficients` should support automatic broadcasting of `alpha` and `delta`
     * eg, suppose `alpha` is an array and `delta` is a scalar
+ * `NACA4` doesn't work with symmetric airfoils (crashes!)
 
 # Parafoil
 
