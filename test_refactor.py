@@ -244,6 +244,7 @@ def main():
     S_flat, b_flat, AR_flat = 23, 11.15, 5.40
     SMC_flat = b_flat/AR_flat
     S, b, AR = 19.55, 8.84, 4.00
+    V_limits_hook3 = np.array([24, 38, 52]) / 3.6  # min/trim/max in m/s
 
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
     # parafoil = build_elliptical_parafoil(
