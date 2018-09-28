@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 
 import numpy as np
+from numpy import rad2deg
 
 from IPython import embed
 
@@ -46,9 +47,9 @@ def plot_polar_curve(glider, N=51):
     fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
 
     # alpha_eq
-    ax[0, 0].plot(-delta_Bs, brake_equilibriums.T[0], 'r')
-    ax[0, 0].plot(delta_ss, speedbar_equilibriums.T[0], 'g')
-    ax[0, 0].set_ylabel('alpha_eq [rad]')
+    ax[0, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[0]), 'r')
+    ax[0, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[0]), 'g')
+    ax[0, 0].set_ylabel('alpha_eq [deg]')
 
     # Polar curve
     #
@@ -69,10 +70,10 @@ def plot_polar_curve(glider, N=51):
     ax[0, 1].minorticks_on()
 
     # Theta_eq
-    ax[1, 0].plot(-delta_Bs, brake_equilibriums.T[1], 'r')
-    ax[1, 0].plot(delta_ss, speedbar_equilibriums.T[1], 'g')
+    ax[1, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[1]), 'r')
+    ax[1, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[1]), 'g')
     ax[1, 0].set_xlabel('control input [percentage]')
-    ax[1, 0].set_ylabel('Theta_eq [rad]')
+    ax[1, 0].set_ylabel('Theta_eq [deg]')
 
     # Glide ratio
     #
