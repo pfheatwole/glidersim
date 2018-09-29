@@ -778,10 +778,12 @@ class Phillips(ForceEstimator):
     def _induced_velocities(self, u_inf):
         #  * ref: Phillips, Eq:6
         # This version uses a Numba helper function
-        R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2
-        K = self.K
 
         if self.f is None:
+            # These variables must be in the local scope to jit the function
+            R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2
+            K = self.K
+
             def f(u_inf):
                 v = np.empty_like(R1)
 
