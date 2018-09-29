@@ -14,6 +14,8 @@ from util import cross3
 
 import matplotlib.pyplot as plt
 
+from plots import set_axes_equal
+
 
 class ParafoilGeometry:
     def __init__(self, planform, lobe, airfoil):
@@ -729,11 +731,8 @@ class Phillips(ForceEstimator):
             ax.view_init(azim=-130, elev=25)
 
             # Plot the actual quarter chord
-            # y = np.linspace(-b/2, b/2, 51)
-            # t = np.linspace(-1, 1, 51)
-            # ax.plot(self.parafoil.geometry.fx(t),
-            #         self.parafoil.geometry.fy(t),
-            #         -self.parafoil.geometry.fz(t), 'g--', lw=0.8)
+            ax.plot(*(self.parafoil.c4(np.linspace(-1, 1, 50)) * [1, 1, -1]).T,
+                    'g--', lw=0.8)
 
             # Plot the segments and their nodes
             # ax.plot(self.nodes[:, 0], self.nodes[:, 1], -self.nodes[:, 2], marker='.')
