@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 from numpy import sin, cos, arctan2, dot, cross, einsum
-from numpy import arcsin, arctan, deg2rad, rad2deg, sqrt, tan
+from numpy import arcsin, arctan, deg2rad, rad2deg, sqrt, tan, linspace
 from numpy.linalg import norm
 from numba import njit
 from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
@@ -38,7 +38,7 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        s = np.linspace(-1, 1, 5000)
+        s = linspace(-1, 1, 5000)
         return simps(self.planform.fc(s), self.fy(s))
 
     @property
@@ -125,7 +125,7 @@ class ParafoilGeometry:
         if not isinstance(N, int) or N < 1:
             raise ValueError("`N` must be a positive integer")
 
-        sa = np.linspace(0, 1, N)
+        sa = linspace(0, 1, N)
         upper = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
@@ -151,7 +151,7 @@ class ParafoilGeometry:
         if not isinstance(N, int) or N < 1:
             raise ValueError("`N` must be a positive integer")
 
-        sa = np.linspace(0, -1, N)
+        sa = linspace(0, -1, N)
         lower = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
@@ -171,7 +171,7 @@ class ParafoilGeometry:
         are composites of three groups: the upper surface, the internal volume,
         and the lower surface.
         """
-        s_nodes = np.cos(np.linspace(np.pi, 0, N+1))
+        s_nodes = cos(linspace(np.pi, 0, N+1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1])/2  # Section midpoints
         nodes = self.c4(s_nodes, lobe_args)  # Section endpoints
         geo = self.airfoil.geometry
@@ -271,14 +271,14 @@ class ParafoilPlanform(abc.ABC):
     def MAC(self):
         """Mean aerodynamic chord"""
         # Subclasses can redefine this brute method with an analytical solution
-        s = np.linspace(0, 1, 5000)
+        s = linspace(0, 1, 5000)
         return (2 / self.S) * simps(self.fc(s)**2, self.fy(s))
 
     @property
     def SMC(self):
         """Standard mean chord"""
         # Subclasses can redefine this brute method with an analytical solution
-        s = np.linspace(-1, 1, 5000)
+        s = linspace(-1, 1, 5000)
         return np.mean(self.fc(s))
 
     @property
@@ -395,7 +395,7 @@ class EllipticalPlanform(ParafoilPlanform):
 
     def orientation(self, s):
         theta = self.ftheta(s)
-        ct, st = np.cos(theta), np.sin(theta)
+        ct, st = cos(theta), sin(theta)
         _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
         torsion = np.array([
             [ct,  _0, st],
@@ -457,7 +457,7 @@ class ParafoilLobe:
         # FIXME: should this be cached?
         # FIXME: is this always the nominal value, or does it deform?
         N = 500
-        s = np.linspace(-1, 1, N)
+        s = linspace(-1, 1, N)
         points = np.vstack([self.fy(s), self.fz(s)])
         L = np.sum(np.linalg.norm(points[:, :-1] - points[:, 1:], axis=0))
         return L  # The ellipse line length = b_flat/b_projected
@@ -518,24 +518,24 @@ class EllipticalLobe(ParafoilLobe):
         # arc length of an ellipse (which is essentially `s`), so pre-compute
         # the mapping and fit it with a spline.
         t_min_z = np.arccos(b/(2*self.Az))  # t_min <= t <= (np.pi-t_min)
-        t = np.linspace(np.pi - t_min_z, t_min_z, 500)
-        p = np.vstack((self.Az*np.cos(t), self.Bz*np.sin(t) + self.Cz))
+        t = linspace(np.pi - t_min_z, t_min_z, 500)
+        p = np.vstack((self.Az*cos(t), self.Bz*sin(t) + self.Cz))
         s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
         s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
         self.s2t = UnivariateSpline(s, t, k=5)
 
     def fy(self, s):
         t = self.s2t(s)
-        return self.Az * np.cos(t)
+        return self.Az * cos(t)
 
     def fz(self, s):
         t = self.s2t(s)
-        return self.Bz * np.sin(t) + self.Cz
+        return self.Bz * sin(t) + self.Cz
 
     def orientation(self, s):
         t = self.s2t(s)
-        dydt = -self.Az * np.sin(t)
-        dzdt = self.Bz * np.cos(t)
+        dydt = -self.Az * sin(t)
+        dzdt = self.Bz * cos(t)
 
         # Normalize the derivatives into unit vectors, and negate to orient
         # them with increasing `s` instead of increasing `t`
@@ -731,7 +731,7 @@ class Phillips(ForceEstimator):
             ax.view_init(azim=-130, elev=25)
 
             # Plot the actual quarter chord
-            ax.plot(*(self.parafoil.c4(np.linspace(-1, 1, 50)) * [1, 1, -1]).T,
+            ax.plot(*(self.parafoil.c4(linspace(-1, 1, 50)) * [1, 1, -1]).T,
                     'g--', lw=0.8)
 
             # Plot the segments and their nodes
