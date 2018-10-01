@@ -8,6 +8,8 @@ from numba import njit
 from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
 from scipy.integrate import simps
 
+import scipy.optimize
+
 from IPython import embed
 
 from util import cross3
@@ -1128,3 +1130,243 @@ class Phillips2D(ForceEstimator):
         dM = 0
 
         return dF, dM
+
+
+class PhillipsRefactored(ForceEstimator):
+    """
+    A numerical lifting-line method that uses a set of spanwise bound vortices
+    instead of a single, uniform lifting line. Unlike the Prandtl's classic
+    lifting-line theory, this method allows for wing sweep and dihedral.
+
+    References
+    ----------
+    .. [1] Phillips and Snyder, "Modern Adaptation of Prandtl’s Classic
+       Lifting-Line Theory", Journal of Aircraft, 2000
+
+    .. [2] McLeanauth, "Understanding Aerodynamics - Arguing from the Real
+       Physics", p382
+
+    .. [3] Hunsaker and Snyder, "A lifting-line approach to estimating
+       propeller/wing interactions", 2006
+
+    Notes
+    -----
+    This implementation uses a single distribution for the entire span, which
+    is suitable for parafoil,s but for wings with left and right segments
+    separated by some discontinuity at the root you should distribute the
+    points across each semispan independently. See _[1].
+
+    This method does suffer an issue where induced velocity goes to infinity as
+    the segment lengths tend toward zero (as the number of segments increases,
+    or for a poorly chosen point distribution). See _[2], section 8.2.3.
+    """
+
+    def __init__(self, parafoil, lobe_args={}):
+        self.parafoil = parafoil
+        self.lobe_args = lobe_args
+
+        # Define the spanwise and nodal and control points
+
+        # Option 1: linear distribution
+        self.K = 51  # The number of bound vortex segments
+        self.s_nodes = linspace(-1, 1, self.K+1)
+
+        # Option 2: cosine distribution
+        # self.K = 21  # The number of bound vortex segments
+        # self.s_nodes = cos(linspace(np.pi, 0, self.K+1))
+
+        # Nodes are indexed from 0..K+1
+        self.nodes = self.parafoil.c4(self.s_nodes)
+
+        # Control points are indexed from 0..K
+        self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
+        self.cps = self.parafoil.c4(self.s_cps)
+
+        # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
+        self.R1 = self.cps - self.nodes[:-1, None]
+        self.R2 = self.cps - self.nodes[1:, None]
+        self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
+        self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
+
+        # Wing section orientation unit vectors at each control point
+        # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
+        u = -self.parafoil.section_orientation(self.s_cps, lobe_args).T
+        self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
+
+        # Define the differential areas as parallelograms by assuming a linear
+        # chord variation between nodes.
+        self.dl = self.nodes[1:] - self.nodes[:-1]
+        node_chords = self.parafoil.planform.fc(self.s_nodes)
+        self.c_avg = (node_chords[1:] + node_chords[:-1])/2
+        self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
+
+        self._compute_v = None  # FIXME: design review Numba helper functions
+
+    @property
+    def control_points(self):
+        cps = self.cps.view()  # FIXME: better than making a copy?
+        cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
+        return cps
+
+    def _induced_velocities(self, u_inf):
+        # 2. Compute the "induced velocity" unit vectors
+
+        # These variables must be in the local scope to jit the function
+        R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2
+        K = self.K
+
+        def compute_v(u_inf):
+            #  * ref: Phillips, Eq:6
+            v = np.empty_like(R1)
+            indices = [(i, j) for i in range(K) for j in range(K)]
+            for ij in indices:
+                v[ij] = cross3(u_inf, R2[ij]) / \
+                    (r2[ij] * (r2[ij] - dot(u_inf, R2[ij])))
+
+                v[ij] -= cross3(u_inf, R1[ij]) / \
+                    (r1[ij] * (r1[ij] - dot(u_inf, R1[ij])))
+
+                if ij[0] == ij[1]:
+                    continue  # Skip singularities when `i == j`
+
+                v[ij] += ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
+                    (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
+
+            return v/(4*np.pi)
+
+        if self._compute_v is None:
+            self._compute_v = njit(compute_v)
+
+        return self._compute_v(u_inf)
+
+    def _proposal(self, V_w2cp, delta):
+        # FIXME: find a better initial proposal
+
+        # 3. Propose an initial distribution for Gamma
+        # FIXME: this is full of hacks and really needs a thorough review
+        cp_y = self.cps[:, 1]
+
+        # Option 1: elliptical using the mid-point velocity only
+        CL_2d = self.parafoil.airfoil.coefficients.Cl(
+                np.arctan(V_w2cp[:, 2]/V_w2cp[:, 0]), delta)
+        Gamma0 = np.linalg.norm(V_w2cp) * self.dA * CL_2d
+        Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/self.parafoil.b)**2)
+
+        if any(np.isnan(Gamma)):
+            raise RuntimeError("Invalid Gamma proposal! Contains np.nan")
+
+        return Gamma
+
+    def _local_velocities(self, V_w2cp, Gamma, v):
+        # 4. Compute the local fluid velocities
+        #  * ref: Hunsaker-Snyder Eq:5
+        #  * ref: Phillips Eq:5 (nondimensional version)
+        V = V_w2cp + einsum('j,jik->ik', Gamma, v)
+
+        # 5. Compute the section local angle of attack
+        #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
+        V_a = einsum('ik,ik->i', V, self.u_a)  # Chordwise
+        V_n = einsum('ik,ik->i', V, self.u_n)  # Normal-wise
+        alpha = arctan(V_n/V_a)
+
+        return V, V_n, V_a, alpha
+
+    def _f(self, Gamma, V_w2cp, v, delta):
+        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        W = cross(V, self.dl)
+        W_norm = norm(W, axis=1)
+
+        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+
+        # 6. Compute the residual error
+        #  * ref: Phillips Eq:14
+        #  * ref: Hunsaker-Snyder Eq:8
+        f = 2 * Gamma * W_norm - (V*V).sum(axis=1) * self.dA * Cl
+
+        return f
+
+    def _J(self, Gamma, V_w2cp, v, delta):
+        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        vT = np.swapaxes(v, 0, 1)  # Useful for broadcasting cross products
+        W = cross(V, self.dl)
+        W_norm = norm(W, axis=1)
+
+        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+        Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
+
+        # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
+        #  * ref: Hunsaker-Snyder Eq:11
+        J1 = 2 * np.diag(W_norm)  # terms for i==j
+        J2 = 2 * einsum('ik,ijk->ij', W, cross(vT, self.dl))
+        J2 = J2 * (Gamma / W_norm)[:, None]
+        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n) -
+              einsum('i,jik,ik->ij', V_n, v, self.u_a))
+        J3 = J3 * ((V*V).sum(axis=1)*self.dA*Cl_alpha)[:, None]
+        J3 = J3 / (V_a**2 + V_n**2)[:, None]
+        J4 = (2 * self.dA * Cl)[:, None] * einsum('ik,jik->ij', V, v)
+        J = J1 + J2 - J3 - J4
+
+        return J
+
+    def _solve_circulation(self, V_w2cp, delta):
+        Gamma0 = self._proposal(V_w2cp, delta)
+
+        # FIXME: is using the freestream velocity at the central chord okay?
+        V_mid = V_w2cp[self.K // 2]
+        u_inf = V_mid / np.linalg.norm(V_mid)
+        v = self._induced_velocities(u_inf)  # axes = (inducer, inducee)
+
+        args = (V_w2cp, v, delta)
+        # print("\nStarting the root-finding process...\n")
+        # FIXME: use a relaxed `xtol`?
+        # res = scipy.optimize.root(self._f, Gamma0, args=args, jac=self._J)
+        res = scipy.optimize.root(self._f, Gamma0, args=args,
+                                  method='hybr', jac=self._J)
+
+        # if res.success is False:
+        #     print("\n-------- Trying an alternative root-finder ---------\n")
+        #     res = scipy.optimize.root(self._f, Gamma0, args=args,
+        #                               # method='krylov', options={'disp': False})
+        #                               method='anderson', jac=self._J, options={'disp': True})
+
+        if res.success:
+            Gamma = res.x
+        else:
+            print("Phillips: failed to solve for Gamma")
+            Gamma = np.full_like(res.x, np.nan)
+
+        return Gamma, v
+
+    def __call__(self, V_rel, delta):
+        assert np.shape(V_rel) == (self.K, 3)
+
+        V_w2cp = -V_rel
+        Gamma, v = self._solve_circulation(V_w2cp, delta)
+        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        dF_inviscid = Gamma * cross(V, self.dl).T
+
+        # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
+        #  0. Nominal airfoil drag
+        #  1. Additional drag from the air intakes
+        #  2. Additional drag from "surface characteristics"
+        # FIXME: these extra terms have not been verified. The air intake
+        #        term in particular, which is for ram-air parachutes.
+        # FIXME: these extra terms should be in the AirfoilCoefficients
+        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
+        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        Cd += 0.004
+
+        V2 = (V**2).sum(axis=1)
+        u_drag = V.T/np.sqrt(V2)
+        dF_viscous = 1/2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
+
+        dF = dF_inviscid + dF_viscous
+
+        # Compute the local pitching moments applied to each section
+        #  * ref: Hunsaker-Snyder Eq:19
+        #  * ref: Phillips Eq:28
+        # FIXME: This is a hack! Should use integral(c**2), not dA
+        Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
+        dM = -1/2 * V2 * self.dA * Cm * self.u_s.T
+
+        return dF.T, dM.T
