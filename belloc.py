@@ -221,11 +221,10 @@ planform = Parafoil.EllipticalPlanform(
 # elliptical parametrization easily (the taper doesn't develop correctly)
 dl = c4[1:] - c4[:-1]
 L = np.r_[0, np.cumsum(np.linalg.norm(dl, axis=1))]
-L /= L[-1]
-L = 2*L - 1  # Go from -1..1
+s = 2*(L / L[-1]) - 1  # Normalized distance, from -1..1
 # print("\n\n !!!! Avoiding the correct chord distribution !!!!\n")
 print("Replacing the default elliptical chord distribution with the raw data")
-planform.fc = interp1d(L, c)  # Replace it with a linear interpolator
+planform.fc = interp1d(s, c)  # Replace it with a linear interpolator
 # Or, just use his chord distribution directly?  Belloc, Eq:2, pg 2
 # FIXME: this hotfix doesn't fix the EllipticalPlanform definition for SMC/MAC
 
@@ -235,7 +234,7 @@ twist[:2] = np.deg2rad(3)
 twist[-2:] = np.deg2rad(3)
 # print("\n\n  !!!! Avoiding the correct twist !!!! \n")
 print("Replacing the default `ftheta`")
-planform.ftheta = interp1d(L, twist)
+planform.ftheta = interp1d(s, twist)
 
 print("Planform:")
 print(f" S: {planform.S}")
