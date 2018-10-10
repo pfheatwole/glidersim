@@ -85,9 +85,8 @@ class Paraglider:
         return v_rel
 
     def forces_and_moments(self, UVW, PQR, g, rho,
-                           delta_Bl=0, delta_Br=0,
-                           delta_s=0,
-                           v_w2e=None, xyz=None):
+                           delta_Bl=0, delta_Br=0, delta_s=0,
+                           v_w2e=None, xyz=None, Gamma=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
 
@@ -121,6 +120,9 @@ class Paraglider:
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
             at each control point.
+        Gamma : array of float, shape (K,) [units?] (optional)
+            An initial guess for the circulation distribution, to improve
+            convergence
 
         Returns
         -------
@@ -167,7 +169,7 @@ class Paraglider:
         v_harness = v_cp2w[-1]
 
         # Compute the resultant force and moment about the cg
-        dF_w, dM_w = self.wing.forces_and_moments(v_wing, delta_Bl, delta_Br)
+        dF_w, dM_w, Gamma = self.wing.forces_and_moments(v_wing, delta_Bl, delta_Br, Gamma)
         dF_h, dM_h = self.harness.forces_and_moments(v_harness)
         F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
@@ -187,7 +189,7 @@ class Paraglider:
         # FIXME: compute the glider center of mass
         # FIXME: apply the forces about the cm to compute the correct moment
 
-        return F, M
+        return F, M, Gamma
 
     def equilibrium_glide(self, delta_B, delta_S, rho, alpha_eq=None):
         """Steady-state angle of attack, pitch angle, and airspeed.

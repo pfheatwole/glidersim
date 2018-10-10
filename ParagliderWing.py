@@ -61,7 +61,7 @@ class ParagliderWing:
         self.rho_upper = 40/1000  # kg/m2
         self.rho_lower = 35/1000  # kg/m2
 
-    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br):
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, Gamma=None):
         """
 
         Parameters
@@ -72,6 +72,9 @@ class ParagliderWing:
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
+        Gamma : array of float, shape (K,) [units?] (optional)
+            An initial guess for the circulation distribution, to improve
+            convergence
 
         Returns
         -------
@@ -80,8 +83,8 @@ class ParagliderWing:
             density in [kg/m^3]. (This function assumes an air density of 1.)
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)
-        dF, dM = self.force_estimator(V_cp2w, delta)
-        return dF, dM
+        dF, dM, Gamma = self.force_estimator(V_cp2w, delta, Gamma)
+        return dF, dM, Gamma
 
     def foil_origin(self, delta_s=0):
         """
