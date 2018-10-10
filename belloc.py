@@ -377,7 +377,7 @@ for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    Fx, Fz = Fs[beta].T[0], Fs[beta].T[2]
+    Fx, Fz = Fs[beta].T[[0, 2]]
     My = Ms[beta].T[1]
     L = Fx*sin(alphas) - Fz*cos(alphas)
     D = -Fx*cos(alphas) - Fz*sin(alphas)
