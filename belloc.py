@@ -223,6 +223,7 @@ dl = c4[1:] - c4[:-1]
 L = np.r_[0, np.cumsum(np.linalg.norm(dl, axis=1))]
 L /= L[-1]
 L = 2*L - 1  # Go from -1..1
+# print("\n\n !!!! Avoiding the correct chord distribution !!!!\n")
 print("Replacing the default elliptical chord distribution with the raw data")
 planform.fc = interp1d(L, c)  # Replace it with a linear interpolator
 # Or, just use his chord distribution directly?  Belloc, Eq:2, pg 2
@@ -232,6 +233,8 @@ planform.fc = interp1d(L, c)  # Replace it with a linear interpolator
 twist = np.zeros(13)
 twist[:2] = np.deg2rad(3)
 twist[-2:] = np.deg2rad(3)
+# print("\n\n  !!!! Avoiding the correct twist !!!! \n")
+print("Replacing the default `ftheta`")
 planform.ftheta = interp1d(L, twist)
 
 print("Planform:")
@@ -291,7 +294,7 @@ brakes = BrakeGeometry.Cubic(0, 0.75, delta_max=0)
 
 d_riser = 0.25  # For the 1/8 model, d_riser = 0.0875 / 0.350
 z_riser = 1  # The 1/8 scale model has the cg 1m below the central chord
-wing = ParagliderWing(parafoil, Parafoil.PhillipsRefactored, brakes,
+wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
                       d_riser=d_riser, z_riser=z_riser,
                       pA=0.08, pC=0.80,  # unused
                       kappa_s=0.15)      # unused
@@ -319,27 +322,30 @@ print("rho_air:", rho_air)
 
 # -----------------------------------
 #  One-off test cases
-# alpha, beta = np.deg2rad(20), np.deg2rad(0)
-alpha, beta = np.deg2rad(18), np.deg2rad(5)
+alpha, beta = np.deg2rad(7), np.deg2rad(0)
+# alpha, beta = np.deg2rad(24), np.deg2rad(0)
+# alpha, beta = np.deg2rad(24), np.deg2rad(5)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
 # UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
-# F, M = glider.forces_and_moments(UVW, [0, 0, 0], [0, 0, 0], rho=1)
+# F, M, Gamma = glider.forces_and_moments(UVW, [0, 0, 0], [0, 0, 0], rho=1)
 # embed()
 # 1/0
 
 # Zero sideslip tests
 # Should be from -5..22, but Phillips doesn't (yet) handle Cl_alpha=0
-Fs, Ms = {}, {}
+Fs, Ms, Gammas = {}, {}, {}
 # alphas = np.deg2rad(np.arange(-5, 18))
-alphas = np.deg2rad(np.arange(-5, 22))
+# alphas = np.deg2rad(np.arange(-5, 25))
+alphas = np.deg2rad(np.linspace(-5, 25, 150))
 # betas = [0, 5, 10, 15]
-betas = [0, 5, 10]
-# betas = [0, 5]
+# betas = [0, 5, 10]
+betas = [0, 5]
 # betas = [0]
 # betas = [5]
 for beta_deg in betas:
-    Fs[beta_deg], Ms[beta_deg] = [], []
+    Fs[beta_deg], Ms[beta_deg], Gammas[beta_deg] = [], [], []
 
+    Gamma = None
     for alpha in alphas:
         print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
         # The Paraglider computes the net moments about the "CG"
@@ -347,9 +353,12 @@ for beta_deg in betas:
         UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
         PQR = [0, 0, 0]
         g = [0, 0, 0]
-        F, M = glider.forces_and_moments(UVW, PQR, g=g, rho=1)
+        F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=1, Gamma=Gamma)
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
+        Gammas[beta_deg].append(Gamma)
+        if np.any(np.isnan(Gamma)):
+            Gamma = None  # Don't propagate the errors!!
 
 for beta in betas:
     Fs[beta] = np.asarray(Fs[beta])
@@ -424,10 +433,12 @@ for beta in betas:
     CL = coefficients[beta]['CL']
     CD = coefficients[beta]['CD']
     CM_G = coefficients[0]['CM']
+    m = '.'
+    m = None
     ax[0, 0].plot(np.rad2deg(alphas), CL, label=r'$\beta$={}°'.format(beta),
-                  marker=None)
-    ax[1, 0].plot(CD, CL, label=r'$\beta$={}°'.format(beta), marker='.')
-    ax[1, 1].plot(CM_G, CL, label=r'$\beta$={}°'.format(beta), marker='.')
+                  marker=m)
+    ax[1, 0].plot(CD, CL, label=r'$\beta$={}°'.format(beta), marker=m)
+    ax[1, 1].plot(CM_G, CL, label=r'$\beta$={}°'.format(beta), marker=m)
 
 ax[0, 0].set_xlabel('alpha [degrees]')
 ax[0, 0].set_ylabel('CL')
@@ -447,10 +458,10 @@ CL = coefficients[0]['CL']
 CM_CL = -coefficients[0]['CL']*sin(alphas)/cc
 CM_CD = coefficients[0]['CD']*cos(alphas)/cc
 CM_G = coefficients[0]['CM']
-ax[0, 1].plot(CM_G, CL, label='CM_G', marker='.')
-ax[0, 1].plot(CM_CL, CL, label='CM_CL', marker='.')
-ax[0, 1].plot(CM_CD, CL, label='CM_CD', marker='.')
-ax[0, 1].plot(CM_G - CM_CL - CM_CD, CL, label='CM_25%', marker='.')  # Eq:7
+ax[0, 1].plot(CM_G, CL, label='CM_G', marker=m)
+ax[0, 1].plot(CM_CL, CL, label='CM_CL', marker=m)
+ax[0, 1].plot(CM_CD, CL, label='CM_CD', marker=m)
+ax[0, 1].plot(CM_G - CM_CL - CM_CD, CL, label='CM_25%', marker=m)  # Eq:7
 ax[0, 1].set_xlabel('CM')
 ax[0, 1].set_ylabel('CL')
 ax[0, 1].legend()
