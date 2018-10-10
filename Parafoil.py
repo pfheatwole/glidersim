@@ -692,12 +692,12 @@ class Phillips(ForceEstimator):
         # Define the spanwise and nodal and control points
 
         # Option 1: linear distribution
-        # self.K = 31  # The number of bound vortex segments
-        # self.s_nodes = np.linspace(-1, 1, self.K+1)
+        self.K = 191  # The number of bound vortex segments
+        self.s_nodes = linspace(-1, 1, self.K+1)
 
         # Option 2: cosine distribution
-        self.K = 21  # The number of bound vortex segments
-        self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K+1))
+        # self.K = 21  # The number of bound vortex segments
+        # self.s_nodes = cos(linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
         self.nodes = self.parafoil.c4(self.s_nodes)
@@ -713,7 +713,8 @@ class Phillips(ForceEstimator):
         self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
         # Wing section orientation unit vectors at each control point
-        u = self.parafoil.section_orientation(self.s_cps, lobe_args).T
+        # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
+        u = -self.parafoil.section_orientation(self.s_cps, lobe_args).T
         self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
@@ -809,7 +810,7 @@ class Phillips(ForceEstimator):
 
         return self.f(u_inf)
 
-    def _vortex_strengths(self, V_rel, delta, max_runs=None):
+    def _vortex_strengths(self, V_w2cp, delta, max_runs=None):
         """
         FIXME: finish the docstring
 
@@ -893,8 +894,13 @@ class Phillips(ForceEstimator):
         # FIXME: add oscillation detection to reduce Omega if necessary
         n_runs = 0
         delta_Gamma = None  # FIXME: HACK!!!
+        max_delta_Gamma = 1e9  # FIXME: HACK!!!
         while n_runs < max_runs:
             # print("run:", n_runs)
+
+            if np.any(np.isnan(Gamma)):
+                raise RuntimeError("Gamma has nan")
+
             # 4. Compute the local fluid velocities
             #  * ref: Hunsaker-Snyder Eq:5
             #  * ref: Phillips Eq:5 (nondimensional version)
@@ -904,7 +910,7 @@ class Phillips(ForceEstimator):
             #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
             V_a = einsum('ki,ki->k', V, self.u_a)  # Chordwise
             V_n = einsum('ki,ki->k', V, self.u_n)  # Normal-wise
-            alpha = arctan2(V_n, V_a)
+            alpha = arctan(V_n/V_a)
 
             min_alpha, max_alpha = rad2deg(min(alpha)), rad2deg(max(alpha))
             if min_alpha < -12:
@@ -931,21 +937,30 @@ class Phillips(ForceEstimator):
             Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
             if np.any(np.isnan(Cl)):
-                print("Cl has nan's")
+                print(f"{n_runs}> Cl has nan's (Omega: {Omega})")
                 # FIXME: handle the various causes
                 #  * Bad initial proposal for Gamma proposal
                 #  * Some `delta` might be OOB for the AirfoilCoefficients
                 #  * V_rel might produce alpha's that are OOB?
                 if delta_Gamma is not None:  # Overshot a valid configuration
+                    if np.any(np.isnan(delta_Gamma)):
+                        raise RuntimeError("delta_Gamma has nan")
+
                     Omega /= 2  # Relax the correction factor
                     Gamma -= Omega*delta_Gamma  # Undo half of the correction
+                    # FIXME: but if delta_Gamma has nan's those will propagate!
                 else:  # The initial proposal was (possibly) poor
+                    print("\nBad proposal!")
                     Gamma *= 0.8
                 n_runs += 1
+
+                if n_runs == max_runs:
+                    print("Max iterations reached")
+                    embed()
                 continue
 
             # 6. Compute the residual error
-            #  * ref: Phillips Eq:15, or Hunsaker-Snyder Eq:8
+            #  * ref: Phillips Eq:14, or Hunsaker-Snyder Eq:8
             W = cross(V, self.dl)
             W_norm = norm(W, axis=1)
             f = 2 * Gamma * W_norm - (V*V).sum(axis=1) * self.dA * Cl
@@ -954,15 +969,7 @@ class Phillips(ForceEstimator):
             #  * ref: Hunsaker-Snyder Eq:11
             Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-            # plt.plot(cp_y, Cl_alpha)
-            # plt.ylabel('local section Cl_alpha')
-            # plt.show()
-
-            # print("Check the Cl_alpha")
-            # embed()
-            # input('continue?')
-
-            # J is a Jordan matrix, where `J[ij] = d(F_i)/d(Gamma_j)`
+            # J is the Jacobian matrix, where `J[ij] = d(f_i)/d(Gamma_j)`
             J1 = 2 * np.diag(W_norm)  # terms for i==j
             J2 = 2 * einsum('ik,ijk->ij', W, cross(vT, self.dl))
             J2 = J2 * (Gamma / W_norm)[:, None]
@@ -970,7 +977,7 @@ class Phillips(ForceEstimator):
                   einsum('i,jik,ik->ij', V_n, v, self.u_a))
             J3 = J3 * ((V*V).sum(axis=1)*self.dA*Cl_alpha)[:, None]
             J3 = J3 / (V_a**2 + V_n**2)[:, None]
-            J4 = 2*self.dA*Cl*einsum('ik,jik->ij', V, v)
+            J4 = (2 * self.dA * Cl)[:, None] * einsum('ik,jik->ij', V, v)
             J = J1 + J2 - J3 - J4
 
             # Compute the Gamma update term
@@ -978,6 +985,13 @@ class Phillips(ForceEstimator):
 
             # Use the residual error and gradient to update the Gamma proposal
             Gamma = Gamma + Omega*delta_Gamma
+
+            if not abs(max(delta_Gamma)) < abs(max_delta_Gamma):
+                # FIXME: HACK!!!
+                print(f"{n_runs}> convergence issues?")
+                Omega *= 0.5
+                Gamma -= Omega*delta_Gamma  # Undo half of the correction
+            max_delta_Gamma = max(delta_Gamma)
 
             Vs.append(V)
             alphas.append(alpha)
@@ -1001,6 +1015,10 @@ class Phillips(ForceEstimator):
 
         if n_runs == max_runs:
             print("\nPhillips: Failed to converge\n")
+            embed()
+            Gamma = np.full_like(Gamma, np.nan)
+            V = np.full_like(V, np.nan)
+            alpha = np.full_like(alpha, np.nan)
 
         # if n_runs < 10:
         #     thinning = 1
@@ -1022,33 +1040,43 @@ class Phillips(ForceEstimator):
         if np.any(np.isnan(np.c_[V, Gamma, alpha])):
             print("\nDEBUG: Phillip's produced NaNs\n")
 
+        print("\nFinished Phillips._vortex_strengths")
+        embed()
+
         return Gamma, V, alpha
 
     def __call__(self, V_rel, delta):
-        Gamma, V, alpha = self._vortex_strengths(V_rel, delta)
-        dF_inviscid = Gamma * cross(self.dl, V).T
+        assert np.shape(V_rel) == (self.K, 3)
+
+        Gamma, V_w2cp, alpha = self._vortex_strengths(-V_rel, delta)
+        dF_inviscid = Gamma * cross(V_w2cp, self.dl).T
 
         # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
         #  1. Additional drag from the air intakes
         #  2. Additional drag from "surface characteristics"
-        # FIXME: these extra terms have not been verified
-        # FIXME: these extra terms do not belong here
+        # FIXME: these extra terms have not been verified. The air intake
+        #        term in particular, which is for ram-air parachutes.
+        # FIXME: these extra terms should be in the AirfoilCoefficients
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
 
-        V2 = (V**2).sum(axis=1)
-        u_drag = -V.T/np.sqrt(V2)  # V = V_cp2w = -V_w2cp
-        dF_viscous = 1/2 * V2 * Cd * self.dA * u_drag
+        V2 = (V_w2cp**2).sum(axis=1)
+        u_drag = V_w2cp.T/np.sqrt(V2)
+        # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
+        dF_viscous = 1/2 * V2 * self.dA * Cd * u_drag
 
-        dF = dF_inviscid.T + dF_viscous.T
+        dF = dF_inviscid + dF_viscous
 
+        # Compute the local pitching moments applied to each section
+        #  * ref: Hunsaker-Snyder Eq:19
+        #  * ref: Phillips Eq:28
+        # FIXME: This is a hack! Should use integral(c**2), not dA
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
-        Mi = 1/2 * V2 * Cm * self.dA
-        dM = (Mi * self.u_s.T).T  # Pitching moments are about section y-axes
+        dM = -1/2 * V2 * self.dA * Cm * self.u_s.T
 
-        return dF, dM
+        return dF.T, dM.T
 
 
 class Phillips2D(ForceEstimator):
