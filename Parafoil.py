@@ -777,20 +777,6 @@ class Phillips(ForceEstimator):
 
         return Gamma
 
-    def _proposal2(self, V_w2cp, delta, Gamma0, v):
-        # 3. Propose an initial distribution for Gamma
-        # Derived by equating the 3D vortex lifting law to 2D section lift.
-        # Not good for high beta, but useful for fixed-point iterations
-
-        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma0, v)
-        W_norm = norm(cross(V, self.dl), axis=1)
-        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
-
-        # FIXME: `V*V` or `(V_n**2 + V_a**2)`?
-        Gamma = (.5 * (V_n**2 + V_a**2) * self.dA * Cl) / W_norm
-
-        return Gamma
-
     def _local_velocities(self, V_w2cp, Gamma, v):
         # Compute the local fluid velocities
         #  * ref: Hunsaker-Snyder Eq:5
@@ -813,7 +799,7 @@ class Phillips(ForceEstimator):
         W_norm = norm(cross(V, self.dl), axis=1)
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
-        # FIXME: `V*V` or `(V_n**2 + V_a**2)`?
+        # FIXME: `V**2` or `(V_n**2 + V_a**2)`?
         f = 2 * Gamma * W_norm - (V_n**2 + V_a**2) * self.dA * Cl
 
         return f
@@ -870,61 +856,77 @@ class Phillips(ForceEstimator):
 
         return JT.T
 
-    def _fixed_point_circulation(self, Gamma, V_w2cp, v, delta):
+    def _fixed_point_circulation(self, Gamma, V_w2cp, v, delta,
+                                  maxiter=500, xtol=1e-8):
+        """Use fixed-point iterations to improve a proposal
+
+        Warning: This method needs a lot of work and validation!
+
+        Parameters
+        ----------
+        Gamma : array of float, shape (K,)
+            The proposal circulation for the given {V_w2cp, delta}
+        <etc>
+        """
         # FIXME: needs validation; do not trust the results!
         #        Assumes the fixed points are attractive; are they?
-        # FIXME: Should use my own implementation; the scipy implementation is
-        #        really bare-bones, pure Python. Also, it doesn't handle `nan`
-        #        well, it just keeps iterating until `maxiter`!
-        #        I should use some kind of "learning rate" parameter instead
+        # FIXME: I should use some kind of "learning rate" parameter instead
         #        of a fixed 5% every iteration sort of thing; the current
         #        implementation can get stuck oscillating.
-        # if np.any(np.isnan(Gamma)):
-        #     print("_fixed_point_circulation: The proposal Gamma has nan")
-        G = self._proposal2(V_w2cp, delta, Gamma, v)
-        # if np.any(np.isnan(G)):
-        #     print("_fixed_point_circulation: The iterated Gamma has nan")
-
-        # Option 1: Smooth the delta_Gamma
-        # p = Polynomial.fit(self.s_cps, G - Gamma, 9)
-        # p = UnivariateSpline(self.s_cps, G - Gamma, s=0.001)
-        # Gamma = Gamma + 0.05*p(self.s_cps)  # Mutate smoothly
-        # plt.plot(self.s_cps, G - Gamma, label='raw')
-        # plt.plot(self.s_cps, p(self.s_cps), label='smoothed')
-        # plt.title('Fixed-point Gamma proposal update')
-        # plt.show()
-
-        # Option 2: Smooth Gamma itself
-        #  FIXME: these results are unreliable, at best
-        #  FIXME: plot the results; the Gamma dips at the wing root?!
-        #  FIXME: maybe hold Gamma=0 at the tips?
-        p = UnivariateSpline(self.s_cps, Gamma + 0.5*(G - Gamma), s=0.001)
-        Gamma = p(self.s_cps)  # Smooth the transition
-
-        return Gamma
-
-    def _fixed_point_circulation2(self, Gamma, V_w2cp, v, delta,
-                                 maxiter=500, xtol=1e-8):
-        """Starting with Gamma, try to converge via fixed-point iterations"""
-        success = False
         G = Gamma
-        Gs = []
+        Gammas = [G]  # FIXME: For debugging
+        success = False
         for k in range(maxiter):
-            Gs.append(G)
             print('.', end="")
-            G_old, G = G, self._proposal2(V_w2cp, delta, G, v)
-            p = UnivariateSpline(self.s_cps, G_old + 0.05*(G - G_old), s=0.001)
-            G = p(self.s_cps)  # Smooth the transition
+            G_old = G
+
+            # Equate the section lift predicted by both the lift coefficient
+            # and the Kutta-Joukowski theorem, then solve for Gamma
+            # FIXME: Should `G` use `V*V` or `(V_n**2 + V_a**2)`?
+            V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
+            W_norm = norm(cross(V, self.dl), axis=1)
+            Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+            G = (.5 * (V_n**2 + V_a**2) * self.dA * Cl) / W_norm
+
+            # --------------------------------------------------------------
+            # Smoothing/damping options to improve convergence
+
+            # Option 0: Damped raw transitions, no smoothing
+            # G = G_old + 0.05 * (G - G_old)
+
+            # Option 1: Smooth the delta_Gamma
+            # p = Polynomial.fit(self.s_cps, G - G_old, 9)
+            # p = UnivariateSpline(self.s_cps, G - G_old, s=0.001)
+            # G = Gamma + 0.05*p(self.s_cps)
+
+            # Option 2: Smooth the final Gamma
+            p = UnivariateSpline(self.s_cps, G_old + 0.5*(G - G_old), s=0.001)
+            G = p(self.s_cps)
+
+            # Option 3: Smooth Gamma, and force Gamma to zero at the tips
+            # ss = np.r_[-1, self.s_cps, 1]
+            # gg = np.r_[0, G_old + 0.05*(G - G_old), 0]
+            # ww = np.r_[100, np.ones(self.K), 100]
+            # p = UnivariateSpline(ss, gg, s=0.0001, w=ww)
+            # G = p(self.s_cps)
+
+            Gammas.append(G)
+
             if np.any(np.isnan(G)):
                 break
             if np.all(np.abs((G - G_old)/G_old) < xtol):
                 success = True
                 break
-        # if not success:
-        #     print("DEBUG> Stopping")
-        #     embed()
         print()
-        return {'x':G, 'success':success}
+
+        # FIXME: for debugging
+        residuals = [self._f(G, V_w2cp, v, delta) for G in Gammas]
+        RMSE = [np.sqrt(sum(r**2) / self.K) for r in residuals]
+
+        # print("Finished fixed_point iterations")
+        # embed()
+
+        return {'x': G, 'success': success}
 
     def _solve_circulation(self, V_w2cp, delta, Gamma0=None):
         if Gamma0 is None:  # Assume a simple elliptical distribution
@@ -935,43 +937,26 @@ class Phillips(ForceEstimator):
         u_inf = V_mid / np.linalg.norm(V_mid)
         v = self._induced_velocities(u_inf)  # axes = (inducer, inducee)
 
-        # Basic sanity checkups for the initial proposal
-        # ff = self._f(Gamma0, V_w2cp, v, delta)
-        # JJ = self._J_finite(Gamma0, V_w2cp, v, delta)
-        # delG = np.linalg.solve(JJ, -ff)  # The initial linear delta_Gamma
-        # print("Initial Jacobian condition number:", np.linalg.cond(JJ))
-        # plt.plot(self.s_cps, delG)
-        # plt.title("Initial delta_Gamma")
-        # plt.show()
-
-        # Common arguments for the optimization functions
+        # Common arguments for the root-finding functions
         args = (V_w2cp, v, delta)
-        xtol = 1e-4
+        options = {'xtol': 1e-4}
 
-        # First, try fast derivative-based methods. These will fail when wing
+        # First, try a fast, gradient-based method. This will fail when wing
         # sections enter the stall region (where Cl_alpha goes to zero).
-        res = scipy.optimize.root(self._f, Gamma0, args=args,
-                                  options={'xtol': xtol})
+        res = scipy.optimize.root(self._f, Gamma0, args, options=options)
 
-        # If the derivative method failed, try fixed-point iterations
-        if res.success:
-            Gamma = res.x
+        # If the gradient method failed, try fixed-point iterations
+        if not res['success']:
+            res = self._fixed_point_circulation(Gamma0, *args, **options)
+
+        if res['success']:
+            Gamma = res['x']
         else:
-            print("Phillips> derivative methods failed")
-            try:
-                # Needs `method='iteration'` to avoid large dGamma/dL -> nan
-                Gamma = scipy.optimize.fixed_point(
-                    self._fixed_point_circulation, Gamma0, args,
-                    xtol=xtol, maxiter=500, method='iteration')
-                print("Phillips> fixed-point iterations converged")
-            except (RuntimeError, ValueError) as e:
-                print("Phillips> fixed-point iterations failed:", e)
-                # embed()
-                print("\n  !!!!! FAILED to solve for Gamma !!!!!\n")
-                Gamma = np.full_like(res.x, np.nan)
+            print("Phillips> failed to solve for Gamma")
+            Gamma = np.full_like(Gamma0, np.nan)
 
-        print("Phillips> finished _solve_circulation\n")
-        embed()
+        # print("Phillips> finished _solve_circulation\n")
+        # embed()
 
         return Gamma, v
 
