@@ -857,7 +857,7 @@ class Phillips(ForceEstimator):
         return JT.T
 
     def _fixed_point_circulation(self, Gamma, V_w2cp, v, delta,
-                                  maxiter=500, xtol=1e-8):
+                                 maxiter=500, xtol=1e-8):
         """Use fixed-point iterations to improve a proposal
 
         Warning: This method needs a lot of work and validation!
@@ -919,9 +919,9 @@ class Phillips(ForceEstimator):
                 break
         print()
 
-        # FIXME: for debugging
-        residuals = [self._f(G, V_w2cp, v, delta) for G in Gammas]
-        RMSE = [np.sqrt(sum(r**2) / self.K) for r in residuals]
+        # For debugging
+        # residuals = [self._f(G, V_w2cp, v, delta) for G in Gammas]
+        # RMSE = [np.sqrt(sum(r**2) / self.K) for r in residuals]
 
         # print("Finished fixed_point iterations")
         # embed()
