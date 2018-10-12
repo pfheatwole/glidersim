@@ -45,7 +45,6 @@ from numpy import sin, cos
 from IPython import embed
 import pandas as pd
 
-from scipy.integrate import simps
 from scipy.interpolate import interp1d, UnivariateSpline
 from numpy.polynomial import Polynomial
 
@@ -61,18 +60,14 @@ import plots  # noqa: F401
 class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
     """
     Uses the airfoil coefficients from a CSV file.
+    The CSV must contain the following columns: [alpha, delta, CL, CD, Cm]
 
-    The CSV must contain the following columns
-     * alpha
-     * delta
-     * CL
-     * CD
-     * Cm
+    This is similar to `Airfoil.GridCoefficients`, but it assumes that delta
+    is always zero. This is convenient, since no assuptions need to be made
+    for the non-existent flaps on the wind tunnel model.
     """
 
     def __init__(self, filename, convert_degrees=True):
-        # FIXME: docstring
-
         data = pd.read_csv(filename)
         self.data = data
 
@@ -84,26 +79,14 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
         self._Cm = UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
         self._Cl_alpha = self._Cl.derivative()
 
-        # aaa = np.deg2rad(np.linspace(-9.9, 24.9, 150))
-        # fig, ax = plt.subplots()
-        # ax.plot(np.rad2deg(self.data['alpha']), self.data['CL'], label='raw')
-        # ax.plot(np.rad2deg(aaa), self._Cl(aaa), label='Spline')
-        # ax.plot(np.rad2deg(aaa), self._Cl_alpha(aaa), label='Cl_alpha')
-        # # ax.legend()
-        # ax.grid()
-        # plt.show()
-        # embed()
-        # 1/0
-
     def _clean(self, alpha, val):
+        # The UnivariateSpline doesn't fill `nan` outside the boundaries
         min_alpha, max_alpha = np.deg2rad(-9.9), np.deg2rad(24.9)
         mask = (alpha < min_alpha) | (alpha > max_alpha)
         val[mask] = np.nan
         return val
 
     def Cl(self, alpha, delta):
-        # if any(np.isnan(alpha)):
-        #     print("\nNAN in Cl!!!\n")
         return self._clean(alpha, self._Cl(alpha))
 
     def Cd(self, alpha, delta):
@@ -113,8 +96,6 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
         return self._clean(alpha, self._Cm(alpha))
 
     def Cl_alpha(self, alpha, delta):
-        # if any(np.isnan(alpha)):
-        #     print("\nNAN in Cl_alpha!!!\n")
         return self._clean(alpha, self._Cl_alpha(alpha))
 
 
@@ -146,13 +127,13 @@ xyz = np.array([
     [0.000, -0.486, -0.265],
     [0.000, -0.344, -0.325],
     [0.000, -0.178, -0.362],
-    [0.000,  0.000,  -0.375],
-    [0.000,  0.178,  -0.362],
-    [0.000,  0.344,  -0.325],
-    [0.000,  0.486,  -0.265],
-    [0.000,  0.595,  -0.188],
-    [0.000,  0.664,  -0.097],
-    [0.000,  0.688,   0.000]
+    [0.000,  0.000, -0.375],
+    [0.000,  0.178, -0.362],
+    [0.000,  0.344, -0.325],
+    [0.000,  0.486, -0.265],
+    [0.000,  0.595, -0.188],
+    [0.000,  0.664, -0.097],
+    [0.000,  0.688,  0.000]
     ])
 
 c = np.array([0.107, 0.137, 0.198, 0.259, 0.308, 0.339, 0.350,
@@ -203,8 +184,8 @@ print(f"sweepMed: {sweepMed} [degrees]")
 # Second, build an approximate version using a ParafoilGeometry
 
 airfoil_geo = Airfoil.NACA5(23015, convention='british')
-# airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku3_Kl0.5.csv')
-airfoil_coefs = FlaplessAirfoilCoefficients('polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
+airfoil_coefs = FlaplessAirfoilCoefficients(
+    'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
 
 airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
@@ -232,7 +213,7 @@ planform.fc = interp1d(s, c)  # Replace it with a linear interpolator
 twist = np.zeros(13)
 twist[:2] = np.deg2rad(3)
 twist[-2:] = np.deg2rad(3)
-# print("\n\n  !!!! Avoiding the correct twist !!!! \n")
+# print("\n !!!! Avoiding the correct twist !!!!\n")
 print("Replacing the default `ftheta`")
 planform.ftheta = interp1d(s, twist)
 
@@ -298,6 +279,8 @@ wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
                       pA=0.08, pC=0.80,  # unused
                       kappa_s=0.15)      # unused
 
+# A `Harness` is required to instantiate the `Paraglider`, but should not
+# produce any forces (so zero weight and drag).
 harness = Harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
 glider = Paraglider(wing, harness)
 
@@ -308,21 +291,21 @@ print("\nFinished defining the brakes, wing, harness, and glider")
 # ---------------------------------------------------------------------------
 # Part 3: Testing
 
-# The paper says the wind tunnel is being used a 40m/s to produce a Reynold's
-# number of 920,000. He neglects to mention the location of the wind tunnel,
+# The paper says the wind tunnel is being used at 40m/s to produce a Reynold's
+# number of 920,000. He neglects to mention the air density during the test,
 # but if the dynamic viscosity of the air is standard, then we can compute the
 # density of the air.
 Re = 0.92e6
 u = 40  # [m/s]
 L = 0.350  # [m]  the central chord of the model
 mu = 1.81e-5  # Standard dynamic viscosity of air
-rho_air = Re * mu / u / L
+rho_air = Re * mu / (u * L)
 print("rho_air:", rho_air)
 
 # -----------------------------------
 #  One-off test cases
 alpha, beta = np.deg2rad(7), np.deg2rad(0)
-# alpha, beta = np.deg2rad(24), np.deg2rad(0)
+# alpha, beta = np.deg2rad(25), np.deg2rad(0)
 # alpha, beta = np.deg2rad(24), np.deg2rad(5)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
 # UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
@@ -331,16 +314,13 @@ alpha, beta = np.deg2rad(7), np.deg2rad(0)
 # 1/0
 
 # Zero sideslip tests
-# Should be from -5..22, but Phillips doesn't (yet) handle Cl_alpha=0
 Fs, Ms, Gammas = {}, {}, {}
-# alphas = np.deg2rad(np.arange(-5, 18))
-# alphas = np.deg2rad(np.arange(-5, 25))
 alphas = np.deg2rad(np.linspace(-5, 25, 150))
-# betas = [0, 5, 10, 15]
-# betas = [0, 5, 10]
-betas = [0, 5]
-# betas = [0]
+betas = [0]
 # betas = [5]
+# betas = [0, 5]
+# betas = [0, 5, 10]
+# betas = [0, 5, 10, 15]
 for beta_deg in betas:
     Fs[beta_deg], Ms[beta_deg], Gammas[beta_deg] = [], [], []
 
@@ -349,10 +329,12 @@ for beta_deg in betas:
         print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
         # The Paraglider computes the net moments about the "CG"
         beta = np.deg2rad(beta_deg)
-        UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
+        UVW = np.asarray([
+            cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
         PQR = [0, 0, 0]
         g = [0, 0, 0]
-        F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=1, Gamma=Gamma)
+        F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
+                                                Gamma=Gamma)
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
         Gammas[beta_deg].append(Gamma)
@@ -390,11 +372,10 @@ for beta in betas:
     # L = np.sqrt(np.linalg.norm(Fs[beta], axis=1)**2 - D**2)  # The perpendicular component
     # L[:np.argmax(np.diff(L) > 0)] *= -1  # HACK! Handle negative CL
 
-    # CL = L/(.5 * parafoil.planform.S)
-    # CD = D/(.5 * parafoil.planform.S)
-    CL = L/(.5 * S)
-    CD = D/(.5 * S)
-    CM = My/(.5 * S * cc)  # Belloc uses the central chord as the reference
+    # Implicit: V=1 for all tests
+    CL = L/(.5 * rho_air * S)
+    CD = D/(.5 * rho_air * S)
+    CM = My/(.5 * rho_air * S * cc)  # Belloc uses the central chord
 
     # Compute the CL versus alpha slope using data from -5..5 degrees AoA
     nan_mask = np.isnan(alphas) | np.isnan(CL) | np.isnan(CD)
