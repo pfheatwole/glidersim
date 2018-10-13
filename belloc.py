@@ -45,7 +45,7 @@ from numpy import sin, cos
 from IPython import embed
 import pandas as pd
 
-from scipy.interpolate import interp1d, UnivariateSpline
+from scipy.interpolate import UnivariateSpline, PchipInterpolator
 from numpy.polynomial import Polynomial
 
 import Airfoil
@@ -199,23 +199,24 @@ planform = Parafoil.EllipticalPlanform(
 
 
 # Overwrite the default chord distribution; the Belloc model doesn't fit the
-# elliptical parametrization easily (the taper doesn't develop correctly)
+# elliptical parametrization easily (the taper doesn't develop correctly).
+# Uses a smoothing spline to avoid sharp edges in the lifting line.
 dl = c4[1:] - c4[:-1]
 L = np.r_[0, np.cumsum(np.linalg.norm(dl, axis=1))]
 s = 2*(L / L[-1]) - 1  # Normalized distance, from -1..1
 # print("\n\n !!!! Avoiding the correct chord distribution !!!!\n")
 print("Replacing the default elliptical chord distribution with the raw data")
-planform.fc = interp1d(s, c)  # Replace it with a linear interpolator
+planform.fc = PchipInterpolator(s, c)
 # Or, just use his chord distribution directly?  Belloc, Eq:2, pg 2
 # FIXME: this hotfix doesn't fix the EllipticalPlanform definition for SMC/MAC
 
-# Also, overwrite `ftheta` to incorporate the linear torsion
+# Similarly, overwrite `ftheta` to incorporate the linear torsion
 twist = np.zeros(13)
 twist[:2] = np.deg2rad(3)
 twist[-2:] = np.deg2rad(3)
 # print("\n !!!! Avoiding the correct twist !!!!\n")
 print("Replacing the default `ftheta`")
-planform.ftheta = interp1d(s, twist)
+planform.ftheta = PchipInterpolator(s, twist)
 
 print("Planform:")
 print(f" S: {planform.S}")
