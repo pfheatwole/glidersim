@@ -946,8 +946,9 @@ class Phillips(ForceEstimator):
         res = scipy.optimize.root(self._f, Gamma0, args, options=options)
 
         # If the gradient method failed, try fixed-point iterations
-        if not res['success']:
-            res = self._fixed_point_circulation(Gamma0, *args, **options)
+        # if not res['success']:
+        #     print("The gradient method failed, using fixed-point iteration")
+        #     res = self._fixed_point_circulation(Gamma0, *args, **options)
 
         if res['success']:
             Gamma = res['x']
