@@ -799,35 +799,36 @@ class Phillips(ForceEstimator):
         W_norm = norm(cross(V, self.dl), axis=1)
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
-        # FIXME: `V**2` or `(V_n**2 + V_a**2)`?
+        # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
         f = 2 * Gamma * W_norm - (V_n**2 + V_a**2) * self.dA * Cl
 
         return f
 
-    def _J(self, Gamma, V_w2cp, v, delta):
+    def _J(self, Gamma, V_w2cp, v, delta, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
         #  * ref: Hunsaker-Snyder Eq:11
-        #
-        # FIXME: I think this is broken; needs validation
-
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        vT = np.swapaxes(v, 0, 1)  # Useful for broadcasting cross products
+        V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross(V, self.dl)
         W_norm = norm(W, axis=1)
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-        J1 = 2 * np.diag(W_norm)  # terms for i==j
-        J2 = 2 * einsum('ik,ijk->ij', W, cross(vT, self.dl))
-        J2 = J2 * (Gamma / W_norm)[:, None]
+        J1 = 2 * np.diag(W_norm)  # Additional terms for i==j
+        J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm, cross(v, self.dl))
         J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n) -
               einsum('i,jik,ik->ij', V_n, v, self.u_a))
-        J3 = J3 * ((V*V).sum(axis=1)*self.dA*Cl_alpha)[:, None]
-        J3 = J3 / (V_a**2 + V_n**2)[:, None]
-        J4 = (2 * self.dA * Cl)[:, None] * einsum('ik,jik->ij', V, v)
+        J3 = J3 * (self.dA * Cl_alpha)[:, None]
+        J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na)
         J = J1 + J2 - J3 - J4
 
-        # FIXME: for MINPACK `hybrj`, should this return `J` or `Q` (from QR)?
+        # Compare the analytical gradient to the finite-difference version
+        if verify_J:
+            J_true = self._J_finite(Gamma, V_w2cp, v, delta)
+            if not np.allclose(J, J_true):
+                print("\n !!!! The analytical Jacobian is wrong. Halting. !!!!")
+                embed()
+
         return J
 
     def _J_finite(self, Gamma, V_w2cp, v, delta):
@@ -842,7 +843,7 @@ class Phillips(ForceEstimator):
         >>> np.allclose(J1, J2)  # FIXME: tune the tolerances?
         True
         """
-        JT = np.empty((self.K, self.K))
+        JT = np.empty((self.K, self.K))  # Jacobian transpose  (J_ji)
         eps = np.sqrt(np.finfo(float).eps)  # ref: `approx_prime` docstring
 
         # Build the Jacobian column-wise (row-wise of the tranpose)
@@ -943,7 +944,7 @@ class Phillips(ForceEstimator):
 
         # First, try a fast, gradient-based method. This will fail when wing
         # sections enter the stall region (where Cl_alpha goes to zero).
-        res = scipy.optimize.root(self._f, Gamma0, args, options=options)
+        res = scipy.optimize.root(self._f, Gamma0, args, options=options, jac=self._J)
 
         # If the gradient method failed, try fixed-point iterations
         # if not res['success']:
