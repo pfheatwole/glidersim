@@ -408,9 +408,11 @@ for beta in betas:
 
 # ---------------------------------------------------------------------------
 # Recreate Belloc figures 5..8
+
+plotted_betas = {0, 5, 10, 15}  # The betas present in Belloc's plots
 fig, ax = plt.subplots(2, 2)
 
-for beta in betas:
+for beta in sorted(plotted_betas.intersection(betas)):
     CL = coefficients[beta]['CL']
     CD = coefficients[beta]['CD']
     CM_G = coefficients[0]['CM']
