@@ -360,23 +360,14 @@ for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    Fx, Fz = Fs[beta].T[[0, 2]]
-    My = Ms[beta].T[1]
-    L = Fx*sin(alphas) - Fz*cos(alphas)
-    D = -Fx*cos(alphas) - Fz*sin(alphas)
+    CX, CY, CZ = Fs[beta].T / (.5 * rho_air * S)
+    CN = -CZ
+    CM = Ms[beta].T[1]/(.5 * rho_air * S * cc)  # Belloc uses the central chord
 
-    # beta_rad = np.deg2rad(beta)
-    # u_inf = np.asarray([cos(alphas)*cos(beta_rad),
-    #                     np.full_like(alphas, sin(beta_rad)),
-    #                     sin(alphas)*cos(beta_rad)]).T
-    # D = -np.einsum('ij,ij->i', Fs[beta], u_inf)  # The parallel component
-    # L = np.sqrt(np.linalg.norm(Fs[beta], axis=1)**2 - D**2)  # The perpendicular component
-    # L[:np.argmax(np.diff(L) > 0)] *= -1  # HACK! Handle negative CL
-
-    # Implicit: V=1 for all tests
-    CL = L/(.5 * rho_air * S)
-    CD = D/(.5 * rho_air * S)
-    CM = My/(.5 * rho_air * S * cc)  # Belloc uses the central chord
+    # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
+    beta_rad = np.deg2rad(beta)
+    CD = -cos(alphas)*cos(beta_rad)*CX - sin(beta_rad)*CY + sin(alphas)*cos(beta_rad)*CN
+    CL = sin(alphas)*CX + cos(alphas)*CN
 
     # Compute the CL versus alpha slope using data from -5..5 degrees AoA
     nan_mask = np.isnan(alphas) | np.isnan(CL) | np.isnan(CD)
