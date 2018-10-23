@@ -304,17 +304,18 @@ rho_air = Re * mu / (u * L)
 print("rho_air:", rho_air)
 
 # -----------------------------------
-#  One-off test cases
+# One-off test cases
 alpha, beta = np.deg2rad(7), np.deg2rad(0)
 # alpha, beta = np.deg2rad(25), np.deg2rad(0)
 # alpha, beta = np.deg2rad(24), np.deg2rad(5)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
+#
 # UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
 # F, M, Gamma = glider.forces_and_moments(UVW, [0, 0, 0], [0, 0, 0], rho=1)
 # embed()
 # 1/0
 
-# Zero sideslip tests
+# Full-range tests
 Fs, Ms, Gammas = {}, {}, {}
 alphas = np.deg2rad(np.linspace(-5, 25, 150))
 betas = [0]
@@ -329,6 +330,7 @@ for beta_deg in betas:
     for alpha in alphas:
         print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
         # The Paraglider computes the net moments about the "CG"
+
         beta = np.deg2rad(beta_deg)
         UVW = np.asarray([
             cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
@@ -341,6 +343,7 @@ for beta_deg in betas:
         Gammas[beta_deg].append(Gamma)
         if np.any(np.isnan(Gamma)):
             Gamma = None  # Don't propagate the errors!!
+
 
 for beta in betas:
     Fs[beta] = np.asarray(Fs[beta])
