@@ -377,13 +377,13 @@ for beta in betas:
     CDp = Polynomial.fit(alphas[mask], CD[mask], 4)
     alpha_0 = CLp.roots()
     CD0 = CDp(alpha_0)
-    AR_effective = CL**2 / ((CD - CD0) * np.pi)  # Belloc Eq:6 (corrected)
     print(f"CL slope: {CLp.deriv()(0)} [1/rad]")
     print(f"Zero-lift alpha: {np.rad2deg(alpha_0)} [degrees]")
     print("CD0:", CD0)
-    print("Effective aspect ratios:", AR_effective)
 
-    # Plot the effective aspect ratio
+    # Check the effective aspect ratio
+    # AR_effective = CL**2 / ((CD - CD0) * np.pi)  # Belloc Eq:6 (corrected)
+    # print("Effective aspect ratios:\n", AR_effective)
     # plt.plot(np.rad2deg(alphas), AR_effective)
     # plt.hlines(parafoil.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
     #            'r', 'dashed', linewidth=1)
