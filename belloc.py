@@ -429,13 +429,14 @@ ax[1, 0].legend()
 ax[1, 0].grid()
 
 CL = coefficients[0]['CL']
-CM_CL = -coefficients[0]['CL']*sin(alphas)/cc
-CM_CD = coefficients[0]['CD']*cos(alphas)/cc
-CM_G = coefficients[0]['CM']
+CM_G = coefficients[0]['CM']                   # The total moment coefficient
+CM_CD = coefficients[0]['CD']*cos(alphas)/cc   # Eq: 8
+CM_CL = -coefficients[0]['CL']*sin(alphas)/cc  # Eq: 9
+CM_c4 = CM_G - CM_CL - CM_CD                   # Eq: 7
 ax[0, 1].plot(CM_G, CL, label='CM_G', marker=m)
 ax[0, 1].plot(CM_CL, CL, label='CM_CL', marker=m)
 ax[0, 1].plot(CM_CD, CL, label='CM_CD', marker=m)
-ax[0, 1].plot(CM_G - CM_CL - CM_CD, CL, label='CM_25%', marker=m)  # Eq:7
+ax[0, 1].plot(CM_c4, CL, label='CM_25%', marker=m)
 ax[0, 1].set_xlabel('CM')
 ax[0, 1].set_ylabel('CL')
 ax[0, 1].legend()
