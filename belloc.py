@@ -323,11 +323,11 @@ betas = [0]
 # betas = [0, 5]
 # betas = [0, 5, 10]
 # betas = [0, 5, 10, 15]
-for beta_deg in betas:
+for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], Gammas[beta_deg] = [], [], []
 
     Gamma = None
-    for alpha in alphas:
+    for ka, alpha in enumerate(alphas):
         print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
         # The Paraglider computes the net moments about the "CG"
 
@@ -338,6 +338,13 @@ for beta_deg in betas:
         g = [0, 0, 0]
         F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
                                                 Gamma=Gamma)
+
+        if np.any(np.isnan(Gamma)) and kb > 0:
+            # Try using the solution for a previous beta as the proposal
+            Gamma = Gammas[betas[kb-1]][ka]
+            F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
+                                                    Gamma=Gamma)
+
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
         Gammas[beta_deg].append(Gamma)
