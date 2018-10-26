@@ -782,7 +782,8 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips Eq:14
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        W_norm = norm(cross(V, self.dl), axis=1)
+        W = cross(V, self.dl)
+        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
