@@ -454,6 +454,74 @@ ax[1, 1].set_ylim(-0.4, 1.0)
 ax[1, 1].legend()
 ax[1, 1].grid()
 
+
+# Figures 9, 11, and 12
+ix_a0 = np.argmin(np.abs(np.rad2deg(alphas) - 0))
+ix_a5 = np.argmin(np.abs(np.rad2deg(alphas) - 5))
+ix_a10 = np.argmin(np.abs(np.rad2deg(alphas) - 10))
+ix_a15 = np.argmin(np.abs(np.rad2deg(alphas) - 15))
+
+Cy_a0, Cy_a5, Cy_a10, Cy_a15 = [], [], [], []
+Cl_a0, Cl_a5, Cl_a10, Cl_a15 = [], [], [], []
+Cn_a0, Cn_a5, Cn_a10, Cn_a15 = [], [], [], []
+for beta in betas:
+    # Lateral force
+    Cy_a0.append(Fs[beta].T[1][ix_a0] / (.5 * rho_air * S))
+    Cy_a5.append(Fs[beta].T[1][ix_a5] / (.5 * rho_air * S))
+    Cy_a10.append(Fs[beta].T[1][ix_a10] / (.5 * rho_air * S))
+    Cy_a15.append(Fs[beta].T[1][ix_a15] / (.5 * rho_air * S))
+
+    # Rolling moment coefficients
+    Cl_a0.append(Ms[beta].T[0][ix_a0] / (.5 * rho_air * S * cc))
+    Cl_a5.append(Ms[beta].T[0][ix_a5] / (.5 * rho_air * S * cc))
+    Cl_a10.append(Ms[beta].T[0][ix_a10] / (.5 * rho_air * S * cc))
+    Cl_a15.append(Ms[beta].T[0][ix_a15] / (.5 * rho_air * S * cc))
+
+    # Yawing moment coeficients
+    Cn_a0.append(Ms[beta].T[2][ix_a0] / (.5 * rho_air * S * cc))
+    Cn_a5.append(Ms[beta].T[2][ix_a5] / (.5 * rho_air * S * cc))
+    Cn_a10.append(Ms[beta].T[2][ix_a10] / (.5 * rho_air * S * cc))
+    Cn_a15.append(Ms[beta].T[2][ix_a15] / (.5 * rho_air * S * cc))
+
+fig9, ax9 = plt.subplots()
+ax9.plot(betas, Cy_a0, label=r'$\alpha$=0°')
+ax9.plot(betas, Cy_a5, label=r'$\alpha$=5°')
+ax9.plot(betas, Cy_a10, label=r'$\alpha$=10°')
+ax9.plot(betas, Cy_a15, label=r'$\alpha$=15°')
+ax9.set_xlim(-20, 20)
+ax9.set_ylim(-0.3, 0.3)
+ax9.set_title("Figure 9: The effect of sideslip on the lateral force")
+ax9.set_xlabel(r'$\beta$')
+ax9.set_ylabel(r'$\mathrm{C_y}$')
+ax9.legend()
+ax9.grid()
+
+fig11, ax11 = plt.subplots()
+ax11.plot(betas, Cl_a0, label=r'$\alpha$=0°')
+ax11.plot(betas, Cl_a5, label=r'$\alpha$=5°')
+ax11.plot(betas, Cl_a10, label=r'$\alpha$=10°')
+ax11.plot(betas, Cl_a15, label=r'$\alpha$=15°')
+ax11.set_xlim(-20, 20)
+ax9.set_ylim(-0.2, 0.2)
+ax11.set_title("Figure 11: The effect of sideslip on the rolling moment")
+ax11.set_xlabel(r'$\beta$')
+ax11.set_ylabel(r'$\mathrm{Cl_G}$')
+ax11.legend()
+ax11.grid()
+
+fig12, ax12 = plt.subplots()
+ax12.plot(betas, Cn_a0, label=r'$\alpha$=0°')
+ax12.plot(betas, Cn_a5, label=r'$\alpha$=5°')
+ax12.plot(betas, Cn_a10, label=r'$\alpha$=10°')
+ax12.plot(betas, Cn_a15, label=r'$\alpha$=15°')
+ax12.set_xlim(-20, 20)
+ax12.set_ylim(-0.1, 0.1)
+ax12.set_title("Figure 12: The effect of sideslip on the yawing moment")
+ax12.set_xlabel(r'$\beta$')
+ax12.set_ylabel(r'$\mathrm{Cn_G}$')
+ax12.legend()
+ax12.grid()
+
 plt.show()
 
 embed()
