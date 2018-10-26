@@ -934,11 +934,10 @@ class Phillips(ForceEstimator):
 
         # Common arguments for the root-finding functions
         args = (V_w2cp, v, delta)
-        options = {'xtol': 1e-4}
 
         # First, try a fast, gradient-based method. This will fail when wing
         # sections enter the stall region (where Cl_alpha goes to zero).
-        res = scipy.optimize.root(self._f, Gamma0, args, options=options, jac=self._J)
+        res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         # If the gradient method failed, try fixed-point iterations
         # if not res['success']:
