@@ -797,17 +797,23 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross(V, self.dl)
-        W_norm = norm(W, axis=1)
+        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
-        J1 = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm, cross(v, self.dl))
-        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n) -
-              einsum('i,jik,ik->ij', V_n, v, self.u_a))
-        J3 = J3 * (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na)
-        J = J1 + J2 - J3 - J4
+        # Use precomputed optimal einsum paths
+        opt2 = ['einsum_path', (0, 2), (0, 2), (0, 1)]
+        opt3 = ['einsum_path', (0, 2), (0, 1)]
+        opt4 = ['einsum_path', (0, 1), (1, 2), (0, 1)]
+
+        J = 2 * np.diag(W_norm)  # Additional terms for i==j
+        J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
+                        cross(v, self.dl), optimize=opt2)
+        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3) -
+              einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
+        J3 *= (self.dA * Cl_alpha)[:, None]
+        J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na, optimize=opt4)
+        J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
