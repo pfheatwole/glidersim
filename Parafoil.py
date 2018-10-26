@@ -983,8 +983,8 @@ class Phillips(ForceEstimator):
         # Compute the local pitching moments applied to each section
         #  * ref: Hunsaker-Snyder Eq:19
         #  * ref: Phillips Eq:28
-        # FIXME: This is a hack! Should use integral(c**2), not dA
+        # FIXME: This is a hack! Should use integral(c**2), not `dA * c_avg`
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
-        dM = -1/2 * V2 * self.dA * Cm * self.u_s.T
+        dM = -1/2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         return dF.T, dM.T, Gamma
