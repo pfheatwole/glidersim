@@ -818,8 +818,9 @@ class Phillips(ForceEstimator):
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
             J_true = self._J_finite(Gamma, V_w2cp, v, delta)
-            if not np.allclose(J, J_true):
-                print("\n !!!! The analytical Jacobian is wrong. Halting. !!!!")
+            mask = ~np.isnan(J_true) | ~np.isnan(J)
+            if not np.allclose(J[mask], J_true[mask]):
+                print("\n !!! The analytical Jacobian is wrong. Halting. !!!")
                 embed()
 
         return J
