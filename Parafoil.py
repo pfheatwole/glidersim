@@ -726,7 +726,14 @@ class Phillips(ForceEstimator):
         self.c_avg = (node_chords[1:] + node_chords[:-1])/2
         self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
 
-        self._compute_v = None  # FIXME: design review Numba helper functions
+        # Precompute the `v` terms that do not depend on `u_inf`
+        R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
+        self.v_ij = np.zeros((self.K, self.K, 3))  # Extra terms when `i != j`
+        for ij in [(i, j) for i in range(self.K) for j in range(self.K)]:
+            if ij[0] == ij[1]:  # Skip singularities when `i == j`
+                continue
+            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
+                (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
 
     @property
     def control_points(self):
@@ -736,34 +743,13 @@ class Phillips(ForceEstimator):
 
     def _induced_velocities(self, u_inf):
         # 2. Compute the "induced velocity" unit vectors
+        #  * ref: Phillips, Eq:6
+        R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
+        v = self.v_ij.copy()
+        v += cross(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
+        v -= cross(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
 
-        # These variables must be in the local scope to jit the function
-        R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2
-        K = self.K
-
-        def compute_v(u_inf):
-            #  * ref: Phillips, Eq:6
-            v = np.empty_like(R1)
-            indices = [(i, j) for i in range(K) for j in range(K)]
-            for ij in indices:
-                v[ij] = cross3(u_inf, R2[ij]) / \
-                    (r2[ij] * (r2[ij] - dot(u_inf, R2[ij])))
-
-                v[ij] -= cross3(u_inf, R1[ij]) / \
-                    (r1[ij] * (r1[ij] - dot(u_inf, R1[ij])))
-
-                if ij[0] == ij[1]:
-                    continue  # Skip singularities when `i == j`
-
-                v[ij] += ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
-                    (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
-
-            return v/(4*np.pi)
-
-        if self._compute_v is None:
-            self._compute_v = njit(compute_v)
-
-        return self._compute_v(u_inf)
+        return v/(4*np.pi)
 
     def _proposal1(self, V_w2cp, delta):
         # Generate an elliptical Gamma distribution that uses the wing root
