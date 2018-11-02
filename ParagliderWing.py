@@ -123,7 +123,7 @@ class ParagliderWing:
             return np.abs(dM[1])  # Return the total pitching moment
 
         f = partial(opt, deltaB, deltaS)
-        bounds = np.deg2rad([-12, 23])  # FIXME: fixed bounds are not ideal
+        bounds = np.deg2rad([-5, 17])  # FIXME: fixed bounds are not ideal
         res = minimize_scalar(f, method='bounded', bounds=bounds)
         return res.x
 
