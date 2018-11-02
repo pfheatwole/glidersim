@@ -311,21 +311,24 @@ alpha, beta = np.deg2rad(7), np.deg2rad(0)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
 #
 # UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
-# F, M, Gamma = glider.forces_and_moments(UVW, [0, 0, 0], [0, 0, 0], rho=1)
+# PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
+# F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho=1)
 # embed()
 # 1/0
 
 # Full-range tests
 Fs, Ms, Gammas = {}, {}, {}
 alphas = np.deg2rad(np.linspace(-5, 25, 150))
-betas = [0]
+# betas = [0]
 # betas = [5]
 # betas = [0, 5]
 # betas = [0, 5, 10]
 # betas = [0, 5, 10, 15]
+betas = np.arange(16)
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], Gammas[beta_deg] = [], [], []
 
+    # FIXME: start from alpha=0 to improve convergence
     Gamma = None
     for ka, alpha in enumerate(alphas):
         print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
@@ -339,6 +342,7 @@ for kb, beta_deg in enumerate(betas):
         F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
                                                 Gamma=Gamma)
 
+        # FIXME: if the previous solution has nan, this wastes time
         if np.any(np.isnan(Gamma)) and kb > 0:
             # Try using the solution for a previous beta as the proposal
             Gamma = Gammas[betas[kb-1]][ka]
