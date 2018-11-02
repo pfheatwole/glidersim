@@ -13,8 +13,6 @@ import scipy.optimize
 
 from IPython import embed
 
-from util import cross3
-
 import matplotlib.pyplot as plt
 
 from plots import set_axes_equal
@@ -198,7 +196,7 @@ class ParafoilGeometry:
         # Approximates each section chord area as parallelograms
         u_a = u.T[0].T  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
-        section_chord_area = np.linalg.norm(np.cross(u_a, dl), axis=1)
+        section_chord_area = np.linalg.norm(cross(u_a, dl), axis=1)
         Kl = chords * section_chord_area  # surface lines into surface area
         Ka = chords**2 * section_chord_area  # airfoil area into section volume
 
@@ -732,7 +730,7 @@ class Phillips(ForceEstimator):
         for ij in [(i, j) for i in range(self.K) for j in range(self.K)]:
             if ij[0] == ij[1]:  # Skip singularities when `i == j`
                 continue
-            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
+            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross(R1[ij], R2[ij])) / \
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
 
     @property
