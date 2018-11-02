@@ -284,7 +284,7 @@ def main():
     # Wing and glider
 
     wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                          d_riser=0.37, z_riser=6.8,
+                          d_riser=0.49, z_riser=6.8,
                           pA=0.08, pC=0.80,
                           kappa_s=0.15)
 
