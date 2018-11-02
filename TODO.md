@@ -73,9 +73,10 @@ A `ParafoilSections` class should generate those Airfoils, and provide the Airfo
 
 
 ## Coefficient Estimation
- * **Important**: I really need a THOROUGH review of the Phillips implementation
- * Phillips can have convergence issues; need a strategy to detect them
- * Phillips can't handle `Cl_alpha = 0` conditions; needs to detect this at a minimum, and better yet use "Picard iterations" to solve the system
+ * Phillips is unreliable post-stall:
+    * The Jacobian explodes near `Cl_alpha = 0`
+    * Phillips recommends using "Picard iterations" to solve the system
+    * **WARNING**: I doubt the XFOIL data is suitable post stall
  * Double check the drag correction terms for viscous effects
     * Should the section drag really include the local sideslip airspeed for calculating their drag?
     * Or should they "discard" the sideway velocity and calculate using only the chordwise+normal velocities?
@@ -83,6 +84,13 @@ A `ParafoilSections` class should generate those Airfoils, and provide the Airfo
  * Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
  * I could really use better Gamma proposals; they are super ugly right now
     * Is Phillips2d a good predictor? Maybe convert Phillip's velocities into <Gamma> and scale it?
+
+ * In Phillips, I compute the complete Jacobian, but MINPACK's documentation for `hybrj` says it should be the `Q` from a `QR` factorization?
+ * In Phillips, the Jacobian uses the smoothed `Cl_alpha`, which technically will not match the finite-difference of the raw `Cl`. Should I smooth the `Cl`, and replace that as well?
+
+ * Profile and optimize Phillips
+    * `python -m cProfile -o belloc.prof belloc.py`, then `>>> p = pstats.Stats('belloc.prof'); p.sort_stats('cumtime').print_stats(50)`
+    * The `einsum` are not optimized by default; also, can precompute the optimal contraction "path" with `einsum_path`
 
 
 # BrakeGeometry
