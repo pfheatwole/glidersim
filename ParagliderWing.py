@@ -80,7 +80,7 @@ class ParagliderWing:
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
         """
-        delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)
+        delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
         dF, dM, Gamma = self.force_estimator(V_cp2w, delta, Gamma)
         return dF, dM, Gamma
 
@@ -115,7 +115,7 @@ class ParagliderWing:
             cp_wing = self.control_points(deltaS)
             K = len(cp_wing)
             v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
-            dF_w, dM_w = self.forces_and_moments(v_wing, deltaB, deltaB)
+            dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
             dM = dM_w.sum(axis=0)
             dM += np.cross(cp_wing, dF_w).sum(axis=0)
             return np.abs(dM[1])  # Return the total pitching moment

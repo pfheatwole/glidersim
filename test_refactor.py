@@ -100,7 +100,7 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     for alpha in alphas:
         g = [0, 0, 0]
         UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
-        F, M = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
+        F, M, _, = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
                                          delta_Bl=delta_B, delta_Br=delta_B)
         Fs.append(F)
 
@@ -301,8 +301,9 @@ def main():
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
     g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
-    F, M = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+    F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
                                      delta_Bl=0, delta_Br=0)
+
     print("\nGlider results:")
     print("alpha:", np.rad2deg(np.arctan2(UVW[2], UVW[0])))
     print("UVW:  ", UVW.round(4))
