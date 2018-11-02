@@ -2,6 +2,7 @@ import numpy as np
 
 from IPython import embed
 
+
 class Paraglider:
     """
 
@@ -186,6 +187,7 @@ class Paraglider:
         dF_g, dM_g = self.forces_and_moments(V, [0, 0, 0], g, rho,
                                              delta_B, delta_B, delta_S)
 
+        # FIXME: neglects the weight of the wing
         Theta_eq = np.arctan2(dF_g[0], -dF_g[2])
         V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/dF_g[2])
 
