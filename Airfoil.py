@@ -178,15 +178,16 @@ class GridCoefficients(AirfoilCoefficients):
         # FIXME: needs a design review
         alpha_min, delta_min = self._Cl.tri.min_bound
         alpha_max, delta_max = self._Cl.tri.max_bound
-        alphas = np.linspace(alpha_min, alpha_max, 1000)
         points = []
         for delta in np.linspace(delta_min, delta_max, 25):
+            alphas = np.linspace(alpha_min, alpha_max, 1000)
             deltas = np.full_like(alphas, delta)
             CLs = self._Cl(alphas, deltas)
             notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
             alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
             poly = Polynomial.fit(alphas, CLs, 7)
             Cl_alphas = poly.deriv()(alphas)
+            deltas -= 1e-9   # FIXME: HACK! Keep delta=0 inside the convex hull
             points.append(np.array((alphas, deltas, Cl_alphas)).T)
 
         points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
