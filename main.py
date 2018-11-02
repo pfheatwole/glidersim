@@ -10,25 +10,7 @@ from IPython import embed  # noqa: F401
 
 from Airfoil import Airfoil, LinearCoefficients, NACA4
 from Wing import Wing, EllipticalWing
-
-
-def plot_airfoil(foil):
-    x = np.linspace(0, 1, 1500)
-    upper = foil.upper_curve(x)
-    lower = foil.lower_curve(x)
-    camberline = foil.camber_curve(x)
-
-    fig, ax = plt.subplots()
-    ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
-    ax.plot(upper[:, 0], upper[:, 1], c='r', lw=0.75)
-    ax.plot(lower[:, 0], lower[:, 1], c='b', lw=0.75)
-    ax.scatter(foil.camber_curve(.25)[0], foil.camber_curve(0.25)[1], c='k')
-    ax.set_aspect('equal')
-    ax.legend()
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.2, 0.2)
-    ax.grid(True)
-    plt.show()
+from plots import plot_airfoil_geo
 
 
 def set_axes_equal(ax):
@@ -214,9 +196,9 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
 
 
 if __name__ == "__main__":
-    # plot_airfoil(NACA4(2412))
-    # plot_airfoil(NACA4(4412))
-    # plot_airfoil(NACA4(2415))
+    # plot_airfoil_geo(NACA4(2412))
+    # plot_airfoil_geo(NACA4(4412))
+    # plot_airfoil_geo(NACA4(2415))
 
     # animated_wing_plotter()
     animate_wing_torsion()
