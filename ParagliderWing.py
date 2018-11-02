@@ -78,7 +78,7 @@ class ParagliderWing:
 
         Returns
         -------
-        dF, dM : array of float, shape (K,3) [N]
+        dF, dM : ndarray of float, shape (K,3) [N]
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
         """
