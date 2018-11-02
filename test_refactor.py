@@ -326,6 +326,11 @@ def main():
     print("Glider equilibrium glide ratio:", 1/np.tan(gamma_eq))
     print("Glider equilibrium glide speed:", V_eq)
 
+    # Dynamics
+    J_wing = wing.inertia(rho_air=1.2, N=5000)
+    alpha_rad = np.linalg.inv(J_wing) @ M
+    print("angular acceleration in deg/s**2:", np.rad2deg(alpha_rad))
+
     print("\n<pausing>\n")
     embed()
 
