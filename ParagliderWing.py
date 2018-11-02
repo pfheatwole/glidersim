@@ -9,8 +9,6 @@ from scipy.integrate import simps
 
 from IPython import embed
 
-from util import trapz
-
 
 class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
