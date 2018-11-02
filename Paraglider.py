@@ -38,52 +38,6 @@ class Paraglider:
         harness_cps = self.harness.control_points()
         return np.vstack((wing_cps, harness_cps))
 
-    def section_wind(self, y, UVW, PQR, controls=None):
-        # FIXME: remove the explicit `y` parameter?
-
-
-
-        # FIXME: this is duplicated in `forces_and_moments`
-        #
-        #        Also, isn't this a more general idea? It doesn't just apply
-        #        to the wing; it applies to the harness, and any other points
-        #        that contributed an aerodynamic force. So "section wind" is
-        #        really "control point relative wind", for ALL cps, not just
-        #        those on the wing. This will come into play if I place the
-        #        harness below the cg, for example.
-
-
-
-        # Compute the local relative wind for parafoil sections
-        #
-        # FIXME: finish the docstring
-        # FIXME: this is incomplete. It doesn't have a parameter for the wind.
-        #        (UVW is the motion of the cg relative to the inertial frame)
-
-        delta_s = 0  # FIXME: should be part of the control?
-
-        # Version 1: PFD eqs 4.10-4.12, p73
-        # uL = U + z*Q - y*R
-        # vL = V - z*P + x*R
-        # wL = W + y*P - x*Q
-        #
-        # Or, rewritten to highlight `v_rel = UVW + cross(PQR, xyz)`:
-        # uL = U +    0 + -R*y +  Q*z
-        # vL = V +  R*x +    0 + -P*z
-        # wL = W + -Q*x +  P*y +    0
-        # v_rel  = np.c_[uL, vL, wL]
-
-        # Version 2: 'Aircraft Control and Simulation', Eq:1.4-2, p17 (31)
-        # Assumes the ParagliderWing is mounted exactly at the cg
-        # FIXME: this does not account for the orientation of the wing!!!
-
-        # FIXME: testing
-
-        v_b2w = UVW + 0  # FIXME: what is v_{body/wind} ?
-        xyz = self.wing.control_points(delta_s)
-        v_rel = v_b2w + np.cross(PQR, xyz)
-        return v_rel
-
     def forces_and_moments(self, UVW, PQR, g, rho,
                            delta_Bl=0, delta_Br=0, delta_s=0,
                            v_w2e=None, xyz=None, Gamma=None):
