@@ -291,22 +291,28 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
 
 def main():
     glider = build_glider()
+    alpha_eq, Theta_eq, V_eq = 0.13964, 0.024184, 10.41  # For deltas=0
 
     # Build some data
     alpha, beta = np.deg2rad(8.5), np.deg2rad(0)
     UVW = 10.5 * np.asarray(
         [cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
-    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
+    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
+    Phi = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # attitude [rad]
+
+    # q = np.array([1, 0, 0, 0])  # The identity quaternion (zero attitude)
+    q = quaternion.euler_to_quaternion(Phi)  # Encodes C_frd/ned
+    q_inv = q * [1, -1, -1, -1]              # Encodes C_ned/frd
 
     # Define the initial state
     state0 = np.empty(1, dtype=state_dtype)
-    state0['q'] = [1, 0, 0, 0]  # The identity quaternion
+    state0['q'] = q
     state0['p'] = [0, 0, 0]
-    state0['v'] = UVW  # FIXME: Wrong, UVW in in frd, not ned
+    state0['v'] = quaternion.apply_quaternion_rotation(q_inv, UVW)
     state0['omega'] = PQR
 
     v_w2e = [0, 0, 0]
-    path = simulate(glider, state0, v_w2e, num_steps=5000, dt=0.01)
+    path = simulate(glider, state0, v_w2e, num_steps=2500, dt=0.01)
 
     # embed()
 
