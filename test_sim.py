@@ -189,14 +189,14 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
     t_start = time.time()
     for k in range(num_steps):
         if k == 0:
-            mins, secs = 0, 0
+            msg = ""
         elif k % 50 == 0:
             avg_rate = k / (time.time() - t_start)
             rem = (num_steps - k) / avg_rate
-            mins, secs = int(rem // 60), int(rem % 60)
-        print(f"\rStep: {k} (t = {k*dt:.2f}). ETA: {mins}m{secs}s", end="")
-        cur, next = path[k], path[k+1]  # Views onto the states
+            msg = f"ETA: {int(rem // 60)}m{int(rem % 60)}s"
+        print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
 
+        cur, next = path[k], path[k+1]  # Views onto the states
         if np.any(np.isnan(cur['q'])):
             print("Things exploded")
             path = path[:k]  # Discard unpopulated states
