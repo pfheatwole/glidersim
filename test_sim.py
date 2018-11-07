@@ -208,6 +208,8 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
         # g = [0, 0, 0]  # Disable the gravity force
         gs.append(g)
 
+        # FIXME: compute the relative wind from v_w2e
+
         v_frd = quaternion.apply_quaternion_rotation(cur['q'], cur['v'])
         if not np.isclose(norm(cur['v']), norm(v_frd)):
             print("The velocity norms don't match")
