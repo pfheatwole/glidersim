@@ -81,7 +81,7 @@ def quaternion_to_dcm(q):
     q = q.reshape(4, 1)
     qw, qv = q[0], q[1:]
 
-    # ref: Stevens, Eq:1.8-18, pg 53 (67)
+    # ref: Stevens, Eq:1.8-16, pg 53 (67)
     dcm = 2*qv@qv.T + (qw**2 - qv.T@qv)*np.eye(3) - 2*qw*skew(qv)
 
     return np.asarray(dcm)
@@ -91,11 +91,18 @@ def apply_quaternion_rotation(q, u):
     # Encodes `v = q^-1 * u * q`, where `*` is the quaternion product,
     # and `u` has been converted to a quaternion, `u = [0, u]`
     #
-    # ref: Stevens, Eg:1.8-8, pg 49 (63)
+    # ref: Stevens, Eg:1.8-8, p49 (63)
+    q = np.asarray(q)
+    u = np.asarray(u)
+    assert q.shape in ((4,), (4, 1))
     assert u.shape in ((3,), (3, 1))
+    q = q.ravel()
     u = u.ravel()
+    assert np.isclose(np.linalg.norm(q), 1)
+
     qw, qv = q[0], q[1:]
-    v = np.r_[0, 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*np.cross(qv, u)]
+    v = 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*np.cross(qv, u)
+
     return v
 
 

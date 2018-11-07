@@ -1,7 +1,12 @@
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import sin, cos
+from numpy.linalg import norm
 from IPython import embed
+import pandas as pd
+from scipy.interpolate import UnivariateSpline
 
 import Airfoil
 import Parafoil
@@ -9,6 +14,7 @@ import BrakeGeometry
 import Harness
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
+import quaternion
 
 
 def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
@@ -45,11 +51,60 @@ def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
     return Parafoil.ParafoilGeometry(planform, lobe, airfoil)
 
 
+class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
+    """
+    Uses the airfoil coefficients from a CSV file.
+    The CSV must contain the following columns: [alpha, delta, CL, CD, Cm]
+
+    This is similar to `Airfoil.GridCoefficients`, but it assumes that delta
+    is always zero. This is convenient, since no assuptions need to be made
+    for the non-existent flaps on the wind tunnel model.
+    """
+
+    def __init__(self, filename, convert_degrees=True):
+        data = pd.read_csv(filename)
+        self.data = data
+
+        if convert_degrees:
+            data['alpha'] = np.deg2rad(data.alpha)
+
+        self._Cl = UnivariateSpline(data[['alpha']], data.CL, s=0.001)
+        self._Cd = UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
+        self._Cm = UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
+        self._Cl_alpha = self._Cl.derivative()
+
+    def _clean(self, alpha, val):
+        # The UnivariateSpline doesn't fill `nan` outside the boundaries
+        min_alpha, max_alpha = np.deg2rad(-9.9), np.deg2rad(24.9)
+        mask = (alpha < min_alpha) | (alpha > max_alpha)
+        val[mask] = np.nan
+        return val
+
+    def Cl(self, alpha, delta):
+        return self._clean(alpha, self._Cl(alpha))
+
+    def Cd(self, alpha, delta):
+        return self._clean(alpha, self._Cd(alpha))
+
+    def Cm(self, alpha, delta):
+        return self._clean(alpha, self._Cm(alpha))
+
+    def Cl_alpha(self, alpha, delta):
+        return self._clean(alpha, self._Cl_alpha(alpha))
+
+
 def build_glider():
-    print("\nAirfoil: NACA 24018, curving flap")
+    # print("\nAirfoil: NACA 24018, curving flap")
+    # airfoil_geo = Airfoil.NACA5(24018, convention='british')
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')
+    # delta_max = np.deg2rad(13.25)  # raw delta_max = 13.38
+
+    print("\nAirfoil: NACA 23015, flapless (no support for delta)")
     airfoil_geo = Airfoil.NACA5(24018, convention='british')
-    airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')
-    delta_max = np.deg2rad(13.25)  # raw delta_max = 13.38
+    airfoil_coefs = FlaplessAirfoilCoefficients(
+        'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
+    delta_max = np.deg2rad(0)  # Flapless coefficients don't support delta
+
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
     # Hook3 specs:
@@ -65,11 +120,13 @@ def build_glider():
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
     wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                          d_riser=0.49, z_riser=6.8,
+                          d_riser=0.50, z_riser=6.8,
                           pA=0.08, pC=0.80,
                           kappa_s=0.15)
 
-    harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    # The 6 DoF glider model holds the harness orientation fixed, so if z_riser
+    # is non-zero it will introduce an unnatural torque.
+    harness = Harness.Spherical(mass=75, z_riser=0.0, S=0.55, CD=0.8)
 
     glider = Paraglider(wing, harness)
 
@@ -83,28 +140,6 @@ state_dtype = [
     ('p', 'f4', (3,)),
     ('v', 'f4', (3,)),
     ('omega', 'f4', (3,))]
-
-
-def apply_quaternion_rotation(q, u):
-    # Encodes `v = q^-1 * u * q`, where `*` is the quaternion product,
-    # and `u` has been converted to a quaternion, `u = [0, u]`
-    #
-    # ref: Stevens, Eg:1.8-8, pg 49 (63)
-    q = np.asarray(q)
-    u = np.asarray(u)
-    assert q.shape in ((4,), (4, 1))
-    assert u.shape in ((3,), (3, 1))
-    q = q.ravel()
-    u = u.ravel()
-
-    assert np.isclose(np.linalg.norm(q), 1)
-
-    qw, qv = q[0], q[1:]
-    v = np.r_[0, 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*np.cross(qv, u)]
-
-    assert np.isclose(v[0], 0)
-
-    return v[1:]  # The `v` quaternion is vector only
 
 
 def quaternion_product(p, q):
@@ -122,14 +157,16 @@ def quaternion_to_euler(q):
     # assert np.isclose(np.linalg.norm(q), 1)
     w, x, y, z = q.T
 
-    # FIXME: These assume a unit quaternion!
+    # ref: Merwe, Eq:B.5:7, p363 (382)
+    # FIXME: These assume a unit quaternion?
+    # FIXME: verify: these assume the quaternion is `q_local/global`? (Merwe-style?)
     phi = np.arctan2(2*(w*x + y*z), 1 - 2*(x**2 + y**2))
-    theta = np.arcsin(2*(w*y - x*z))
+    theta = np.arcsin(-2*(x*z - w*y))
     gamma = np.arctan2(2*(w*z + x*y), 1 - 2*(y**2 + z**2))
     return np.array([phi, theta, gamma]).T
 
 
-def simulate(glider, state0, v_w2e, num_steps=20, dt=0.1, rho_air=1.2):
+def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
     """
 
     Returns
@@ -138,61 +175,69 @@ def simulate(glider, state0, v_w2e, num_steps=20, dt=0.1, rho_air=1.2):
         N : the number of state variables
     """
 
+    # Preallocate storage for the sequence of states
     path = np.empty(num_steps+1, dtype=state_dtype)
+
+    J = glider.wing.inertia(rho_air=rho_air, N=5000)
+    J_inv = np.linalg.inv(J)
+
     path[0] = state0
     Gamma = None
+    Fs, Ms, Gammas, gs = [], [], [], []  # For debugging purposes
+    alphas, a_frds, a_neds = [], [], []
 
-    J_wing = glider.wing.inertia(rho_air=rho_air, N=5000)
-
-    Fs, Ms, Gammas = [], [], []
-    gs = []
+    t_start = time.time()
     for k in range(num_steps):
-        print(f"Step: {k} (t = {k*dt:.2f})")
+        if k == 0:
+            mins, secs = 0, 0
+        elif k % 50 == 0:
+            avg_rate = k / (time.time() - t_start)
+            rem = (num_steps - k) / avg_rate
+            mins, secs = int(rem // 60), int(rem % 60)
+        print(f"\rStep: {k} (t = {k*dt:.2f}). ETA: {mins}m{secs}s", end="")
         cur, next = path[k], path[k+1]  # Views onto the states
 
         if np.any(np.isnan(cur['q'])):
             print("Things exploded")
-            path = path[:k]  # Only keep the good stuff
+            path = path[:k]  # Discard unpopulated states
             break
 
-        g = apply_quaternion_rotation(cur['q'], [0, 0, 1])
-        gs.append(g)
+        q_inv = cur['q'].copy()
+        q_inv[1:] *= -1
+
+        g = quaternion.apply_quaternion_rotation(cur['q'], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
+        gs.append(g)
+
+        v_frd = quaternion.apply_quaternion_rotation(cur['q'], cur['v'])
+        if not np.isclose(norm(cur['v']), norm(v_frd)):
+            print("The velocity norms don't match")
+            embed()
 
         F, M, Gamma = glider.forces_and_moments(
-                cur['v'], cur['omega'], g, rho=1.2, Gamma=Gamma)
-        acc = F/75  # FIXME: crude, wrong, magic number (75kg)
-        alpha = np.linalg.inv(J_wing) @ M
-        # print("angular acceleration in deg/s**2:", np.rad2deg(alpha))
-        # alpha = 0
+            v_frd, cur['omega'],
+            g, rho=rho_air,
+            Gamma=Gamma)
 
-        # print("\nReview the F, M, acc, and alpha")
-        # embed()
+        # Translational acceleration
+        a_frd = F/glider.harness.mass  # FIXME: crude, incomplete
 
-        Fs.append(F)
-        Ms.append(M)
-        Gammas.append(Gamma)
-
-
-        # FIXME: the glider should provide the accelerations, not just forces!
-        #        I need a new function that computes this, I think?
-        # a, alpha, Gamma = glider.accelerations(
-        #         cur['v'], cur['omega'], g, rho=rho_air, Gamma=Gamma)
-
+        # FIXME: Paraglider should return accelerations directly, not forces
 
         # State update
-
         P, Q, R = cur['omega']
-        Phi = dt * np.array([
+        Phi = dt * np.array([  # ref: Stevens, Eq:1.8-15, p51 (65)
             [0, -P, -Q, -R],
             [P,  0,  R, -Q],
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
-        v = np.linalg.norm(Phi[0])  # Merwe, Eq:B.19, pg 366 (385)
-        s = 0.5 * v  # Merwe, pg 368 (387)
+        Phi = -Phi  # FIXME: Merwe is weird (ie, negative); does this work? I think this is related to q_LG vs q_GL.
+        nu = np.linalg.norm(Phi[0])  # Merwe, Eq:B.19, p366 (385)
+        _alpha = 0.5  # This is *NOT* an angular acceleration
+        s = _alpha * nu  # Merwe, p368 (387)
 
         # Modified result from Merwe, Appendix B4
-        q_upd = np.eye(4)*np.cos(s) + .5 * Phi * np.sinc(s)
+        q_upd = np.eye(4)*np.cos(s) - _alpha * Phi * np.sinc(s)
 
         if not np.isclose(np.linalg.det(q_upd), 1):
             print("The quaternion update matrix is not orthogonal")
@@ -204,10 +249,41 @@ def simulate(glider, state0, v_w2e, num_steps=20, dt=0.1, rho_air=1.2):
         q_next = q_upd @ cur['q']
         q_next = q_next / np.linalg.norm(q_next)
 
+        a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
+        if not np.isclose(norm(a_ned), norm(a_frd)):
+            print("The acceleration norms don't match")
+            embed()
+
+        # Angular acceleration
+        #  * ref: Stevens, Eq:1.7-5, p36 (50)
+        alpha = J_inv @ (M - np.cross(cur['omega'], J @ cur['omega']))
+
         next['q'] = q_next
         next['p'] = cur['p'] + cur['v'] * dt
-        next['v'] = cur['v'] + acc * dt
+        next['v'] = cur['v'] + a_ned * dt
         next['omega'] = cur['omega'] + alpha * dt
+
+        Fs.append(F)
+        Ms.append(M)
+        Gammas.append(Gamma)
+        alphas.append(alpha)
+        a_frds.append(a_frd)
+        a_neds.append(a_ned)
+
+    print()
+
+    # Debugging stuff
+    Fs = np.asarray(Fs)
+    Ms = np.asarray(Ms)
+    Gammas = np.asarray(Gammas)
+    gs = np.asarray(gs)
+    alphas = np.asarray(alphas)
+    a_frds = np.asarray(a_frds)
+    a_neds = np.asarray(a_neds)
+    delta_PE = 9.8 * 75 * -path['p'].T[2]  # PE = mgh
+    KE_trans = 1/2 * 75 * norm(path['v'], axis=1)**2  # translational KE
+    KE_rot = 1/2 * np.einsum('ij,kj->k', J, path['omega']**2)
+    delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot  # Should be strictly decreasing
 
     embed()
 
@@ -218,29 +294,22 @@ def main():
     glider = build_glider()
 
     # Build some data
-    alpha, beta = np.deg2rad(8), np.deg2rad(0)
-    UVW = 10 * np.asarray(
+    alpha, beta = np.deg2rad(8.5), np.deg2rad(0)
+    UVW = 10.5 * np.asarray(
         [cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
     PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
 
-    # F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho=1)
-    # J_wing = glider.wing.inertia(rho_air=1.2, N=5000)
-    # alpha_rad = np.linalg.inv(J_wing) @ M
-    # print("angular acceleration in deg/s**2:", np.rad2deg(alpha_rad))
-
-    # Choose an initial state
+    # Define the initial state
     state0 = np.empty(1, dtype=state_dtype)
     state0['q'] = [1, 0, 0, 0]  # The identity quaternion
     state0['p'] = [0, 0, 0]
-    # state0['v'] = [1, 0, 0]
-    state0['v'] = UVW
-    # state0['omega'] = [0, 0, 0]
+    state0['v'] = UVW  # FIXME: Wrong, UVW in in frd, not ned
     state0['omega'] = PQR
 
     v_w2e = [0, 0, 0]
-    path = simulate(glider, state0, v_w2e, num_steps=50000, dt=0.001)
+    path = simulate(glider, state0, v_w2e, num_steps=5000, dt=0.01)
 
-    embed()
+    # embed()
 
 
 if __name__ == "__main__":
