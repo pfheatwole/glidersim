@@ -202,8 +202,7 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
             path = path[:k]  # Discard unpopulated states
             break
 
-        q_inv = cur['q'].copy()
-        q_inv[1:] *= -1
+        q_inv = cur['q'] * [1, -1, -1, -1]
 
         g = quaternion.apply_quaternion_rotation(cur['q'], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
