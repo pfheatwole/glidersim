@@ -237,7 +237,7 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
         _alpha = 0.5  # This is *NOT* an angular acceleration
         s = _alpha * nu  # Merwe, p368 (387)
 
-        # Modified result from Merwe, Appendix B4
+        # Merwe, Eq:5.31 (derived in Appendix B.4)
         q_upd = np.eye(4)*np.cos(s) - _alpha * Phi * np.sinc(s)
 
         if not np.isclose(np.linalg.det(q_upd), 1):
