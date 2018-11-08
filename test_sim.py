@@ -238,7 +238,8 @@ def simulate(glider, state0, v_w2e, num_steps=200, dt=0.1, rho_air=1.2):
         s = _alpha * nu  # Merwe, p368 (387)
 
         # Merwe, Eq:5.31 (derived in Appendix B.4)
-        q_upd = np.eye(4)*np.cos(s) - _alpha * Phi * np.sinc(s)
+        #  * `np.sinc` uses the normalized sinc, so divide by pi
+        q_upd = np.eye(4)*np.cos(s) - _alpha * Phi * np.sinc(s/np.pi)
 
         if not np.isclose(np.linalg.det(q_upd), 1):
             print("The quaternion update matrix is not orthogonal")
