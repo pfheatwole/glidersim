@@ -87,6 +87,19 @@ def quaternion_to_dcm(q):
     return np.asarray(dcm)
 
 
+def quaternion_to_euler(q):
+    # assert np.isclose(np.linalg.norm(q), 1)
+    w, x, y, z = q.T
+
+    # ref: Merwe, Eq:B.5:7, p363 (382)
+    # FIXME: These assume a unit quaternion?
+    # FIXME: verify: these assume the quaternion is `q_local/global`? (Merwe-style?)
+    phi = np.arctan2(2*(w*x + y*z), 1 - 2*(x**2 + y**2))
+    theta = np.arcsin(-2*(x*z - w*y))
+    gamma = np.arctan2(2*(w*z + x*y), 1 - 2*(y**2 + z**2))
+    return np.array([phi, theta, gamma]).T
+
+
 def apply_quaternion_rotation(q, u):
     # Encodes `v = q^-1 * u * q`, where `*` is the quaternion product,
     # and `u` has been converted to a quaternion, `u = [0, u]`
@@ -104,6 +117,16 @@ def apply_quaternion_rotation(q, u):
     v = 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*np.cross(qv, u)
 
     return v
+
+
+def quaternion_product(p, q):
+    # FIXME: document and test
+    pw, pv = p[0], p[1:]
+    qw, qv = q[0], q[1:]
+    pq = np.array([
+        pw*qw - pv@qv,
+        pw*qv + qw*pv + np.cross(pv, qv)])
+    return pq
 
 
 def main():
