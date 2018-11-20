@@ -190,6 +190,10 @@ class ParagliderWing:
     def inertia(self, rho_air, delta_s=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
+        FIXME: this function currently only uses delta_s to determine the
+               shift of the cg, but delta_s can deform the ParafoilLobe too.
+        FIXME: precompute the static components that don't depend on rho_air
+
         Parameters
         ----------
         rho_air : float [kg/m^3]
