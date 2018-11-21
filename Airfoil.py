@@ -180,7 +180,7 @@ class GridCoefficients(AirfoilCoefficients):
         alpha_max, delta_max = self._Cl.tri.max_bound
         points = []
         for delta in np.linspace(delta_min, delta_max, 25):
-            alphas = np.linspace(alpha_min, alpha_max, 1000)
+            alphas = np.linspace(alpha_min, alpha_max, 150)
             deltas = np.full_like(alphas, delta)
             CLs = self._Cl(alphas, deltas)
             notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
@@ -687,7 +687,7 @@ class NACA5(AirfoilGeometry):
         self.p = 0.05 * P
         self.tcr = TT / 100
 
-        N = 5000
+        N = 200
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu, xyl = self._yu(x), self._yl(x[1:])
 
