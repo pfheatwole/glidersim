@@ -9,6 +9,8 @@ from scipy.integrate import simps
 
 from IPython import embed
 
+from util import cross3
+
 
 class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
@@ -117,7 +119,7 @@ class ParagliderWing:
             v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
             dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
             dM = dM_w.sum(axis=0)
-            dM += np.cross(cp_wing, dF_w).sum(axis=0)
+            dM += cross3(cp_wing, dF_w).sum(axis=0)
             return np.abs(dM[1])  # Return the total pitching moment
 
         f = partial(opt, deltaB, deltaS)

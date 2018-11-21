@@ -2,6 +2,8 @@ import numpy as np
 
 from IPython import embed
 
+from util import cross3
+
 
 class Paraglider:
     """
@@ -113,7 +115,7 @@ class Paraglider:
 
         # Compute the velocity of each control point relative to the air
         v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
-        v_cp2w = v_cm2w + np.cross(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
+        v_cp2w = v_cm2w + cross3(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
         # FIXME: how does this Glider know which v_cp2w goes to the wing and
         #        which to the harness? Those components must declare how many
@@ -131,7 +133,7 @@ class Paraglider:
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
-        M += np.cross(cp_wing, dF_w).sum(axis=0)
+        M += cross3(cp_wing, dF_w).sum(axis=0)
 
         # Scale the aerodynamic forces to account for the air density before
         # adding the weight of the harness

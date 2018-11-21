@@ -11,6 +11,8 @@ from scipy.integrate import simps
 
 import scipy.optimize
 
+from util import cross3
+
 from IPython import embed
 
 import matplotlib.pyplot as plt
@@ -196,7 +198,7 @@ class ParafoilGeometry:
         # Approximates each section chord area as parallelograms
         u_a = u.T[0].T  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
-        section_chord_area = np.linalg.norm(cross(u_a, dl), axis=1)
+        section_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
         Kl = chords * section_chord_area  # surface lines into surface area
         Ka = chords**2 * section_chord_area  # airfoil area into section volume
 
@@ -722,7 +724,7 @@ class Phillips(ForceEstimator):
         self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1])/2
-        self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
+        self.dA = self.c_avg * norm(cross3(self.u_a, self.dl), axis=1)
 
         # Precompute the `v` terms that do not depend on `u_inf`
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
@@ -730,7 +732,7 @@ class Phillips(ForceEstimator):
         for ij in [(i, j) for i in range(self.K) for j in range(self.K)]:
             if ij[0] == ij[1]:  # Skip singularities when `i == j`
                 continue
-            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross(R1[ij], R2[ij])) / \
+            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
 
     @property
@@ -744,8 +746,8 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
-        v -= cross(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
+        v += cross3(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
+        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
 
         return v/(4*np.pi)
 
@@ -780,7 +782,7 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips Eq:14
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        W = cross(V, self.dl)
+        W = cross3(V, self.dl)
         W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
@@ -794,7 +796,7 @@ class Phillips(ForceEstimator):
         #  * ref: Hunsaker-Snyder Eq:11
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
-        W = cross(V, self.dl)
+        W = cross3(V, self.dl)
         W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
@@ -806,7 +808,7 @@ class Phillips(ForceEstimator):
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
         J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
-                        cross(v, self.dl), optimize=opt2)
+                        cross3(v, self.dl), optimize=opt2)
         J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3) -
               einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
@@ -959,7 +961,7 @@ class Phillips(ForceEstimator):
         V_w2cp = -V_rel
         Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma)
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        dF_inviscid = Gamma * cross(V, self.dl).T
+        dF_inviscid = Gamma * cross3(V, self.dl).T
 
         # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
