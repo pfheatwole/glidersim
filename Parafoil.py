@@ -923,6 +923,68 @@ class Phillips(ForceEstimator):
 
         return {'x': G, 'success': success}
 
+    def naive_root(self, Gamma0, args, rtol=1e-5, atol=1e-8):
+        """Naive Newton-Raphson iterative solution to solve for Gamma
+
+        Evaluates the Jacobian at every update, so it can be rather slow. It's
+        value is in its simplicity, and the fact that it more closely matches
+        the original solution used by Phillips.
+
+        Warning: this method is crude, and not well tested. It was a testing
+        hack, and will likely be removed.
+
+        Parameters
+        ----------
+        Gamma0 : ndarray of float, shape (K,)
+            The initial circulation distribution
+        args : tuple
+            The arguments to `_f` and `_J`
+        rtol : float (optional)
+            The minimum relative decrease before declaring convergence. When
+            the largest relative reduction in the components of R is smaller
+            than rtol, the method declares success and halts.
+        atol : float (optional)
+            The minimum absolute decrease before declaring convergence. When
+            the largest reduction magnitude in the components of R is smaller
+            than rtol, the method declares success and halts.
+
+        Returns
+        -------
+        Gamma : ndarray of float, shape (K,)
+            The circulation distribution that minimizes the magnitude of `_f`
+        """
+        Gamma = Gamma0.copy()
+
+        R_max = 1e99
+        Omega = 1
+        success = False
+        while Omega > 0.05:
+            R = self._f(Gamma, *args)
+            if np.any(np.isnan(R)):
+                # FIXME: this fails if R has `nan` on the first run
+                # FIXME: this will repeatedly fail if delta_Gamma has nan
+                Gamma -= Omega*delta_Gamma  # Revert the old adjustment
+                Omega /= 2                  # Backoff the step size
+                Gamma += Omega*delta_Gamma  # Apply the reduced step
+                continue
+            # Check the convergence criteria
+            #  1. Strictly decreasing R
+            #  2. Absolute tolerance of the largest decrease
+            #  3. Relative tolerance of the largest decrease
+            R_max_new = np.max(np.abs(R))
+            if (R_max_new >= R_max) or \
+               R_max_new < atol or \
+               (R_max - R_max_new) / R_max < rtol:
+                success = True
+                break
+            R_max = R_max_new  # R_max_new is less than the previous R_max
+            J = self._J(Gamma, *args)
+            delta_Gamma = np.linalg.solve(J, -R)
+            Gamma += Omega*delta_Gamma
+            Omega += (1 - Omega)/2  # Restore Omega towards unity
+
+        return {'x': Gamma, 'success': success}
+
     def _solve_circulation(self, V_w2cp, delta, Gamma0=None):
         if Gamma0 is None:  # Assume a simple elliptical distribution
             Gamma0 = self._proposal1(V_w2cp, delta)
@@ -937,6 +999,7 @@ class Phillips(ForceEstimator):
 
         # First, try a fast, gradient-based method. This will fail when wing
         # sections enter the stall region (where Cl_alpha goes to zero).
+        # res = self.naive_root(Gamma0, args, rtol=1e-4)
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         # If the gradient method failed, try fixed-point iterations
