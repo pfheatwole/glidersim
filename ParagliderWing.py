@@ -4,7 +4,7 @@ from functools import partial
 
 import numpy as np
 
-from scipy.optimize import minimize_scalar
+from scipy.optimize import root_scalar
 from scipy.integrate import simps
 
 from IPython import embed
@@ -120,12 +120,13 @@ class ParagliderWing:
             dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
             dM = dM_w.sum(axis=0)
             dM += cross3(cp_wing, dF_w).sum(axis=0)
-            return np.abs(dM[1])  # Return the total pitching moment
+            return dM[1]  # Pitching moment
 
         f = partial(opt, deltaB, deltaS)
-        bounds = np.deg2rad([-5, 17])  # FIXME: fixed bounds are not ideal
-        res = minimize_scalar(f, method='bounded', bounds=bounds)
-        return res.x
+        res = root_scalar(f, x0=np.deg2rad(0), x1=np.deg2rad(9))
+        if not res.converged:
+            raise RuntimeError(f"Failed to converge: {res.flag}")
+        return res.root
 
     def control_points(self, delta_s=0):
         """
