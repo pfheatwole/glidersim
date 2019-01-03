@@ -11,8 +11,8 @@ def plot_airfoil_geo(foil_geo):
     upper = foil_geo.surface_curve(s).T
     lower = foil_geo.surface_curve(-s).T
     fig, ax = plt.subplots()
-    ax.plot(upper[0], upper[1], c='r', lw=0.75)
-    ax.plot(lower[0], lower[1], c='b', lw=0.75)
+    ax.plot(upper[0], upper[1], c='b', lw=0.75)
+    ax.plot(lower[0], lower[1], c='r', lw=0.75)
 
     try:
         x = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
