@@ -278,9 +278,9 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         N : the number of state variables
     """
 
-    num_steps = int(np.ceil(T / dt))
-    times = np.zeros(num_steps+1)  # The simulation times
-    path = np.empty(num_steps+1, dtype=model.state_dtype)
+    num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
+    times = np.zeros(num_steps)  # The simulation times
+    path = np.empty(num_steps, dtype=model.state_dtype)
     path[0] = state0
 
     solver = scipy.integrate.ode(model.dynamics)
@@ -295,11 +295,16 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     t_start = time.time()
     msg = ''
+    k = 1  # Number of completed states (including the initial state)
+    print("\nRunning the simulation.")
     try:
-        k = 0
-        state = state0
-        print("\nRunning the simulation.")
-        while solver.successful() and (solver.t - T0) < T:
+        while solver.successful() and k < num_steps:
+            if k % 25 == 0:  # Update every 25 iterations
+                avg_rate = (k-1) / (time.time() - t_start)  # k=0 was free
+                rem = (num_steps - k) / avg_rate  # Time remaining in seconds
+                msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
+            print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
+
             # WARNING: `solver.integrate` returns a *reference* to `_y`
             #          Modifying `state` modifies `solver.y` directly.
             # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
@@ -310,12 +315,6 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
             path[k] = state  # Makes a copy of `solver._y`
             times[k] = solver.t
             k += 1
-
-            if k % 10 == 0:
-                avg_rate = (k+1) / (time.time() - t_start)
-                rem = (num_steps - k) / avg_rate
-                msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
-            print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
     except RuntimeError:  # The model blew up
         # FIXME: refine this idea
         print("\n--- Simulation failed. Terminating. ---")
@@ -323,8 +322,8 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         print("\n--- Simulation interrupted. ---")
     finally:
         if k < num_steps:  # Truncate if the simulation did not complete
-            times = times[:k+1]
-            path = path[:k+1]
+            times = times[:k]
+            path = path[:k]
 
     print(f"\nTotal simulation time: {time.time() - t_start}\n")
 
