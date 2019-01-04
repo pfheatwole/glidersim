@@ -188,6 +188,7 @@ class GliderSim:
 
         delta_s, delta_Br, delta_Bl = 0, 0, 0  # FIXME: time-varying input
 
+        q_inv = x['q'] * [1, -1, -1, -1]  # for frd->ned
         # cps_frd = self.glider.control_points(delta_s)  # In body coordinates
         # cps = x['p'] + quaternion.apply_quaternion_rotation(x['q'], cps_frd)
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
@@ -196,18 +197,11 @@ class GliderSim:
         g = 9.8 * quaternion.apply_quaternion_rotation(x['q'], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
 
-        v_b2w = x['v'] - v_w2e  # x['v'] is v_b2e in ned
-
-        # Transform b2w from ned->frd
-        v_frd = quaternion.apply_quaternion_rotation(x['q'], v_b2w)
-        if not np.isclose(norm(x['v']), norm(v_frd)):
-            print("The velocity norms don't match")
-            # embed()
-
         # FIXME: Paraglider should return accelerations directly, not forces.
         #        The Glider might want to utilize appparent inertia, etc.
+        v_frd = quaternion.apply_quaternion_rotation(x['q'], x['v'])
         F, M, Gamma = self.glider.forces_and_moments(
-            v_frd, x['omega'], g, rho=rho_air, 
+            v_frd, x['omega'], g, rho=rho_air,
             delta_s=delta_s, delta_Bl=delta_Bl, delta_Br=delta_Br,
             Gamma=params['Gamma'])
 
@@ -215,16 +209,11 @@ class GliderSim:
 
         # Translational acceleration of the cm
         a_frd = F/self.glider.harness.mass  # FIXME: crude, incomplete
+        a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
 
         # Angular acceleration of the body relative to the ned frame
         #  * ref: Stevens, Eq:1.7-5, p36 (50)
         alpha = self.J_inv @ (M - cross3(x['omega'], self.J @ x['omega']))
-
-        q_inv = x['q'] * [1, -1, -1, -1]
-        a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
-        if not np.isclose(norm(a_ned), norm(a_frd)):
-            print("The acceleration norms don't match")
-            # embed()
 
         # Quatnernion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
