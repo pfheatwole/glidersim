@@ -1,8 +1,11 @@
 """A scratchpad for quaternion work."""
 from numpy import rad2deg, deg2rad, sin, cos
 import numpy as np
+from numba import float64, guvectorize
 
 from IPython import embed
+
+from util import _cross3
 
 
 def skew(v):
@@ -100,23 +103,33 @@ def quaternion_to_euler(q):
     return np.array([phi, theta, gamma]).T
 
 
-def apply_quaternion_rotation(q, u):
-    # Encodes `v = q^-1 * u * q`, where `*` is the quaternion product,
-    # and `u` has been converted to a quaternion, `u = [0, u]`
-    #
-    # ref: Stevens, Eg:1.8-8, p49 (63)
-    q = np.asarray(q)
-    u = np.asarray(u)
-    assert q.shape in ((4,), (4, 1))
-    assert u.shape in ((3,), (3, 1))
-    q = q.ravel()
-    u = u.ravel()
-    assert np.isclose(np.linalg.norm(q), 1)
+@guvectorize([(float64[:], float64[:], float64[:])],
+             '(n),(m)->(m)', nopython=True)
+def apply_quaternion_rotation(q, u, v):
+    """Rotate a 3-vector using a quaternion
 
+    Treats the vector as a pure quaternion, and returns only the vector part.
+    Supports automatic broadcasting of `q` and `u`; the only requirement is
+    that the last dimension of `q` is 4 and the last dimension of `u` is 3.
+
+    Parameters
+    ----------
+    q : array_like, shape (4,)
+        The components of the quaternion(s)
+    u : array_like, shape (3,)
+        The components of the vector(s) to be rotated
+
+    Returns
+    -------
+    v : ndarray
+    """
+    if q.shape != (4,):
+        raise ValueError("q must be an array_like with q.shape[-1] == 4")
+    if u.shape != (3,):
+        raise ValueError("u must be an array_like of u.shape[-1] == 3")
     qw, qv = q[0], q[1:]
-    v = 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*np.cross(qv, u)
-
-    return v
+    # ref: Stevens, Eq:1.8-8, p49
+    v[:] = 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*_cross3(qv, u)
 
 
 def quaternion_product(p, q):
