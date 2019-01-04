@@ -137,7 +137,8 @@ class Paraglider:
 
         # Scale the aerodynamic forces to account for the air density before
         # adding the weight of the harness
-        F, M = rho*F, rho*M
+        F *= rho
+        M *= rho
 
         # The harness also contributes a gravitational force
         g = 9.8 * np.asarray(g)
