@@ -284,7 +284,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     path[0] = state0
 
     solver = scipy.integrate.ode(model.dynamics)
-    solver.set_integrator('dopri5', rtol=1e-3)
+    solver.set_integrator('dopri5', rtol=1e-3, first_step=0.25, max_step=0.5)
     solver.set_initial_value(state0.view(float))
     solver.set_f_params({'Gamma': None})  # Is changed by `model.dynamics`
 
