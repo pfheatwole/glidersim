@@ -148,7 +148,7 @@ class GliderSim:
         self.glider = glider
 
         # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_s is zero (no weight shift defomrations)
+        #        and delta_s is zero (no weight shift deformations)
         self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
         self.J_inv = np.linalg.inv(self.J)
 
