@@ -322,6 +322,13 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     print(f"\nTotal simulation time: {time.time() - t_start}\n")
 
+    # For debugging
+    eulers = np.rad2deg(quaternion.quaternion_to_euler(path['q']))
+    cps = model.glider.control_points(0)  # Control points in frd
+    cp0 = cps[95]  # The central control point in frd
+    p_cp0 = path['p'] + quaternion.apply_quaternion_rotation(path['q'], cp0)
+    v_cp0 = path['v'] + cross3(path['omega'], cp0)
+
     embed()
 
     return times, path
