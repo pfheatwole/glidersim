@@ -205,7 +205,8 @@ class GliderSim:
             print("The velocity norms don't match")
             # embed()
 
-        # FIXME: Paraglider should return accelerations directly, not forces
+        # FIXME: Paraglider should return accelerations directly, not forces.
+        #        The Glider might want to utilize appparent inertia, etc.
         F, M, Gamma = self.glider.forces_and_moments(
             v_frd, x['omega'], g, rho=rho_air, 
             delta_s=delta_s, delta_Bl=delta_Bl, delta_Br=delta_Br,
@@ -213,10 +214,10 @@ class GliderSim:
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
-        # Translational acceleration
+        # Translational acceleration of the cm
         a_frd = F/self.glider.harness.mass  # FIXME: crude, incomplete
 
-        # Angular acceleration
+        # Angular acceleration of the body relative to the ned frame
         #  * ref: Stevens, Eq:1.7-5, p36 (50)
         alpha = self.J_inv @ (M - cross3(x['omega'], self.J @ x['omega']))
 
@@ -243,7 +244,7 @@ class GliderSim:
         x_dot['v'] = a_ned
         x_dot['omega'] = alpha
 
-        # Save the Gamma distribution for use with the next step
+        # Save the Gamma distribution for use with the next time update
         params['Gamma'] = Gamma  # FIXME: needs a design review
 
         return x_dot_flat
