@@ -17,6 +17,8 @@ from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
 import quaternion
 
+from util import cross3
+
 
 def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
                               SMC=None, MAC=None,
@@ -216,7 +218,7 @@ class GliderSim:
 
         # Angular acceleration
         #  * ref: Stevens, Eq:1.7-5, p36 (50)
-        alpha = self.J_inv @ (M - np.cross(x['omega'], self.J @ x['omega']))
+        alpha = self.J_inv @ (M - cross3(x['omega'], self.J @ x['omega']))
 
         q_inv = x['q'] * [1, -1, -1, -1]
         a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
