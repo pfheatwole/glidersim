@@ -288,11 +288,6 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     solver.set_initial_value(state0.view(float))
     solver.set_f_params({'Gamma': None})  # Is changed by `model.dynamics`
 
-    # integration_times = []
-    # def solout(t, y):
-    #     integration_times.append(t)
-    # solver.set_solout(solout)
-
     t_start = time.time()
     msg = ''
     k = 1  # Number of completed states (including the initial state)
