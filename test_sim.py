@@ -194,7 +194,7 @@ class GliderSim:
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
         v_w2e = 0  # FIXME: implement wind lookups
 
-        g = quaternion.apply_quaternion_rotation(x['q'], [0, 0, 1])
+        g = 9.8 * quaternion.apply_quaternion_rotation(x['q'], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
 
         v_b2w = x['v'] - v_w2e  # x['v'] is v_b2e in ned

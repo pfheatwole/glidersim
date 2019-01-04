@@ -140,9 +140,10 @@ class Paraglider:
         F *= rho
         M *= rho
 
-        # The harness also contributes a gravitational force
-        g = 9.8 * np.asarray(g)
-        F += g*self.harness.mass  # FIXME: leaky abstraction
+        # The harness also contributes a gravitational force, but since this
+        # model places the cg at the harness, that force does not generate a
+        # moment.
+        F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
 
         # FIXME: compute the glider center of mass
         # FIXME: apply the forces about the cm to compute the correct moment
