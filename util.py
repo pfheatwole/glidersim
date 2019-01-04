@@ -26,6 +26,8 @@ def cross3(a, b, result):
     This vectorized version supports automatic broadcasting. The only
     requirement is that the last dimension of both `a` and `b` are 3.
 
+    TODO: this can be eliminated after Numba Github issue #2978 is closed.
+
     Parameters
     ----------
     a : array_like
