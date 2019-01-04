@@ -139,8 +139,7 @@ def build_glider():
 
 
 class GliderSim:
-    flat_state_dtype = ((float, 13))  # The raw storage
-    structured_state_dtype = [        # Convenience views onto flat arrays
+    state_dtype = [
         ('q', float, (4,)),
         ('p', float, (3,)),
         ('v', float, (3,)),
@@ -181,7 +180,7 @@ class GliderSim:
         x_dot : ndarray of float, shape (N,)
             The array of N state component derivatives
         """
-        x = y.view(dtype=self.structured_state_dtype)[0]  # Convenience
+        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
 
         # Determine the environmental conditions
         # rho_air = self.rho_air(t, x['p'])
@@ -237,8 +236,7 @@ class GliderSim:
             [R,  Q, -P,  0]])
         q_dot = 0.5 * Omega @ x['q']
 
-        x_dot_flat = np.empty((), self.flat_state_dtype)
-        x_dot = x_dot_flat.view(dtype=self.structured_state_dtype)
+        x_dot = np.empty(1, self.state_dtype)
         x_dot['q'] = q_dot
         x_dot['p'] = x['v']
         x_dot['v'] = a_ned
@@ -247,7 +245,7 @@ class GliderSim:
         # Save the Gamma distribution for use with the next time update
         params['Gamma'] = Gamma  # FIXME: needs a design review
 
-        return x_dot_flat
+        return x_dot.view(float)  # The integrator expects a flat array
 
 
 # ---------------------------------------------------------------------------
@@ -282,12 +280,12 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     num_steps = int(np.ceil(T / dt))
     times = np.zeros(num_steps+1)  # The simulation times
-    path = np.empty(num_steps+1, dtype=model.flat_state_dtype)
+    path = np.empty(num_steps+1, dtype=model.state_dtype)
     path[0] = state0
 
     solver = scipy.integrate.ode(model.dynamics)
     solver.set_integrator('dopri5', rtol=1e-3)
-    solver.set_initial_value(state0)
+    solver.set_initial_value(state0.view(float))
     solver.set_f_params({'Gamma': None})  # Is changed by `model.dynamics`
 
     # integration_times = []
@@ -302,10 +300,15 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         state = state0
         print("\nRunning the simulation.")
         while solver.successful() and (solver.t - T0) < T:
-            state = solver.integrate(solver.t + dt)
-            state[:4] /= np.sqrt((state[:4]**2).sum())  # Normalize `q`
-            path[k+1] = state
-            times[k+1] = solver.t
+            # WARNING: `solver.integrate` returns a *reference* to `_y`
+            #          Modifying `state` modifies `solver.y` directly.
+            # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
+            #        Using `solver.set_initial_value` would reset the
+            #        integrator, but that's not what we want here.
+            state = solver.integrate(solver.t + dt).view(model.state_dtype)
+            state['q'] /= np.sqrt((state['q']**2).sum())  # Normalize `q`
+            path[k] = state  # Makes a copy of `solver._y`
+            times[k] = solver.t
             k += 1
 
             if k % 10 == 0:
@@ -325,8 +328,6 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     print(f"\nTotal simulation time: {time.time() - t_start}\n")
 
-    # For debugging
-    p = path.ravel().view(dtype=model.structured_state_dtype)
     embed()
 
     return times, path
@@ -350,14 +351,19 @@ def main():
     q_inv = q * [1, -1, -1, -1]              # Encodes C_ned/frd
 
     # Define the initial state
-    state0_raw = np.empty((), dtype=GliderSim.flat_state_dtype)  # FIXME: UGLY!
-    state0 = state0_raw.view(dtype=GliderSim.structured_state_dtype)
+    state0 = np.empty(1, dtype=GliderSim.state_dtype)
     state0['q'] = q
     state0['p'] = [0, 0, 0]
     state0['v'] = quaternion.apply_quaternion_rotation(q_inv, UVW)
     state0['omega'] = PQR
 
-    times, path = simulate(model, state0_raw, dt=0.5, T=500)
+    print("Preparing the simulation.")
+    print("Initial state:", state0)
+
+    # times05, path05 = simulate(model, state0_raw, dt=0.05, T=120)
+    # times10, path10 = simulate(model, state0_raw, dt=0.10, T=120)
+    times25, path25 = simulate(model, state0, dt=0.25, T=120)
+    # times50, path50 = simulate(model, state0_raw, dt=0.50, T=120)
 
     # For verification purposes
     # delta_PE = 9.8 * 75 * -path['p'].T[2]  # PE = mgh
