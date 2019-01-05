@@ -313,7 +313,7 @@ def main():
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
-    g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
+    g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
     F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
                                      delta_Bl=0, delta_Br=0)
 
