@@ -12,8 +12,7 @@ import BrakeGeometry
 import Harness
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
-
-from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
+import plots
 
 
 def plot_polar_curve(glider, N=51):
@@ -248,7 +247,7 @@ def main():
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     delta_max = np.deg2rad(13.25)  # FIXME: magic number
 
-    # plot_airfoil_geo(airfoil_geo)
+    # plots.plot_airfoil_geo(airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil
@@ -278,8 +277,9 @@ def main():
     print("planform AR:  ", parafoil.AR)
 
     # print("Drawing the parafoil")
-    # plot_parafoil_planform(parafoil, N_sections=50)
-    # plot_parafoil_geo(parafoil, N_sections=50)
+    # plots.plot_parafoil_planform_topdown(parafoil)
+    # plots.plot_parafoil_planform(parafoil, N_sections=50)
+    # plots.plot_parafoil_geo(parafoil, N_sections=50)
 
     # -----------------------------------------------------------------------
     # Brake geometry
