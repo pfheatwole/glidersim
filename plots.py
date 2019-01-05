@@ -113,6 +113,21 @@ def set_axes_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
+def clean_3d_axes(ax, ticks=False, spines=False, panes=False):
+    if not ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+    if not spines:
+        ax.w_xaxis.line.set_color((1, 1, 1, 0))
+        ax.w_yaxis.line.set_color((1, 1, 1, 0))
+        ax.w_zaxis.line.set_color((1, 1, 1, 0))
+    if not panes:
+        ax.w_xaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_yaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_zaxis.set_pane_color((1, 1, 1, 0))
+
+
 def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     """Make a plot of a 3D wing"""
 
@@ -122,16 +137,19 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
 
     for s in np.linspace(-1, 1, N_sections):
         coords = parafoil.lower_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9, lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c='r', zorder=.9, lw=0.8)
         coords = parafoil.upper_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c='b', lw=0.8)
 
     s = np.linspace(-1, 1, 51)
     c4 = parafoil.c4(s).T
-    ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
+    ax.plot(c4[0], c4[1], c4[2], 'g--', lw=0.8)
 
     set_axes_equal(ax)
+    clean_3d_axes(ax)
     ax.invert_yaxis()
+    ax.invert_zaxis()
+    fig.tight_layout()
     plt.show()
 
 
