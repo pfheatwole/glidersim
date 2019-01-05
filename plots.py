@@ -24,9 +24,8 @@ def plot_airfoil_geo(foil_geo):
         pass
 
     ax.set_aspect('equal')
+    ax.margins(x=.1, y=.40)
     ax.legend()
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.2, 0.2)
     ax.grid(True)
     plt.show()
 
