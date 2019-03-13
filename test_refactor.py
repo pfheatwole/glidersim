@@ -300,6 +300,9 @@ def main():
 
     glider = Paraglider(wing, harness)
 
+    # print("Plotting the basic glider performance curves")
+    # plot_CL_curve(glider)
+
     # -----------------------------------------------------------------------
     # Tests
     alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
