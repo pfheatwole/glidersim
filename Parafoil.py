@@ -1010,7 +1010,7 @@ class Phillips(ForceEstimator):
         if res['success']:
             Gamma = res['x']
         else:
-            print("Phillips> failed to solve for Gamma")
+            # print("Phillips> failed to solve for Gamma")
             Gamma = np.full_like(Gamma0, np.nan)
 
         # print("Phillips> finished _solve_circulation\n")
@@ -1034,7 +1034,7 @@ class Phillips(ForceEstimator):
         #        term in particular, which is for ram-air parachutes.
         # FIXME: these extra terms should be in the AirfoilCoefficients
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
 
         V2 = (V**2).sum(axis=1)
