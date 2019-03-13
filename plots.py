@@ -93,6 +93,8 @@ def set_axes_equal(ax):
       ax: a matplotlib axis, e.g., as output from plt.gca().
     '''
 
+    # FIXME: does not respect inverted axes
+
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
     z_limits = ax.get_zlim3d()
@@ -219,9 +221,9 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
         u = parafoil.planform.orientation(s)
         c0 = np.array([parafoil.planform.fx(s), parafoil.planform.fy(s), 0])
         surface = ((u @ lower_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], -surface[2], c='r', zorder=.9, lw=0.8)
+        ax.plot(surface[0], surface[1], surface[2], c='r', zorder=.9, lw=0.8)
         surface = ((u @ upper_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], -surface[2], c='g', zorder=.9, lw=0.8)
+        ax.plot(surface[0], surface[1], surface[2], c='g', zorder=.9, lw=0.8)
 
     s = np.linspace(-1, 1, 50)
     ax.plot(parafoil.planform.fx(s) - parafoil.planform.fc(s)/4,
@@ -229,6 +231,8 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
             'g--', lw=0.8)
     set_axes_equal(ax)
     ax.invert_yaxis()
+    ax.invert_zaxis()
+    fig.tight_layout()
     plt.show()
 
 
