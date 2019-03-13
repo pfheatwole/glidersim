@@ -219,15 +219,14 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
     for s in np.linspace(-1, 1, N_sections):
         c = parafoil.planform.fc(s)
         u = parafoil.planform.orientation(s)
-        c0 = np.array([parafoil.planform.fx(s), parafoil.planform.fy(s), 0])
+        c0 = np.array([parafoil.planform.fx(s) + c/4, parafoil.planform.fy(s), 0])
         surface = ((u @ lower_curve * c).T + c0).T
         ax.plot(surface[0], surface[1], surface[2], c='r', zorder=.9, lw=0.8)
         surface = ((u @ upper_curve * c).T + c0).T
         ax.plot(surface[0], surface[1], surface[2], c='g', zorder=.9, lw=0.8)
 
     s = np.linspace(-1, 1, 50)
-    ax.plot(parafoil.planform.fx(s) - parafoil.planform.fc(s)/4,
-            parafoil.planform.fy(s), np.zeros(50),
+    ax.plot(parafoil.planform.fx(s), parafoil.planform.fy(s), np.zeros(50),
             'g--', lw=0.8)
     set_axes_equal(ax)
     ax.invert_yaxis()
