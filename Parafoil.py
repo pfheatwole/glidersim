@@ -11,6 +11,8 @@ from scipy.integrate import simps
 
 import scipy.optimize
 
+from util import cross3
+
 from IPython import embed
 
 import matplotlib.pyplot as plt
@@ -194,9 +196,9 @@ class ParafoilGeometry:
 
         # Scaling factors for converting 2d airfoils into 3d sections
         # Approximates each section chord area as parallelograms
-        u_a = u.T[0].T  # The chordwise ("aerodynamic") unit vectors
+        u_a = u[..., 0]  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
-        section_chord_area = np.linalg.norm(cross(u_a, dl), axis=1)
+        section_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
         Kl = chords * section_chord_area  # surface lines into surface area
         Ka = chords**2 * section_chord_area  # airfoil area into section volume
 
@@ -722,7 +724,7 @@ class Phillips(ForceEstimator):
         self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1])/2
-        self.dA = self.c_avg * norm(cross(self.u_a, self.dl), axis=1)
+        self.dA = self.c_avg * norm(cross3(self.u_a, self.dl), axis=1)
 
         # Precompute the `v` terms that do not depend on `u_inf`
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
@@ -730,7 +732,7 @@ class Phillips(ForceEstimator):
         for ij in [(i, j) for i in range(self.K) for j in range(self.K)]:
             if ij[0] == ij[1]:  # Skip singularities when `i == j`
                 continue
-            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross(R1[ij], R2[ij])) / \
+            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
 
     @property
@@ -744,8 +746,8 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
-        v -= cross(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
+        v += cross3(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
+        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
 
         return v/(4*np.pi)
 
@@ -780,7 +782,7 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips Eq:14
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        W = cross(V, self.dl)
+        W = cross3(V, self.dl)
         W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
@@ -794,7 +796,7 @@ class Phillips(ForceEstimator):
         #  * ref: Hunsaker-Snyder Eq:11
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
-        W = cross(V, self.dl)
+        W = cross3(V, self.dl)
         W_norm = np.sqrt(einsum('ik,ik->i', W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
@@ -806,7 +808,7 @@ class Phillips(ForceEstimator):
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
         J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
-                        cross(v, self.dl), optimize=opt2)
+                        cross3(v, self.dl), optimize=opt2)
         J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3) -
               einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
@@ -921,6 +923,68 @@ class Phillips(ForceEstimator):
 
         return {'x': G, 'success': success}
 
+    def naive_root(self, Gamma0, args, rtol=1e-5, atol=1e-8):
+        """Naive Newton-Raphson iterative solution to solve for Gamma
+
+        Evaluates the Jacobian at every update, so it can be rather slow. It's
+        value is in its simplicity, and the fact that it more closely matches
+        the original solution used by Phillips.
+
+        Warning: this method is crude, and not well tested. It was a testing
+        hack, and will likely be removed.
+
+        Parameters
+        ----------
+        Gamma0 : ndarray of float, shape (K,)
+            The initial circulation distribution
+        args : tuple
+            The arguments to `_f` and `_J`
+        rtol : float (optional)
+            The minimum relative decrease before declaring convergence. When
+            the largest relative reduction in the components of R is smaller
+            than rtol, the method declares success and halts.
+        atol : float (optional)
+            The minimum absolute decrease before declaring convergence. When
+            the largest reduction magnitude in the components of R is smaller
+            than rtol, the method declares success and halts.
+
+        Returns
+        -------
+        Gamma : ndarray of float, shape (K,)
+            The circulation distribution that minimizes the magnitude of `_f`
+        """
+        Gamma = Gamma0.copy()
+
+        R_max = 1e99
+        Omega = 1
+        success = False
+        while Omega > 0.05:
+            R = self._f(Gamma, *args)
+            if np.any(np.isnan(R)):
+                # FIXME: this fails if R has `nan` on the first run
+                # FIXME: this will repeatedly fail if delta_Gamma has nan
+                Gamma -= Omega*delta_Gamma  # Revert the old adjustment
+                Omega /= 2                  # Backoff the step size
+                Gamma += Omega*delta_Gamma  # Apply the reduced step
+                continue
+            # Check the convergence criteria
+            #  1. Strictly decreasing R
+            #  2. Absolute tolerance of the largest decrease
+            #  3. Relative tolerance of the largest decrease
+            R_max_new = np.max(np.abs(R))
+            if (R_max_new >= R_max) or \
+               R_max_new < atol or \
+               (R_max - R_max_new) / R_max < rtol:
+                success = True
+                break
+            R_max = R_max_new  # R_max_new is less than the previous R_max
+            J = self._J(Gamma, *args)
+            delta_Gamma = np.linalg.solve(J, -R)
+            Gamma += Omega*delta_Gamma
+            Omega += (1 - Omega)/2  # Restore Omega towards unity
+
+        return {'x': Gamma, 'success': success}
+
     def _solve_circulation(self, V_w2cp, delta, Gamma0=None):
         if Gamma0 is None:  # Assume a simple elliptical distribution
             Gamma0 = self._proposal1(V_w2cp, delta)
@@ -935,6 +999,7 @@ class Phillips(ForceEstimator):
 
         # First, try a fast, gradient-based method. This will fail when wing
         # sections enter the stall region (where Cl_alpha goes to zero).
+        # res = self.naive_root(Gamma0, args, rtol=1e-4)
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         # If the gradient method failed, try fixed-point iterations
@@ -945,7 +1010,7 @@ class Phillips(ForceEstimator):
         if res['success']:
             Gamma = res['x']
         else:
-            print("Phillips> failed to solve for Gamma")
+            # print("Phillips> failed to solve for Gamma")
             Gamma = np.full_like(Gamma0, np.nan)
 
         # print("Phillips> finished _solve_circulation\n")
@@ -959,7 +1024,7 @@ class Phillips(ForceEstimator):
         V_w2cp = -V_rel
         Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma)
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
-        dF_inviscid = Gamma * cross(V, self.dl).T
+        dF_inviscid = Gamma * cross3(V, self.dl).T
 
         # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
@@ -969,7 +1034,7 @@ class Phillips(ForceEstimator):
         #        term in particular, which is for ram-air parachutes.
         # FIXME: these extra terms should be in the AirfoilCoefficients
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
 
         V2 = (V**2).sum(axis=1)

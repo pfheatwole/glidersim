@@ -2,13 +2,16 @@ import numpy as np
 
 from IPython import embed
 
+from util import cross3
+
 
 class Paraglider:
     """
-
-
-    FIXME: I need to think through the purpose of this class
-
+    FIXME: warn for non-zero harness control points (this model ignores them)
+    FIXME: this model assumes the glider center of mass is at the glider origin
+           (where the risers attach), so the harness doesn't contribute a
+           moment. I should estimate the true cm to double check the validity
+           of this assumption.
 
     Notes
     -----
@@ -75,6 +78,15 @@ class Paraglider:
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
             at each control point.
+
+            FIXME: This docstring is wrong; they are useful if delta_s != 0,
+            they have nothing to do with wind field uniformity. And really,
+            why do I even have both `xyz` and `delta_s` as inputs? The only
+            purpose of `delta_s` is to compute the xyz. Using `delta_s` alone
+            would be the more intuitive, but would incur extra computation time
+            for finding the control points; the only point of `xyz` is to avoid
+            recomputing them.
+
         Gamma : array of float, shape (K,) [units?] (optional)
             An initial guess for the circulation distribution, to improve
             convergence
@@ -102,7 +114,7 @@ class Paraglider:
         if v_w2e is None:
             v_w2e = np.array([0, 0, 0])
         if v_w2e.ndim > 1 and xyz is None:
-            raise ValueError("Control point relative winds require xyz")
+            raise ValueError("Control point relative winds require xyz")                # Why? I probably did this to ensure the <v_w2e and xyz are computed using the same delta_s
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
@@ -113,7 +125,7 @@ class Paraglider:
 
         # Compute the velocity of each control point relative to the air
         v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
-        v_cp2w = v_cm2w + np.cross(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
+        v_cp2w = v_cm2w + cross3(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
         # FIXME: how does this Glider know which v_cp2w goes to the wing and
         #        which to the harness? Those components must declare how many
@@ -131,18 +143,17 @@ class Paraglider:
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
-        M += np.cross(cp_wing, dF_w).sum(axis=0)
+        M += cross3(cp_wing, dF_w).sum(axis=0)
 
         # Scale the aerodynamic forces to account for the air density before
         # adding the weight of the harness
-        F, M = rho*F, rho*M
+        F *= rho
+        M *= rho
 
-        # The harness also contributes a gravitational force
-        g = 9.8 * np.asarray(g)
-        F += g*self.harness.mass  # FIXME: leaky abstraction
-
-        # FIXME: compute the glider center of mass
-        # FIXME: apply the forces about the cm to compute the correct moment
+        # The harness also contributes a gravitational force, but since this
+        # model places the cg at the harness, that force does not generate a
+        # moment.
+        F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
 
         return F, M, Gamma
 

@@ -102,6 +102,9 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
 # ---------------------------------------------------------------------------
 # First, record the data from the paper
 
+print("\n\nWARNING: Did you remove the extra air intake drag (~0.07)?\n\n")
+input("<press any key to continue>")
+
 # Table 1: the Full-scale wing dimensions
 h = 3 / 8  # Arch height (vertical deflection from wing root to tips) [m]
 cc = 2.8 / 8  # The central chord [m]
@@ -331,7 +334,7 @@ for kb, beta_deg in enumerate(betas):
     # FIXME: start from alpha=0 to improve convergence
     Gamma = None
     for ka, alpha in enumerate(alphas):
-        print(f"Test: alpha: {np.rad2deg(alpha):.2f}, beta: {beta_deg}")
+        print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
         # The Paraglider computes the net moments about the "CG"
 
         beta = np.deg2rad(beta_deg)
@@ -354,6 +357,7 @@ for kb, beta_deg in enumerate(betas):
         Gammas[beta_deg].append(Gamma)
         if np.any(np.isnan(Gamma)):
             Gamma = None  # Don't propagate the errors!!
+    print()
 
 
 for beta in betas:

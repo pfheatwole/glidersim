@@ -4,10 +4,12 @@ from functools import partial
 
 import numpy as np
 
-from scipy.optimize import minimize_scalar
+from scipy.optimize import root_scalar
 from scipy.integrate import simps
 
 from IPython import embed
+
+from util import cross3
 
 
 class ParagliderWing:
@@ -117,13 +119,14 @@ class ParagliderWing:
             v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
             dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
             dM = dM_w.sum(axis=0)
-            dM += np.cross(cp_wing, dF_w).sum(axis=0)
-            return np.abs(dM[1])  # Return the total pitching moment
+            dM += cross3(cp_wing, dF_w).sum(axis=0)
+            return dM[1]  # Pitching moment
 
         f = partial(opt, deltaB, deltaS)
-        bounds = np.deg2rad([-5, 17])  # FIXME: fixed bounds are not ideal
-        res = minimize_scalar(f, method='bounded', bounds=bounds)
-        return res.x
+        res = root_scalar(f, x0=np.deg2rad(0), x1=np.deg2rad(9))
+        if not res.converged:
+            raise RuntimeError(f"Failed to converge: {res.flag}")
+        return res.root
 
     def control_points(self, delta_s=0):
         """
@@ -189,6 +192,10 @@ class ParagliderWing:
 
     def inertia(self, rho_air, delta_s=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
+
+        FIXME: this function currently only uses delta_s to determine the
+               shift of the cg, but delta_s can deform the ParafoilLobe too.
+        FIXME: precompute the static components that don't depend on rho_air
 
         Parameters
         ----------

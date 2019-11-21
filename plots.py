@@ -1,5 +1,6 @@
 import numpy as np
 
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
@@ -11,22 +12,20 @@ def plot_airfoil_geo(foil_geo):
     upper = foil_geo.surface_curve(s).T
     lower = foil_geo.surface_curve(-s).T
     fig, ax = plt.subplots()
-    ax.plot(upper[0], upper[1], c='r', lw=0.75)
-    ax.plot(lower[0], lower[1], c='b', lw=0.75)
+    ax.plot(upper[0], upper[1], c="b", lw=0.75)
+    ax.plot(lower[0], lower[1], c="r", lw=0.75)
 
     try:
         x = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
         camberline = foil_geo._yc(x)
-        ax.plot(camberline[:, 0], camberline[:, 1], label='mean camber line')
-        ax.scatter(foil_geo._yc(0.25)[0],
-                   foil_geo._yc(0.25)[1], c='k')
+        ax.plot(camberline[:, 0], camberline[:, 1], label="mean camber line")
+        ax.scatter(foil_geo._yc(0.25)[0], foil_geo._yc(0.25)[1], c="k")
     except AttributeError:
         pass
 
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
+    ax.margins(x=0.1, y=0.40)
     ax.legend()
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.2, 0.2)
     ax.grid(True)
     plt.show()
 
@@ -48,50 +47,55 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     grid = np.meshgrid(alpha, delta)
 
     coef = coef.lower()
-    if coef == 'cl':
+    if coef == "cl":
         values = airfoil.coefficients.Cl(grid[0], grid[1])
-    elif coef == 'cl_alpha':
+    elif coef == "cl_alpha":
         values = airfoil.coefficients.Cl_alpha(grid[0], grid[1])
-    elif coef == 'cd':
+    elif coef == "cd":
         values = airfoil.coefficients.Cd(grid[0], grid[1])
-    elif coef == 'cm':
+    elif coef == "cm":
         values = airfoil.coefficients.Cm(grid[0], grid[1])
     else:
         raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
     fig = plt.figure(figsize=(17, 15))
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
     ax.plot_surface(np.rad2deg(grid[0]), np.rad2deg(grid[1]), values)
 
     try:  # Kludge: Try to plot the raw coefficient data from the DataFrame
-        for delta, group in airfoil.coefficients.data.groupby('delta'):
-            deltas = np.full_like(group['alpha'], delta)
-            if coef == 'cl':
-                values = airfoil.coefficients.Cl(group['alpha'], deltas)
-            elif coef == 'cd':
-                values = airfoil.coefficients.Cd(group['alpha'], deltas)
-            elif coef == 'cm':
-                values = airfoil.coefficients.Cm(group['alpha'], deltas)
+        for delta, group in airfoil.coefficients.data.groupby("delta"):
+            deltas = np.full_like(group["alpha"], delta)
+            if coef == "cl":
+                values = airfoil.coefficients.Cl(group["alpha"], deltas)
+            elif coef == "cd":
+                values = airfoil.coefficients.Cd(group["alpha"], deltas)
+            elif coef == "cm":
+                values = airfoil.coefficients.Cm(group["alpha"], deltas)
             else:  # FIXME: does the data ever provide `cl_alpha` directly?
                 break
-            ax.plot(np.rad2deg(group['alpha']), np.rad2deg(deltas), values)
+            ax.plot(np.rad2deg(group["alpha"]), np.rad2deg(deltas), values)
     except AttributeError:
         pass
 
-    ax.set_xlabel('alpha [degrees]')
-    ax.set_ylabel('delta [degrees]')
+    ax.set_xlabel("alpha [degrees]")
+    ax.set_ylabel("delta [degrees]")
     ax.set_zlabel(coef)
     plt.show()
 
 
 def set_axes_equal(ax):
-    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    """
+    Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
     ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
 
-    Input
-      ax: a matplotlib axis, e.g., as output from plt.gca().
-    '''
+    Parameters
+    ----------
+    ax: matplotlib axis
+        For example, the output from plt.gca().
+    """
+
+    # FIXME: does not respect inverted axes
 
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
@@ -106,41 +110,110 @@ def set_axes_equal(ax):
 
     # The plot bounding box is a sphere in the sense of the infinity
     # norm, hence I call half the max range the plot radius.
-    plot_radius = 0.5*max([x_range, y_range, z_range])
+    plot_radius = 0.5 * max([x_range, y_range, z_range])
 
     ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
+def clean_3d_axes(ax, ticks=False, spines=False, panes=False):
+    if not ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+    if not spines:
+        ax.w_xaxis.line.set_color((1, 1, 1, 0))
+        ax.w_yaxis.line.set_color((1, 1, 1, 0))
+        ax.w_zaxis.line.set_color((1, 1, 1, 0))
+    if not panes:
+        ax.w_xaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_yaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_zaxis.set_pane_color((1, 1, 1, 0))
+
+
 def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     """Make a plot of a 3D wing"""
 
     fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
     for s in np.linspace(-1, 1, N_sections):
         coords = parafoil.lower_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9, lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
         coords = parafoil.upper_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     s = np.linspace(-1, 1, 51)
     c4 = parafoil.c4(s).T
-    ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
+    ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
 
     set_axes_equal(ax)
+    clean_3d_axes(ax)
     ax.invert_yaxis()
+    ax.invert_zaxis()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_parafoil_planform_topdown(parafoil):
+    """Make a plot of a parafoil planform as a top-down view"""
+
+    N = 250
+    s = np.linspace(-1, 1, N)
+    c = parafoil.planform.fc(s)
+    x = parafoil.planform.fx(s)
+    y = parafoil.planform.fy(s)
+
+    def fmt(x, pos):
+        # Don't plot the origin tick labels
+        return "" if np.isclose(x, 0) else f"{x:g}"
+
+    fig, ax = plt.subplots()
+    ax.set_title("Planform (top-down)")
+    ax.title.set_verticalalignment("bottom")  # Give a larger margin
+    ax.tick_params(axis="x", pad=-15)  # Move the tick labels up
+    ax.plot(y, x + c / 4, color="k", lw=0.8)  # Leading edge
+    ax.plot(y, x - 3 * c / 4, color="k", lw=0.8)  # Trailing edge
+    ax.plot(y, x, color="k", linestyle="--", lw=0.5)  # Quarter-chord
+
+    # Plot the wing tip outer edges
+    ax.plot([y[0], y[0]], [x[0] + c[0] / 4, x[0] - 3 * c[0] / 4], color="k", lw=0.8)
+    ax.plot(
+        [y[-1], y[-1]], [x[-1] + c[-1] / 4, x[-1] - 3 * c[-1] / 4], color="k", lw=0.8
+    )
+    tip_text = ax.text(y[-1] + 0.1, (x[-1] - c[-1] / 4), f"{c[-1]:.2g}", fontsize=10)
+    tip_text.set_verticalalignment("center")
+    # ax.set_ylabel('x [m]')
+    # ax.set_xlabel('y [m]')
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.spines["left"].set_position(("data", 0))
+    ax.spines["bottom"].set_position(("data", 0))
+    ax.spines["left"].set_linestyle((0, (5, 5, 5, 5)))
+    ax.spines["bottom"].set_linestyle((0, (5, 5, 5, 5)))
+    ax.spines["top"].set_color(None)
+    ax.spines["right"].set_color(None)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(fmt))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(fmt))
+
+    # FIXME: add an inset with the span, area, AR, c0, etc
+    # FIXME: make this work with an animator for interactive design in Jupyter
+
+    fig.tight_layout()
+
+    # fig.savefig(
+    #     "/home/peter/planform.svg", transparent=True, bbox_inches="tight", pad_inches=0
+    # )
     plt.show()
 
 
 def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
-    """Make a plot of a 3D wing"""
+    """Make a plot of a 3D wing as a wireframe"""
     # Not very elegant, but it gets the job done.
 
     fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
     sa = np.linspace(0, 1, N_points)
@@ -152,49 +225,99 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
     for s in np.linspace(-1, 1, N_sections):
         c = parafoil.planform.fc(s)
         u = parafoil.planform.orientation(s)
-        c0 = np.array([parafoil.planform.fx(s), parafoil.planform.fy(s), 0])
+        c0 = np.array([parafoil.planform.fx(s) + c / 4, parafoil.planform.fy(s), 0])
         surface = ((u @ lower_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], -surface[2], c='r', zorder=.9, lw=0.8)
+        ax.plot(surface[0], surface[1], surface[2], c="r", zorder=0.9, lw=0.8)
         surface = ((u @ upper_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], -surface[2], c='g', zorder=.9, lw=0.8)
+        ax.plot(surface[0], surface[1], surface[2], c="g", zorder=0.9, lw=0.8)
 
     s = np.linspace(-1, 1, 50)
-    ax.plot(parafoil.planform.fx(s) - parafoil.planform.fc(s)/4,
-            parafoil.planform.fy(s), np.zeros(50),
-            'g--', lw=0.8)
+    ax.plot(
+        parafoil.planform.fx(s), parafoil.planform.fy(s), np.zeros(50), "g--", lw=0.8
+    )
     set_axes_equal(ax)
     ax.invert_yaxis()
+    ax.invert_zaxis()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
+    """Make a plot of a 3D wing as a smooth surface"""
+    # Not very elegant, but it gets the job done.
+
+    fig = plt.figure(figsize=(16, 16))
+    ax = fig.gca(projection="3d")
+    ax.view_init(azim=-130, elev=25)
+
+    sa = np.linspace(0, 1, N_points)
+    lower = parafoil.airfoil.geometry.surface_curve(-sa).T
+    lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
+    upper = parafoil.airfoil.geometry.surface_curve(sa).T
+    upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
+
+    lower_surfaces, upper_surfaces = [], []
+    for s in np.linspace(-1, 1, N_sections):
+        c = parafoil.planform.fc(s)
+        u = parafoil.planform.orientation(s)
+        c0 = np.array([parafoil.planform.fx(s) + c / 4, parafoil.planform.fy(s), 0])
+        surface = (u @ lower_curve * c).T + c0
+        lower_surfaces.append(surface)
+        # ax.plot(surface[0], surface[1], surface[2], c='r', zorder=.9, lw=0.8)
+        surface = (u @ upper_curve * c).T + c0
+        upper_surfaces.append(surface)
+        # ax.plot(surface[0], surface[1], surface[2], c='g', zorder=.9, lw=0.8)
+
+    # The surfaces are from -y to +y. Reverse the upper surfaces from +y..-y
+    upper_surfaces.reverse()
+
+    ls = np.asarray(lower_surfaces)
+    us = np.asarray(upper_surfaces)
+    X, Y, Z = np.concatenate((ls, us)).T
+    X, Y, Z = X.T, Y.T, Z.T
+    # colors = np.concatenate((np.full(ls.shape, 'r'), np.full(us.shape, 'b')))
+    embed()
+    # ax.plot_surface(X, Y, Z, facecolors=colors)
+    ax.plot_surface(X, Y, Z)
+
+    set_axes_equal(ax)
+    ax.invert_yaxis()
+    ax.invert_zaxis()
+    fig.tight_layout()
     plt.show()
 
 
 def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=50):
     """Make a plot of a 3D wing"""
+    # FIXME: this function is horrifying
 
     fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection='3d')
+    ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
     for s in np.linspace(-1, 1, N_sections):
         coords = wing.parafoil.lower_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='r', zorder=.9, lw=0.8)
+        ax.plot(coords[0], coords[1], -coords[2], c="r", zorder=0.9, lw=0.8)
         coords = wing.parafoil.upper_surface(s, N_points).T
-        ax.plot(coords[0], coords[1], -coords[2], c='b', lw=0.8)
+        ax.plot(coords[0], coords[1], -coords[2], c="b", lw=0.8)
 
     # Add the quarter chord line
     s = np.linspace(-1, 1, 51)
     c4 = wing.parafoil.c4(s).T
-    ax.plot(c4[0], c4[1], -c4[2], 'g--', lw=0.8)
+    ax.plot(c4[0], c4[1], -c4[2], "g--", lw=0.8)
 
     # And the brake deflection line
     s = np.linspace(-1, 1, 200)
     delta = wing.brake_geo(s, delta_Bl, delta_Br)
-    flap = delta/.2
+    flap = delta / 0.2
     c = wing.parafoil.planform.fc(s)
     orientations = wing.parafoil.section_orientation(s)
-    p = np.array([-0.8*c, np.zeros_like(s), np.zeros_like(s)]) + 0.2*c*np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)])
-    p = np.einsum('Sij,Sj->Si', orientations, p.T) + wing.parafoil.c0(s)
+    p = np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)]) + 0.2 * c * np.array(
+        [-np.cos(flap), np.zeros_like(s), np.sin(flap)]
+    )
+    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.c0(s)
     p = p.T
-    ax.plot(p[0], p[1], -p[2], 'k--', lw=0.8)
+    ax.plot(p[0], p[1], -p[2], "k--", lw=0.8)
 
     set_axes_equal(ax)
     ax.invert_yaxis()

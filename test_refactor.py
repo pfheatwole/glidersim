@@ -12,8 +12,7 @@ import BrakeGeometry
 import Harness
 from ParagliderWing import ParagliderWing
 from Paraglider import Paraglider
-
-from plots import plot_airfoil_geo, plot_parafoil_geo, plot_parafoil_planform
+import plots
 
 
 def plot_polar_curve(glider, N=51):
@@ -96,53 +95,61 @@ def plot_polar_curve(glider, N=51):
 
 def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-8, 20, 50))
-    Fs = []
+    Fs, Ms = [], []
     for alpha in alphas:
         g = [0, 0, 0]
         UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
         F, M, _, = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
                                          delta_Bl=delta_B, delta_Br=delta_B)
         Fs.append(F)
+        Ms.append(M)
 
     CLs = []
     CDs = []
+    CMs = []
     for n, F in enumerate(Fs):
         L = F[0]*np.sin(alphas[n]) - F[2]*np.cos(alphas[n])
         D = -F[0]*np.cos(alphas[n]) - F[2]*np.sin(alphas[n])
         CL = 2*L/(rho_air * glider.wing.parafoil.S)
         CD = 2*D/(rho_air * glider.wing.parafoil.S)
+        CM = 2*Ms[n][1]/(rho_air * glider.wing.parafoil.S * glider.wing.parafoil.planform.fc(0))
         CLs.append(CL)
         CDs.append(CD)
+        CMs.append(CM)
 
     deltas = np.full_like(alphas, delta_B)
     Cls = glider.wing.parafoil.airfoil.coefficients.Cl(alphas, deltas)
     Cds = glider.wing.parafoil.airfoil.coefficients.Cd(alphas, deltas)
+    Cms = glider.wing.parafoil.airfoil.coefficients.Cm(alphas, deltas)
 
-    fig, ax = plt.subplots(2, 2, figsize=(9, 8))
+    fig, ax = plt.subplots(3, 2, figsize=(9, 8))
     ax[0, 0].plot(np.rad2deg(alphas), CLs, label='CL')
     ax[0, 0].plot(np.rad2deg(alphas), Cls, 'k--', linewidth=0.75, label='Cl')
     ax[1, 0].plot(np.rad2deg(alphas), CDs, label='CD')
     ax[1, 0].plot(np.rad2deg(alphas), Cds, 'k--', linewidth=0.75, label='Cd')
-    ax[0, 1].plot(np.rad2deg(alphas), np.array(CLs)/np.array(CDs))
-    ax[1, 1].plot(CDs, CLs)
-
-    ax[0, 0].set_xlabel('alpha [deg]')
-    ax[1, 0].set_xlabel('alpha [deg]')
-    ax[0, 1].set_xlabel('alpha [deg]')
-    ax[1, 1].set_xlabel('CD')
-
+    ax[2, 0].plot(np.rad2deg(alphas), CMs, label='CM')
+    ax[2, 0].plot(np.rad2deg(alphas), Cms, 'k--', linewidth=0.75, label='Cm')
+    plt.setp(ax[:, 0], xlabel='alpha [deg]')
     ax[0, 0].set_ylabel('Lift Coefficient')
     ax[1, 0].set_ylabel('Drag Coefficient')
+    ax[2, 0].set_ylabel('Pitching Coefficient')
+
+    ax[0, 1].plot(np.rad2deg(alphas), np.array(CLs)/np.array(CDs))
+    ax[0, 1].set_xlabel('alpha [deg]')
     ax[0, 1].set_ylabel('CL/CD')
+
+    ax[1, 1].plot(CDs, CLs)
+    ax[1, 1].set_xlabel('CD')
     ax[1, 1].set_ylabel('CL')
 
-    ax[0, 0].legend()
-    ax[1, 0].legend()
+    for ax in fig.axes:
+        if len(ax.lines) > 0:
+            ax.grid()
+        if len(ax.lines) > 1:
+            ax.legend()
 
-    ax[0, 0].grid()
-    ax[0, 1].grid()
-    ax[1, 0].grid()
-    ax[1, 1].grid()
+    fig.tight_layout()  # Prevent axes overlapping titles
+
     plt.show()
 
     embed()
@@ -240,7 +247,7 @@ def main():
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     delta_max = np.deg2rad(13.25)  # FIXME: magic number
 
-    # plot_airfoil_geo(airfoil_geo)
+    # plots.plot_airfoil_geo(airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil
@@ -270,8 +277,9 @@ def main():
     print("planform AR:  ", parafoil.AR)
 
     # print("Drawing the parafoil")
-    # plot_parafoil_planform(parafoil, N_sections=50)
-    # plot_parafoil_geo(parafoil, N_sections=50)
+    # plots.plot_parafoil_planform_topdown(parafoil)
+    # plots.plot_parafoil_planform(parafoil, N_sections=50)
+    # plots.plot_parafoil_geo(parafoil, N_sections=50)
 
     # -----------------------------------------------------------------------
     # Brake geometry
@@ -292,6 +300,9 @@ def main():
 
     glider = Paraglider(wing, harness)
 
+    # print("Plotting the basic glider performance curves")
+    # plot_CL_curve(glider)
+
     # -----------------------------------------------------------------------
     # Tests
     alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
@@ -305,7 +316,7 @@ def main():
     # R = np.deg2rad(15)  # yaw rate = 15 degrees/sec clockwise
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
-    g = np.array([-np.sin(Theta), 0, np.cos(Theta)])
+    g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
     F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
                                      delta_Bl=0, delta_Br=0)
 
