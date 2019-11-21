@@ -7,10 +7,11 @@ from util import cross3
 
 class Paraglider:
     """
-
-
-    FIXME: I need to think through the purpose of this class
-
+    FIXME: warn for non-zero harness control points (this model ignores them)
+    FIXME: this model assumes the glider center of mass is at the glider origin
+           (where the risers attach), so the harness doesn't contribute a
+           moment. I should estimate the true cm to double check the validity
+           of this assumption.
 
     Notes
     -----
@@ -77,6 +78,15 @@ class Paraglider:
             wind field is uniform, but for non-uniform wind fields the
             simulator used these coordinates to determine the wind vectors
             at each control point.
+
+            FIXME: This docstring is wrong; they are useful if delta_s != 0,
+            they have nothing to do with wind field uniformity. And really,
+            why do I even have both `xyz` and `delta_s` as inputs? The only
+            purpose of `delta_s` is to compute the xyz. Using `delta_s` alone
+            would be the more intuitive, but would incur extra computation time
+            for finding the control points; the only point of `xyz` is to avoid
+            recomputing them.
+
         Gamma : array of float, shape (K,) [units?] (optional)
             An initial guess for the circulation distribution, to improve
             convergence
@@ -104,7 +114,7 @@ class Paraglider:
         if v_w2e is None:
             v_w2e = np.array([0, 0, 0])
         if v_w2e.ndim > 1 and xyz is None:
-            raise ValueError("Control point relative winds require xyz")
+            raise ValueError("Control point relative winds require xyz")                # Why? I probably did this to ensure the <v_w2e and xyz are computed using the same delta_s
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
@@ -144,9 +154,6 @@ class Paraglider:
         # model places the cg at the harness, that force does not generate a
         # moment.
         F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
-
-        # FIXME: compute the glider center of mass
-        # FIXME: apply the forces about the cm to compute the correct moment
 
         return F, M, Gamma
 
