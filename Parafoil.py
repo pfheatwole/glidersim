@@ -184,9 +184,9 @@ class ParafoilGeometry:
             [*geo.area_centroid, 0],
             [*geo.lower_centroid, 0]])
         section_origins = self.c0(s_mid_nodes)
-        section_upper_cm, section_volume_cm, section_lower_cm = \
-            (einsum('K,Kij,jk,Gk->GKi', chords, u, T, airfoil_centroids) +
-             section_origins[None, ...])
+        section_upper_cm, section_volume_cm, section_lower_cm = (
+            einsum('K,Kij,jk,Gk->GKi', chords, u, T, airfoil_centroids)
+            + section_origins[None, ...])
 
         # Scaling factors for converting 2d airfoils into 3d sections
         # Approximates each section chord area as parallelograms
@@ -223,8 +223,8 @@ class ParafoilGeometry:
 
         # Section distances to the group centroids
         R = np.array([Ru, Rv, Rl])
-        D = (np.einsum('Rij,Rij->Ri', R, R)[..., None, None] * np.eye(3) -
-             np.einsum('Rki,Rkj->Rkij', R, R))
+        D = (einsum('Rij,Rij->Ri', R, R)[..., None, None] * np.eye(3)
+             - einsum('Rki,Rkj->Rkij', R, R))
         Du, Dv, Dl = D
 
         # And finally, apply the parallel axis theorem
@@ -803,8 +803,8 @@ class Phillips(ForceEstimator):
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
         J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
                         cross3(v, self.dl), optimize=opt2)
-        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3) -
-              einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
+        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3)
+              - einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
         J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na, optimize=opt4)
         J += J2 - J3 - J4
