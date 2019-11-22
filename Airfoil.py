@@ -278,7 +278,7 @@ class AirfoilGeometry(abc.ABC):
             dydx = deriv(d)
             chord = curve(d) - TE  # The proposed chord line
             return np.dot(normed(dydx), normed(chord))
-        d_LE = newton(target, L/2)  # FIXME: use x0 = the longest candidate?
+        d_LE = newton(target, L / 2)  # FIXME: use x0 = the longest candidate?
         return d_LE
 
     def _derotate_and_normalize(self, points):
@@ -339,20 +339,20 @@ class AirfoilGeometry(abc.ABC):
         # 1. Area calculations
 
         self.area = simps(Uy, Ux) - simps(Ly, Lx)
-        xbar = (simps(Ux*Uy, Ux) - simps(Lx*Ly, Lx)) / self.area
-        ybar = (simps(Uy**2 / 2, Ux) + simps(Ly**2 / 2, Lx)) / self.area
+        xbar = (simps(Ux * Uy, Ux) - simps(Lx * Ly, Lx)) / self.area
+        ybar = (simps(Uy ** 2 / 2, Ux) + simps(Ly ** 2 / 2, Lx)) / self.area
         self.area_centroid = np.array([xbar, ybar])
 
         # Area moments of inertia about the origin
         # FIXME: verify, including for airfoils where some `Ly > 0`
-        Ixx_o = 1/3 * (simps(Uy**3, Ux) - simps(Ly**3, Lx))
-        Iyy_o = simps(Ux**2 * Uy, Ux) - simps(Lx**2 * Ly, Lx)
-        Ixy_o = 1/2 * (simps(Ux * Uy**2, Ux) - simps(Lx * Ly**2, Lx))  # FIXME?
+        Ixx_o = 1 / 3 * (simps(Uy ** 3, Ux) - simps(Ly ** 3, Lx))
+        Iyy_o = simps(Ux ** 2 * Uy, Ux) - simps(Lx ** 2 * Ly, Lx)
+        Ixy_o = 1 / 2 * (simps(Ux * Uy ** 2, Ux) - simps(Lx * Ly ** 2, Lx))  # FIXME: verify?
 
         # Use the parallel axis theorem to find the inertias about the centroid
-        Ixx = Ixx_o - self.area * ybar**2
-        Iyy = Iyy_o - self.area * xbar**2
-        Ixy = Ixy_o - self.area*xbar*ybar
+        Ixx = Ixx_o - self.area * ybar ** 2
+        Iyy = Iyy_o - self.area * xbar ** 2
+        Ixy = Ixy_o - self.area * xbar * ybar
         Izz = Ixx + Iyy  # Perpendicular axis theorem
 
         # Area inertia tensor, treating the plane as a 3D object
@@ -367,8 +367,8 @@ class AirfoilGeometry(abc.ABC):
         # Line segment lengths and midpoints
         norm_U = np.linalg.norm(np.diff(upper), axis=0)
         norm_L = np.linalg.norm(np.diff(lower), axis=0)
-        mid_U = (upper[:, :-1] + upper[:, 1:])/2  # Midpoints of `upper`
-        mid_L = (lower[:, :-1] + lower[:, 1:])/2  # Midpoints of `lower`
+        mid_U = (upper[:, :-1] + upper[:, 1:]) / 2  # Midpoints of `upper`
+        mid_L = (lower[:, :-1] + lower[:, 1:]) / 2  # Midpoints of `lower`
 
         # Total surface line lengths
         UL, LL = norm_U.sum(), norm_L.sum()  # Convenient shorthand
@@ -384,16 +384,16 @@ class AirfoilGeometry(abc.ABC):
         # FIXME: not proper line integrals: treats segments as point masses
         cmUx, cmUy = self.upper_centroid
         mid_Ux, mid_Uy = mid_U[0], mid_U[1]
-        Ixx_U = np.sum(mid_Uy**2 * norm_U) - UL*cmUy**2
-        Iyy_U = np.sum(mid_Ux**2 * norm_U) - UL*cmUx**2
-        Ixy_U = np.sum(mid_Ux*mid_Uy*norm_U) - UL*cmUx*cmUy
+        Ixx_U = np.sum(mid_Uy ** 2 * norm_U) - UL * cmUy ** 2
+        Iyy_U = np.sum(mid_Ux ** 2 * norm_U) - UL * cmUx ** 2
+        Ixy_U = np.sum(mid_Ux * mid_Uy * norm_U) - UL * cmUx * cmUy
         Izz_U = Ixx_U + Iyy_U
 
         cmLx, cmLy = self.lower_centroid
         mid_Lx, mid_Ly = mid_L[0], mid_L[1]
-        Ixx_L = np.sum(mid_Ly**2 * norm_L) - LL*cmLy**2
-        Iyy_L = np.sum(mid_Lx**2 * norm_L) - LL*cmLx**2
-        Ixy_L = np.sum(mid_Lx*mid_Ly*norm_L) - LL*cmLx*cmLy
+        Ixx_L = np.sum(mid_Ly ** 2 * norm_L) - LL * cmLy ** 2
+        Iyy_L = np.sum(mid_Lx ** 2 * norm_L) - LL * cmLx ** 2
+        Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - LL * cmLx * cmLy
         Izz_L = Ixx_L + Iyy_L
 
         # Line inertia tensors, treating the lines as 3D objects
@@ -539,7 +539,11 @@ class NACA4(AirfoilGeometry):
         open_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1015]
         closed_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1036]
         a0, a1, a2, a3, a4 = open_TE if self.open_TE else closed_TE
-        return 5*self.tcr*(a0*np.sqrt(x) - a1*x - a2*x**2 + a3*x**3 - a4*x**4)
+        return (
+            5
+            * self.tcr
+            * (a0 * np.sqrt(x) - a1 * x - a2 * x ** 2 + a3 * x ** 3 - a4 * x ** 4)
+        )
 
     def _theta(self, x):
         """Compute the angle of the mean camber line.
@@ -557,8 +561,8 @@ class NACA4(AirfoilGeometry):
 
         f = x <= p  # Filter for the two cases, `x <= p` and `x > p`
         dyc = np.empty_like(x)
-        dyc[f] = (2*m/p**2)*(p - x[f])
-        dyc[~f] = (2*m/(1-p)**2)*(p - x[~f])
+        dyc[f] = (2 * m / p ** 2) * (p - x[f])
+        dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
 
         return arctan(dyc)
 
@@ -583,8 +587,8 @@ class NACA4(AirfoilGeometry):
 
         f = (x <= p)  # Filter for the two cases, `x <= p` and `x > p`
         cl = np.empty_like(x)
-        cl[f] = (m/p**2)*(2*p*(x[f]) - (x[f])**2)
-        cl[~f] = (m/(1-p)**2)*((1-2*p) + 2*p*(x[~f]) - (x[~f])**2)
+        cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
+        cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
         return np.array([x, cl]).T
 
     def _yu(self, x):
@@ -597,7 +601,7 @@ class NACA4(AirfoilGeometry):
         yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
-            curve = np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
+            curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
         elif self.convention == 'british':  # XFOIL style
             curve = np.array([x, yc + t]).T
         else:
@@ -614,7 +618,7 @@ class NACA4(AirfoilGeometry):
         yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
-            curve = np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
+            curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
         elif self.convention == 'british':  # XFOIL style
             curve = np.array([x, yc - t]).T
         else:
@@ -706,7 +710,11 @@ class NACA5(AirfoilGeometry):
         open_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1015]
         closed_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1036]
         a0, a1, a2, a3, a4 = open_TE if self.open_TE else closed_TE
-        return 5*self.tcr*(a0*np.sqrt(x) - a1*x - a2*x**2 + a3*x**3 - a4*x**4)
+        return (
+            5
+            * self.tcr
+            * (a0 * np.sqrt(x) - a1 * x - a2 * x ** 2 + a3 * x ** 3 - a4 * x ** 4)
+        )
 
     def _theta(self, x):
         """Compute the angle of the mean camber line.
@@ -724,8 +732,8 @@ class NACA5(AirfoilGeometry):
 
         f = x <= p  # Filter for the two cases, `x <= p` and `x > p`
         dyc = np.empty_like(x)
-        dyc[f] = (2*m/p**2)*(p - x[f])
-        dyc[~f] = (2*m/(1-p)**2)*(p - x[~f])
+        dyc[f] = (2 * m / p ** 2) * (p - x[f])
+        dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
 
         return arctan(dyc)
 
@@ -749,8 +757,8 @@ class NACA5(AirfoilGeometry):
 
         f = (x < m)  # Filter for the two cases, `x < m` and `x >= m`
         cl = np.empty_like(x)
-        cl[f] = (k1/6) * (x[f]**3 - 3*m*(x[f]**2) + (m**2)*(3 - m)*x[f])
-        cl[~f] = (k1 * m**3 / 6) * (1 - x[~f])
+        cl[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
+        cl[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
         return np.array([x, cl]).T
 
     def _yu(self, x):
@@ -763,7 +771,7 @@ class NACA5(AirfoilGeometry):
         yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
-            curve = np.array([x - t*np.sin(theta), yc + t*np.cos(theta)]).T
+            curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
         elif self.convention == 'british':  # XFOIL style
             curve = np.array([x, yc + t]).T
         else:
@@ -780,7 +788,7 @@ class NACA5(AirfoilGeometry):
         yc = self._yc(x).T[1]
         if self.convention == 'american':  # Standard NACA definition
             theta = self._theta(x)
-            curve = np.array([x + t*np.sin(theta), yc - t*np.cos(theta)]).T
+            curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
         elif self.convention == 'british':  # XFOIL style
             curve = np.array([x, yc - t]).T
         else:
