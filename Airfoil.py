@@ -1,7 +1,12 @@
 """
-Models for airfoil geometry and airfoil coefficients. Geometry models are for
-graphical purposes, such as drawing the wing. Coefficient models are for
-evaluating the section coefficients for lift, drag, and pitching moment.
+Models for airfoil geometries and airfoil coefficients.
+
+Geometry models are for computing mass distributions (for moments of inertia),
+points on reference lines (such as the quarter-chord position, frequently used
+by lifting line methods), and graphical purposes.
+
+Coefficient models are for evaluating the section coefficients for lift, drag,
+and pitching moment.
 """
 
 from IPython import embed
@@ -45,7 +50,7 @@ class AirfoilCoefficients(abc.ABC):
     @abc.abstractmethod
     def Cl(self, alpha, delta):
         """
-        The lift coefficient of the airfoil
+        Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
@@ -63,7 +68,7 @@ class AirfoilCoefficients(abc.ABC):
     @abc.abstractmethod
     def Cd(self, alpha, delta):
         """
-        The drag coefficient of the airfoil
+        Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
@@ -81,7 +86,7 @@ class AirfoilCoefficients(abc.ABC):
     @abc.abstractmethod
     def Cm(self, alpha, delta):
         """
-        The pitching coefficient of the airfoil
+        Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
@@ -98,7 +103,7 @@ class AirfoilCoefficients(abc.ABC):
 
     def Cl_alpha(self, alpha, delta):
         """
-        The derivative of the lift coefficient versus angle of attack
+        Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
@@ -400,7 +405,7 @@ class AirfoilGeometry(abc.ABC):
              [     0,      0, Izz_L]])
 
     def _s2d(self, s):
-        """Reverse mapping: s->d
+        """Compute the reverse mapping: s->d.
 
         The two parametrizations for the the curve are:
          * s: the normalized distance, moving clockwise, starting at the lower
@@ -425,7 +430,7 @@ class AirfoilGeometry(abc.ABC):
         return d
 
     def surface_curve(self, s):
-        """The airfoil boundary curve
+        """Compute points on the surface curve.
 
         Parameters
         ----------
@@ -442,23 +447,23 @@ class AirfoilGeometry(abc.ABC):
         return self._curve(d)
 
     def surface_curve_tangent(self, s):
-        """The surface curve tangent unit vector"""
+        """Compute the tangent unit vector at points on the surface curve."""
         d = self._s2d(s)
         dxdy = -self._curve.derivative()(d).T  # w.r.t. `s`
         return (dxdy / np.linalg.norm(dxdy, axis=0)).T
 
     def surface_curve_normal(self, s):
-        """The surface curve normal unit vector"""
+        """Compute the normal unit vector at points on the surface curve."""
         d = self._s2d(s)
         dxdy = (self._curve.derivative()(d) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))  # w.r.t. `s`
         return dxdy.T
 
     def camber_curve(self, x):
-        raise NotImplementedError  # FIXME: design and implement
+        raise NotImplementedError
 
     def thickness(self, x):
-        """Airfoil thickness
+        """Compute airfoil thickness perpendicular to a reference line.
 
         This measurement is perpendicular to either the camber line ('American'
         convention) or the chord ('British' convention). Refer to the specific
@@ -473,25 +478,25 @@ class AirfoilGeometry(abc.ABC):
         -------
         FIXME: describe
         """
-        raise NotImplementedError  # FIXME: design and implement
+        raise NotImplementedError
 
 
 class NACA4(AirfoilGeometry):
     def __init__(self, code, open_TE=True, convention='American'):
         """
-        Generate an airfoil using a NACA4 parameterization
+        Generate an airfoil using a NACA4 parameterization.
 
         Parameters
         ----------
         code : integer or string
             The 4-digit NACA code. If the code is an integer less than 1000,
             leading zeros are implicitly added; for example, 12 becomes 0012.
-        open_TE : bool (optional)
-            Generate airfoils with an open trailing edge. Default: True
-        convention : string (optional)
-            The convention to use for calculating the airfoil thickness:
-             - 'American' (default)
-             - 'British'
+        open_TE : bool, optional
+            Generate airfoils with an open trailing edge. Default: True.
+        convention : {'American', 'British'}, optional
+            The convention to use for calculating the airfoil thickness. The
+            default is 'American'.
+
             The American convention measures airfoil thickness perpendicular to
             the camber line. The British convention measures airfoil thickness
             perpendicular to the chord. Most texts use the American definition
@@ -534,7 +539,7 @@ class NACA4(AirfoilGeometry):
         return 5*self.tcr*(a0*np.sqrt(x) - a1*x - a2*x**2 + a3*x**3 - a4*x**4)
 
     def _theta(self, x):
-        """Angle of the mean camber line
+        """Compute the angle of the mean camber line.
 
         Parameters
         ----------
@@ -555,7 +560,7 @@ class NACA4(AirfoilGeometry):
         return arctan(dyc)
 
     def _yc(self, x):
-        """Mean camber line coordinates
+        """Compute positions on the mean camber line.
 
         Parameters
         ----------
@@ -618,7 +623,7 @@ class NACA5(AirfoilGeometry):
     # FIXME: merge with `NACA4`? Lots of overlapping code
     def __init__(self, code, open_TE=True, convention='American'):
         """
-        Generate an airfoil using a NACA5 parameterization
+        Generate an airfoil using a NACA5 parameterization.
 
         Parameters
         ----------
@@ -627,16 +632,13 @@ class NACA5(AirfoilGeometry):
             leading zeros are implicitly added; for example, 12 becomes 00012.
 
             The NACA5 code can be expressed as LPSTT. Valid codes for this
-            current implementation are restricted:
-             * L: must be 2
-             * S: must be 0
-
-        open_TE : bool (optional)
+            current implementation are restricted to ``L = 2`` and ``S = 0``.
+        open_TE : bool, optional
             Generate airfoils with an open trailing edge. Default: True
-        convention : string (optional)
-            The convention to use for calculating the airfoil thickness:
-             - 'American' (default)
-             - 'British'
+        convention : {'American', 'British'}, optional
+            The convention to use for calculating the airfoil thickness. The
+            default is 'American'.
+
             The American convention measures airfoil thickness perpendicular to
             the camber line. The British convention measures airfoil thickness
             perpendicular to the chord. Most texts use the American definition
@@ -704,7 +706,7 @@ class NACA5(AirfoilGeometry):
         return 5*self.tcr*(a0*np.sqrt(x) - a1*x - a2*x**2 + a3*x**3 - a4*x**4)
 
     def _theta(self, x):
-        """Angle of the mean camber line
+        """Compute the angle of the mean camber line.
 
         Parameters
         ----------
@@ -725,7 +727,7 @@ class NACA5(AirfoilGeometry):
         return arctan(dyc)
 
     def _yc(self, x):
-        """Mean camber line coordinates
+        """Compute positions on the mean camber line.
 
         Parameters
         ----------
