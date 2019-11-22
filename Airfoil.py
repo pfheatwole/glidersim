@@ -231,6 +231,8 @@ class AirfoilGeometry(abc.ABC):
 
     Attributes
     ----------
+    FIXME: outdated, these are no longer attributes of the abstract class
+
     area : float
         The area of the airfoil
     area_centroid : ndarray of float, shape (2,)
@@ -521,9 +523,10 @@ class NACA4(AirfoilGeometry):
         if self.convention not in valid_conventions:
             raise ValueError("The convention must be 'American' or 'British'")
 
-        self.m = (code // 1000) / 100       # Maximum camber
-        self.p = ((code // 100) % 10) / 10  # location of max camber
-        self.tcr = (code % 100) / 100      # Thickness to chord ratio
+        # FIXME: these comments belong in the class docstring?
+        self.m = (code // 1000) / 100  # Maximum camber
+        self.p = ((code // 100) % 10) / 10  # Location of max camber
+        self.tcr = (code % 100) / 100  # Thickness-to-chord ratio
 
         N = 5000
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
