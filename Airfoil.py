@@ -175,12 +175,12 @@ class GridCoefficients(AirfoilCoefficients):
         self.data = data
 
         if convert_degrees:
-            data['alpha'] = np.deg2rad(data.alpha)
-            data['delta'] = np.deg2rad(data.delta)
+            data["alpha"] = np.deg2rad(data.alpha)
+            data["delta"] = np.deg2rad(data.delta)
 
-        self._Cl = Clough2D(data[['alpha', 'delta']], data.CL)
-        self._Cd = Clough2D(data[['alpha', 'delta']], data.CD)
-        self._Cm = Clough2D(data[['alpha', 'delta']], data.Cm)
+        self._Cl = Clough2D(data[["alpha", "delta"]], data.CL)
+        self._Cd = Clough2D(data[["alpha", "delta"]], data.CD)
+        self._Cm = Clough2D(data[["alpha", "delta"]], data.Cm)
 
         # Construct another grid with smoothed derivatives of Cl vs alpha
         # FIXME: needs a design review
@@ -379,8 +379,8 @@ class AirfoilGeometry(abc.ABC):
 
         # Surface line centroids
         #
-        self.upper_centroid = np.einsum('ij,j->i', mid_U, norm_U) / UL
-        self.lower_centroid = np.einsum('ij,j->i', mid_L, norm_L) / LL
+        self.upper_centroid = np.einsum("ij,j->i", mid_U, norm_U) / UL
+        self.lower_centroid = np.einsum("ij,j->i", mid_L, norm_L) / LL
 
         # Surface line moments of inertia about their centroids
         # FIXME: not proper line integrals: treats segments as point masses
@@ -487,7 +487,7 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA4(AirfoilGeometry):
-    def __init__(self, code, open_TE=True, convention='American'):
+    def __init__(self, code, open_TE=True, convention="American"):
         """
         Generate an airfoil using a NACA4 parameterization.
 
@@ -519,7 +519,7 @@ class NACA4(AirfoilGeometry):
         self.open_TE = open_TE
         self.convention = convention.lower()
 
-        valid_conventions = {'american', 'british'}
+        valid_conventions = {"american", "british"}
         if self.convention not in valid_conventions:
             raise ValueError("The convention must be 'American' or 'British'")
 
@@ -602,10 +602,10 @@ class NACA4(AirfoilGeometry):
 
         t = self.thickness(x)
         yc = self._yc(x).T[1]
-        if self.convention == 'american':  # Standard NACA definition
+        if self.convention == "american":  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-        elif self.convention == 'british':  # XFOIL style
+        elif self.convention == "british":  # XFOIL style
             curve = np.array([x, yc + t]).T
         else:
             raise RuntimeError(f"Invalid convention '{self.convention}'")
@@ -619,10 +619,10 @@ class NACA4(AirfoilGeometry):
 
         t = self.thickness(x)
         yc = self._yc(x).T[1]
-        if self.convention == 'american':  # Standard NACA definition
+        if self.convention == "american":  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-        elif self.convention == 'british':  # XFOIL style
+        elif self.convention == "british":  # XFOIL style
             curve = np.array([x, yc - t]).T
         else:
             raise RuntimeError(f"Invalid convention '{self.convention}'")
@@ -631,7 +631,7 @@ class NACA4(AirfoilGeometry):
 
 class NACA5(AirfoilGeometry):
     # FIXME: merge with `NACA4`? Lots of overlapping code
-    def __init__(self, code, open_TE=True, convention='American'):
+    def __init__(self, code, open_TE=True, convention="American"):
         """
         Generate an airfoil using a NACA5 parameterization.
 
@@ -666,7 +666,7 @@ class NACA5(AirfoilGeometry):
         self.open_TE = open_TE
         self.convention = convention.lower()
 
-        valid_conventions = {'american', 'british'}
+        valid_conventions = {"american", "british"}
         if self.convention not in valid_conventions:
             raise ValueError("The convention must be 'American' or 'British'")
 
@@ -772,10 +772,10 @@ class NACA5(AirfoilGeometry):
 
         t = self.thickness(x)
         yc = self._yc(x).T[1]
-        if self.convention == 'american':  # Standard NACA definition
+        if self.convention == "american":  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-        elif self.convention == 'british':  # XFOIL style
+        elif self.convention == "british":  # XFOIL style
             curve = np.array([x, yc + t]).T
         else:
             raise RuntimeError(f"Invalid convention '{self.convention}'")
@@ -789,10 +789,10 @@ class NACA5(AirfoilGeometry):
 
         t = self.thickness(x)
         yc = self._yc(x).T[1]
-        if self.convention == 'american':  # Standard NACA definition
+        if self.convention == "american":  # Standard NACA definition
             theta = self._theta(x)
             curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-        elif self.convention == 'british':  # XFOIL style
+        elif self.convention == "british":  # XFOIL style
             curve = np.array([x, yc - t]).T
         else:
             raise RuntimeError(f"Invalid convention '{self.convention}'")
