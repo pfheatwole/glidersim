@@ -685,8 +685,8 @@ class NACA5(AirfoilGeometry):
             220: (0.1260, 51.64),
             230: (0.2025, 15.957),
             240: (0.2900, 6.643),
-            250: (0.3910, 3.230)
-            }
+            250: (0.3910, 3.230),
+        }
 
         try:
             self.m, self.k1 = coefficient_options[code // 100]
