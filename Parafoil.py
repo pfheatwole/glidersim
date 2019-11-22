@@ -1,23 +1,17 @@
 import abc
 
-import numpy as np
-from numpy import sin, cos, arctan2, dot, cross, einsum
-from numpy import arcsin, arctan, deg2rad, rad2deg, sqrt, tan, linspace
-from numpy.linalg import norm
-from numpy.polynomial import Polynomial
-from numba import njit
-from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
-from scipy.integrate import simps
-
-import scipy.optimize
-
-from util import cross3
-
 from IPython import embed
 
-import matplotlib.pyplot as plt
+import numpy as np
+from numpy import arcsin, arctan, cos, deg2rad, sin, tan
+from numpy import cross, dot, einsum, linspace, sqrt
+from numpy.linalg import norm
 
-from plots import set_axes_equal
+import scipy.optimize
+from scipy.integrate import simps
+from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
+
+from util import cross3
 
 
 class ParafoilGeometry:
