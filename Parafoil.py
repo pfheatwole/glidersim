@@ -89,18 +89,28 @@ class ParafoilGeometry:
         return np.array([x, y, z]).T
 
     def section_orientation(self, s, lobe_args={}):
-        """Section orientation unit vectors
+        """Compute section orientation unit vectors.
 
-        Axes are defined as chordwise, section orthogonal, and vertical. This
-        corresponds to the <x, y, z> unit vectors first being transformed by
-        the planform geometric torsion, then by the lobe dihedral.
+        The parafoil body <x, y, z> axes follow the "front, right, down"
+        convention. To find the orientation of each section, copies of the
+        parafoil body basis vectors are translated to each point on the span,
+        transformed by the planform geometric torsion at that point (rotating
+        them about their y-axis), then transformed again by the lobe dihedral
+        at that point (rotating them about their x-axis).
+
+        Parameters
+        ----------
+        s : array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`.
+
+        Returns
+        -------
+        ndarray of float, shape (N, 3, 3)
+            Column unit vectors for the orientation of each section.
         """
-        # FIXME: finish documenting
-        # FIXME: this assumes the planform chords are all in the xz plane, and
-        #        thus the only transformation is the torsion. Is that correct?
         torsion = self.planform.orientation(s)
         dihedral = self.lobe.orientation(s, **lobe_args)
-        return dihedral @ torsion  # (N,3,3) ndarray, column unit vectors
+        return dihedral @ torsion
 
     def upper_surface(self, s, N=50):
         """Airfoil upper surface curve on the 3D parafoil
@@ -173,7 +183,7 @@ class ParafoilGeometry:
         nodes = self.c4(s_nodes, lobe_args)  # Section endpoints
         geo = self.airfoil.geometry
         node_chords = self.planform.fc(s_nodes)
-        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Just a dumb average
+        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
         u = self.section_orientation(s_mid_nodes, lobe_args)
         u_inv = np.linalg.inv(u)
@@ -393,7 +403,7 @@ class EllipticalPlanform(ParafoilPlanform):
     def orientation(self, s):
         theta = self.ftheta(s)
         ct, st = cos(theta), sin(theta)
-        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
         torsion = np.array([
             [ct,  _0, st],
             [_0,  _1, _0],
@@ -539,7 +549,7 @@ class EllipticalLobe(ParafoilLobe):
         K = np.sqrt(dydt ** 2 + dzdt ** 2)  # Faster version of 1d L2-norm
         dydt, dzdt = -dydt / K, -dzdt / K
 
-        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
         dihedral = np.array([
             [_1,   _0,    _0],
             [_0, dydt, -dzdt],
@@ -957,8 +967,8 @@ class Phillips(ForceEstimator):
             if np.any(np.isnan(R)):
                 # FIXME: this fails if R has `nan` on the first run
                 # FIXME: this will repeatedly fail if delta_Gamma has nan
-                Gamma -= Omega * delta_Gamma  # Revert the old adjustment
-                Omega /= 2                  # Backoff the step size
+                Gamma -= Omega * delta_Gamma  # Revert the previous adjustment
+                Omega /= 2  # Backoff the step size
                 Gamma += Omega * delta_Gamma  # Apply the reduced step
                 continue
             # Check the convergence criteria
