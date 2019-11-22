@@ -185,7 +185,7 @@ class ParafoilGeometry:
             [*geo.lower_centroid, 0]])
         section_origins = self.c0(s_mid_nodes)
         section_upper_cm, section_volume_cm, section_lower_cm = (
-            einsum('K,Kij,jk,Gk->GKi', chords, u, T, airfoil_centroids)
+            einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + section_origins[None, ...])
 
         # Scaling factors for converting 2d airfoils into 3d sections
@@ -223,8 +223,8 @@ class ParafoilGeometry:
 
         # Section distances to the group centroids
         R = np.array([Ru, Rv, Rl])
-        D = (einsum('Rij,Rij->Ri', R, R)[..., None, None] * np.eye(3)
-             - einsum('Rki,Rkj->Rkij', R, R))
+        D = (einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
+             - einsum("Rki,Rkj->Rkij", R, R))
         Du, Dv, Dl = D
 
         # And finally, apply the parallel axis theorem
@@ -233,15 +233,15 @@ class ParafoilGeometry:
         lower_J = (section_lower_J + (section_lower_area * Dl.T).T).sum(axis=0)
 
         mass_properties = {
-            'upper_area': upper_area,
-            'upper_centroid': upper_centroid,
-            'upper_inertia': upper_J,
-            'volume': volume,
-            'volume_centroid': volume_centroid,
-            'volume_inertia': volume_J,
-            'lower_area': lower_area,
-            'lower_centroid': lower_centroid,
-            'lower_inertia': lower_J}
+            "upper_area": upper_area,
+            "upper_centroid": upper_centroid,
+            "upper_inertia": upper_J,
+            "volume": volume,
+            "volume_centroid": volume_centroid,
+            "volume_inertia": volume_J,
+            "lower_area": lower_area,
+            "lower_centroid": lower_centroid,
+            "lower_inertia": lower_J}
 
         return mass_properties
 
@@ -500,7 +500,7 @@ class EllipticalLobe(ParafoilLobe):
         # This ellipse will be proportional to the true ellipse by a scaling
         # factor:  true_ellipse = (b_flat/L) * this_ellipse
         #
-        # FIXME: needs clearer documentation, and 'span_ratio' is not defined
+        # FIXME: needs clearer documentation, and "span_ratio" is not defined
         #        correctly
         tMed = tan(self.dihedralMed)
         tMax = tan(self.dihedralMax)
@@ -740,8 +740,8 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross3(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
-        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
+        v += cross3(u_inf, R2) / (r2 * (r2 - einsum("k,ijk->ij", u_inf, R2)))[..., None]
+        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum("k,ijk->ij", u_inf, R1)))[..., None]
 
         return v/(4*np.pi)
 
@@ -761,12 +761,12 @@ class Phillips(ForceEstimator):
         # Compute the local fluid velocities
         #  * ref: Hunsaker-Snyder Eq:5
         #  * ref: Phillips Eq:5 (nondimensional version)
-        V = V_w2cp + einsum('j,jik->ik', Gamma, v)
+        V = V_w2cp + einsum("j,jik->ik", Gamma, v)
 
         # Compute the local angle of attack for each section
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-        V_n = einsum('ik,ik->i', V, self.u_n)  # Normal-wise
-        V_a = einsum('ik,ik->i', V, self.u_a)  # Chordwise
+        V_n = einsum("ik,ik->i", V, self.u_n)  # Normal-wise
+        V_a = einsum("ik,ik->i", V, self.u_a)  # Chordwise
         alpha = arctan(V_n/V_a)
 
         return V, V_n, V_a, alpha
@@ -777,7 +777,7 @@ class Phillips(ForceEstimator):
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
+        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
@@ -791,22 +791,22 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
+        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
         # Use precomputed optimal einsum paths
-        opt2 = ['einsum_path', (0, 2), (0, 2), (0, 1)]
-        opt3 = ['einsum_path', (0, 2), (0, 1)]
-        opt4 = ['einsum_path', (0, 1), (1, 2), (0, 1)]
+        opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
+        opt3 = ["einsum_path", (0, 2), (0, 1)]
+        opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
+        J2 = 2 * einsum("i,ik,i,jik->ij", Gamma, W, 1/W_norm,
                         cross3(v, self.dl), optimize=opt2)
-        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3)
-              - einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
+        J3 = (einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
+              - einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na, optimize=opt4)
+        J4 = 2 * einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na, optimize=opt4)
         J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
@@ -866,7 +866,7 @@ class Phillips(ForceEstimator):
         Gammas = [G]  # FIXME: For debugging
         success = False
         for k in range(maxiter):
-            print('.', end="")
+            print(".", end="")
             G_old = G
 
             # Equate the section lift predicted by both the lift coefficient
@@ -915,7 +915,7 @@ class Phillips(ForceEstimator):
         # print("Finished fixed_point iterations")
         # embed()
 
-        return {'x': G, 'success': success}
+        return {"x": G, "success": success}
 
     def naive_root(self, Gamma0, args, rtol=1e-5, atol=1e-8):
         """Naive Newton-Raphson iterative solution to solve for Gamma
@@ -977,7 +977,7 @@ class Phillips(ForceEstimator):
             Gamma += Omega*delta_Gamma
             Omega += (1 - Omega)/2  # Restore Omega towards unity
 
-        return {'x': Gamma, 'success': success}
+        return {"x": Gamma, "success": success}
 
     def _solve_circulation(self, V_w2cp, delta, Gamma0=None):
         if Gamma0 is None:  # Assume a simple elliptical distribution
@@ -997,12 +997,12 @@ class Phillips(ForceEstimator):
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         # If the gradient method failed, try fixed-point iterations
-        # if not res['success']:
+        # if not res["success"]:
         #     print("The gradient method failed, using fixed-point iteration")
         #     res = self._fixed_point_circulation(Gamma0, *args, **options)
 
-        if res['success']:
-            Gamma = res['x']
+        if res["success"]:
+            Gamma = res["x"]
         else:
             # print("Phillips> failed to solve for Gamma")
             Gamma = np.full_like(Gamma0, np.nan)
