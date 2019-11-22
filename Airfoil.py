@@ -9,14 +9,17 @@ Coefficient models are for evaluating the section coefficients for lift, drag,
 and pitching moment.
 """
 
-from IPython import embed
 import abc
+
+from IPython import embed
 
 import numpy as np
 from numpy import arctan, cos, cumsum, sin
 from numpy.linalg import norm
 from numpy.polynomial import Polynomial
+
 import pandas as pd
+
 from scipy.integrate import simps
 from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
 from scipy.interpolate import PchipInterpolator
