@@ -225,15 +225,15 @@ class ParagliderWing:
         #                lower_mass * p['lower_centroid']) / total_mass
 
         o = -self.foil_origin(delta_s)  # Origin is `risers->origin`
-        Ru = o - p['upper_centroid']
-        Rv = o - p['volume_centroid']
-        Rl = o - p['lower_centroid']
+        Ru = o - p["upper_centroid"]
+        Rv = o - p["volume_centroid"]
+        Rl = o - p["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
 
-        J_wing = (self.rho_upper * (p['upper_inertia'] + p['upper_area'] * Du)
-                  + rho_air * (p['volume_inertia'] + p['volume'] * Dv)
-                  + self.rho_lower * (p['lower_inertia'] + p['lower_area'] * Dl))
+        J_wing = (self.rho_upper * (p["upper_inertia"] + p["upper_area"] * Du)
+                  + rho_air * (p["volume_inertia"] + p["volume"] * Dv)
+                  + self.rho_lower * (p["lower_inertia"] + p["lower_area"] * Dl))
 
         return J_wing
