@@ -51,13 +51,13 @@ class ParagliderWing:
         foil_z = -z_riser
 
         # Nominal lengths of the A and C lines, and their connection distance
-        self.A = np.sqrt((foil_x - self.pA*self.c0)**2 + foil_z**2)
-        self.C = np.sqrt((self.pC * self.c0 - foil_x)**2 + foil_z**2)
-        self.AC = (self.pC - self.pA)*self.c0
+        self.A = np.sqrt((foil_x - self.pA * self.c0) ** 2 + foil_z ** 2)
+        self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
+        self.AC = (self.pC - self.pA) * self.c0
 
-        # For testing, from a Hook 3
-        self.rho_upper = 40/1000  # kg/m2
-        self.rho_lower = 35/1000  # kg/m2
+        # FIXME: relocate. Here for testing, from a Hook 3
+        self.rho_upper = 40 / 1000  # kg/m2
+        self.rho_lower = 35 / 1000  # kg/m2
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, Gamma=None):
         """
@@ -102,10 +102,10 @@ class ParagliderWing:
         """
         # Speedbar shortens the A lines, while AC and C remain fixed
         A = self.A - (delta_s * self.kappa_s)
-        foil_x = (A**2 - self.C**2 + self.AC**2)/(2*self.AC)
+        foil_x = (A ** 2 - self.C ** 2 + self.AC ** 2) / (2 * self.AC)
         foil_y = 0  # FIXME: not with weight shift?
-        foil_z = -np.sqrt(A**2 - foil_x**2)
-        foil_x += self.pA*self.c0  # Account for the start of the AC line
+        foil_z = -np.sqrt(A ** 2 - foil_x ** 2)
+        foil_x += self.pA * self.c0  # Account for the start of the AC line
 
         return np.array([foil_x, foil_y, foil_z])
 
@@ -166,11 +166,11 @@ class ParagliderWing:
         x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
         c = self.parafoil.planform.fc(s)
 
-        Sxx = simps((y**2 + z**2)*c, y)
-        Syy = simps((3*x**2 - x*c + (7/32)*c**2 + 6*z**2)*c, y)/6
-        Szz = simps((3*x**2 - x*c + (7/32)*c**2 + 6*y**2)*c, y)/6
+        Sxx = simps((y ** 2 + z ** 2) * c, y)
+        Syy = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * z ** 2) * c, y) / 6
+        Szz = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * y ** 2) * c, y) / 6
         Sxy = 0
-        Sxz = simps((2*x - c/2)*z*c, y)
+        Sxz = simps((2 * x - c / 2) * z * c, y)
         Syz = 0
 
         S = np.array([
@@ -184,7 +184,7 @@ class ParagliderWing:
     def J(self, rho, N=2000):
         raise NotImplementedError("BROKEN!")
         S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho*self.density_factor
+        wing_air_density = rho * self.density_factor
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 
@@ -232,8 +232,8 @@ class ParagliderWing:
         Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
 
-        J_wing = (self.rho_upper * (p['upper_inertia'] + p['upper_area']*Du) +
-                  rho_air * (p['volume_inertia'] + p['volume'] * Dv) +
-                  self.rho_lower * (p['lower_inertia'] + p['lower_area']*Dl))
+        J_wing = (self.rho_upper * (p['upper_inertia'] + p['upper_area'] * Du)
+                  + rho_air * (p['volume_inertia'] + p['volume'] * Dv)
+                  + self.rho_lower * (p['lower_inertia'] + p['lower_area'] * Dl))
 
         return J_wing
