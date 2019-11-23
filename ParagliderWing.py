@@ -1,13 +1,11 @@
-# import abc
-
 from functools import partial
+
+from IPython import embed
 
 import numpy as np
 
-from scipy.optimize import root_scalar
 from scipy.integrate import simps
-
-from IPython import embed
+from scipy.optimize import root_scalar
 
 from util import cross3
 
