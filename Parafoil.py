@@ -68,7 +68,7 @@ class ParafoilGeometry:
         return self.span_factor * self.lobe.fz(s, **lobe_args)
 
     def c0(self, s, lobe_args={}):
-        """Section leading-edge coordinates
+        """Compute the coordinates of section leading-edges.
 
         Useful for points given in the local section coordinate system, such
         as for surface curves or the airfoil centroid.
@@ -78,7 +78,7 @@ class ParafoilGeometry:
         return self.c4(s, lobe_args) + (c / 4 * u[0]).T
 
     def c4(self, s, lobe_args={}):
-        """Section quarter-chord coordinates
+        """Compute the coordinates of section quarter-chords.
 
         Useful as the point of application for section forces (if you assume
         the aerodynamic center of that section lies on the quarter chord).
@@ -113,7 +113,7 @@ class ParafoilGeometry:
         return dihedral @ torsion
 
     def upper_surface(self, s, N=50):
-        """Airfoil upper surface curve on the 3D parafoil
+        """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
         ----------
@@ -124,7 +124,9 @@ class ParafoilGeometry:
 
         Returns
         -------
-        FIXME
+        ndarray of float, shape (N, 3)
+            A set of points from the upper surface of the airfoil in FRD.
+
         """
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
@@ -139,7 +141,7 @@ class ParafoilGeometry:
         return surface.T + self.c0(s)
 
     def lower_surface(self, s, N=50):
-        """Airfoil upper surface curve on the 3D parafoil
+        """Sample points on the lower surface curve of a parafoil section.
 
         Parameters
         ----------
@@ -150,7 +152,9 @@ class ParafoilGeometry:
 
         Returns
         -------
-        FIXME
+        ndarray of float, shape (N, 3)
+            A set of points from the lower surface of the airfoil in FRD.
+
         """
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
@@ -382,6 +386,7 @@ class EllipticalPlanform(ParafoilPlanform):
 
     ref: PFD p43 (51)
     """
+
     def __init__(self, b_flat, c0, taper, sweepMed, sweepMax,
                  torsion_exponent=5, torsion_max=0):
         self.b_flat = b_flat
@@ -500,6 +505,7 @@ class ParafoilLobe:
     lobes are defined as `b=1` to simplify the conversion between the flat and
     projected spans.
     """
+
     @property
     def span_ratio(self):
         """Ratio of the planform span to the projected span"""
@@ -544,6 +550,7 @@ class EllipticalLobe(ParafoilLobe):
     """
     A parafoil lobe that uses an ellipse for the arc dihedral.
     """
+
     def __init__(self, dihedralMed, dihedralMax):
         self.dihedralMed = deg2rad(dihedralMed)
         self.dihedralMax = deg2rad(dihedralMax)
@@ -630,6 +637,7 @@ class DeformingLobe:
     This is intended as a crude approximation of how the parafoil deforms when
     a pilot is applying weight shift.
     """
+
     def __init__(self, lobe, central_width):
         """
 
@@ -705,9 +713,11 @@ class ForceEstimator(abc.ABC):
 
 class Phillips(ForceEstimator):
     """
-    A numerical lifting-line method that uses a set of spanwise bound vortices
-    instead of a single, uniform lifting line. Unlike the Prandtl's classic
-    lifting-line theory, this method allows for wing sweep and dihedral.
+    A non-linear numerical lifting-line method.
+
+    Uses a set of spanwise bound vortices instead of a single, uniform lifting
+    line. Unlike the Prandtl's classic lifting-line theory, this method allows
+    for wing sweep and dihedral.
 
     References
     ----------
