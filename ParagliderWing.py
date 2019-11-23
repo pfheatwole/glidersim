@@ -19,9 +19,10 @@ class ParagliderWing:
         """
         Parameters
         ----------
-        parafoil : Parafoil
-        force_estimator : ForceEstimator
-            Calculates the aerodynamic forces and moments on the parafoil
+        parafoil : Parafoil.ParafoilGeometry
+            The geometric shape of the lifting surface.
+        force_estimator : Parafoil.ForceEstimator
+            The estimation method for the aerodynamic forces and moments.
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -31,7 +32,7 @@ class ParagliderWing:
             The position of the A and C lines as a fraction of the central
             chord. The speedbar adjusts the length of the A lines, while C
             remains fixed, causing a rotation about the point `pC`.
-        kappa_s : float [meters] (optional)
+        kappa_s : float [meters], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
@@ -64,19 +65,19 @@ class ParagliderWing:
 
         Parameters
         ----------
-        V_cp2w : ndarray of floats, shape (K,3) [m/s]
+        V_cp2w : array of float, shape (K,3) [m/s]
             The relative velocity of each control point vs the fluid
         delta_Bl : float [percentage]
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
-        Gamma : array of float, shape (K,) [units?] (optional)
+        Gamma : array of float, shape (K,) [m^2/s], optional
             An initial guess for the circulation distribution, to improve
             convergence
 
         Returns
         -------
-        dF, dM : ndarray of float, shape (K,3) [N]
+        dF, dM : array of float, shape (K,3) [N, N m]
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
         """
@@ -137,7 +138,7 @@ class ParagliderWing:
 
         Returns
         -------
-        cps : ndarray of floats, shape (K,3) [meters]
+        cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
@@ -191,22 +192,23 @@ class ParagliderWing:
     def inertia(self, rho_air, delta_s=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
-        FIXME: this function currently only uses delta_s to determine the
-               shift of the cg, but delta_s can deform the ParafoilLobe too.
-        FIXME: precompute the static components that don't depend on rho_air
+        TODO: this function currently only uses `delta_s` to determine the
+              shift of the cg, but in the future `delta_s` may also deform the
+              ParafoilLobe (if `lobe_args` starts getting used)
+        TODO: precompute the static components that don't depend on `rho_air`
 
         Parameters
         ----------
         rho_air : float [kg/m^3]
             Volumetric air density of the atmosphere
-        delta_s : float [percentage] (optional)
+        delta_s : float [percentage], optional
             Percentage of speed bar application
         N : integer
             The number of points for integration across the span
 
         Returns
         -------
-        J : ndarray of float, shape (3,3)
+        J : array of float, shape (3,3) [kg m^2]
             The inertia tensor of the wing
 
                 [[ Jxx -Jxy -Jxz]
