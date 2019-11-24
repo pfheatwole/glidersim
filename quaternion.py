@@ -1,15 +1,16 @@
 """A scratchpad for quaternion work."""
-from numpy import rad2deg, deg2rad, sin, cos
-import numpy as np
-from numba import float64, guvectorize
 
 from IPython import embed
+
+from numba import float64, guvectorize
+
+import numpy as np
 
 from util import _cross3
 
 
 def skew(v):
-    # Implements the skew operator for a vector
+    """Compute the skew operator for a vector."""
     assert v.shape in ((3,), (3, 1))
     vx, vy, vz = v.flatten()
     sv = [[0, -vz, vy],
@@ -20,7 +21,7 @@ def skew(v):
 
 def euler_to_dcm(euler):
     """
-    Convert a set of Euler angles to a DCM
+    Convert a set of yaw-pitch-role Euler angles to a DCM.
 
     Parameters
     ----------
@@ -35,17 +36,15 @@ def euler_to_dcm(euler):
     """
     sp, st, sg = np.sin(euler)
     cp, ct, cg = np.cos(euler)
-    dcm = [[ct*cg,                         ct*sg,   -st],
-           [-cp*sg + sp*st*cg,  cp*cg + sp*st*sg, sp*ct],
-           [sp*sg + cp*st*cg,  -sp*cg + cp*st*sg, cp*ct]]
+    dcm = [[ct * cg,                                 ct * sg,     -st],
+           [-cp * sg + sp * st * cg,  cp * cg + sp * st * sg, sp * ct],
+           [sp * sg + cp * st * cg,  -sp * cg + cp * st * sg, cp * ct]]
 
     return np.asarray(dcm)
 
 
 def dcm_to_euler(dcm):
-    """
-    Convert a direction cosine matrix to the yaw-pitch-roll Euler angles
-    """
+    """Convert a DCM to a set of yaw-pitch-role Euler angles."""
     phi = np.arctan2(dcm[1, 2], dcm[2, 2])
     theta = -np.arcsin(dcm[0, 2])
     gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
@@ -54,7 +53,7 @@ def dcm_to_euler(dcm):
 
 def euler_to_quaternion(euler):
     """
-    Convert a set of Euler angles to a quaternion
+    Convert a set of yaw-pitch-role Euler angles to a quaternion.
 
     Parameters
     ----------
@@ -68,45 +67,47 @@ def euler_to_quaternion(euler):
         The quaternion that encodes the given rotation
     """
     euler = np.asarray(euler)
-    sp, st, sg = np.sin(euler/2)
-    cp, ct, cg = np.cos(euler/2)
+    sp, st, sg = np.sin(euler / 2)
+    cp, ct, cg = np.cos(euler / 2)
 
     # ref: Stevens, Equation on pg 52 (66)
-    q = np.asarray([cp*ct*cg + sp*st*sg,
-                    sp*ct*cg - cp*st*sg,
-                    cp*st*cg + sp*ct*sg,
-                    cp*ct*sg - sp*st*cg])
+    q = np.asarray([cp * ct * cg + sp * st * sg,
+                    sp * ct * cg - cp * st * sg,
+                    cp * st * cg + sp * ct * sg,
+                    cp * ct * sg - sp * st * cg])
     return q
 
 
 def quaternion_to_dcm(q):
+    """Convert a quaternion to a DCM."""
     assert q.shape in ((4,), (4, 1))
     q = q.reshape(4, 1)
     qw, qv = q[0], q[1:]
 
     # ref: Stevens, Eq:1.8-16, pg 53 (67)
-    dcm = 2*qv@qv.T + (qw**2 - qv.T@qv)*np.eye(3) - 2*qw*skew(qv)
+    dcm = 2 * qv @ qv.T + (qw ** 2 - qv.T @ qv) * np.eye(3) - 2 * qw * skew(qv)
 
     return np.asarray(dcm)
 
 
 def quaternion_to_euler(q):
+    """Convert a quaternion to a set of yaw-pitch-role Euler angles."""
     # assert np.isclose(np.linalg.norm(q), 1)
     w, x, y, z = q.T
 
     # ref: Merwe, Eq:B.5:7, p363 (382)
     # FIXME: These assume a unit quaternion?
     # FIXME: verify: these assume the quaternion is `q_local/global`? (Merwe-style?)
-    phi = np.arctan2(2*(w*x + y*z), 1 - 2*(x**2 + y**2))
-    theta = np.arcsin(-2*(x*z - w*y))
-    gamma = np.arctan2(2*(w*z + x*y), 1 - 2*(y**2 + z**2))
+    phi = np.arctan2(2 * (w * x + y * z), 1 - 2 * (x ** 2 + y ** 2))
+    theta = np.arcsin(-2 * (x * z - w * y))
+    gamma = np.arctan2(2 * (w * z + x * y), 1 - 2 * (y ** 2 + z ** 2))
     return np.array([phi, theta, gamma]).T
 
 
 @guvectorize([(float64[:], float64[:], float64[:])],
              '(n),(m)->(m)', nopython=True)
 def apply_quaternion_rotation(q, u, v):
-    """Rotate a 3-vector using a quaternion
+    """Rotate a 3-vector using a quaternion.
 
     Treats the vector as a pure quaternion, and returns only the vector part.
     Supports automatic broadcasting of `q` and `u`; the only requirement is
@@ -129,16 +130,17 @@ def apply_quaternion_rotation(q, u, v):
         raise ValueError("u must be an array_like of u.shape[-1] == 3")
     qw, qv = q[0], q[1:]
     # ref: Stevens, Eq:1.8-8, p49
-    v[:] = 2*qv*(qv@u) + (qw**2 - qv@qv)*u - 2*qw*_cross3(qv, u)
+    v[:] = 2 * qv * (qv @ u) + (qw ** 2 - qv @ qv) * u - 2 * qw * _cross3(qv, u)
 
 
 def quaternion_product(p, q):
+    """Multiply two quaternions."""
     # FIXME: document and test
     pw, pv = p[0], p[1:]
     qw, qv = q[0], q[1:]
     pq = np.array([
-        pw*qw - pv@qv,
-        pw*qv + qw*pv + np.cross(pv, qv)])
+        pw * qw - pv @ qv,
+        pw * qv + qw * pv + np.cross(pv, qv)])
     return pq
 
 
@@ -147,7 +149,7 @@ def main():
     # The quaternion and euler should produce the same rotation
     while True:
         phi = np.random.uniform(-np.pi, np.pi)
-        theta = np.random.uniform(-np.pi/2, np.pi)
+        theta = np.random.uniform(-np.pi / 2, np.pi)
         gamma = np.random.uniform(-np.pi, np.pi)
         euler = [phi, theta, gamma]
         q = euler_to_quaternion(euler)

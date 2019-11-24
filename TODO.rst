@@ -1,16 +1,17 @@
-Replace ``cross3`` with the new numba version (introduced in version 0.46). Do
-a basic performance comparison to verify, but it's probably worth it. I'd love
-to just ``try`` to jit the functions, and fail gracefully if numba is not
-installed. (Maybe define an ``njit`` wrapper that tries to import numba just
-once, and defines a noop if that fails.)
-
-
-Where did I get ``dMed`` and ``dMax`` for my Hook3 specs?
-
-
-
 General
 =======
+
+* Should types be "array of" or "ndarray of"? I lean towards "array", but
+  would it be better to use the canonical name so sphinx can link to the numpy
+  datatype documentation?
+
+* Where did I get ``dMed`` and ``dMax`` for my Hook3 specs?
+
+* Replace ``cross3`` with the new numba version (introduced in version 0.46).
+  Do a basic performance comparison to verify, but it's probably worth it. I'd
+  love to just ``try`` to jit the functions, and fail gracefully if numba is
+  not installed. (Maybe define an ``njit`` wrapper that tries to import numba
+  just once, and defines a noop if that fails.)
 
 * Bundle the components (paraglider model, wind models, simulator) into
   a unified package for delivery with my thesis
@@ -37,22 +38,52 @@ Low priority
 Airfoil
 =======
 
-* The AirfoilGeometry assumes that the LE is what defines the "upper" and
-  "lower" surface
+* **AirfoilGeometry is a mess**: physical attributes (length, area, inertia
+  matrices) and curve functions (``_curve``) are assigned with ``self.blah
+  = x`` statements, not carefully designed. Seems like an attribute should
+  either be a cleanly defined **proper attribute**, or available through
+  a method. **Stop adding public members willy-nilly.**
 
-  * This assumption is almost surely incorrect in terms of parafoil
-    construction. The heavier upper surface likely wraps beyond `d_LE` and
-    down around the nose to the air intakes.
+  On a related point, the docstring for `AirfoilGeometry` is outdated. Those
+  attributes are gone.
 
-* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
-  `delta`
+* `AirfoilGeometry` has an unpleasant way of computing the centroids and
+  inertia matrices by themselves (separate from the upper and lower lengths).
+  Combine those things into a function that returns a dictionary, like
+  ``Parafoil.mass_properties``.
 
-  * eg, suppose `alpha` is an array and `delta` is a scalar
+* `AirfoilGeometry` uses a hideous pair of functions,
+  `_derotate_and_normalize` and `_build_curve`, to translate the points
+  into a spline. **Review that mess.**
+
+* `AirfoilGeometry` should provide an `acs2frd` conversion method, or include
+  that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar
+
+* Combine NACA4 and NACA5; should be quite straightforward
+
+* AirfoilGeometry is for a single airfoil, but AirfoilCoefficients support
+  `delta` for braking (ie, multiple airfoils). Among other things, this
+  asymmetry means you can't compute the inertia matrices for braking wings
+  (heck, you don't even have their geometry, right?) **Deformed airfoils are
+  a major sticking point right now; they aren't used consistently in the code,
+  they're not used for drawing the braking wing, and their coefficient values
+  from XFOIL are total crap. Just look at a polar curve FFS. Yeesh.**
+
+* The AirfoilGeometry assumes that the LE (as conceptualized by the closed
+  airfoil shape) is what defines the "upper" and "lower" surface. This
+  assumption is almost surely incorrect in terms of parafoil construction. The
+  heavier upper surface likely wraps beyond `d_LE` and down around the nose to
+  the air intakes. **Should be pretty straightforward to take to `s` parameters
+  that specify the starting positions of the up and lower surfaces?**
+
 
 * `NACA4` doesn't work with symmetric airfoils (crashes!)
 
-* If I'm using a UnivariateSpline for the airfoil coefs, I need to handle "out
-  of bounds" better. Catch ValueError and return `nan`?
+* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
+  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
+
+* If I'm using a UnivariateSpline for the airfoil coefficients, I need to
+  handle "out of bounds" better. Catch `ValueError` and return `nan`?
 
 
 Sample Airfoils
@@ -93,9 +124,32 @@ Parafoil
   edge `c0` (Should be a non-issue once I replace the `c0` function with
   a generalized "position on the chord" function.)
 
+* Fix the inertia calculations: right now it places all the segment mass on the
+  airfoil bisecting the center of the segment. The code doesn't spread the mass
+  out along the segment span, so it underestimates `I_xx` and `I_zz` by
+  a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
+  practice, but still: it's wrong.
+
 
 Geometry
 --------
+
+* **Review the origin and usage of `s` in the Parafoil geometries**. Go
+  through that sucker with a fine toothed comb; I'm not sure I trust it.
+
+* The "fx/fy/fz" are weird: their name is non-descriptive, and the fact that
+  they're completely tied to the quarter-chord is odd. Can I decouple the
+  Parafoil fx/fy/fz from the Planform or Lobe definitions? Make something more
+  general? I'm already looking to generalize the "c0" and "c4" functions;
+  seems like **those overlap with fx/fy/fz**.
+
+* Remove ``lobe_args``? They're unused right now; put them in there as
+  placeholder to remind me that some class "properties" might need to be
+  functions.
+
+* I'm a little concerned the cross-product of inertia ``J_xz`` aren't bigger.
+  I thought that rolling and yawing a pretty strongly related? Or is that rule
+  of thumb mostly for regular aircraft?
 
 
 Generalize the chord position functions
@@ -256,15 +310,21 @@ BrakeGeometry
 ParagliderWing
 ==============
 
- * Review parameter naming conventions (like `kappa_S`, wtf is that?)
+* The ParagliderWing has hard-coded values for the material densities. Convert
+  them to parameters.
 
- * Design the "query control points, compute wind vectors, query dynamics"
-   sequence and API
+* ParagliderWing owns the force estimator for the Parafoil, but not for the
+  harness. One of these is wrong...
 
- * Paraglider should be responsible for weight shifting?
+* Review parameter naming conventions (like `kappa_S`, wtf is that?)
 
-    * The wing doesn't care about the glider cm, only the changes to the riser
-      positions!
+* Design the "query control points, compute wind vectors, query dynamics"
+  sequence and API
+
+* Paraglider should be responsible for weight shifting?
+
+  * The wing doesn't care about the glider cm, only the changes to the riser
+    positions!
 
 
 Wing inertia

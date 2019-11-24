@@ -1,23 +1,17 @@
 import abc
 
-import numpy as np
-from numpy import sin, cos, arctan2, dot, cross, einsum
-from numpy import arcsin, arctan, deg2rad, rad2deg, sqrt, tan, linspace
-from numpy.linalg import norm
-from numpy.polynomial import Polynomial
-from numba import njit
-from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
-from scipy.integrate import simps
-
-import scipy.optimize
-
-from util import cross3
-
 from IPython import embed
 
-import matplotlib.pyplot as plt
+import numpy as np
+from numpy import arcsin, arctan, cos, deg2rad, sin, tan
+from numpy import cross, dot, einsum, linspace, sqrt
+from numpy.linalg import norm
 
-from plots import set_axes_equal
+import scipy.optimize
+from scipy.integrate import simps
+from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
+
+from util import cross3
 
 
 class ParafoilGeometry:
@@ -50,13 +44,13 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        return self.b**2 / self.S
+        return self.b ** 2 / self.S
 
     @property
     def flattening_ratio(self):
         """Percent reduction in area of the inflated wing vs the flat wing"""
         # ref: PFD p47 (54)
-        return (1 - self.S/self.planform.S)*100
+        return (1 - self.S / self.planform.S) * 100
 
     def fx(self, s):
         """Section quarter-chord x coordinate"""
@@ -74,17 +68,17 @@ class ParafoilGeometry:
         return self.span_factor * self.lobe.fz(s, **lobe_args)
 
     def c0(self, s, lobe_args={}):
-        """Section leading-edge coordinates
+        """Compute the coordinates of section leading-edges.
 
         Useful for points given in the local section coordinate system, such
         as for surface curves or the airfoil centroid.
         """
         u = self.section_orientation(s, lobe_args).T
         c = self.planform.fc(s)
-        return self.c4(s, lobe_args) + (c/4 * u[0]).T
+        return self.c4(s, lobe_args) + (c / 4 * u[0]).T
 
     def c4(self, s, lobe_args={}):
-        """Section quarter-chord coordinates
+        """Compute the coordinates of section quarter-chords.
 
         Useful as the point of application for section forces (if you assume
         the aerodynamic center of that section lies on the quarter chord).
@@ -95,21 +89,31 @@ class ParafoilGeometry:
         return np.array([x, y, z]).T
 
     def section_orientation(self, s, lobe_args={}):
-        """Section orientation unit vectors
+        """Compute section orientation unit vectors.
 
-        Axes are defined as chordwise, section orthogonal, and vertical. This
-        corresponds to the <x, y, z> unit vectors first being transformed by
-        the planform geometric torsion, then by the lobe dihedral.
+        The parafoil body <x, y, z> axes follow the "front, right, down"
+        convention. To find the orientation of each section, copies of the
+        parafoil body basis vectors are translated to each point on the span,
+        transformed by the planform geometric torsion at that point (rotating
+        them about their y-axis), then transformed again by the lobe dihedral
+        at that point (rotating them about their x-axis).
+
+        Parameters
+        ----------
+        s : array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`.
+
+        Returns
+        -------
+        ndarray of float, shape (N, 3, 3)
+            Column unit vectors for the orientation of each section.
         """
-        # FIXME: finish documenting
-        # FIXME: this assumes the planform chords are all in the xz plane, and
-        #        thus the only transformation is the torsion. Is that correct?
         torsion = self.planform.orientation(s)
         dihedral = self.lobe.orientation(s, **lobe_args)
-        return dihedral @ torsion  # (N,3,3) ndarray, column unit vectors
+        return dihedral @ torsion
 
     def upper_surface(self, s, N=50):
-        """Airfoil upper surface curve on the 3D parafoil
+        """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
         ----------
@@ -120,7 +124,9 @@ class ParafoilGeometry:
 
         Returns
         -------
-        FIXME
+        ndarray of float, shape (N, 3)
+            A set of points from the upper surface of the airfoil in FRD.
+
         """
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
@@ -135,7 +141,7 @@ class ParafoilGeometry:
         return surface.T + self.c0(s)
 
     def lower_surface(self, s, N=50):
-        """Airfoil upper surface curve on the 3D parafoil
+        """Sample points on the lower surface curve of a parafoil section.
 
         Parameters
         ----------
@@ -146,7 +152,9 @@ class ParafoilGeometry:
 
         Returns
         -------
-        FIXME
+        ndarray of float, shape (N, 3)
+            A set of points from the lower surface of the airfoil in FRD.
+
         """
         # FIXME: support `s` broadcasting?
         if not np.isscalar(s) or np.abs(s) > 1:
@@ -162,94 +170,136 @@ class ParafoilGeometry:
 
     def mass_properties(self, lobe_args={}, N=250):
         """
-        FIXME: docstring
+        Compute the quantities that control inertial behavior.
 
-        Breaks the wing into N sections, and assumes a constant airfoil and
-        chord for each section. The airfoil for each section is extruded along
-        the span using the perpendicular axis theorem, then oriented into body
-        coordinates, and translated to the global centroid using the parallel
-        axis theorem.
+        The inertia matrices returned by this function are proportional to the
+        values for a physical wing, and do not have standard units. They must
+        be scaled by the wing materials and air density to get their physical
+        values. See "Notes" for a thorough description.
 
-        The parafoil is treated as three separate components, so the sections
-        are composites of three groups: the upper surface, the internal volume,
-        and the lower surface.
+        Returns
+        -------
+        dictionary
+            upper_area: float [m^2]
+                parafoil upper surface area
+            upper_centroid: ndarray of float, shape (3,) [m]
+                center of mass of the upper surface material in parafoil FRD
+            upper_inertia: ndarray of float, shape (3, 3) [m^4]
+                The inertia matrix of the upper surface
+            volume: float [m^3]
+                internal volume of the inflated parafoil
+            volume_centroid: ndarray of float, shape (3,) [m]
+                centroid of the internal air mass in parafoil FRD
+            volume_inertia: ndarray of float, shape (3, 3) [m^5]
+                The inertia matrix of the internal volume
+            lower_area: float [m^2]
+                parafoil lower surface area
+            lower_centroid: ndarray of float, shape (3,) [m]
+                center of mass of the lower surface material in parafoil FRD
+            lower_inertia: ndarray of float, shape (3, 3) [m^4]
+                The inertia matrix of the upper surface
+
+        Notes
+        -----
+        The parafoil is treated as a composite of three components: the upper
+        surface, internal volume, and lower surface. Because this class only
+        defines the geometry of the parafoil, not the physical properties, each
+        component is treated as having unit densities, and the results are
+        proportional to the values for a physical wing. To compute the values
+        for a physical wing, the upper and lower surface inertia matrices must
+        be scaled by the aerial densities [kg/m^2] of the upper and lower wing
+        surface materials, and the volumetric inertia matrix must be scaled by
+        the volumetric density [kg/m^3] of air.
+
+        Keeping these components separate allows a user to simply multiply them
+        by different wing material densities and air densities to compute the
+        values for the physical wing.
+
+        The calculation works by breaking the parafoil into N segments, where
+        each segment is assumed to have a constant airfoil and chord length.
+        The airfoil for each segment is extruded along the segment span using
+        the perpendicular axis theorem, then oriented into body coordinates,
+        and finally translated to the global centroid (of the surface or
+        volume) using the parallel axis theorem.
+
         """
-        s_nodes = cos(linspace(np.pi, 0, N+1))
-        s_mid_nodes = (s_nodes[1:] + s_nodes[:-1])/2  # Section midpoints
-        nodes = self.c4(s_nodes, lobe_args)  # Section endpoints
+        s_nodes = cos(linspace(np.pi, 0, N + 1))
+        s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
+        nodes = self.c4(s_nodes, lobe_args)  # Segment endpoints
         geo = self.airfoil.geometry
         node_chords = self.planform.fc(s_nodes)
-        chords = (node_chords[1:] + node_chords[:-1])/2  # Just a dumb average
+        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
         u = self.section_orientation(s_mid_nodes, lobe_args)
         u_inv = np.linalg.inv(u)
 
-        # Section centroids
+        # Segment centroids
         airfoil_centroids = np.array([
             [*geo.upper_centroid, 0],
             [*geo.area_centroid, 0],
             [*geo.lower_centroid, 0]])
-        section_origins = self.c0(s_mid_nodes)
-        section_upper_cm, section_volume_cm, section_lower_cm = \
-            (einsum('K,Kij,jk,Gk->GKi', chords, u, T, airfoil_centroids) +
-             section_origins[None, ...])
+        segment_origins = self.c0(s_mid_nodes)
+        segment_upper_cm, segment_volume_cm, segment_lower_cm = (
+            einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
+            + segment_origins[None, ...])
 
-        # Scaling factors for converting 2d airfoils into 3d sections
-        # Approximates each section chord area as parallelograms
+        # Scaling factors for converting 2D airfoils into 3D segments.
+        # Approximates each segments' `chord * span` area as parallelograms.
         u_a = u[..., 0]  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
-        section_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
-        Kl = chords * section_chord_area  # surface lines into surface area
-        Ka = chords**2 * section_chord_area  # airfoil area into section volume
+        segment_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
+        Kl = chords * segment_chord_area  # section curve length into segment area
+        Ka = chords ** 2 * segment_chord_area  # section area into segment volume
 
-        section_upper_area = Kl * geo.upper_length
-        section_volume = Ka * geo.area
-        section_lower_area = Kl * geo.lower_length
+        segment_upper_area = Kl * geo.upper_length
+        segment_volume = Ka * geo.area
+        segment_lower_area = Kl * geo.lower_length
 
         # Surface areas (upper and lower) and the internal volume
-        upper_area = section_upper_area.sum()
-        volume = section_volume.sum()
-        lower_area = section_lower_area.sum()
+        upper_area = segment_upper_area.sum()
+        volume = segment_volume.sum()
+        lower_area = segment_lower_area.sum()
 
         # The upper/volume/lower centroids
-        upper_centroid = (section_upper_area * section_upper_cm.T).T.sum(axis=0) / upper_area
-        volume_centroid = (section_volume * section_volume_cm.T).T.sum(axis=0) / volume
-        lower_centroid = (section_lower_area * section_lower_cm.T).T.sum(axis=0) / lower_area
+        upper_centroid = (segment_upper_area * segment_upper_cm.T).T.sum(axis=0) / upper_area
+        volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
+        lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
 
-        # Section inertia tensors in body FRD coordinates
+        # Segment inertia matrices in body FRD coordinates
         Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
-        section_upper_J = u_inv @ T @ (Kl * geo.upper_inertia) @ T @ u
-        section_volume_J = u_inv @ T @ (Ka * geo.area_inertia) @ T @ u
-        section_lower_J = u_inv @ T @ (Kl * geo.lower_inertia) @ T @ u
+        segment_upper_J = u_inv @ T @ (Kl * geo.upper_inertia) @ T @ u
+        segment_volume_J = u_inv @ T @ (Ka * geo.area_inertia) @ T @ u
+        segment_lower_J = u_inv @ T @ (Kl * geo.lower_inertia) @ T @ u
 
-        # Parallel axis distances of each section
-        Ru = upper_centroid - section_upper_cm
-        Rv = volume_centroid - section_volume_cm
-        Rl = lower_centroid - section_lower_cm
+        # Parallel axis distances of each segment
+        Ru = upper_centroid - segment_upper_cm
+        Rv = volume_centroid - segment_volume_cm
+        Rl = lower_centroid - segment_lower_cm
 
-        # Section distances to the group centroids
+        # Segment distances to the group centroids
         R = np.array([Ru, Rv, Rl])
-        D = (np.einsum('Rij,Rij->Ri', R, R)[..., None, None] * np.eye(3) -
-             np.einsum('Rki,Rkj->Rkij', R, R))
+        D = (einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
+             - einsum("Rki,Rkj->Rkij", R, R))
         Du, Dv, Dl = D
 
         # And finally, apply the parallel axis theorem
-        upper_J = (section_upper_J + (section_upper_area * Du.T).T).sum(axis=0)
-        volume_J = (section_volume_J + (section_volume * Dv.T).T).sum(axis=0)
-        lower_J = (section_lower_J + (section_lower_area * Dl.T).T).sum(axis=0)
+        upper_J = (segment_upper_J + (segment_upper_area * Du.T).T).sum(axis=0)
+        volume_J = (segment_volume_J + (segment_volume * Dv.T).T).sum(axis=0)
+        lower_J = (segment_lower_J + (segment_lower_area * Dl.T).T).sum(axis=0)
 
         mass_properties = {
-            'upper_area': upper_area,
-            'upper_centroid': upper_centroid,
-            'upper_inertia': upper_J,
-            'volume': volume,
-            'volume_centroid': volume_centroid,
-            'volume_inertia': volume_J,
-            'lower_area': lower_area,
-            'lower_centroid': lower_centroid,
-            'lower_inertia': lower_J}
+            "upper_area": upper_area,
+            "upper_centroid": upper_centroid,
+            "upper_inertia": upper_J,
+            "volume": volume,
+            "volume_centroid": volume_centroid,
+            "volume_inertia": volume_J,
+            "lower_area": lower_area,
+            "lower_centroid": lower_centroid,
+            "lower_inertia": lower_J}
 
         return mass_properties
+
 
 # ---------------------------------------------------------------------------
 
@@ -268,14 +318,14 @@ class ParafoilPlanform(abc.ABC):
     @property
     def b(self):
         """Flattened wing span"""
-        return 2*self.fy(1)
+        return 2 * self.fy(1)
 
     @property
     def MAC(self):
         """Mean aerodynamic chord"""
         # Subclasses can redefine this brute method with an analytical solution
         s = linspace(0, 1, 5000)
-        return (2 / self.S) * simps(self.fc(s)**2, self.fy(s))
+        return (2 / self.S) * simps(self.fc(s) ** 2, self.fy(s))
 
     @property
     def SMC(self):
@@ -336,6 +386,7 @@ class EllipticalPlanform(ParafoilPlanform):
 
     ref: PFD p43 (51)
     """
+
     def __init__(self, b_flat, c0, taper, sweepMed, sweepMax,
                  torsion_exponent=5, torsion_max=0):
         self.b_flat = b_flat
@@ -352,25 +403,25 @@ class EllipticalPlanform(ParafoilPlanform):
         # Ellipse coefficients for quarter-chord projected on the xy plane
         tMed = tan(self.sweepMed)
         tMax = tan(self.sweepMax)
-        self.Ax = (b_flat/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        self.Bx = (b_flat/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
-        self.Cx = -self.Bx - self.c0/4
+        self.Ax = (b_flat / 2) * (1 - tMed / tMax) / sqrt(1 - 2 * tMed / tMax)
+        self.Bx = (b_flat / 2) * tMed * (1 - tMed / tMax) / (1 - 2 * tMed / tMax)
+        self.Cx = -self.Bx - self.c0 / 4
 
         # Ellipse coefficients for the chord lengths
-        self.Ac = (b_flat/2) / sqrt(1 - self.taper**2)
+        self.Ac = (b_flat / 2) / sqrt(1 - self.taper ** 2)
         self.Bc = self.c0
 
     @property
     def MAC(self):
         # ref: PFD Table:3-6, p46 (54)
-        tmp = arcsin(sqrt(1 - self.taper**2))/sqrt(1 - self.taper**2)
-        return (2/3 * self.c0 * (2 + self.taper**2)) / (self.taper + tmp)
+        tmp = arcsin(sqrt(1 - self.taper ** 2)) / sqrt(1 - self.taper ** 2)
+        return (2 / 3 * self.c0 * (2 + self.taper ** 2)) / (self.taper + tmp)
 
     @property
     def SMC(self):
         # ref: PFD Table:3-6, p46 (54)
-        L = 1 - self.taper**2
-        return self.c0 * 1/2 * (self.taper + np.arcsin(np.sqrt(L))/np.sqrt(L))
+        L = 1 - self.taper ** 2
+        return self.c0 / 2 * (self.taper + np.arcsin(np.sqrt(L)) / np.sqrt(L))
 
     @property
     def sweep_smoothness(self):
@@ -378,19 +429,19 @@ class EllipticalPlanform(ParafoilPlanform):
         # ref: PFD p47 (54)
         # FIXME: untested
         sMax, min_sMax = abs(self.sweepMax), abs(2 * self.sweepMed)
-        ratio = (sMax - min_sMax)/(np.pi/2 - min_sMax)
-        return (1 - ratio)*100
+        ratio = (sMax - min_sMax) / (np.pi / 2 - min_sMax)
+        return (1 - ratio) * 100
 
     def fx(self, s):
-        y = self.b_flat/2 * s
-        return self.Bx * np.sqrt(1 - y**2/self.Ax**2) + self.Cx
+        y = self.b_flat / 2 * s
+        return self.Bx * np.sqrt(1 - y ** 2 / self.Ax ** 2) + self.Cx
 
     def fy(self, s):
-        return self.b_flat/2 * s
+        return self.b_flat / 2 * s
 
     def fc(self, s):
-        y = self.b_flat/2 * s
-        return self.Bc * np.sqrt(1 - y**2/self.Ac**2)
+        y = self.b_flat / 2 * s
+        return self.Bc * np.sqrt(1 - y ** 2 / self.Ac ** 2)
 
     def ftheta(self, s):
         """Geometric torsion angle"""
@@ -399,7 +450,7 @@ class EllipticalPlanform(ParafoilPlanform):
     def orientation(self, s):
         theta = self.ftheta(s)
         ct, st = cos(theta), sin(theta)
-        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
         torsion = np.array([
             [ct,  _0, st],
             [_0,  _1, _0],
@@ -411,8 +462,8 @@ class EllipticalPlanform(ParafoilPlanform):
         return torsion
 
     def _dfxdy(self, s):
-        y = self.b_flat/2 * s
-        return -y * (self.Bx/self.Ax) / np.sqrt(self.Ax**2 - y**2)
+        y = self.b_flat / 2 * s
+        return -y * (self.Bx / self.Ax) / np.sqrt(self.Ax ** 2 - y ** 2)
 
     def Lambda(self, s):
         """Sweep angle"""
@@ -426,8 +477,8 @@ class EllipticalPlanform(ParafoilPlanform):
 
         This elliptical geometry is parametrized by the central chord, but the
         SMC is more commonly known."""
-        L = 1 - taper**2
-        return SMC / (1/2 * (taper + np.arcsin(np.sqrt(L))/np.sqrt(L)))
+        L = 1 - taper ** 2
+        return SMC / (1 / 2 * (taper + np.arcsin(np.sqrt(L)) / np.sqrt(L)))
 
     @staticmethod
     def MAC_to_c0(MAC, taper):
@@ -438,8 +489,8 @@ class EllipticalPlanform(ParafoilPlanform):
         used to determine the equivalent central chord for that wing.
         """
         # PFD Table:3-6, p54
-        tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-        c0 = (MAC / (2/3) / (2 + taper**2)) * (taper + tmp)
+        tmp = arcsin(sqrt(1 - taper ** 2)) / sqrt(1 - taper ** 2)
+        c0 = (MAC / (2 / 3) / (2 + taper ** 2)) * (taper + tmp)
         return c0
 
 
@@ -454,6 +505,7 @@ class ParafoilLobe:
     lobes are defined as `b=1` to simplify the conversion between the flat and
     projected spans.
     """
+
     @property
     def span_ratio(self):
         """Ratio of the planform span to the projected span"""
@@ -498,6 +550,7 @@ class EllipticalLobe(ParafoilLobe):
     """
     A parafoil lobe that uses an ellipse for the arc dihedral.
     """
+
     def __init__(self, dihedralMed, dihedralMax):
         self.dihedralMed = deg2rad(dihedralMed)
         self.dihedralMax = deg2rad(dihedralMax)
@@ -506,13 +559,13 @@ class EllipticalLobe(ParafoilLobe):
         # This ellipse will be proportional to the true ellipse by a scaling
         # factor:  true_ellipse = (b_flat/L) * this_ellipse
         #
-        # FIXME: needs clearer documentation, and 'span_ratio' is not defined
+        # FIXME: needs clearer documentation, and "span_ratio" is not defined
         #        correctly
         tMed = tan(self.dihedralMed)
         tMax = tan(self.dihedralMax)
         b = 1  # Explicitly highlight that this class assumes a unit span
-        self.Az = (b/2) * (1 - tMed/tMax) / sqrt(1 - 2*tMed/tMax)
-        self.Bz = (b/2) * tMed * (1-tMed/tMax)/(1 - 2*tMed/tMax)
+        self.Az = (b / 2) * (1 - tMed / tMax) / sqrt(1 - 2 * tMed / tMax)
+        self.Bz = (b / 2) * tMed * (1 - tMed / tMax) / (1 - 2 * tMed / tMax)
         self.Cz = -self.Bz
 
         # The span is parametrized by the normalized span position `s`, but the
@@ -520,11 +573,11 @@ class EllipticalLobe(ParafoilLobe):
         # transformation is needed. There isn't a closed form solution for the
         # arc length of an ellipse (which is essentially `s`), so pre-compute
         # the mapping and fit it with a spline.
-        t_min_z = np.arccos(b/(2*self.Az))  # t_min <= t <= (np.pi-t_min)
+        t_min_z = np.arccos(b / (2 * self.Az))  # t_min <= t <= (np.pi-t_min)
         t = linspace(np.pi - t_min_z, t_min_z, 500)
-        p = np.vstack((self.Az*cos(t), self.Bz*sin(t) + self.Cz))
+        p = np.vstack((self.Az * cos(t), self.Bz * sin(t) + self.Cz))
         s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
-        s = (s - s[-1]/2) / (s[-1]/2)  # Normalized span coordinates for `t`
+        s = (s - s[-1] / 2) / (s[-1] / 2)  # Normalized span coordinates for `t`
         self.s2t = UnivariateSpline(s, t, k=5)
 
     def fy(self, s):
@@ -542,10 +595,10 @@ class EllipticalLobe(ParafoilLobe):
 
         # Normalize the derivatives into unit vectors, and negate to orient
         # them with increasing `s` instead of increasing `t`
-        K = np.sqrt(dydt**2 + dzdt**2)  # Faster version of 1d L2-norm
-        dydt, dzdt = -dydt/K, -dzdt/K
+        K = np.sqrt(dydt ** 2 + dzdt ** 2)  # Faster version of 1d L2-norm
+        dydt, dzdt = -dydt / K, -dzdt / K
 
-        _0, _1 = np.zeros_like(s), np.ones_like(s)  # FIXME: broadcasting hack
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
         dihedral = np.array([
             [_1,   _0,    _0],
             [_0, dydt, -dzdt],
@@ -558,7 +611,7 @@ class EllipticalLobe(ParafoilLobe):
 
     def _dfzdy(self, s):
         t = self.s2t(s)
-        return -self.Bz/self.Az/np.tan(t)
+        return -self.Bz / self.Az / np.tan(t)
 
     def Gamma(self, s):
         return arctan(self._dfzdy(s))
@@ -569,8 +622,8 @@ class EllipticalLobe(ParafoilLobe):
         # ref: PFD p47 (54)
         # FIXME: untested
         dMax, min_dMax = abs(self.dihedralMax), abs(2 * self.dihedralMed)
-        ratio = (dMax - min_dMax)/(np.pi/2 - min_dMax)
-        return (1 - ratio)*100
+        ratio = (dMax - min_dMax) / (np.pi / 2 - min_dMax)
+        return (1 - ratio) * 100
 
 
 class DeformingLobe:
@@ -584,6 +637,7 @@ class DeformingLobe:
     This is intended as a crude approximation of how the parafoil deforms when
     a pilot is applying weight shift.
     """
+
     def __init__(self, lobe, central_width):
         """
 
@@ -659,9 +713,11 @@ class ForceEstimator(abc.ABC):
 
 class Phillips(ForceEstimator):
     """
-    A numerical lifting-line method that uses a set of spanwise bound vortices
-    instead of a single, uniform lifting line. Unlike the Prandtl's classic
-    lifting-line theory, this method allows for wing sweep and dihedral.
+    A non-linear numerical lifting-line method.
+
+    Uses a set of spanwise bound vortices instead of a single, uniform lifting
+    line. Unlike the Prandtl's classic lifting-line theory, this method allows
+    for wing sweep and dihedral.
 
     References
     ----------
@@ -695,7 +751,7 @@ class Phillips(ForceEstimator):
 
         # Option 1: linear distribution
         self.K = 191  # The number of bound vortex segments
-        self.s_nodes = linspace(-1, 1, self.K+1)
+        self.s_nodes = linspace(-1, 1, self.K + 1)
 
         # Option 2: cosine distribution
         # self.K = 21  # The number of bound vortex segments
@@ -705,7 +761,7 @@ class Phillips(ForceEstimator):
         self.nodes = self.parafoil.c4(self.s_nodes)
 
         # Control points are indexed from 0..K
-        self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1])/2
+        self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
         self.cps = self.parafoil.c4(self.s_cps)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
@@ -723,7 +779,7 @@ class Phillips(ForceEstimator):
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.parafoil.planform.fc(self.s_nodes)
-        self.c_avg = (node_chords[1:] + node_chords[:-1])/2
+        self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * norm(cross3(self.u_a, self.dl), axis=1)
 
         # Precompute the `v` terms that do not depend on `u_inf`
@@ -746,20 +802,20 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross3(u_inf, R2) / (r2 * (r2 - einsum('k,ijk->ij', u_inf, R2)))[..., None]
-        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum('k,ijk->ij', u_inf, R1)))[..., None]
+        v += cross3(u_inf, R2) / (r2 * (r2 - einsum("k,ijk->ij", u_inf, R2)))[..., None]
+        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum("k,ijk->ij", u_inf, R1)))[..., None]
 
-        return v/(4*np.pi)
+        return v / (4 * np.pi)
 
     def _proposal1(self, V_w2cp, delta):
         # Generate an elliptical Gamma distribution that uses the wing root
         # velocity as a scaling factor
         cp_y = self.cps[:, 1]
-        alpha_2d = np.arctan(V_w2cp[:, 2]/V_w2cp[:, 0])
+        alpha_2d = np.arctan(V_w2cp[:, 2] / V_w2cp[:, 0])
         CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta)
         mid = self.K // 2
         Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d[mid]
-        Gamma = Gamma0 * np.sqrt(1 - ((2*cp_y)/self.parafoil.b)**2)
+        Gamma = Gamma0 * np.sqrt(1 - ((2 * cp_y) / self.parafoil.b) ** 2)
 
         return Gamma
 
@@ -767,13 +823,13 @@ class Phillips(ForceEstimator):
         # Compute the local fluid velocities
         #  * ref: Hunsaker-Snyder Eq:5
         #  * ref: Phillips Eq:5 (nondimensional version)
-        V = V_w2cp + einsum('j,jik->ik', Gamma, v)
+        V = V_w2cp + einsum("j,jik->ik", Gamma, v)
 
         # Compute the local angle of attack for each section
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-        V_n = einsum('ik,ik->i', V, self.u_n)  # Normal-wise
-        V_a = einsum('ik,ik->i', V, self.u_a)  # Chordwise
-        alpha = arctan(V_n/V_a)
+        V_n = einsum("ik,ik->i", V, self.u_n)  # Normal-wise
+        V_a = einsum("ik,ik->i", V, self.u_a)  # Chordwise
+        alpha = arctan(V_n / V_a)
 
         return V, V_n, V_a, alpha
 
@@ -783,11 +839,11 @@ class Phillips(ForceEstimator):
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
+        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
-        f = 2 * Gamma * W_norm - (V_n**2 + V_a**2) * self.dA * Cl
+        f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
 
         return f
 
@@ -797,22 +853,22 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum('ik,ik->i', W, W))
+        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
         # Use precomputed optimal einsum paths
-        opt2 = ['einsum_path', (0, 2), (0, 2), (0, 1)]
-        opt3 = ['einsum_path', (0, 2), (0, 1)]
-        opt4 = ['einsum_path', (0, 1), (1, 2), (0, 1)]
+        opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
+        opt3 = ["einsum_path", (0, 2), (0, 1)]
+        opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * einsum('i,ik,i,jik->ij', Gamma, W, 1/W_norm,
+        J2 = 2 * einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm,
                         cross3(v, self.dl), optimize=opt2)
-        J3 = (einsum('i,jik,ik->ij', V_a, v, self.u_n, optimize=opt3) -
-              einsum('i,jik,ik->ij', V_n, v, self.u_a, optimize=opt3))
+        J3 = (einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
+              - einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * einsum('i,i,jik,ik->ij', self.dA, Cl, v, V_na, optimize=opt4)
+        J4 = 2 * einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na, optimize=opt4)
         J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
@@ -872,7 +928,7 @@ class Phillips(ForceEstimator):
         Gammas = [G]  # FIXME: For debugging
         success = False
         for k in range(maxiter):
-            print('.', end="")
+            print(".", end="")
             G_old = G
 
             # Equate the section lift predicted by both the lift coefficient
@@ -881,7 +937,7 @@ class Phillips(ForceEstimator):
             V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
             W_norm = norm(cross(V, self.dl), axis=1)
             Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
-            G = (.5 * (V_n**2 + V_a**2) * self.dA * Cl) / W_norm
+            G = (.5 * (V_n ** 2 + V_a ** 2) * self.dA * Cl) / W_norm
 
             # --------------------------------------------------------------
             # Smoothing/damping options to improve convergence
@@ -895,7 +951,7 @@ class Phillips(ForceEstimator):
             # G = Gamma + 0.05*p(self.s_cps)
 
             # Option 2: Smooth the final Gamma
-            p = UnivariateSpline(self.s_cps, G_old + 0.5*(G - G_old), s=0.001)
+            p = UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
             G = p(self.s_cps)
 
             # Option 3: Smooth Gamma, and force Gamma to zero at the tips
@@ -909,7 +965,7 @@ class Phillips(ForceEstimator):
 
             if np.any(np.isnan(G)):
                 break
-            if np.all(np.abs((G - G_old)/G_old) < xtol):
+            if np.all(np.abs((G - G_old) / G_old) < xtol):
                 success = True
                 break
         print()
@@ -921,7 +977,7 @@ class Phillips(ForceEstimator):
         # print("Finished fixed_point iterations")
         # embed()
 
-        return {'x': G, 'success': success}
+        return {"x": G, "success": success}
 
     def naive_root(self, Gamma0, args, rtol=1e-5, atol=1e-8):
         """Naive Newton-Raphson iterative solution to solve for Gamma
@@ -963,9 +1019,9 @@ class Phillips(ForceEstimator):
             if np.any(np.isnan(R)):
                 # FIXME: this fails if R has `nan` on the first run
                 # FIXME: this will repeatedly fail if delta_Gamma has nan
-                Gamma -= Omega*delta_Gamma  # Revert the old adjustment
-                Omega /= 2                  # Backoff the step size
-                Gamma += Omega*delta_Gamma  # Apply the reduced step
+                Gamma -= Omega * delta_Gamma  # Revert the previous adjustment
+                Omega /= 2  # Backoff the step size
+                Gamma += Omega * delta_Gamma  # Apply the reduced step
                 continue
             # Check the convergence criteria
             #  1. Strictly decreasing R
@@ -980,10 +1036,10 @@ class Phillips(ForceEstimator):
             R_max = R_max_new  # R_max_new is less than the previous R_max
             J = self._J(Gamma, *args)
             delta_Gamma = np.linalg.solve(J, -R)
-            Gamma += Omega*delta_Gamma
-            Omega += (1 - Omega)/2  # Restore Omega towards unity
+            Gamma += Omega * delta_Gamma
+            Omega += (1 - Omega) / 2  # Restore Omega towards unity
 
-        return {'x': Gamma, 'success': success}
+        return {"x": Gamma, "success": success}
 
     def _solve_circulation(self, V_w2cp, delta, Gamma0=None):
         if Gamma0 is None:  # Assume a simple elliptical distribution
@@ -1003,12 +1059,12 @@ class Phillips(ForceEstimator):
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         # If the gradient method failed, try fixed-point iterations
-        # if not res['success']:
+        # if not res["success"]:
         #     print("The gradient method failed, using fixed-point iteration")
         #     res = self._fixed_point_circulation(Gamma0, *args, **options)
 
-        if res['success']:
-            Gamma = res['x']
+        if res["success"]:
+            Gamma = res["x"]
         else:
             # print("Phillips> failed to solve for Gamma")
             Gamma = np.full_like(Gamma0, np.nan)
@@ -1037,9 +1093,9 @@ class Phillips(ForceEstimator):
         Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
 
-        V2 = (V**2).sum(axis=1)
-        u_drag = V.T/np.sqrt(V2)
-        dF_viscous = 1/2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
+        V2 = (V ** 2).sum(axis=1)
+        u_drag = V.T / np.sqrt(V2)
+        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
 
         dF = dF_inviscid + dF_viscous
 
@@ -1048,6 +1104,6 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips Eq:28
         # FIXME: This is a hack! Should use integral(c**2), not `dA * c_avg`
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
-        dM = -1/2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
+        dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         return dF.T, dM.T, Gamma

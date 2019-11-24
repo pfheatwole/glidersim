@@ -1,13 +1,11 @@
-# import abc
-
 from functools import partial
+
+from IPython import embed
 
 import numpy as np
 
-from scipy.optimize import root_scalar
 from scipy.integrate import simps
-
-from IPython import embed
+from scipy.optimize import root_scalar
 
 from util import cross3
 
@@ -21,9 +19,10 @@ class ParagliderWing:
         """
         Parameters
         ----------
-        parafoil : Parafoil
-        force_estimator : ForceEstimator
-            Calculates the aerodynamic forces and moments on the parafoil
+        parafoil : Parafoil.ParafoilGeometry
+            The geometric shape of the lifting surface.
+        force_estimator : Parafoil.ForceEstimator
+            The estimation method for the aerodynamic forces and moments.
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -33,7 +32,7 @@ class ParagliderWing:
             The position of the A and C lines as a fraction of the central
             chord. The speedbar adjusts the length of the A lines, while C
             remains fixed, causing a rotation about the point `pC`.
-        kappa_s : float [meters] (optional)
+        kappa_s : float [meters], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
@@ -53,32 +52,32 @@ class ParagliderWing:
         foil_z = -z_riser
 
         # Nominal lengths of the A and C lines, and their connection distance
-        self.A = np.sqrt((foil_x - self.pA*self.c0)**2 + foil_z**2)
-        self.C = np.sqrt((self.pC * self.c0 - foil_x)**2 + foil_z**2)
-        self.AC = (self.pC - self.pA)*self.c0
+        self.A = np.sqrt((foil_x - self.pA * self.c0) ** 2 + foil_z ** 2)
+        self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
+        self.AC = (self.pC - self.pA) * self.c0
 
-        # For testing, from a Hook 3
-        self.rho_upper = 40/1000  # kg/m2
-        self.rho_lower = 35/1000  # kg/m2
+        # FIXME: relocate. Here for testing, from a Hook 3
+        self.rho_upper = 40 / 1000  # kg/m2
+        self.rho_lower = 35 / 1000  # kg/m2
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, Gamma=None):
         """
 
         Parameters
         ----------
-        V_cp2w : ndarray of floats, shape (K,3) [m/s]
+        V_cp2w : array of float, shape (K,3) [m/s]
             The relative velocity of each control point vs the fluid
         delta_Bl : float [percentage]
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
-        Gamma : array of float, shape (K,) [units?] (optional)
+        Gamma : array of float, shape (K,) [m^2/s], optional
             An initial guess for the circulation distribution, to improve
             convergence
 
         Returns
         -------
-        dF, dM : ndarray of float, shape (K,3) [N]
+        dF, dM : array of float, shape (K,3) [N, N m]
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
         """
@@ -104,10 +103,10 @@ class ParagliderWing:
         """
         # Speedbar shortens the A lines, while AC and C remain fixed
         A = self.A - (delta_s * self.kappa_s)
-        foil_x = (A**2 - self.C**2 + self.AC**2)/(2*self.AC)
+        foil_x = (A ** 2 - self.C ** 2 + self.AC ** 2) / (2 * self.AC)
         foil_y = 0  # FIXME: not with weight shift?
-        foil_z = -np.sqrt(A**2 - foil_x**2)
-        foil_x += self.pA*self.c0  # Account for the start of the AC line
+        foil_z = -np.sqrt(A ** 2 - foil_x ** 2)
+        foil_x += self.pA * self.c0  # Account for the start of the AC line
 
         return np.array([foil_x, foil_y, foil_z])
 
@@ -139,7 +138,7 @@ class ParagliderWing:
 
         Returns
         -------
-        cps : ndarray of floats, shape (K,3) [meters]
+        cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
@@ -168,11 +167,11 @@ class ParagliderWing:
         x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
         c = self.parafoil.planform.fc(s)
 
-        Sxx = simps((y**2 + z**2)*c, y)
-        Syy = simps((3*x**2 - x*c + (7/32)*c**2 + 6*z**2)*c, y)/6
-        Szz = simps((3*x**2 - x*c + (7/32)*c**2 + 6*y**2)*c, y)/6
+        Sxx = simps((y ** 2 + z ** 2) * c, y)
+        Syy = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * z ** 2) * c, y) / 6
+        Szz = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * y ** 2) * c, y) / 6
         Sxy = 0
-        Sxz = simps((2*x - c/2)*z*c, y)
+        Sxz = simps((2 * x - c / 2) * z * c, y)
         Syz = 0
 
         S = np.array([
@@ -186,30 +185,31 @@ class ParagliderWing:
     def J(self, rho, N=2000):
         raise NotImplementedError("BROKEN!")
         S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho*self.density_factor
+        wing_air_density = rho * self.density_factor
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 
     def inertia(self, rho_air, delta_s=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
-        FIXME: this function currently only uses delta_s to determine the
-               shift of the cg, but delta_s can deform the ParafoilLobe too.
-        FIXME: precompute the static components that don't depend on rho_air
+        TODO: this function currently only uses `delta_s` to determine the
+              shift of the cg, but in the future `delta_s` may also deform the
+              ParafoilLobe (if `lobe_args` starts getting used)
+        TODO: precompute the static components that don't depend on `rho_air`
 
         Parameters
         ----------
         rho_air : float [kg/m^3]
             Volumetric air density of the atmosphere
-        delta_s : float [percentage] (optional)
+        delta_s : float [percentage], optional
             Percentage of speed bar application
         N : integer
             The number of points for integration across the span
 
         Returns
         -------
-        J : ndarray of float, shape (3,3)
-            The inertia tensor of the wing
+        J : array of float, shape (3,3) [kg m^2]
+            The inertia matrix of the wing
 
                 [[ Jxx -Jxy -Jxz]
             J =  [-Jxy  Jyy -Jyz]
@@ -227,15 +227,15 @@ class ParagliderWing:
         #                lower_mass * p['lower_centroid']) / total_mass
 
         o = -self.foil_origin(delta_s)  # Origin is `risers->origin`
-        Ru = o - p['upper_centroid']
-        Rv = o - p['volume_centroid']
-        Rl = o - p['lower_centroid']
+        Ru = o - p["upper_centroid"]
+        Rv = o - p["volume_centroid"]
+        Rl = o - p["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
 
-        J_wing = (self.rho_upper * (p['upper_inertia'] + p['upper_area']*Du) +
-                  rho_air * (p['volume_inertia'] + p['volume'] * Dv) +
-                  self.rho_lower * (p['lower_inertia'] + p['lower_area']*Dl))
+        J_wing = (self.rho_upper * (p["upper_inertia"] + p["upper_area"] * Du)
+                  + rho_air * (p["volume_inertia"] + p["volume"] * Dv)
+                  + self.rho_lower * (p["lower_inertia"] + p["lower_area"] * Dl))
 
         return J_wing
