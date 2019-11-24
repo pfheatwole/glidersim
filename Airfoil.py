@@ -104,6 +104,7 @@ class AirfoilCoefficients(abc.ABC):
         Cm : float
         """
 
+    # FIXME: make this an abstractmethod? Must all subclasses implement it?
     def Cl_alpha(self, alpha, delta):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
@@ -221,10 +222,10 @@ class AirfoilGeometry(abc.ABC):
     """
     This class provides the parametric curves that define the upper and lower
     surfaces of an airfoil. It also provides the magnitudes, centroids, and
-    inertia tensors of the upper curve, lower curve, and planar area. These are
-    useful for calculating the surface areas and internal volume of a parafoil,
-    and their individual moments of inertia. The curves are also useful for
-    drawing a 3D wing.
+    inertia matrices of the upper curve, lower curve, and planar area. These
+    are useful for calculating the surface areas and internal volume of a
+    parafoil, and their individual moments of inertia. The curves are also
+    useful for drawing a 3D wing.
 
     FIXME: finish the docstring
     FIXME: explicitly state that the units depend on the inputs?
@@ -232,25 +233,27 @@ class AirfoilGeometry(abc.ABC):
     Attributes
     ----------
     FIXME: outdated, these are no longer attributes of the abstract class
+    FIXME: units?
+    FIXME: verify orientations as well; assume ACS, not FRD
 
     area : float
         The area of the airfoil
-    area_centroid : ndarray of float, shape (2,)
+    area_centroid : array of float, shape (2,)
         The centroid of the area as [centroid_x, centroid_z]
-    area_inertia : ndarray of float, shape (3,3)
-        The inertia tensor of the area
+    area_inertia : array of float, shape (3,3)
+        The inertia matrix of the area
     lower_length : float
         The total length of the lower surface curve
-    lower_centroid : ndarray of float, shape (2,)
+    lower_centroid : array of float, shape (2,)
         The centroid of the lower surface curve as [centroid_x, centroid_z]
-    lower_inertia : ndarray of float, shape (3,3)
-        The inertia tensor of the lower surface curve
+    lower_inertia : array of float, shape (3,3)
+        The inertia matrix of the lower surface curve
     upper_length : float
         The total length of the lower surface curve
-    upper_centroid : ndarray of float, shape (2,)
+    upper_centroid : array of float, shape (2,)
         The centroid of the lower surface curve as [centroid_x, centroid_z]
-    upper_inertia : ndarray of float, shape (3,3)
-        The inertia tensor of the upper surface curve
+    upper_inertia : array of float, shape (3,3)
+        The inertia matrix of the upper surface curve
     """
 
     def __init__(self, points, normalize=True):
@@ -260,7 +263,7 @@ class AirfoilGeometry(abc.ABC):
         self.upper_length = self._find_LE(self._curve, L)
         self.lower_length = L - self.upper_length
 
-        self._compute_inertia_tensors()  # Adds new instance members
+        self._compute_inertia_matrices()  # Adds new instance members
 
     def _build_curve(self, points):
         # The points must be sorted: upper TE first, then counter-clockwise
@@ -300,10 +303,13 @@ class AirfoilGeometry(abc.ABC):
         points += [1, 0]  # Restore the normalized trailing edge
         return points
 
-    def _compute_inertia_tensors(self, N=200):
+    def _compute_inertia_matrices(self, N=200):
         """
-        Calculate the inertia tensors for the the planar area and curves by
-        treating them as (flat) 3D objects.
+        Calculate the inertia matrices for the the planar area and curves.
+
+        This procedure treats the 2D geometry as infinitely flat 3D objects,
+        with the new `z` axis added according to the right-hand rule. See
+        "Notes" for more details.
 
         Parameters
         ----------
@@ -314,13 +320,19 @@ class AirfoilGeometry(abc.ABC):
 
         Notes
         -----
-        A z-axis that satisfies the right hand rule is added for the purpose of
-        creating a well-defined inertia tensor. It is important to note that
-        this xyz coordinate system is different from the `frd` coordinate axes
-        used by a Parafoil. It is used to maintain consistency with traditional
-        airfoil definitions in literature.
+        In traditional airfoil definitions, the positive x-axis lies along the
+        chord, directed from the leading edge to the trailing edge, and the
+        positive y-axis points towards the upper surface.
 
-        To convert from this airfoil coordinate system ("acs") to frd:
+        Here, a z-axis that satisfies the right hand rule is added for the
+        purpose of creating a well-defined inertia matrix. Let this set of axes
+        be called the "airfoil coordinate system" (ACS).
+
+        Translating these ACS coordinates into the front-right-down (FRD)
+        coordinate system requires reordering and reversing the direction of
+        vector components. To convert ACS -> FRD: [x, y, z] -> [-x, -z, -y]
+
+        In terms of code, to convert from ACS to FRD coordinates:
 
         >>> C = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
@@ -357,7 +369,7 @@ class AirfoilGeometry(abc.ABC):
         Ixy = Ixy_o - self.area * xbar * ybar
         Izz = Ixx + Iyy  # Perpendicular axis theorem
 
-        # Area inertia tensor, treating the plane as a 3D object
+        # Area inertia matrix, treating the plane as a 3D object
         self.area_inertia = np.array(
             [[ Ixx, -Ixy,   0],
              [-Ixy,  Iyy,   0],
@@ -398,7 +410,7 @@ class AirfoilGeometry(abc.ABC):
         Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - LL * cmLx * cmLy
         Izz_L = Ixx_L + Iyy_L
 
-        # Line inertia tensors, treating the lines as 3D objects
+        # Line inertia matrices, treating the lines as 3D objects
         self.upper_inertia = np.array(
             [[ Ixx_U, -Ixy_U,     0],
              [-Ixy_U,  Iyy_U,     0],

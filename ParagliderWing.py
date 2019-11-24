@@ -209,7 +209,7 @@ class ParagliderWing:
         Returns
         -------
         J : array of float, shape (3,3) [kg m^2]
-            The inertia tensor of the wing
+            The inertia matrix of the wing
 
                 [[ Jxx -Jxy -Jxz]
             J =  [-Jxy  Jyy -Jyz]

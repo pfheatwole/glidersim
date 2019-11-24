@@ -244,7 +244,7 @@ class ParafoilGeometry:
             + segment_origins[None, ...])
 
         # Scaling factors for converting 2D airfoils into 3D segments.
-        # Approximates each segments' chordal area as parallelograms.
+        # Approximates each segments' `chord * span` area as parallelograms.
         u_a = u[..., 0]  # The chordwise ("aerodynamic") unit vectors
         dl = nodes[1:] - nodes[:-1]
         segment_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
@@ -265,7 +265,7 @@ class ParafoilGeometry:
         volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
         lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
 
-        # Segment inertia tensors in body FRD coordinates
+        # Segment inertia matrices in body FRD coordinates
         Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
         segment_upper_J = u_inv @ T @ (Kl * geo.upper_inertia) @ T @ u
         segment_volume_J = u_inv @ T @ (Ka * geo.area_inertia) @ T @ u

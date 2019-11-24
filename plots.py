@@ -1,13 +1,15 @@
-import numpy as np
+from IPython import embed
 
 import matplotlib
 import matplotlib.pyplot as plt
+
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
-from IPython import embed
+import numpy as np
 
 
 def plot_airfoil_geo(foil_geo):
+    # FIXME: is cosine spacing necessary when using `s` (not `y`)?
     s = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
     upper = foil_geo.surface_curve(s).T
     lower = foil_geo.surface_curve(-s).T
@@ -35,9 +37,9 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     Parameters
     ----------
     airfoil : Airfoil
-    coef : string
-        The airfoil coefficient to plot: 'cl', 'cl_alpha', 'cd', or 'cm'
-        (case insensitive)
+        The airfoil to plot.
+    coef : {'cl', 'cl_alpha', 'cd', 'cm'}
+        The airfoil coefficient to plot. Case-insensitive.
     N : integer
         The number of sample points per dimension
     """
@@ -85,14 +87,16 @@ def plot_airfoil_coef(airfoil, coef, N=100):
 
 def set_axes_equal(ax):
     """
-    Make axes of 3D plot have equal scale so that spheres appear as spheres,
-    cubes as cubes, etc..  This is one possible solution to Matplotlib's
-    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
+    Set equal scaling for 3D plot axes.
+
+    This ensures that spheres appear as spheres, cubes as cubes, etc.  This is
+    one possible solution to Matplotlib's ``ax.set_aspect('equal')`` and
+    ``ax.axis('equal')`` not working for 3D.
 
     Parameters
     ----------
     ax: matplotlib axis
-        For example, the output from plt.gca().
+        The axes to equalize.
     """
 
     # FIXME: does not respect inverted axes
@@ -133,8 +137,7 @@ def clean_3d_axes(ax, ticks=False, spines=False, panes=False):
 
 
 def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
-    """Make a plot of a 3D wing"""
-
+    """Plot a Parafoil in 3D."""
     fig = plt.figure(figsize=(16, 16))
     ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
@@ -158,8 +161,8 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
 
 
 def plot_parafoil_planform_topdown(parafoil):
-    """Make a plot of a parafoil planform as a top-down view"""
-
+    """Plot a parafoil planform as a top-down view."""
+    # FIXME: accept either a Parafoil or a ParafoilPlanform?
     N = 250
     s = np.linspace(-1, 1, N)
     c = parafoil.planform.fc(s)
@@ -209,7 +212,7 @@ def plot_parafoil_planform_topdown(parafoil):
 
 
 def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
-    """Make a plot of a 3D wing as a wireframe"""
+    """Plot a Parafoil as a 3D wireframe."""
     # Not very elegant, but it gets the job done.
 
     fig = plt.figure(figsize=(16, 16))
@@ -243,7 +246,7 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
 
 
 def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
-    """Make a plot of a 3D wing as a smooth surface"""
+    """Plot a Parafoil as a 3D surface."""
     # Not very elegant, but it gets the job done.
 
     fig = plt.figure(figsize=(16, 16))
@@ -288,7 +291,7 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
 
 
 def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=50):
-    """Make a plot of a 3D wing"""
+    """Plot a ParagliderWing using 3D cross-sections."""
     # FIXME: this function is horrifying
 
     fig = plt.figure(figsize=(16, 16))
@@ -312,9 +315,8 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=5
     flap = delta / 0.2
     c = wing.parafoil.planform.fc(s)
     orientations = wing.parafoil.section_orientation(s)
-    p = np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)]) + 0.2 * c * np.array(
-        [-np.cos(flap), np.zeros_like(s), np.sin(flap)]
-    )
+    p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
+         + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
     p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.c0(s)
     p = p.T
     ax.plot(p[0], p[1], -p[2], "k--", lw=0.8)
