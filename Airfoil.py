@@ -15,7 +15,6 @@ from IPython import embed
 
 import numpy as np
 from numpy import arctan, cos, cumsum, sin
-from numpy.linalg import norm
 from numpy.polynomial import Polynomial
 
 import pandas as pd
@@ -227,83 +226,82 @@ class AirfoilGeometry(abc.ABC):
     parafoil, and their individual moments of inertia. The curves are also
     useful for drawing a 3D wing.
 
-    FIXME: finish the docstring
-    FIXME: explicitly state that the units depend on the inputs?
+    Converts the set of counter-clockwise points to a parametric curve
+    parametrized by a clockwise normalized position `-1 <= s <= 1`, where
+    `s = 0` is the leading edge, `s = 1` is the tip of the upper surface, and
+    `s = -1` is the tip of the lower surface. Midpoints of the upper and lower
+    surface curves are given by `s = 0.5` and `s = -0.5`.
 
-    Attributes
+    Parameters
     ----------
-    FIXME: outdated, these are no longer attributes of the abstract class
-    FIXME: units?
-    FIXME: verify orientations as well; assume ACS, not FRD
+    points : array of float, shape (N,2)
+        A sequence of (x, y) points on the airfoil. The points must follow the
+        XFOIL convention: the x-coordinate of the leading edge is less than the
+        x-coordinate of the trailing edge, and the points are given in
+        counter-clockwise order, starting with the tip of the upper surface.
+    normalize : bool, default: True
+        Ensures the leading edge is at (0, 0) and the trailing edge is at
+        (1, 0). This ensures the chord is aligned with the x-axis, and is
+        unit length.
+    s_upper, s_lower : float, where `-1 < s_lower <= s_upper < 1`
+        The normalized starting positions of the upper and lower surfaces.
+        These are used for determining the inertial properties of the upper and
+        lower surfaces by allowing the upper surface to wrap over the leading
+        edge (`s_upper < 0`), and for the presence of an air intake. They do
+        not change the underlying curve specified by the input points; users of
+        this class are responsible for checking these positions when drawing
+        the wing.
 
-    area : float
-        The area of the airfoil
-    area_centroid : array of float, shape (2,)
-        The centroid of the area as [centroid_x, centroid_z]
-    area_inertia : array of float, shape (3,3)
-        The inertia matrix of the area
-    lower_length : float
-        The total length of the lower surface curve
-    lower_centroid : array of float, shape (2,)
-        The centroid of the lower surface curve as [centroid_x, centroid_z]
-    lower_inertia : array of float, shape (3,3)
-        The inertia matrix of the lower surface curve
-    upper_length : float
-        The total length of the lower surface curve
-    upper_centroid : array of float, shape (2,)
-        The centroid of the lower surface curve as [centroid_x, centroid_z]
-    upper_inertia : array of float, shape (3,3)
-        The inertia matrix of the upper surface curve
     """
+    def __init__(self, points, normalize=True, s_upper=0, s_lower=0):
+        def _target(d, curve, derivative, TE):
+            # Optimization target for finding the leading edge. The position
+            # `0 < d < L` is a leading edge proposal, where L is the total
+            # length of the curve. The leading edge is the point where
+            # the chord is perpendicular to the curve at the leading edge.
+            dydx = derivative(d)  # Tangent line at the proposal
+            chord = curve(d) - TE  # Chord line to the proposal
+            dydx /= np.linalg.norm(dydx)  # Important near a vertical tangent
+            chord /= np.linalg.norm(chord)
+            return dydx @ chord
 
-    def __init__(self, points, normalize=True):
+        self.s_upper = s_upper
+        self.s_lower = s_lower
+        self.raw_points = points.copy()  # FIXME: for debugging
+        points = points[::-1]  # Clockwise order is more convenient for `s`
+
+        # Find the chord, align it to the x-axis, and scale it to unit length
         if normalize:
-            points = self._derotate_and_normalize(points)
-        self._curve, L = self._build_curve(points)
-        self.upper_length = self._find_LE(self._curve, L)
-        self.lower_length = L - self.upper_length
+            d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
+            curve = PchipInterpolator(d, points)
+            TE = (curve(0) + curve(d[-1])) / 2
+            d_LE = newton(_target, d[-1] / 2, args=(curve, curve.derivative(), TE))
+            chord = curve(d_LE) - TE
+            delta = np.arctan2(chord[1], -chord[0])  # rotated angle
+            points -= TE  # Temporarily shift the origin to the TE
+            R = np.array([[cos(delta), -sin(delta)], [sin(delta), cos(delta)]])
+            points = (R @ points.T).T  # Derotate
+            points /= np.linalg.norm(chord)  # Normalize the lengths
+            points += [1, 0]  # Restore the normalized trailing edge
 
-        self._compute_inertia_matrices()  # Adds new instance members
+        self.points = points
 
-    def _build_curve(self, points):
-        # The points must be sorted: upper TE first, then counter-clockwise
-        d = np.r_[0, cumsum(norm(np.diff(points.T), axis=0))]
-        L = d[-1]  # The total length of the curve
-        return PchipInterpolator(d, points), L
+        # Parametrize the curve with the normalized distance `s`. Assumes the
+        # airfoil chord lies on the x-axis, in which case the leading edge is
+        # simply where the curve crosses the x-axis.
+        d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
+        curve = PchipInterpolator(d, points)
+        TE = (curve(0) + curve(d[-1])) / 2
+        d_LE = newton(_target, d[-1] / 2, args=(curve, curve.derivative(), TE))
+        idx_u = np.arange(len(d))[d >= d_LE]
+        idx_l = np.arange(len(d))[d < d_LE]
+        du = d[idx_u]
+        dl = d[idx_l]
+        su = (du - du[0]) / (du[-1] - du[0])  # d >= d_LE -> `0 <= s <= 1`
+        sl = dl / du[0] - 1  # d < d_LE -> `0 < s <= -1`
+        self._curve = PchipInterpolator(np.r_[sl, su], points)
 
-    def _find_LE(self, curve, L):
-        # FIXME: this has not been thoroughly tested
-        deriv = curve.derivative()
-        TE = (curve(0) + curve(L)) / 2
-
-        def normed(v):
-            return v / np.linalg.norm(v)
-
-        def target(d):  # Optimization target: `tangent @ chord == 0`
-            dydx = deriv(d)
-            chord = curve(d) - TE  # The proposed chord line
-            return np.dot(normed(dydx), normed(chord))
-        d_LE = newton(target, L / 2)  # FIXME: use x0 = the longest candidate?
-        return d_LE
-
-    def _derotate_and_normalize(self, points):
-        # FIXME: this isn't quite right! Try zooming in on the new origin.
-        #        I think the problem is that `points` probably doesn't contain
-        #        a point directly on the new origin.
-        points = points.copy()
-        curve, L = self._build_curve(points)
-        LE = curve(self._find_LE(curve, L))
-        TE = (curve(0) + curve(L)) / 2
-        chord = LE - TE
-        delta = np.pi - np.arctan2(chord[1], chord[0])
-        points -= TE  # Temporarily shift the origin to the TE
-        R = np.array([[cos(delta), -sin(delta)], [sin(delta), cos(delta)]])
-        points = (R @ points.T).T  # Derotate
-        points /= np.linalg.norm(chord)  # Normalize the lengths
-        points += [1, 0]  # Restore the normalized trailing edge
-        return points
-
-    def _compute_inertia_matrices(self, N=200):
+    def mass_properties(self, N=200):
         """
         Calculate the inertia matrices for the the planar area and curves.
 
@@ -317,6 +315,31 @@ class AirfoilGeometry(abc.ABC):
             The number of chordwise sample points. Used to create the vertical
             strips for calculating the area, and for creating line segments of
             the parametric curves for the upper and lower surfaces.
+
+        Returns
+        -------
+        dictionary
+            upper_length : float
+                The total length of the upper surface curve
+            upper_centroid : array of float, shape (2,)
+                The centroid of the upper surface curve as (x, y) in ACS
+            upper_inertia : array of float, shape (3,3)
+                The inertia matrix of the upper surface curve
+            area : float
+                The area of the airfoil
+            area_centroid : array of float, shape (2,)
+                The centroid of the area as (x, y) in ACS
+            area_inertia : array of float, shape (3,3)
+                The inertia matrix of the area
+            lower_length : float
+                The total length of the lower surface curve
+            lower_centroid : array of float, shape (2,)
+                The centroid of the lower surface curve as (x, y) in ACS
+            lower_inertia : array of float, shape (3,3)
+                The inertia matrix of the lower surface curve
+
+            These are unitless quantities. The inertia matrices for each
+            component are for rotations about that components' centroid.
 
         Notes
         -----
@@ -339,38 +362,34 @@ class AirfoilGeometry(abc.ABC):
         >>> inertia_frd = C @ inertia_acs @ C
         """
 
-        s = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
-
-        # FIXME: the upper and lower surfaces are probably not be defined by
-        #        the LE! Don't split at `s = 0`, split at configurable points
-        #        on the curve (which are likely determined by the air intakes).
-        upper = self.surface_curve(s).T
-        lower = self.surface_curve(-s).T
-        Ux, Uy = upper[0], upper[1]
-        Lx, Ly = lower[0], lower[1]
-
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        self.area = simps(Uy, Ux) - simps(Ly, Lx)
-        xbar = (simps(Ux * Uy, Ux) - simps(Lx * Ly, Lx)) / self.area
-        ybar = (simps(Uy ** 2 / 2, Ux) + simps(Ly ** 2 / 2, Lx)) / self.area
-        self.area_centroid = np.array([xbar, ybar])
+        s = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= s <= 1`
+        top = self.surface_curve(s).T  # Top half (above s = 0)
+        bottom = self.surface_curve(-s).T  # Bottom half (below s = 0)
+        Tx, Ty = top[0], top[1]
+        Bx, By = bottom[0], bottom[1]
+
+        area = simps(Ty, Tx) - simps(By, Bx)
+        xbar = (simps(Tx * Ty, Tx) - simps(Bx * By, Bx)) / area
+        ybar = (simps(Ty ** 2 / 2, Tx) + simps(By ** 2 / 2, Bx)) / area
+        area_centroid = np.array([xbar, ybar])
 
         # Area moments of inertia about the origin
-        # FIXME: verify, including for airfoils where some `Ly > 0`
-        Ixx_o = 1 / 3 * (simps(Uy ** 3, Ux) - simps(Ly ** 3, Lx))
-        Iyy_o = simps(Ux ** 2 * Uy, Ux) - simps(Lx ** 2 * Ly, Lx)
-        Ixy_o = 1 / 2 * (simps(Ux * Uy ** 2, Ux) - simps(Lx * Ly ** 2, Lx))  # FIXME: verify?
+        # FIXME: verify, especially `Ixy_o`. Check airfoils where some `By > 0`
+        Ixx_o = 1 / 3 * (simps(Ty ** 3, Tx) - simps(By ** 3, Bx))
+        Iyy_o = simps(Tx ** 2 * Ty, Tx) - simps(Bx ** 2 * By, Bx)
+        Ixy_o = 1 / 2 * (simps(Tx * Ty ** 2, Tx) - simps(Bx * By ** 2, Bx))
 
         # Use the parallel axis theorem to find the inertias about the centroid
-        Ixx = Ixx_o - self.area * ybar ** 2
-        Iyy = Iyy_o - self.area * xbar ** 2
-        Ixy = Ixy_o - self.area * xbar * ybar
+        Ixx = Ixx_o - area * ybar ** 2
+        Iyy = Iyy_o - area * xbar ** 2
+        Ixy = Ixy_o - area * xbar * ybar
         Izz = Ixx + Iyy  # Perpendicular axis theorem
 
-        # Area inertia matrix, treating the plane as a 3D object
-        self.area_inertia = np.array(
+        # Inertia matrix for the area about the origin
+        area_inertia = np.array(
             [[ Ixx, -Ixy,   0],
              [-Ixy,  Iyy,   0],
              [   0,    0, Izz]])
@@ -378,102 +397,116 @@ class AirfoilGeometry(abc.ABC):
         # -------------------------------------------------------------------
         # 2. Surface line calculations
 
+        su = np.linspace(self.s_upper, 1, N)
+        sl = np.linspace(self.s_lower, -1, N)
+        upper = self.surface_curve(su).T
+        lower = self.surface_curve(sl).T
+
         # Line segment lengths and midpoints
-        norm_U = np.linalg.norm(np.diff(upper), axis=0)
+        norm_U = np.linalg.norm(np.diff(upper), axis=0)  # Segment lengths
         norm_L = np.linalg.norm(np.diff(lower), axis=0)
-        mid_U = (upper[:, :-1] + upper[:, 1:]) / 2  # Midpoints of `upper`
-        mid_L = (lower[:, :-1] + lower[:, 1:]) / 2  # Midpoints of `lower`
+        mid_U = (upper[:, :-1] + upper[:, 1:]) / 2  # Segment midpoints
+        mid_L = (lower[:, :-1] + lower[:, 1:]) / 2
 
-        # Total surface line lengths
-        UL, LL = norm_U.sum(), norm_L.sum()  # Convenient shorthand
-        assert np.isclose(UL, self.upper_length)
-        assert np.isclose(LL, self.lower_length)
-
-        # Surface line centroids
-        #
-        self.upper_centroid = np.einsum("ij,j->i", mid_U, norm_U) / UL
-        self.lower_centroid = np.einsum("ij,j->i", mid_L, norm_L) / LL
+        # Total line lengths and centroids
+        upper_length = norm_U.sum()
+        lower_length = norm_L.sum()
+        upper_centroid = np.einsum("ij,j->i", mid_U, norm_U) / upper_length
+        lower_centroid = np.einsum("ij,j->i", mid_L, norm_L) / lower_length
 
         # Surface line moments of inertia about their centroids
         # FIXME: not proper line integrals: treats segments as point masses
-        cmUx, cmUy = self.upper_centroid
+        cmUx, cmUy = upper_centroid
         mid_Ux, mid_Uy = mid_U[0], mid_U[1]
-        Ixx_U = np.sum(mid_Uy ** 2 * norm_U) - UL * cmUy ** 2
-        Iyy_U = np.sum(mid_Ux ** 2 * norm_U) - UL * cmUx ** 2
-        Ixy_U = np.sum(mid_Ux * mid_Uy * norm_U) - UL * cmUx * cmUy
+        Ixx_U = np.sum(mid_Uy ** 2 * norm_U) - upper_length * cmUy ** 2
+        Iyy_U = np.sum(mid_Ux ** 2 * norm_U) - upper_length * cmUx ** 2
+        Ixy_U = np.sum(mid_Ux * mid_Uy * norm_U) - upper_length * cmUx * cmUy
         Izz_U = Ixx_U + Iyy_U
 
-        cmLx, cmLy = self.lower_centroid
+        cmLx, cmLy = lower_centroid
         mid_Lx, mid_Ly = mid_L[0], mid_L[1]
-        Ixx_L = np.sum(mid_Ly ** 2 * norm_L) - LL * cmLy ** 2
-        Iyy_L = np.sum(mid_Lx ** 2 * norm_L) - LL * cmLx ** 2
-        Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - LL * cmLx * cmLy
+        Ixx_L = np.sum(mid_Ly ** 2 * norm_L) - lower_length * cmLy ** 2
+        Iyy_L = np.sum(mid_Lx ** 2 * norm_L) - lower_length * cmLx ** 2
+        Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - lower_length * cmLx * cmLy
         Izz_L = Ixx_L + Iyy_L
 
-        # Line inertia matrices, treating the lines as 3D objects
-        self.upper_inertia = np.array(
+        # Inertia matrices for the lines about the origin
+        upper_inertia = np.array(
             [[ Ixx_U, -Ixy_U,     0],
              [-Ixy_U,  Iyy_U,     0],
              [     0,      0, Izz_U]])
 
-        self.lower_inertia = np.array(
+        lower_inertia = np.array(
             [[ Ixx_L, -Ixy_L,     0],
              [-Ixy_L,  Iyy_L,     0],
              [     0,      0, Izz_L]])
 
-    def _s2d(self, s):
-        """Compute the reverse mapping: s->d.
+        properties = {
+            'upper_length': upper_length,
+            'upper_centroid': upper_centroid,
+            'upper_inertia': upper_inertia,
+            'area': area,
+            'area_centroid': area_centroid,
+            'area_inertia': area_inertia,
+            'lower_length': lower_length,
+            'lower_centroid': lower_centroid,
+            'lower_inertia': lower_inertia,
+        }
 
-        The two parametrizations for the the curve are:
-         * s: the normalized distance, moving clockwise, starting at the lower
-           trailing edge, from `-1 <= s <= 1`
-         * d: the absolute distance, moving counterclockwise, starting at the
-           upper trailing edge, from `0 <= d <= upper_length+lower_length`
-
-        These two parametrizations are in opposite directions because it seems
-        more natural to refer to the upper surface with a positive normalized
-        distance (`s`), but the points on an airfoil are traditionally
-        specified in a counterclockwise order (`d`).
-        """
-        s = np.asarray(s)
-        if np.any(abs(s)) > 1:
-            raise ValueError("`s` must be between -1..1")
-
-        d = np.empty(s.shape)
-        mask = (s >= 0)
-        d[mask] = (1 - s[mask]) * self.upper_length
-        d[~mask] = (-s[~mask] * self.lower_length) + self.upper_length
-
-        return d
+        return properties
 
     def surface_curve(self, s):
         """Compute points on the surface curve.
 
         Parameters
         ----------
-        s : float
+        s : array_like of float, shape (N,)
             The curve parameter from -1..1, with -1 the lower surface trailing
             edge, 0 is the leading edge, and +1 is the upper surface trailing
             edge
 
         Returns
         -------
-        FIXME: describe
+        points : array of float, shape (N, 2)
+            The (x, y) coordinates of points on the airfoil at `s`.
         """
-        d = self._s2d(s)
-        return self._curve(d)
+        return self._curve(s)
 
     def surface_curve_tangent(self, s):
-        """Compute the tangent unit vector at points on the surface curve."""
-        d = self._s2d(s)
-        dxdy = -self._curve.derivative()(d).T  # w.r.t. `s`
-        return (dxdy / np.linalg.norm(dxdy, axis=0)).T
+        """Compute the tangent unit vector at points on the surface curve.
+
+        Parameters
+        ----------
+        s : array_like of float
+            The surface curve parameter.
+
+        Returns
+        -------
+        dxdy : array, shape (N, 2)
+            The unit tangent lines at the specified points, oriented with
+            increasing `s`, so the tangents trace from the lower surface to
+            the upper surface.
+        """
+        dxdy = self._curve.derivative()(s).T
+        dxdy /= np.linalg.norm(dxdy, axis=0)
+        return dxdy.T
 
     def surface_curve_normal(self, s):
-        """Compute the normal unit vector at points on the surface curve."""
-        d = self._s2d(s)
-        dxdy = (self._curve.derivative()(d) * [1, -1]).T
-        dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))  # w.r.t. `s`
+        """Compute the normal unit vector at points on the surface curve.
+
+        Parameters
+        ----------
+        s : array_like of float
+            The surface curve parameter.
+
+        Returns
+        -------
+        dxdy : array, shape (N, 2)
+            The unit normal vectors at the specified points, oriented with
+            increasing `s`, so the normals point "out" of the airfoil.
+        """
+        dxdy = (self._curve.derivative()(s) * [1, -1]).T
+        dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
     def camber_curve(self, x):

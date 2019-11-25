@@ -226,7 +226,7 @@ class ParafoilGeometry:
         s_nodes = cos(linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.c4(s_nodes, lobe_args)  # Segment endpoints
-        geo = self.airfoil.geometry
+        section = self.airfoil.geometry.mass_properties()
         node_chords = self.planform.fc(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
@@ -235,9 +235,9 @@ class ParafoilGeometry:
 
         # Segment centroids
         airfoil_centroids = np.array([
-            [*geo.upper_centroid, 0],
-            [*geo.area_centroid, 0],
-            [*geo.lower_centroid, 0]])
+            [*section["upper_centroid"], 0],
+            [*section["area_centroid"], 0],
+            [*section["lower_centroid"], 0]])
         segment_origins = self.c0(s_mid_nodes)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
@@ -251,25 +251,25 @@ class ParafoilGeometry:
         Kl = chords * segment_chord_area  # section curve length into segment area
         Ka = chords ** 2 * segment_chord_area  # section area into segment volume
 
-        segment_upper_area = Kl * geo.upper_length
-        segment_volume = Ka * geo.area
-        segment_lower_area = Kl * geo.lower_length
+        segment_upper_area = Kl * section["upper_length"]
+        segment_volume = Ka * section["area"]
+        segment_lower_area = Kl * section["lower_length"]
 
-        # Surface areas (upper and lower) and the internal volume
+        # Total surface areas and the internal volume
         upper_area = segment_upper_area.sum()
         volume = segment_volume.sum()
         lower_area = segment_lower_area.sum()
 
-        # The upper/volume/lower centroids
+        # The upper/volume/lower centroids for the entire parafoil
         upper_centroid = (segment_upper_area * segment_upper_cm.T).T.sum(axis=0) / upper_area
         volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
         lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
 
         # Segment inertia matrices in body FRD coordinates
         Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
-        segment_upper_J = u_inv @ T @ (Kl * geo.upper_inertia) @ T @ u
-        segment_volume_J = u_inv @ T @ (Ka * geo.area_inertia) @ T @ u
-        segment_lower_J = u_inv @ T @ (Kl * geo.lower_inertia) @ T @ u
+        segment_upper_J = u_inv @ T @ (Kl * section["upper_inertia"]) @ T @ u
+        segment_volume_J = u_inv @ T @ (Ka * section["area_inertia"]) @ T @ u
+        segment_lower_J = u_inv @ T @ (Kl * section["lower_inertia"]) @ T @ u
 
         # Parallel axis distances of each segment
         Ru = upper_centroid - segment_upper_cm
