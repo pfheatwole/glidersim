@@ -665,14 +665,18 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self._yc(x).T[1]
-        if self.convention == "american":  # Standard NACA definition
-            theta = self._theta(x)
-            curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-        elif self.convention == "british":  # XFOIL style
-            curve = np.array([x, yc + t]).T
-        else:
-            raise RuntimeError(f"Invalid convention '{self.convention}'")
+
+        if self.m == 0:  # Symmetric airfoil
+            curve = np.array([x, t]).T
+        else:  # Cambered airfoil
+            yc = self._yc(x).T[1]
+            if self.convention == "american":  # Standard NACA definition
+                theta = self._theta(x)
+                curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
+            elif self.convention == "british":  # XFOIL style
+                curve = np.array([x, yc + t]).T
+            else:
+                raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
 
     def _yl(self, x):
@@ -682,14 +686,17 @@ class NACA4(AirfoilGeometry):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self._yc(x).T[1]
-        if self.convention == "american":  # Standard NACA definition
-            theta = self._theta(x)
-            curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-        elif self.convention == "british":  # XFOIL style
-            curve = np.array([x, yc - t]).T
-        else:
-            raise RuntimeError(f"Invalid convention '{self.convention}'")
+        if self.m == 0:  # Symmetric airfoil
+            curve = np.array([x, -t]).T
+        else:  # Cambered airfoil
+            yc = self._yc(x).T[1]
+            if self.convention == "american":  # Standard NACA definition
+                theta = self._theta(x)
+                curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
+            elif self.convention == "british":  # XFOIL style
+                curve = np.array([x, yc - t]).T
+            else:
+                raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
 
 
@@ -840,14 +847,18 @@ class NACA5(AirfoilGeometry):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self._yc(x).T[1]
-        if self.convention == "american":  # Standard NACA definition
-            theta = self._theta(x)
-            curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-        elif self.convention == "british":  # XFOIL style
-            curve = np.array([x, yc + t]).T
-        else:
-            raise RuntimeError(f"Invalid convention '{self.convention}'")
+
+        if self.m == 0:  # Symmetric airfoil
+            curve = np.array([x, t]).T
+        else:  # Cambered airfoil
+            yc = self._yc(x).T[1]
+            if self.convention == "american":  # Standard NACA definition
+                theta = self._theta(x)
+                curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
+            elif self.convention == "british":  # XFOIL style
+                curve = np.array([x, yc + t]).T
+            else:
+                raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
 
     def _yl(self, x):
@@ -857,12 +868,15 @@ class NACA5(AirfoilGeometry):
             raise ValueError("x must be between 0 and 1")
 
         t = self.thickness(x)
-        yc = self._yc(x).T[1]
-        if self.convention == "american":  # Standard NACA definition
-            theta = self._theta(x)
-            curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-        elif self.convention == "british":  # XFOIL style
-            curve = np.array([x, yc - t]).T
-        else:
-            raise RuntimeError(f"Invalid convention '{self.convention}'")
+        if self.m == 0:  # Symmetric airfoil
+            curve = np.array([x, -t]).T
+        else:  # Cambered airfoil
+            yc = self._yc(x).T[1]
+            if self.convention == "american":  # Standard NACA definition
+                theta = self._theta(x)
+                curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
+            elif self.convention == "british":  # XFOIL style
+                curve = np.array([x, yc - t]).T
+            else:
+                raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
