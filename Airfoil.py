@@ -618,10 +618,14 @@ class NACA4(AirfoilGeometry):
         x = np.asarray(x, dtype=float)
         assert np.all(x >= 0) and np.all(x <= 1)
 
-        f = x <= p  # Filter for the two cases, `x <= p` and `x > p`
+        f = x < p  # Filter for the two cases, `x <= p` and `x >= p`
         dyc = np.empty_like(x)
-        dyc[f] = (2 * m / p ** 2) * (p - x[f])
-        dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
+
+        # The tests are necessary for when m > 0 and p = 0
+        if np.any(f):
+            dyc[f] = (2 * m / p ** 2) * (p - x[f])
+        if np.any(~f):
+            dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
 
         return arctan(dyc)
 
@@ -644,10 +648,14 @@ class NACA4(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        f = (x <= p)  # Filter for the two cases, `x <= p` and `x > p`
+        f = x < p  # Filter for the two cases, `x < p` and `x >= p`
         cl = np.empty_like(x)
-        cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
-        cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
+
+        # The tests are necessary for when m > 0 and p = 0
+        if np.any(f):
+            cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
+        if np.any(~f):
+            cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
         return np.array([x, cl]).T
 
     def _yu(self, x):
@@ -790,10 +798,14 @@ class NACA5(AirfoilGeometry):
         x = np.asarray(x, dtype=float)
         assert np.all(x >= 0) and np.all(x <= 1)
 
-        f = x <= p  # Filter for the two cases, `x <= p` and `x > p`
+        f = x < p  # Filter for the two cases, `x < p` and `x >= p`
         dyc = np.empty_like(x)
-        dyc[f] = (2 * m / p ** 2) * (p - x[f])
-        dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
+
+        # The tests are necessary for when m > 0 and p = 0
+        if np.any(f):
+            dyc[f] = (2 * m / p ** 2) * (p - x[f])
+        if np.any(~f):
+            dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
 
         return arctan(dyc)
 
