@@ -261,7 +261,7 @@ class AirfoilGeometry(abc.ABC):
             # the chord is perpendicular to the curve at the leading edge.
             dydx = derivative(d)  # Tangent line at the proposal
             chord = curve(d) - TE  # Chord line to the proposal
-            dydx /= np.linalg.norm(dydx)  # Important near a vertical tangent
+            dydx /= np.linalg.norm(dydx)
             chord /= np.linalg.norm(chord)
             return dydx @ chord
 
@@ -585,7 +585,8 @@ class NACA4(AirfoilGeometry):
 
         N = 200
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
-        xyu, xyl = self._yu(x), self._yl(x[1:])
+        xyu = self._yu(x)
+        xyl = self._yl(x[1:])  # Don't double-count `x = 0`
 
         super().__init__(np.r_[xyu[::-1], xyl])
 
@@ -736,9 +737,10 @@ class NACA5(AirfoilGeometry):
             # FIXME: implement?
             raise ValueError("Reflex airfoils are not currently supported")
 
-        # Choose `m` and `k1` based on the first three digits (FIXME: clarify)
+        # Choose `m` and `k1` based on the first three digits
+        # See Abbott, Sec. 6.5, pg 116
         coefficient_options = {
-            # code : (M, C)
+            # code : (m, c)
             210: (0.0580, 361.4),
             220: (0.1260, 51.64),
             230: (0.2025, 15.957),
