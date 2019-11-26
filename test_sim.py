@@ -98,12 +98,12 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
 
 def build_glider():
     print("\nAirfoil: NACA 24018, curving flap")
-    airfoil_geo = Airfoil.NACA5(24018, convention='british')
+    airfoil_geo = Airfoil.NACA(24018, convention='british')
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')
     delta_max = np.deg2rad(13.25)  # raw delta_max = 13.38
 
     # print("\nAirfoil: NACA 23015, flapless (no support for delta)")
-    # airfoil_geo = Airfoil.NACA5(24018, convention='british')
+    # airfoil_geo = Airfoil.NACA(24018, convention='british')
     # airfoil_coefs = FlaplessAirfoilCoefficients(
     #     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
     # delta_max = np.deg2rad(0)  # Flapless coefficients don't support delta

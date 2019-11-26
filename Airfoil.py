@@ -33,7 +33,7 @@ class Airfoil:
 
         # FIXME: reasonable default for inertia calculations?
         if geometry is None:
-            geometry = NACA4(2415)
+            geometry = NACA(2415)
 
         if not isinstance(geometry, AirfoilGeometry):
             raise ValueError("geometry is not an AirfoilGeometry")
@@ -541,235 +541,90 @@ class AirfoilGeometry(abc.ABC):
         raise NotImplementedError
 
 
-class NACA4(AirfoilGeometry):
+class NACA(AirfoilGeometry):
     def __init__(self, code, open_TE=True, convention="American"):
         """
-        Generate an airfoil using a NACA4 parameterization.
+        Generate an airfoil using a NACA4 or NACA5 parameterization.
 
         Parameters
         ----------
         code : integer or string
-            The 4-digit NACA code. If the code is an integer less than 1000,
-            leading zeros are implicitly added; for example, 12 becomes 0012.
+            A 4- or 5-digit NACA code. If the code is an integer less than
+            1000, leading zeros are implicitly added; for example, 12 becomes
+            the NACA4 code 0012.
+
+            Only a subset of NACA5 codes are supported. A NACA5 code can be
+            expressed as LPSTT; valid codes for this implementation are
+            restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
         open_TE : bool, optional
             Generate airfoils with an open trailing edge. Default: True.
-        convention : {'American', 'British'}, optional
+        convention : {"American", "British"}, optional
             The convention to use for calculating the airfoil thickness. The
             default is 'American'.
 
             The American convention measures airfoil thickness perpendicular to
             the camber line. The British convention measures airfoil thickness
-            perpendicular to the chord. Most texts use the American definition
-            to define the NACA geometry, but beware that XFOIL uses the British
-            convention.
+            perpendicular to the chord. Many texts use the American definition
+            to define the NACA geometry, but the popular tool "XFOIL" uses the
+            British convention.
+
+            Beware that because the NACA equations use the thickness to define
+            the upper and lower surface curves, this option changes the shape
+            of the resulting airfoil.
         """
-        if isinstance(code, str):
-            code = int(code)  # Let the ValueError exception through
         if not isinstance(code, int):
-            raise ValueError("The NACA4 code must be an integer")
-        if code < 0 or code > 9999:  # Leading zeros are implicit
-            raise ValueError("Invalid 4-digit NACA code: '{}'".format(code))
+            try:
+                code = int(code)
+            except ValueError:
+                raise ValueError(f"Invalid NACA code '{code}': must be an integer")
+
+        if code < 0:
+            raise ValueError(f"Invalid NACA code '{code}': must be positive")
+        elif code > 99999:
+            raise ValueError(f"Unsupported NACA code '{code}': more than 5 digits")
+
+        convention = convention.lower()
+        valid_conventions = {"american", "british"}
+        if convention not in valid_conventions:
+            raise ValueError("The convention must be 'American' or 'British'")
 
         self.code = code
         self.open_TE = open_TE
-        self.convention = convention.lower()
+        self.convention = convention
 
-        valid_conventions = {"american", "british"}
-        if self.convention not in valid_conventions:
-            raise ValueError("The convention must be 'American' or 'British'")
+        if code <= 9999:  # NACA4 code
+            self.series = 4
+            self.m = (code // 1000) / 100  # Maximum camber
+            self.p = ((code // 100) % 10) / 10  # Location of max camber
+            self.tcr = (code % 100) / 100  # Thickness-to-chord ratio
 
-        # FIXME: these comments belong in the class docstring?
-        self.m = (code // 1000) / 100  # Maximum camber
-        self.p = ((code // 100) % 10) / 10  # Location of max camber
-        self.tcr = (code % 100) / 100  # Thickness-to-chord ratio
+        elif code <= 99999:  # NACA5 code
+            self.series = 5
+            L = (code // 10000)  # Theoretical optimum lift coefficient
+            P = (code // 1000) % 10  # Point of maximum camber on the chord
+            S = (code // 100) % 10  # 0 or 1 for simple or reflexed camber line
+            TT = code % 100
 
-        N = 200
-        x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
-        xyu = self._yu(x)
-        xyl = self._yl(x[1:])  # Don't double-count `x = 0`
+            if L != 2:
+                raise ValueError(f"Invalid optimum lift factor: {L}")
+            if P < 1 or P > 5:
+                raise ValueError(f"Unsupported maximum camber factor: {P}")
+            if S != 0:
+                raise ValueError("Reflex airfoils are not currently supported")
 
-        super().__init__(np.r_[xyu[::-1], xyl])
+            # Choose `m` and `k1` based on the first three digits
+            coefficient_options = {
+                # code : (M, C)
+                210: (0.0580, 361.40),
+                220: (0.1260, 51.640),
+                230: (0.2025, 15.957),
+                240: (0.2900, 6.643),
+                250: (0.3910, 3.230),
+            }
 
-    def thickness(self, x):
-        x = np.asarray(x, dtype=float)
-        if np.any(x < 0) or np.any(x > 1):
-            raise ValueError("x must be between 0 and 1")
-
-        open_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1015]
-        closed_TE = [0.2969, 0.1260, 0.3516, 0.2843, 0.1036]
-        a0, a1, a2, a3, a4 = open_TE if self.open_TE else closed_TE
-        return (
-            5
-            * self.tcr
-            * (a0 * np.sqrt(x) - a1 * x - a2 * x ** 2 + a3 * x ** 3 - a4 * x ** 4)
-        )
-
-    def _theta(self, x):
-        """Compute the angle of the mean camber line.
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
-        """
-        m = self.m
-        p = self.p
-
-        x = np.asarray(x, dtype=float)
-        assert np.all(x >= 0) and np.all(x <= 1)
-
-        f = x < p  # Filter for the two cases, `x <= p` and `x >= p`
-        dyc = np.empty_like(x)
-
-        # The tests are necessary for when m > 0 and p = 0
-        if np.any(f):
-            dyc[f] = (2 * m / p ** 2) * (p - x[f])
-        if np.any(~f):
-            dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
-
-        return arctan(dyc)
-
-    def _yc(self, x):
-        """Compute positions on the mean camber line.
-
-        Parameters
-        ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
-
-        Returns
-        -------
-        FIXME: describe the <x,y> array
-        """
-        # The camber curve
-        m = self.m
-        p = self.p
-        x = np.asarray(x, dtype=float)
-        if np.any(x < 0) or np.any(x > 1):
-            raise ValueError("x must be between 0 and 1")
-
-        f = x < p  # Filter for the two cases, `x < p` and `x >= p`
-        cl = np.empty_like(x)
-
-        # The tests are necessary for when m > 0 and p = 0
-        if np.any(f):
-            cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
-        if np.any(~f):
-            cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
-        return np.array([x, cl]).T
-
-    def _yu(self, x):
-        # The upper curve
-        x = np.asarray(x, dtype=float)
-        if np.any(x < 0) or np.any(x > 1):
-            raise ValueError("x must be between 0 and 1")
-
-        t = self.thickness(x)
-
-        if self.m == 0:  # Symmetric airfoil
-            curve = np.array([x, t]).T
-        else:  # Cambered airfoil
-            yc = self._yc(x).T[1]
-            if self.convention == "american":  # Standard NACA definition
-                theta = self._theta(x)
-                curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
-                curve = np.array([x, yc + t]).T
-            else:
-                raise RuntimeError(f"Invalid convention '{self.convention}'")
-        return curve
-
-    def _yl(self, x):
-        # The lower curve
-        x = np.asarray(x, dtype=float)
-        if np.any(x < 0) or np.any(x > 1):
-            raise ValueError("x must be between 0 and 1")
-
-        t = self.thickness(x)
-        if self.m == 0:  # Symmetric airfoil
-            curve = np.array([x, -t]).T
-        else:  # Cambered airfoil
-            yc = self._yc(x).T[1]
-            if self.convention == "american":  # Standard NACA definition
-                theta = self._theta(x)
-                curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
-                curve = np.array([x, yc - t]).T
-            else:
-                raise RuntimeError(f"Invalid convention '{self.convention}'")
-        return curve
-
-
-class NACA5(AirfoilGeometry):
-    # FIXME: merge with `NACA4`? Lots of overlapping code
-    def __init__(self, code, open_TE=True, convention="American"):
-        """
-        Generate an airfoil using a NACA5 parameterization.
-
-        Parameters
-        ----------
-        code : integer or string
-            The 5-digit NACA code. If the code is an integer less than 10000,
-            leading zeros are implicitly added; for example, 12 becomes 00012.
-
-            The NACA5 code can be expressed as LPSTT. Valid codes for this
-            current implementation are restricted to ``L = 2`` and ``S = 0``.
-        open_TE : bool, optional
-            Generate airfoils with an open trailing edge. Default: True
-        convention : {'American', 'British'}, optional
-            The convention to use for calculating the airfoil thickness. The
-            default is 'American'.
-
-            The American convention measures airfoil thickness perpendicular to
-            the camber line. The British convention measures airfoil thickness
-            perpendicular to the chord. Most texts use the American definition
-            to define the NACA geometry, but beware that XFOIL uses the British
-            convention.
-        """
-        if isinstance(code, str):
-            code = int(code)  # Let the ValueError exception through
-        if not isinstance(code, int):
-            raise ValueError("The NACA4 code must be an integer")
-        if code < 0 or code > 99999:  # Leading zeros are implicit
-            raise ValueError("Invalid 5-digit NACA code: '{}'".format(code))
-
-        self.code = code
-        self.open_TE = open_TE
-        self.convention = convention.lower()
-
-        valid_conventions = {"american", "british"}
-        if self.convention not in valid_conventions:
-            raise ValueError("The convention must be 'American' or 'British'")
-
-        L = (code // 10000)  # Theoretical optimum lift coefficient
-        P = (code // 1000) % 10  # Point of maximum camber on the chord
-        S = (code // 100) % 10  # 0 or 1 for simple or reflexed camber line
-        TT = code % 100
-
-        if L != 2:
-            raise ValueError(f"Invalid optimum lift factor: {L}")
-        if S != 0:
-            # FIXME: implement?
-            raise ValueError("Reflex airfoils are not currently supported")
-
-        # Choose `m` and `k1` based on the first three digits
-        # See Abbott, Sec. 6.5, pg 116
-        coefficient_options = {
-            # code : (m, c)
-            210: (0.0580, 361.4),
-            220: (0.1260, 51.64),
-            230: (0.2025, 15.957),
-            240: (0.2900, 6.643),
-            250: (0.3910, 3.230),
-        }
-
-        try:
             self.m, self.k1 = coefficient_options[code // 100]
-        except KeyError:
-            raise RuntimeError("Unhandled NACA5 code")
-
-        self.p = 0.05 * P
-        self.tcr = TT / 100
+            self.p = 0.05 * P
+            self.tcr = TT / 100
 
         N = 200
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
@@ -808,7 +663,7 @@ class NACA5(AirfoilGeometry):
         f = x < p  # Filter for the two cases, `x < p` and `x >= p`
         dyc = np.empty_like(x)
 
-        # The tests are necessary for when m > 0 and p = 0
+        # The tests are necessary for when `m > 0` and `p = 0`
         if np.any(f):
             dyc[f] = (2 * m / p ** 2) * (p - x[f])
         if np.any(~f):
@@ -828,16 +683,31 @@ class NACA5(AirfoilGeometry):
         -------
         FIXME: describe the <x,y> array
         """
-        # The camber curve
-        m, k1 = self.m, self.k1
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        f = (x < m)  # Filter for the two cases, `x < m` and `x >= m`
-        cl = np.empty_like(x)
-        cl[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
-        cl[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
+        if self.series == 4:
+            m, p = self.m, self.p
+            f = x < p  # Filter for the two cases, `x < p` and `x >= p`
+            cl = np.empty_like(x)
+
+            # The tests are necessary for when `m > 0` and `p = 0`
+            if np.any(f):
+                cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
+            if np.any(~f):
+                cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
+
+        elif self.series == 5:
+            m, k1 = self.m, self.k1
+            f = x < m  # Filter for the two cases, `x < m` and `x >= m`
+            cl = np.empty_like(x)
+            cl[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
+            cl[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
+
+        else:
+            raise RuntimeError(f"Invalid NACA series '{self.series}'")
+
         return np.array([x, cl]).T
 
     def _yu(self, x):
