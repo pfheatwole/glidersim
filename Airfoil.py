@@ -583,7 +583,7 @@ class NACA4(AirfoilGeometry):
         self.p = ((code // 100) % 10) / 10  # Location of max camber
         self.tcr = (code % 100) / 100  # Thickness-to-chord ratio
 
-        N = 5000
+        N = 200
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu, xyl = self._yu(x), self._yl(x[1:])
 
