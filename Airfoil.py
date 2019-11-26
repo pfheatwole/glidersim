@@ -22,7 +22,7 @@ import pandas as pd
 from scipy.integrate import simps
 from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
 from scipy.interpolate import PchipInterpolator
-from scipy.optimize import newton
+import scipy.optimize
 
 
 class Airfoil:
@@ -275,7 +275,12 @@ class AirfoilGeometry(abc.ABC):
             d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
             curve = PchipInterpolator(d, points)
             TE = (curve(0) + curve(d[-1])) / 2
-            d_LE = newton(_target, d[-1] / 2, args=(curve, curve.derivative(), TE))
+            result = scipy.optimize.root_scalar(
+                _target,
+                args=(curve, curve.derivative(), TE),
+                bracket=(d[-1] * 0.4, d[-1] * 0.6),
+            )
+            d_LE = result.root
             chord = curve(d_LE) - TE
             delta = np.arctan2(chord[1], -chord[0])  # rotated angle
             points -= TE  # Temporarily shift the origin to the TE
@@ -292,7 +297,12 @@ class AirfoilGeometry(abc.ABC):
         d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
         curve = PchipInterpolator(d, points)
         TE = (curve(0) + curve(d[-1])) / 2
-        d_LE = newton(_target, d[-1] / 2, args=(curve, curve.derivative(), TE))
+        result = scipy.optimize.root_scalar(
+            _target,
+            args=(curve, curve.derivative(), TE),
+            bracket=(d[-1] * 0.4, d[-1] * 0.6),
+        )
+        d_LE = result.root
         idx_u = np.arange(len(d))[d >= d_LE]
         idx_l = np.arange(len(d))[d < d_LE]
         du = d[idx_u]
