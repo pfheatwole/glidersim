@@ -41,15 +41,22 @@ Low priority
 Airfoil
 =======
 
-* Should AirfoilGeometry be a regular base class? You give it a set of points,
-  it provides default machinery from there? Functions like "thickness" seem
-  like general enough concepts that a set of general equations should be
+* Add some references. For NACA airfoils, there are:
+
+  * Abbott, "Theory of Wing Sections, Sec. 6
+
+  * https://www.hq.nasa.gov/office/aero/docs/rpt460/index.htm
+
+  * The XFOIL source code?
+
+* Should `AirfoilGeometry` be a regular base class? You give it a set of
+  points, it provides default machinery from there? Functions like "thickness"
+  seem like general enough concepts that a set of general equations should be
   sufficient; subclasses (like NACA) can override those general versions with
   custom versions if they want.
 
-  Should NACA even be a separate class? Or is it really just a generator of
-  the `points` being passed to `AirfoilGeometry`?
-
+  More to the point, should `NACA` be a separate class? Or is it really
+  just a generator of the `points` being passed to `AirfoilGeometry`?
 
 * **HIGH PRIORITY**: Figure out why the polar curve look so terrible for small
   applications of brakes!!
@@ -62,20 +69,30 @@ Airfoil
   the wing calculations correct given the airfoil data, but the sample airfoil
   data I'm using seems totally untrustworthy. (#NEXT)
 
-
 * The NACA airfoils have the `convention` parameter, but the `AirfoilGeometry`
   superclass does not, yet the `AirfoilGeometry.thickness` docstring
   references the convention.
 
-* `AirfoilGeometry` should provide an `acs2frd` conversion method, or include
-  that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar
+* Implement `camber_curve` and `thickness` in `AirfoilGeometry`. Their
+  definitions depend on the `convention`: "American" defines "thickness is
+  perpendicular to the camber line", British defines "thickness is
+  perpendicular to the chord". (This is the same issue as in the definitions
+  of the NACA equations.)
 
-* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
-  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
+* Should `AirfoilGeometry` provide an `acs2frd` conversion method? Or include
+  that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar?
+
+* Add a note somewhere about the "American" convention having stability issues
+  with some codes (I forget now which! Check the NACA5 range.)
+
+* NACA code `7199` really throws my "derotate and normalize" code for a loop
 
 
 Low priority
 ------------
+
+* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
+  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
 
 * Why does `s` go clockwise? Why not just keep the counter-clockwise
   convention? After all, the z-axis of the parafoil is positive down anyway...
@@ -89,7 +106,6 @@ Low priority
   along the curve in equal steps; they'd need to convert those equally spaced
   `d` into `s`, which is weird since the upper and lower surfaces use
   different spacings for `s`...
-
 
 * If I'm using a UnivariateSpline for the airfoil coefficients, I need to
   handle "out of bounds" better. Catch `ValueError` and return `nan`?
@@ -127,6 +143,13 @@ Parafoil
 
 Geometry
 --------
+
+* Should the `Parafoil` be responsible for `s_upper` and `s_lower`? An airfoil
+  is simply a cross-sectional area. Then again, the airfoil is determining the
+  inertia for that cross-section, which will depend on the placement of the
+  materials... Hrm. The benefit to moving ownership to the parafoil is that
+  then you could make the air intake a function of the span instead of fixed
+  over the entire wing.
 
 * **Review the origin and usage of `s` in the Parafoil geometries**. Go
   through that sucker with a fine toothed comb; I'm not sure I trust it.
