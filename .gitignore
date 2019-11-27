@@ -1,4 +1,6 @@
 .ipynb_checkpoints/
+_autosummary
+_build
 __pycache__/
 scratch/
 polars/
