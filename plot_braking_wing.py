@@ -232,8 +232,8 @@ def main():
 
     # Build the base airfoil
     print("\nAirfoil: NACA4418, curving flap")
-    # airfoil_geo = Airfoil.NACA4(4418, open_TE=False, convention='british')
-    airfoil_geo = Airfoil.NACA5(23015, open_TE=False, convention='british')
+    # airfoil_geo = Airfoil.NACA(4418, open_TE=False, convention='british')
+    airfoil_geo = Airfoil.NACA(23015, open_TE=False, convention='british')
     airfoil_coefs = Airfoil.GridCoefficients('polars/NACA4418_theta30_epsilon10_Ku4_Kl0.5_ver3.csv')
     delta_max = np.deg2rad(10.8)  # FIXME: magic number
 

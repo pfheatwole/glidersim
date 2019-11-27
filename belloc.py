@@ -186,7 +186,7 @@ print(f"sweepMed: {sweepMed} [degrees]")
 # ---------------------------------------------------------------------------
 # Second, build an approximate version using a ParafoilGeometry
 
-airfoil_geo = Airfoil.NACA5(23015, convention='british')
+airfoil_geo = Airfoil.NACA(23015, convention='british')
 airfoil_coefs = FlaplessAirfoilCoefficients(
     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
 

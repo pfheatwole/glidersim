@@ -9,10 +9,10 @@ import numpy as np
 
 
 def plot_airfoil_geo(foil_geo):
-    # FIXME: is cosine spacing necessary when using `s` (not `y`)?
-    s = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
-    upper = foil_geo.surface_curve(s).T
-    lower = foil_geo.surface_curve(-s).T
+    su = np.linspace(foil_geo.s_upper, 1, 200)
+    sl = np.linspace(foil_geo.s_lower, -1, 200)
+    upper = foil_geo.surface_curve(su).T
+    lower = foil_geo.surface_curve(sl).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75)
     ax.plot(lower[0], lower[1], c="r", lw=0.75)
@@ -219,10 +219,11 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
     ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
-    sa = np.linspace(0, 1, N_points)
-    lower = parafoil.airfoil.geometry.surface_curve(-sa).T
+    su = np.linspace(parafoil.airfoil.geometry.s_upper, 1, N_points)
+    sl = np.linspace(parafoil.airfoil.geometry.s_lower, -1, N_points)
+    lower = parafoil.airfoil.geometry.surface_curve(sl).T
     lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
-    upper = parafoil.airfoil.geometry.surface_curve(sa).T
+    upper = parafoil.airfoil.geometry.surface_curve(su).T
     upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
 
     for s in np.linspace(-1, 1, N_sections):
@@ -253,10 +254,11 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
-    sa = np.linspace(0, 1, N_points)
-    lower = parafoil.airfoil.geometry.surface_curve(-sa).T
+    su = np.linspace(parafoil.airfoil.geometry.s_upper, 1, N_points)
+    sl = np.linspace(parafoil.airfoil.geometry.s_lower, -1, N_points)
+    lower = parafoil.airfoil.geometry.surface_curve(sl).T
     lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
-    upper = parafoil.airfoil.geometry.surface_curve(sa).T
+    upper = parafoil.airfoil.geometry.surface_curve(su).T
     upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
 
     lower_surfaces, upper_surfaces = [], []

@@ -8,7 +8,7 @@ import mpl_toolkits.mplot3d.axes3d as p3
 
 from IPython import embed  # noqa: F401
 
-from Airfoil import Airfoil, LinearCoefficients, NACA4
+from Airfoil import Airfoil, LinearCoefficients, NACA
 from Wing import Wing, EllipticalWing
 from plots import plot_airfoil_geo
 
@@ -188,7 +188,7 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
         b, c0, taper, dMed, dMax, sMed, sMax, torsion=torsion)
 
     if airfoil_geo is None:
-        airfoil_geo = NACA4(2415)
+        airfoil_geo = NACA(2415)
 
     coefs = LinearCoefficients(5.73, -2, 0.007, -0.05)  # a0, i0, D0, Cm0
 
@@ -196,9 +196,9 @@ def build_elliptical(MAC, AR, taper, dMed, sMed, dMax=None, sMax=None,
 
 
 if __name__ == "__main__":
-    # plot_airfoil_geo(NACA4(2412))
-    # plot_airfoil_geo(NACA4(4412))
-    # plot_airfoil_geo(NACA4(2415))
+    # plot_airfoil_geo(NACA(2412))
+    # plot_airfoil_geo(NACA(4412))
+    # plot_airfoil_geo(NACA(2415))
 
     # animated_wing_plotter()
     animate_wing_torsion()
