@@ -558,7 +558,7 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, *, open_TE=True, convention="American", **kwargs):
+    def __init__(self, code, *, open_TE=True, convention="British", **kwargs):
         """
         Generate an airfoil using a NACA4 or NACA5 parameterization.
 
@@ -576,7 +576,7 @@ class NACA(AirfoilGeometry):
             Generate airfoils with an open trailing edge. Default: True.
         convention : {"American", "British"}, optional
             The convention to use for calculating the airfoil thickness. The
-            default is 'American'.
+            default is 'British'.
 
             The American convention measures airfoil thickness perpendicular to
             the camber line. The British convention measures airfoil thickness
