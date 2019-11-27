@@ -270,7 +270,7 @@ class AirfoilGeometry(abc.ABC):
 
     """
 
-    def __init__(self, points, normalize=True, s_upper=0, s_lower=0):
+    def __init__(self, points, *, normalize=True, s_upper=0, s_lower=0):
         def _target(d, curve, derivative, TE):
             # Optimization target for finding the leading edge. The position
             # `0 < d < L` is a leading edge proposal, where L is the total
@@ -558,7 +558,7 @@ class AirfoilGeometry(abc.ABC):
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, open_TE=True, convention="American"):
+    def __init__(self, code, *, open_TE=True, convention="American", **kwargs):
         """
         Generate an airfoil using a NACA4 or NACA5 parameterization.
 
@@ -587,6 +587,10 @@ class NACA(AirfoilGeometry):
             Beware that because the NACA equations use the thickness to define
             the upper and lower surface curves, this option changes the shape
             of the resulting airfoil.
+
+        Any additional keyword parameters will be forwarded to the parent class
+        initializer, `AirfoilGeometry.__init__`.
+
         """
         if not isinstance(code, int):
             try:
@@ -646,7 +650,7 @@ class NACA(AirfoilGeometry):
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu, xyl = self._yu(x), self._yl(x[1:])
 
-        super().__init__(np.r_[xyu[::-1], xyl])
+        super().__init__(np.r_[xyu[::-1], xyl], **kwargs)
 
     def thickness(self, x):
         x = np.asarray(x, dtype=float)
