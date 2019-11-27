@@ -1,6 +1,9 @@
 General
 =======
 
+* How much do 'C' vs 'F' arrays affect dot product performance? Enough for
+  Numba to warn me about it, at least.
+
 * Should types be "array of" or "ndarray of"? I lean towards "array", but
   would it be better to use the canonical name so sphinx can link to the numpy
   datatype documentation?
@@ -38,67 +41,58 @@ Low priority
 Airfoil
 =======
 
-* **AirfoilGeometry is a mess**: physical attributes (length, area, inertia
-  matrices) and curve functions (``_curve``) are assigned with ``self.blah
-  = x`` statements, not carefully designed. Seems like an attribute should
-  either be a cleanly defined **proper attribute**, or available through
-  a method. **Stop adding public members willy-nilly.**
+* Should AirfoilGeometry be a regular base class? You give it a set of points,
+  it provides default machinery from there? Functions like "thickness" seem
+  like general enough concepts that a set of general equations should be
+  sufficient; subclasses (like NACA) can override those general versions with
+  custom versions if they want.
 
-  On a related point, the docstring for `AirfoilGeometry` is outdated. Those
-  attributes are gone.
+  Should NACA even be a separate class? Or is it really just a generator of
+  the `points` being passed to `AirfoilGeometry`?
 
-* `AirfoilGeometry` has an unpleasant way of computing the centroids and
-  inertia matrices by themselves (separate from the upper and lower lengths).
-  Combine those things into a function that returns a dictionary, like
-  ``Parafoil.mass_properties``.
 
-* `AirfoilGeometry` uses a hideous pair of functions,
-  `_derotate_and_normalize` and `_build_curve`, to translate the points
-  into a spline. **Review that mess.**
+* **HIGH PRIORITY**: Figure out why the polar curve look so terrible for small
+  applications of brakes!!
+
+  I really REALLY don't trust the XFOIL output. It is extremely sensitive to
+  tiny changes to the number of points, the point distribution, and *super*
+  sensitve to trailing edge gaps. Just creating a nominal 23015 with the
+  builtin generator then removing the tiny TE gap causes the pitching moment
+  in particular to change dramatically. For now I'm focusing on the getting
+  the wing calculations correct given the airfoil data, but the sample airfoil
+  data I'm using seems totally untrustworthy. (#NEXT)
+
+
+* The NACA airfoils have the `convention` parameter, but the `AirfoilGeometry`
+  superclass does not, yet the `AirfoilGeometry.thickness` docstring
+  references the convention.
 
 * `AirfoilGeometry` should provide an `acs2frd` conversion method, or include
   that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar
 
-* Combine NACA4 and NACA5; should be quite straightforward
+* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
+  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
+
+
+Low priority
+------------
+
+* Why does `s` go clockwise? Why not just keep the counter-clockwise
+  convention? After all, the z-axis of the parafoil is positive down anyway...
 
 * AirfoilGeometry is for a single airfoil, but AirfoilCoefficients support
   `delta` for braking (ie, multiple airfoils). Among other things, this
   asymmetry means you can't compute the inertia matrices for braking wings
-  (heck, you don't even have their geometry, right?) **Deformed airfoils are
-  a major sticking point right now; they aren't used consistently in the code,
-  they're not used for drawing the braking wing, and their coefficient values
-  from XFOIL are total crap. Just look at a polar curve FFS. Yeesh.**
+  (heck, you don't even have their geometry, right?)
 
-* The AirfoilGeometry assumes that the LE (as conceptualized by the closed
-  airfoil shape) is what defines the "upper" and "lower" surface. This
-  assumption is almost surely incorrect in terms of parafoil construction. The
-  heavier upper surface likely wraps beyond `d_LE` and down around the nose to
-  the air intakes. **Should be pretty straightforward to take to `s` parameters
-  that specify the starting positions of the up and lower surfaces?**
+* Should I provide `s2d` and `d2s` functions? Suppose a user wanted to step
+  along the curve in equal steps; they'd need to convert those equally spaced
+  `d` into `s`, which is weird since the upper and lower surfaces use
+  different spacings for `s`...
 
-
-* `NACA4` doesn't work with symmetric airfoils (crashes!)
-
-* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
-  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
 
 * If I'm using a UnivariateSpline for the airfoil coefficients, I need to
   handle "out of bounds" better. Catch `ValueError` and return `nan`?
-
-
-Sample Airfoils
----------------
-
-* Figure out why the polar curve look so terrible for small applications of
-  brakes!!
-
-**HIGH PRIORITY**: I really REALLY don't trust the XFOIL output. It is
-extremely sensitive to tiny changes to the number of points, the point
-distribution, and *super* sensitve to trailing edge gaps. Just creating
-a nominal 23015 with the builtin generator then removing the tiny TE gap
-causes the pitching moment in particular to change dramatically. For now I'm
-focusing on the getting the wing calculations correct given the airfoil data,
-but the sample airfoil data I'm using seems totally untrustworthy.  (#NEXT)
 
 
 Parafoil
@@ -436,6 +430,3 @@ Testing
   * Why don't my results match as well as in
     `kulhanek2019IdentificationDegradationAerodynamic`? They use Phillips'
     method just like I do!
-
-
-# vim: set nospell:
