@@ -19,19 +19,27 @@ from numpy.polynomial import Polynomial
 
 import pandas as pd
 
+import scipy.optimize
 from scipy.integrate import simps
 from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
 from scipy.interpolate import PchipInterpolator
-import scipy.optimize
 
 
 class Airfoil:
+    """Dumb wrapper class to bundle AirfoilCoefficients with AirfoilGeometry.
+
+    This class probably shouldn't exist, but was added during the design
+    exploration phase.
+    """
+
     def __init__(self, coefficients, geometry=None):
 
+        # FIXME: Do I really want to enforce strict inheritance vs duck typing?
         if not isinstance(coefficients, AirfoilCoefficients):
             raise ValueError("geometry is not an AirfoilCoefficients")
 
-        # FIXME: reasonable default for inertia calculations?
+        # FIXME: reasonable default for inertia calculations? Is it helpful to
+        #        provide a default at all?
         if geometry is None:
             geometry = NACA(2415)
 
@@ -219,18 +227,26 @@ class GridCoefficients(AirfoilCoefficients):
 
 class AirfoilGeometry(abc.ABC):
     """
-    This class provides the parametric curves that define the upper and lower
-    surfaces of an airfoil. It also provides the magnitudes, centroids, and
-    inertia matrices of the upper curve, lower curve, and planar area. These
-    are useful for calculating the surface areas and internal volume of a
-    parafoil, and their individual moments of inertia. The curves are also
-    useful for drawing a 3D wing.
+    Classes that describe the shapes and mass properties of an airfoil.
 
-    Converts the set of counter-clockwise points to a parametric curve
-    parametrized by a clockwise normalized position `-1 <= s <= 1`, where
-    `s = 0` is the leading edge, `s = 1` is the tip of the upper surface, and
-    `s = -1` is the tip of the lower surface. Midpoints of the upper and lower
-    surface curves are given by `s = 0.5` and `s = -0.5`.
+    The most general description of an airfoil is a set of points that define
+    the upper and lower surfaces. This class divides that set of points into
+    top and bottom regions, separated by the leading edge, and provides access
+    to those curves as a parametric function. It also provides the unitless
+    magnitudes, centroids, and inertia matrices of the upper curve, lower
+    curve, and planar area, which can be scaled by the physical units of the
+    target application.
+
+    The curves are also useful for drawing a 3D wing. The mass properties are
+    useful for calculating the upper and lower surface areas, internal volume,
+    and inertia matrix of a 3D wing.
+
+    Unlike standard airfoil definitions, this class converts the set of
+    counter-clockwise points to a parametric curve parametrized by a clockwise
+    normalized position `-1 <= s <= 1`, where `s = 0` is the leading edge,
+    `s = 1` is the tip of the upper surface, and `s = -1` is the tip of the
+    lower surface. Midpoints of the upper and lower surface curves are given by
+    `s = 0.5` and `s = -0.5`.
 
     Parameters
     ----------
@@ -253,6 +269,7 @@ class AirfoilGeometry(abc.ABC):
         the wing.
 
     """
+
     def __init__(self, points, normalize=True, s_upper=0, s_lower=0):
         def _target(d, curve, derivative, TE):
             # Optimization target for finding the leading edge. The position
@@ -371,7 +388,6 @@ class AirfoilGeometry(abc.ABC):
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
         >>> inertia_frd = C @ inertia_acs @ C
         """
-
         # -------------------------------------------------------------------
         # 1. Area calculations
 
