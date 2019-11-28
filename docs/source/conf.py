@@ -33,6 +33,15 @@ extensions = [
     'sphinx.ext.napoleon',
 ]
 
+autodoc_default_options = {
+    'inherited-members': True,
+    'members': True,
+    'member-order': 'bysource',
+    'undoc-members': True,
+    'show-inheritance': True,
+    'special-members': '__call__',
+}
+
 autosummary_generate = True
 
 # Add any paths that contain templates here, relative to this directory.
