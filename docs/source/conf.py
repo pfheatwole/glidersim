@@ -39,7 +39,7 @@ autodoc_default_options = {
     'member-order': 'bysource',
     'undoc-members': True,
     'show-inheritance': True,
-    'special-members': '__call__',
+    'special-members': '__call__, __init__',
 }
 
 autosummary_generate = True

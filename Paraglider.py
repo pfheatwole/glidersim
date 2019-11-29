@@ -1,3 +1,5 @@
+"""FIXME: add module docstring."""
+
 import numpy as np
 
 from IPython import embed
@@ -7,7 +9,10 @@ from util import cross3
 
 class Paraglider:
     """
+    FIXME: add a docstring.
+
     FIXME: warn for non-zero harness control points (this model ignores them)
+
     FIXME: this model assumes the glider center of mass is at the glider origin
            (where the risers attach), so the harness doesn't contribute a
            moment. I should estimate the true cm to double check the validity
@@ -21,6 +26,8 @@ class Paraglider:
 
     def __init__(self, wing, harness):
         """
+        Instantiate a Paraglider from given wing and harness.
+
         Parameters
         ----------
         wing : ParagliderWing
@@ -158,10 +165,11 @@ class Paraglider:
         return F, M, Gamma
 
     def equilibrium_glide(self, delta_B, delta_S, rho, alpha_eq=None):
-        """Steady-state angle of attack, pitch angle, and airspeed.
+        r"""
+        Steady-state angle of attack, pitch angle, and airspeed.
 
         Parameters
-        -----------
+        ----------
         delta_B : float [percentage]
             Percentage of symmetric brake application
         delta_S : float [percentage]
@@ -182,13 +190,16 @@ class Paraglider:
 
         Notes
         -----
-        Calculating `V_eq` takes advantage of the fact that all the aerodynamic
-        forces are proportional to `V**2`. Thus, by calculating the forces for
-        `V = 1`, the following equation can be solved for `V_eq` directly:
+        Calculating :math:`V_eq` takes advantage of the fact that all the
+        aerodynamic forces are proportional to :math:`V^2`. Thus, by
+        calculating the forces for :math:`V = 1`, the following equation can be
+        solved for :math:`V_eq` directly:
 
-        .. math: V_{eq}^2 \cdot\Sigma F_{z,aero} + mg\cdot \text{sin}\left(\Theta \right ) = 0
+        .. math::
 
-        where `m` is the mass of the harness+pilot.
+            V_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \Theta \right)
+
+        where `m` is the mass of the harness + pilot.
         """
         if alpha_eq is None:
             alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S)

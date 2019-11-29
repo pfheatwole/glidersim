@@ -1,3 +1,5 @@
+"""FIXME: add module docstring."""
+
 from functools import partial
 
 from IPython import embed
@@ -11,12 +13,16 @@ from util import cross3
 
 
 class ParagliderWing:
+    """FIXME: add class docstring."""
+
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
     def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
                  pA, pC, kappa_s=0):
         """
+        FIXME: add docstring.
+
         Parameters
         ----------
         parafoil : Parafoil.ParafoilGeometry
@@ -62,6 +68,7 @@ class ParagliderWing:
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, Gamma=None):
         """
+        FIXME: add docstring.
 
         Parameters
         ----------
@@ -87,8 +94,7 @@ class ParagliderWing:
 
     def foil_origin(self, delta_s=0):
         """
-        Compute the origin of the Parafoil coordinate system in ParagliderWing
-        coordinates.
+        Compute the origin of the Parafoil coordinate system in FRD.
 
         Parameters
         ----------
@@ -111,7 +117,7 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(self, deltaB, deltaS):
-
+        """FIXME: add docstring."""
         def opt(deltaB, deltaS, alpha):
             cp_wing = self.control_points(deltaS)
             K = len(cp_wing)
@@ -129,7 +135,9 @@ class ParagliderWing:
 
     def control_points(self, delta_s=0):
         """
-        The Parafoil control points in ParagliderWing coordinates.
+        Compute the Parafoil control points in FRD.
+
+        FIXME: descibe/define "control points"
 
         Parameters
         ----------
@@ -146,7 +154,8 @@ class ParagliderWing:
 
     # FIXME: moved from foil. Verify and test.
     def surface_distributions(self, delta_s=0):
-        """The surface area distributions for computing inertial moments.
+        """
+        Compute the surface area distributions that define the inertial moments.
 
         The moments of inertia for the parafoil are the mass distribution of
         the air and wing material. That distribution is typically decomposed
@@ -158,7 +167,7 @@ class ParagliderWing:
         Ref: "Paraglider Flight Dynamics", page 48 (56)
 
         Returns
-        ------
+        -------
         S : 3x3 matrix of float
             The surface distributions, such that `J = (p_w + p_air)*S`
         """
@@ -195,6 +204,7 @@ class ParagliderWing:
         TODO: this function currently only uses `delta_s` to determine the
               shift of the cg, but in the future `delta_s` may also deform the
               ParafoilLobe (if `lobe_args` starts getting used)
+
         TODO: precompute the static components that don't depend on `rho_air`
 
         Parameters
@@ -211,9 +221,12 @@ class ParagliderWing:
         J : array of float, shape (3,3) [kg m^2]
             The inertia matrix of the wing
 
-                [[ Jxx -Jxy -Jxz]
-            J =  [-Jxy  Jyy -Jyz]
-                 [-Jxz -Jyz  Jzz]]
+            ::
+
+                    [[ Jxx -Jxy -Jxz]
+                J =  [-Jxy  Jyy -Jyz]
+                     [-Jxz -Jyz  Jzz]]
+
         """
         p = self.parafoil.mass_properties(N=N)
 

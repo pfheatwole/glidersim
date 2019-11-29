@@ -1,3 +1,5 @@
+"""FIXME: add docstring."""
+
 import abc
 
 import numpy as np
@@ -60,12 +62,12 @@ class Cubic(BrakeGeometry):
 
     Notes
     -----
-    A normal cubic goes like `ay**3 + by**2 + cy + d = 0`, but constraining the
-    function to be zero at the origin forces d=0, and constraining the first
-    derivative to be zero when evaluated at the origin forces c=0. Thus, you're
-    left with just the cubic and quadratic terms. The second two constraints
-    are `f(p_peak) = delta_max` and `(df/dy)|p_peak = 0`.
-
+    A normal cubic goes like :math:`ay^3 + by^2 + cy + d = 0`, but constraining
+    the function to be zero at the origin forces :math:`d = 0`, and constraining
+    the first derivative to be zero when evaluated at the origin forces
+    :math:`c = 0`. This leaves only the cubic and quadratic terms.  The cubic
+    distribution can then be define using just two constraints:
+    :math:`f(p_{peak}) = delta_{max}` and :math:`(df/dy)|p_{peak} = 0`.
     """
 
     def __init__(self, p_start, p_peak, delta_max):
@@ -77,7 +79,7 @@ class Cubic(BrakeGeometry):
         p_peak : float
             The point of maximum delta as a fraction of the semispan. To
             prevent negative deflections at the wing tips, `p_peak` has a
-            minimum value; see `p_peak_min`
+            minimum value; see :py:meth:`p_peak_min`
         delta_max : float [radians]
             The maximum deflection angle, which occurs at p_peak
         """
