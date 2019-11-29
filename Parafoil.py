@@ -1,3 +1,5 @@
+"""FIXME: add docstring."""
+
 import abc
 
 from IPython import embed
@@ -15,6 +17,8 @@ from util import cross3
 
 
 class ParafoilGeometry:
+    """FIXME: add docstring."""
+
     def __init__(self, planform, lobe, airfoil):
         self.planform = planform
         self.lobe = lobe
@@ -23,7 +27,7 @@ class ParafoilGeometry:
 
     @property
     def b(self):
-        """Span of the inflated wing"""
+        """Compute the span of the inflated wing."""
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated span? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
@@ -31,7 +35,7 @@ class ParafoilGeometry:
 
     @property
     def S(self):
-        """Projected surface area of the inflated wing"""
+        """Compute the projected surface area of the inflated wing."""
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
@@ -40,31 +44,25 @@ class ParafoilGeometry:
 
     @property
     def AR(self):
-        """Aspect ratio of the inflated wing"""
+        """Compute the aspect ratio of the inflated wing."""
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
         return self.b ** 2 / self.S
 
-    @property
-    def flattening_ratio(self):
-        """Percent reduction in area of the inflated wing vs the flat wing"""
-        # ref: PFD p47 (54)
-        return (1 - self.S / self.planform.S) * 100
-
     def fx(self, s):
-        """Section quarter-chord x coordinate"""
+        """Compute the section quarter-chord x-coordinate."""
         # If the wing curvature defined by the lobe is strictly limited to the
-        # yz plane, then the x-coordinate of the quarter chord is the same for
+        # yz plane, then the x-coordinate of the quarter-chord is the same for
         # the 3D wing as for the planform, regardless of the lobe geometry.
         return self.planform.fx(s)
 
     def fy(self, s, lobe_args={}):
-        """Section quarter-chord y coordinate"""
+        """Compute the section quarter-chord y-coordinate."""
         return self.span_factor * self.lobe.fy(s, **lobe_args)
 
     def fz(self, s, lobe_args={}):
-        """Section quarter-chord z coordinate"""
+        """Compute the section quarter-chord z-coordinate."""
         return self.span_factor * self.lobe.fz(s, **lobe_args)
 
     def c0(self, s, lobe_args={}):
@@ -81,7 +79,7 @@ class ParafoilGeometry:
         """Compute the coordinates of section quarter-chords.
 
         Useful as the point of application for section forces (if you assume
-        the aerodynamic center of that section lies on the quarter chord).
+        the aerodynamic center of that section lies on the quarter-chord).
         """
         x = self.fx(s)
         y = self.fy(s, lobe_args)
@@ -308,64 +306,75 @@ class ParafoilPlanform(abc.ABC):
     """
     Define the planform geometry of a flattened (non-inflated) parafoil.
 
-    Note: this contradicts the common definition of "planform" as the projected
-    area of a 3D wing, not a flattened wing. This mild abuse of terminology is
-    reasonable because the projected area of an inflated parafoil is not
+    This contradicts the common definition of "planform", which usually refers
+    to the projected area of a 3D wing, not a wing that has been flattened to
+    remove dihedral (curvature in the yz-plane). This mild abuse of terminology
+    is reasonable because the projected area of an inflated parafoil is not
     particularly useful, and this redefinition avoids prefixing "flattened" to
     the geometries.
     """
 
     @property
     def b(self):
-        """Flattened wing span"""
+        """Compute the span of the flattened wing."""
         return 2 * self.fy(1)
 
     @property
     def MAC(self):
-        """Mean aerodynamic chord"""
-        # Subclasses can redefine this brute method with an analytical solution
+        """Compute the mean aerodynamic chord.
+
+        See Also
+        --------
+        MAC : standard aerodynamic chord
+        """
+        # Subclasses can override this brute method with an analytical solution
         s = linspace(0, 1, 5000)
         return (2 / self.S) * simps(self.fc(s) ** 2, self.fy(s))
 
     @property
     def SMC(self):
-        """Standard mean chord"""
-        # Subclasses can redefine this brute method with an analytical solution
+        """Compute the standard mean chord.
+
+        See Also
+        --------
+        MAC : mean aerodynamic chord
+        """
+        # Subclasses can override this brute method with an analytical solution
         s = linspace(-1, 1, 5000)
         return np.mean(self.fc(s))
 
     @property
     def S(self):
-        """Flattened wing surface area"""
+        """Compute the surface area of the flattened wing."""
         return self.SMC * self.b
 
     @property
     def AR(self):
-        """Flattened wing aspect ratio"""
+        """Compute the aspect ratio of the flattened wing."""
         return self.b / self.SMC
 
     @abc.abstractmethod
     def fx(self, s):
-        """Section quarter chord x coordinate"""
+        """Compute the x-coordinate of the section quarter-chord."""
 
     @abc.abstractmethod
     def fy(self, s):
-        """Section quarter chord y coordinate"""
+        """Compute the y-coordinate of the section quarter-chord."""
 
     @abc.abstractmethod
     def fc(self, s):
-        """Section chord length"""
+        """Compute the chord length of a section."""
 
     @abc.abstractmethod
     def ftheta(self, s):
-        """Section geometric torsion
+        """Compute the geometric torsion of a section.
 
         That is, the section chord pitch angle relative to the central chord.
         """
 
     @abc.abstractmethod
     def orientation(self, s):
-        """Section orientation unit vectors
+        """Compute the orientation unit vectors of a section.
 
         Parameters
         ----------
@@ -425,9 +434,11 @@ class EllipticalPlanform(ParafoilPlanform):
 
     @property
     def sweep_smoothness(self):
-        """A measure of the rate of change in sweep along the span"""
+        """Compute the rate of change in sweep along the span."""
         # ref: PFD p47 (54)
         # FIXME: untested
+        # FIXME: misnamed? Taken directly from PFD
+        # FIXME: how does this differ from `Lambda`?
         sMax, min_sMax = abs(self.sweepMax), abs(2 * self.sweepMed)
         ratio = (sMax - min_sMax) / (np.pi / 2 - min_sMax)
         return (1 - ratio) * 100
@@ -444,7 +455,6 @@ class EllipticalPlanform(ParafoilPlanform):
         return self.Bc * np.sqrt(1 - y ** 2 / self.Ac ** 2)
 
     def ftheta(self, s):
-        """Geometric torsion angle"""
         return self.torsion_max * np.abs(s)**self.torsion_exponent
 
     def orientation(self, s):
@@ -466,7 +476,7 @@ class EllipticalPlanform(ParafoilPlanform):
         return -y * (self.Bx / self.Ax) / np.sqrt(self.Ax ** 2 - y ** 2)
 
     def Lambda(self, s):
-        """Sweep angle"""
+        """Compute the sweep angle rate of change of a section."""
         # FIXME: should this be part of the ParafoilGeometry interface?
         return arctan(self._dfxdy(s))
 
@@ -499,7 +509,7 @@ class EllipticalPlanform(ParafoilPlanform):
 
 class ParafoilLobe:
     """
-    FIXME: document
+    FIXME: document.
 
     In particular, note that this is a proportional geometry: the span of the
     lobes are defined as `b=1` to simplify the conversion between the flat and
@@ -508,7 +518,7 @@ class ParafoilLobe:
 
     @property
     def span_ratio(self):
-        """Ratio of the planform span to the projected span"""
+        """Compute the ratio of the planform span to the projected span."""
         # FIXME: should this be cached?
         # FIXME: is this always the nominal value, or does it deform?
         N = 500
@@ -519,15 +529,15 @@ class ParafoilLobe:
 
     @abc.abstractmethod
     def fy(self, s):
-        """FIXME: docstring"""
+        """FIXME: docstring."""
 
     @abc.abstractmethod
     def fz(self, s):
-        """FIXME: docstring"""
+        """FIXME: docstring."""
 
     @abc.abstractmethod
     def orientation(self, s):
-        """Section orientation unit vectors
+        """Compute the orientation unit vectors of a section.
 
         Parameters
         ----------
@@ -618,9 +628,10 @@ class EllipticalLobe(ParafoilLobe):
 
     @property
     def dihedral_smoothness(self):
-        """A measure of the rate of change in curvature along the span"""
+        """Measure the curvature rate of change along the span."""
         # ref: PFD p47 (54)
         # FIXME: untested
+        # FIXME: unused? What's the purpose?
         dMax, min_dMax = abs(self.dihedralMax), abs(2 * self.dihedralMed)
         ratio = (dMax - min_dMax) / (np.pi / 2 - min_dMax)
         return (1 - ratio) * 100
@@ -882,7 +893,7 @@ class Phillips(ForceEstimator):
         return J
 
     def _J_finite(self, Gamma, V_w2cp, v, delta):
-        """Compute the Jacobian using a centered finite distance
+        """Compute the Jacobian using a centered finite distance.
 
         Useful for checking the analytical gradient.
 
@@ -909,7 +920,7 @@ class Phillips(ForceEstimator):
 
     def _fixed_point_circulation(self, Gamma, V_w2cp, v, delta,
                                  maxiter=500, xtol=1e-8):
-        """Use fixed-point iterations to improve a proposal
+        """Improve a proposal via fixed-point iterations.
 
         Warning: This method needs a lot of work and validation!
 
@@ -980,7 +991,8 @@ class Phillips(ForceEstimator):
         return {"x": G, "success": success}
 
     def naive_root(self, Gamma0, args, rtol=1e-5, atol=1e-8):
-        """Naive Newton-Raphson iterative solution to solve for Gamma
+        """
+        Solve for Gamma using a naive Newton-Raphson iterative solution.
 
         Evaluates the Jacobian at every update, so it can be rather slow. It's
         value is in its simplicity, and the fact that it more closely matches
