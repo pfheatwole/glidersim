@@ -46,12 +46,6 @@ class ParafoilGeometry:
         #        nominal value, might I still need a `lobe_args`?
         return self.b ** 2 / self.S
 
-    @property
-    def flattening_ratio(self):
-        """Percent reduction in area of the inflated wing vs the flat wing"""
-        # ref: PFD p47 (54)
-        return (1 - self.S / self.planform.S) * 100
-
     def fx(self, s):
         """Section quarter-chord x coordinate"""
         # If the wing curvature defined by the lobe is strictly limited to the
