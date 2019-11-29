@@ -26,7 +26,8 @@ from scipy.interpolate import PchipInterpolator
 
 
 class Airfoil:
-    """Dumb wrapper class to bundle AirfoilCoefficients with AirfoilGeometry.
+    """
+    Dumb wrapper class to bundle AirfoilCoefficients with AirfoilGeometry.
 
     This class probably shouldn't exist, but was added during the design
     exploration phase.
@@ -482,7 +483,8 @@ class AirfoilGeometry(abc.ABC):
         return properties
 
     def surface_curve(self, s):
-        """Compute points on the surface curve.
+        """
+        Compute points on the surface curve.
 
         Parameters
         ----------
@@ -499,7 +501,8 @@ class AirfoilGeometry(abc.ABC):
         return self._curve(s)
 
     def surface_curve_tangent(self, s):
-        """Compute the tangent unit vector at points on the surface curve.
+        """
+        Compute the tangent unit vector at points on the surface curve.
 
         Parameters
         ----------
@@ -518,7 +521,8 @@ class AirfoilGeometry(abc.ABC):
         return dxdy.T
 
     def surface_curve_normal(self, s):
-        """Compute the normal unit vector at points on the surface curve.
+        """
+        Compute the normal unit vector at points on the surface curve.
 
         Parameters
         ----------
@@ -539,7 +543,8 @@ class AirfoilGeometry(abc.ABC):
         raise NotImplementedError
 
     def thickness(self, x):
-        """Compute airfoil thickness perpendicular to a reference line.
+        """
+        Compute airfoil thickness perpendicular to a reference line.
 
         This measurement is perpendicular to either the camber line ('American'
         convention) or the chord ('British' convention). Refer to the specific
@@ -590,7 +595,6 @@ class NACA(AirfoilGeometry):
 
         Any additional keyword parameters will be forwarded to the parent class
         initializer, `AirfoilGeometry.__init__`.
-
         """
         if not isinstance(code, int):
             try:
@@ -648,9 +652,10 @@ class NACA(AirfoilGeometry):
 
         N = 200
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
-        xyu, xyl = self._yu(x), self._yl(x[1:])
+        xyu = self._xyu(x)[::-1]  # Move counter-clockwise
+        xyl = self._xyl(x[1:])  # Skip `x = 0`
 
-        super().__init__(np.r_[xyu[::-1], xyl], **kwargs)
+        super().__init__(np.r_[xyu, xyl], **kwargs)
 
     def thickness(self, x):
         x = np.asarray(x, dtype=float)
@@ -667,7 +672,8 @@ class NACA(AirfoilGeometry):
         )
 
     def _theta(self, x):
-        """Compute the angle of the mean camber line.
+        """
+        Compute the angle of the mean camber line.
 
         Parameters
         ----------
@@ -692,16 +698,20 @@ class NACA(AirfoilGeometry):
         return arctan(dyc)
 
     def _yc(self, x):
-        """Compute positions on the mean camber line.
+        """
+        Compute the y-coordinate of points on the mean camber line.
 
         Parameters
         ----------
-        x : float
+        x : array_like of float, shape (N,)
             Position on the chord line, where `0 <= x <= 1`
 
         Returns
         -------
-        FIXME: describe the <x,y> array
+        y : array_like of float, shape (N,)
+            The y-coordinates of the mean camber line. These points lie
+            directly above the chord line, regardless of the convention.
+            (The convention only changes the definition of the surface curves.)
         """
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
@@ -710,28 +720,47 @@ class NACA(AirfoilGeometry):
         if self.series == 4:
             m, p = self.m, self.p
             f = x < p  # Filter for the two cases, `x < p` and `x >= p`
-            cl = np.empty_like(x)
+            y = np.empty_like(x)
 
             # The tests are necessary for when `m > 0` and `p = 0`
             if np.any(f):
-                cl[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
+                y[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
             if np.any(~f):
-                cl[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
+                y[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
 
         elif self.series == 5:
             m, k1 = self.m, self.k1
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
-            cl = np.empty_like(x)
-            cl[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
-            cl[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
+            y = np.empty_like(x)
+            y[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
+            y[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
 
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")
 
-        return np.array([x, cl]).T
+        return y
 
-    def _yu(self, x):
-        # The upper curve
+    def _xyu(self, x):
+        """
+        Compute the x- and y-coordinates of points on the upper surface.
+
+        Returns both `x` and `y` because the "American" convention computes the
+        surface curve coordinates orthogonal to the camber curve instead of the
+        chord, so the `x` coordinate for the surface curve will not be the same
+        as the `x` coordinate for the chord (unless the airfoil is symmetric,
+        in which case the camber curve lines directly on the chord). For the
+        British convention, the input and output `x` will always be the same.
+
+        Parameters
+        ----------
+        x : array_like of float, shape (N,)
+            Position on the chord line, where `0 <= x <= 1`
+
+        Returns
+        -------
+        xy : array_like of float, shape (N, 2)
+            The x- and y-coordinatess of the points on the upper surface.
+        """
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
@@ -741,7 +770,7 @@ class NACA(AirfoilGeometry):
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, t]).T
         else:  # Cambered airfoil
-            yc = self._yc(x).T[1]
+            yc = self._yc(x)
             if self.convention == "american":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
@@ -751,8 +780,27 @@ class NACA(AirfoilGeometry):
                 raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
 
-    def _yl(self, x):
-        # The lower curve
+    def _xyl(self, x):
+        """
+        Compute the x- and y-coordinates of points on the lower surface.
+
+        Returns both `x` and `y` because the "American" convention computes the
+        surface curve coordinates orthogonal to the camber curve instead of the
+        chord, so the `x` coordinate for the surface curve will not be the same
+        as the `x` coordinate for the chord (unless the airfoil is symmetric,
+        in which case the camber curve lines directly on the chord). For the
+        British convention, the input and output `x` will always be the same.
+
+        Parameters
+        ----------
+        x : array_like of float, shape (N,)
+            Position on the chord line, where `0 <= x <= 1`
+
+        Returns
+        -------
+        xy : array_like of float, shape (N, 2)
+            The x- and y-coordinatess of the points on the upper surface.
+        """
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
@@ -761,7 +809,7 @@ class NACA(AirfoilGeometry):
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, -t]).T
         else:  # Cambered airfoil
-            yc = self._yc(x).T[1]
+            yc = self._yc(x)
             if self.convention == "american":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T

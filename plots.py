@@ -19,9 +19,8 @@ def plot_airfoil_geo(foil_geo):
 
     try:
         x = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
-        camberline = foil_geo._yc(x)
-        ax.plot(camberline[:, 0], camberline[:, 1], label="mean camber line")
-        ax.scatter(foil_geo._yc(0.25)[0], foil_geo._yc(0.25)[1], c="k")
+        y = foil_geo._yc(x)  # FIXME: NACA specific; should be `camber_curve`
+        ax.plot(x, y, label="mean camber line", color="k", linestyle="--", linewidth=0.75)
     except AttributeError:
         pass
 
