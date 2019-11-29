@@ -284,7 +284,7 @@ class AirfoilGeometry(abc.ABC):
 
         self.s_upper = s_upper
         self.s_lower = s_lower
-        self.raw_points = points.copy()  # FIXME: for debugging
+        self._raw_points = points.copy()  # FIXME: for debugging
         points = points[::-1]  # Clockwise order is more convenient for `s`
 
         # Find the chord, align it to the x-axis, and scale it to unit length
