@@ -31,7 +31,7 @@ class ParafoilGeometry:
         # FIXME: property, or function? This needs `lobe_args`? Or should this
         #        be the nominal value for the inflated span? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
-        return 2 * self.fy(1)
+        return 2 * self.span_factor * self.lobe.fy(1)
 
     @property
     def S(self):
@@ -40,7 +40,7 @@ class ParafoilGeometry:
         #        be the nominal value for the inflated wing? Even if it was the
         #        nominal value, might I still need a `lobe_args`?
         s = linspace(-1, 1, 5000)
-        return simps(self.planform.fc(s), self.fy(s))
+        return simps(self.planform.fc(s), self.span_factor * self.lobe.fy(s))
 
     @property
     def AR(self):
@@ -50,41 +50,31 @@ class ParafoilGeometry:
         #        nominal value, might I still need a `lobe_args`?
         return self.b ** 2 / self.S
 
-    def fx(self, s):
-        """Compute the section quarter-chord x-coordinate."""
-        # If the wing curvature defined by the lobe is strictly limited to the
-        # yz plane, then the x-coordinate of the quarter-chord is the same for
-        # the 3D wing as for the planform, regardless of the lobe geometry.
-        return self.planform.fx(s)
+    def chord_xyz(self, s, chord_ratio, lobe_args={}):
+        """Compute the coordinates of points on section chords.
 
-    def fy(self, s, lobe_args={}):
-        """Compute the section quarter-chord y-coordinate."""
-        return self.span_factor * self.lobe.fy(s, **lobe_args)
-
-    def fz(self, s, lobe_args={}):
-        """Compute the section quarter-chord z-coordinate."""
-        return self.span_factor * self.lobe.fz(s, **lobe_args)
-
-    def c0(self, s, lobe_args={}):
-        """Compute the coordinates of section leading-edges.
-
-        Useful for points given in the local section coordinate system, such
-        as for surface curves or the airfoil centroid.
+        Parameters
+        ----------
+        s : array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`.
+        chord_ratio : float
+            Position on the chord, where `chord_ratio = 0` is the leading edge,
+            and `chord_ratio = 1` is the trailing edge.
         """
-        u = self.section_orientation(s, lobe_args).T
+        if np.any(chord_ratio < 0) or np.any(chord_ratio > 1):
+            raise ValueError("chord_ratio must be between 0 and 1")
+
+        # Get the xyz-coordinates of the quarter-chords
+        x = self.planform.fx(s)
+        y = self.span_factor * self.lobe.fy(s, **lobe_args)
+        z = self.span_factor * self.lobe.fz(s, **lobe_args)
+        xyz = np.array([x, y, z])
+
+        # Shift the points along their local chords to `chord_ratio * c`
+        u = self.section_orientation(s, lobe_args)
         c = self.planform.fc(s)
-        return self.c4(s, lobe_args) + (c / 4 * u[0]).T
-
-    def c4(self, s, lobe_args={}):
-        """Compute the coordinates of section quarter-chords.
-
-        Useful as the point of application for section forces (if you assume
-        the aerodynamic center of that section lies on the quarter-chord).
-        """
-        x = self.fx(s)
-        y = self.fy(s, lobe_args)
-        z = self.fz(s, lobe_args)
-        return np.array([x, y, z]).T
+        xyz += (0.25 - chord_ratio) * c * u.T[0]
+        return xyz.T
 
     def section_orientation(self, s, lobe_args={}):
         """Compute section orientation unit vectors.
@@ -136,7 +126,7 @@ class ParafoilGeometry:
         upper = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         upper = np.array([-upper[0], np.zeros(N), -upper[1]])
         surface = self.section_orientation(s) @ upper * self.planform.fc(s)
-        return surface.T + self.c0(s)
+        return surface.T + self.chord_xyz(s, 0)
 
     def lower_surface(self, s, N=50):
         """Sample points on the lower surface curve of a parafoil section.
@@ -164,7 +154,7 @@ class ParafoilGeometry:
         lower = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
         lower = np.array([-lower[0], np.zeros(N), -lower[1]])
         surface = self.section_orientation(s) @ lower * self.planform.fc(s)
-        return surface.T + self.c0(s)
+        return surface.T + self.chord_xyz(s, 0)
 
     def mass_properties(self, lobe_args={}, N=250):
         """
@@ -223,7 +213,7 @@ class ParafoilGeometry:
         """
         s_nodes = cos(linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.c4(s_nodes, lobe_args)  # Segment endpoints
+        nodes = self.chord_xyz(s_nodes, 0.25, lobe_args)  # Segment endpoints
         section = self.airfoil.geometry.mass_properties()
         node_chords = self.planform.fc(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
@@ -236,7 +226,7 @@ class ParafoilGeometry:
             [*section["upper_centroid"], 0],
             [*section["area_centroid"], 0],
             [*section["lower_centroid"], 0]])
-        segment_origins = self.c0(s_mid_nodes)
+        segment_origins = self.chord_xyz(s_mid_nodes, 0, lobe_args)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + segment_origins[None, ...])
@@ -769,11 +759,11 @@ class Phillips(ForceEstimator):
         # self.s_nodes = cos(linspace(np.pi, 0, self.K+1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.parafoil.c4(self.s_nodes)
+        self.nodes = self.parafoil.chord_xyz(self.s_nodes, 0.25, lobe_args)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.parafoil.c4(self.s_cps)
+        self.cps = self.parafoil.chord_xyz(self.s_cps, 0.25, lobe_args)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]

@@ -173,7 +173,7 @@ class ParagliderWing:
         """
         N = 501
         s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
-        x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
+        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_s)).T
         c = self.parafoil.planform.fc(s)
 
         Sxx = simps((y ** 2 + z ** 2) * c, y)

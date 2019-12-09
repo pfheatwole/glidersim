@@ -148,7 +148,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     s = np.linspace(-1, 1, 51)
-    c4 = parafoil.c4(s).T
+    c4 = parafoil.chord_xyz(s, 0.25).T
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
 
     set_axes_equal(ax)
@@ -307,7 +307,7 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=5
 
     # Add the quarter chord line
     s = np.linspace(-1, 1, 51)
-    c4 = wing.parafoil.c4(s).T
+    c4 = wing.parafoil.chord_xyz(s, 0.25).T
     ax.plot(c4[0], c4[1], -c4[2], "g--", lw=0.8)
 
     # And the brake deflection line
