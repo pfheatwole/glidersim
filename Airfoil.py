@@ -34,19 +34,6 @@ class Airfoil:
     """
 
     def __init__(self, coefficients, geometry=None):
-
-        # FIXME: Do I really want to enforce strict inheritance vs duck typing?
-        if not isinstance(coefficients, AirfoilCoefficients):
-            raise ValueError("geometry is not an AirfoilCoefficients")
-
-        # FIXME: reasonable default for inertia calculations? Is it helpful to
-        #        provide a default at all?
-        if geometry is None:
-            geometry = NACA(2415)
-
-        if not isinstance(geometry, AirfoilGeometry):
-            raise ValueError("geometry is not an AirfoilGeometry")
-
         self.coefficients = coefficients
         self.geometry = geometry
 
