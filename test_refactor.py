@@ -247,12 +247,13 @@ def main():
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     delta_max = np.deg2rad(13.25)  # FIXME: magic number
 
-    # plots.plot_airfoil_geo(airfoil_geo)
+    plots.plot_airfoil_geo(airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil
 
-    # Hook3 specs:
+    # Hook3 23 specs:
+    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
     S_flat, b_flat, AR_flat = 23, 11.15, 5.40
     SMC_flat = b_flat/AR_flat
     S, b, AR = 19.55, 8.84, 4.00
@@ -276,10 +277,10 @@ def main():
     print("planform area:", parafoil.S)
     print("planform AR:  ", parafoil.AR)
 
-    # print("Drawing the parafoil")
-    # plots.plot_parafoil_planform_topdown(parafoil)
-    # plots.plot_parafoil_planform(parafoil, N_sections=50)
-    # plots.plot_parafoil_geo(parafoil, N_sections=50)
+    print("Drawing the parafoil")
+    plots.plot_parafoil_planform_topdown(parafoil)
+    plots.plot_parafoil_planform(parafoil, N_sections=50)
+    plots.plot_parafoil_geo(parafoil, N_sections=50)
 
     # -----------------------------------------------------------------------
     # Brake geometry
