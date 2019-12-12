@@ -1,7 +1,5 @@
 """FIXME: add module docstring."""
 
-from functools import partial
-
 from IPython import embed
 
 import numpy as np
@@ -120,7 +118,7 @@ class ParagliderWing:
 
     def equilibrium_alpha(self, deltaB, deltaS):
         """FIXME: add docstring."""
-        def opt(deltaB, deltaS, alpha):
+        def target(alpha, deltaB, deltaS):
             cp_wing = self.control_points(deltaS)
             K = len(cp_wing)
             v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
@@ -129,8 +127,8 @@ class ParagliderWing:
             dM += cross3(cp_wing, dF_w).sum(axis=0)
             return dM[1]  # Pitching moment
 
-        f = partial(opt, deltaB, deltaS)
-        res = root_scalar(f, x0=np.deg2rad(0), x1=np.deg2rad(9))
+        x0, x1 = np.deg2rad([0, 9])  # FIXME: review these bounds
+        res = root_scalar(target, args=(deltaB, deltaS), x0=x0, x1=x1)
         if not res.converged:
             raise RuntimeError(f"Failed to converge: {res.flag}")
         return res.root
