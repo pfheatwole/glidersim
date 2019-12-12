@@ -92,9 +92,9 @@ class Cubic(BrakeGeometry):
         self.K2 = 3*delta_max/(p_peak - p_start)**2
 
     def __call__(self, s, delta_Bl, delta_Br):
-        fraction = np.choose(s < 0, [delta_Br, delta_Bl])
+        fraction = np.where(s < 0, delta_Bl, delta_Br)
         s = np.abs(s)  # left and right side are symmetric
-        fraction = fraction * (s > self.p_start)  # Boolean hack
+        fraction = fraction * (s > self.p_start)
         p = s - self.p_start  # The cubic uses a shifted origin, `p_start`
         return fraction * (self.K1 * p**3 + self.K2 * p**2)
 
