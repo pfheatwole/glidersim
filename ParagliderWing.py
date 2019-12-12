@@ -29,6 +29,8 @@ class ParagliderWing:
             The geometric shape of the lifting surface.
         force_estimator : Parafoil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
+        brake_Geo : BrakeGeometry
+            Section trailing edge deflections as a function of delta_s
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
