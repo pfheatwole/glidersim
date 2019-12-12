@@ -6,11 +6,11 @@ Paraglider Reference Wing", H. Belloc, 2015
 Some Questions:
     1. Should `V` be greater than or less than `V_rel`?
     2. Why am I still significantly overestimating CL?
-        * Interesting fact: if I divide by `rho_air` then it matches closely...
-    3. In Phillips, why are J2 and J4 so tiny? Is that correct?
-    4. In Phillips, where did J4 come from in Hunsaker's derivation?
+        * If I divide by `rho_air` then it matches closely. Coincidence?
+    3. In `Phillips`, why are J2 and J4 so tiny? Is that correct?
+    4. In `Phillips`, where did J4 come from in Hunsaker's derivation?
         * It wasn't in the original Phillips derivation
-    5. How should I modify Phillips to handle non-uniform `u_inf`?
+    5. How should I modify `Phillips` to handle non-uniform `u_inf`?
         * eg, during a turn
         * Need to modify the `v_ij` at least
     6. Why don't my `CM` curve like the Belloc paper?
@@ -24,13 +24,6 @@ Some Questions:
 
 Some TODOs:
  * Review the force and moment calculations, given V+Gamma
- * Cleanup the Phillips code
- * Refactor the Phillips method
-    * At the very least, put the "initial Gamma proposal" into a function?
- * Double check the wing geometry
-    * Am I producing the correct linearly variation?
-    * Am I braking anything by overwriting `planform.fc` and `planform.ftheta`?
-
  * I need to add Picard iterations to Phillips to deal with stalled sections
  * I need to fix how I calculate L and D when beta>0
     * Observe in my `CL vs CD`: CD decreases with beta? Nope, wrong
@@ -39,27 +32,30 @@ Some TODOs:
 """
 
 
-import matplotlib.pyplot as plt  # noqa: F401
-import numpy as np
-from numpy import sin, cos
 from IPython import embed
+
+import matplotlib.pyplot as plt  # noqa: F401
+
+import numpy as np
+
 import pandas as pd
 
-from scipy.interpolate import UnivariateSpline, PchipInterpolator
-from numpy.polynomial import Polynomial
+import scipy.interpolate
+from scipy.interpolate import PchipInterpolator, UnivariateSpline
 
 import Airfoil
 import BrakeGeometry
 import Parafoil
 import Harness
-from ParagliderWing import ParagliderWing
-from Paraglider import Paraglider
-import plots  # noqa: F401
+import Paraglider
+import ParagliderWing
+import plots
 
 
 class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
     """
-    Uses the airfoil coefficients from a CSV file.
+    Use airfoil coefficients from a CSV file.
+
     The CSV must contain the following columns: [alpha, delta, CL, CD, Cm]
 
     This is similar to `Airfoil.GridCoefficients`, but it assumes that delta
@@ -100,12 +96,12 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
 
 
 # ---------------------------------------------------------------------------
-# First, record the data from the paper
+# Wing definition from the paper
 
-print("\n\nWARNING: Did you remove the extra air intake drag (~0.07)?\n\n")
-input("<press any key to continue>")
+# print("\n\nWARNING: Did you remove the extra air intake drag (~0.07)?\n\n")
+# input("<press any key to continue>")
 
-# Table 1: the Full-scale wing dimensions
+# Table 1: the Full-scale wing dimensions converted into 1/8 model
 h = 3 / 8  # Arch height (vertical deflection from wing root to tips) [m]
 cc = 2.8 / 8  # The central chord [m]
 b = 11.00 / 8  # The projected span [m]
@@ -116,204 +112,132 @@ b_flat = 13.64 / 8  # The flattened span [m]
 S_flat = 28.56 / (8**2)  # The flattened area [m^2]
 AR_flat = 6.52  # The flattened aspect ratio
 
-# Convert the positive scalar `k` into a normal taper ratio
-k = 1.05  # From Eq:2
-taper = np.sqrt(1 - 1/k**2)  # Set `fc = c_i` and solve for lambda
-# Alternatively, taper = .107/.350, using the 1/8 model coordinates directly
-
-
-# From Table 2; these are the coordinates 0.6c line of the 1/8 size model
-xyz = np.array([
-    [0.000, -0.688,  0.000],
-    [0.000, -0.664, -0.097],
-    [0.000, -0.595, -0.188],
-    [0.000, -0.486, -0.265],
-    [0.000, -0.344, -0.325],
-    [0.000, -0.178, -0.362],
-    [0.000,  0.000, -0.375],
-    [0.000,  0.178, -0.362],
-    [0.000,  0.344, -0.325],
-    [0.000,  0.486, -0.265],
-    [0.000,  0.595, -0.188],
-    [0.000,  0.664, -0.097],
-    [0.000,  0.688,  0.000]
-    ])
+# Table 2: Coordinates along the 0.6c line for the 1/8 model in [m]
+xyz = np.array(
+    [
+        [0.000, -0.688,  0.000],
+        [0.000, -0.664, -0.097],
+        [0.000, -0.595, -0.188],
+        [0.000, -0.486, -0.265],
+        [0.000, -0.344, -0.325],
+        [0.000, -0.178, -0.362],
+        [0.000,  0.000, -0.375],
+        [0.000,  0.178, -0.362],
+        [0.000,  0.344, -0.325],
+        [0.000,  0.486, -0.265],
+        [0.000,  0.595, -0.188],
+        [0.000,  0.664, -0.097],
+        [0.000,  0.688,  0.000],
+    ],
+)
 
 c = np.array([0.107, 0.137, 0.198, 0.259, 0.308, 0.339, 0.350,
-              0.339, 0.308, 0.259, 0.198, 0.137, 0.107])
+              0.339, 0.308, 0.259, 0.198, 0.137, 0.107])  # chords [m]
 
-# The "x = 0" refers to the fact that the data assumes the 0.6c point of each
-# section lines in the `x = 0` plane. To convert this data into c/4 coordinates
-# we have to shift the x-coordinates of each section.
-c0, c4 = xyz.copy(), xyz.copy()
-c0[:, 0] += 0.6 * c  # The leading edge
-c4[:, 0] += (0.6 - .25) * c  # The quarter-chord line
+theta = np.deg2rad([3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3])  # torsion [deg]
 
+# Compute the section indices
+L_segments = np.linalg.norm(np.diff(xyz[..., 1:], axis=0), axis=1)
+s_xyz = np.cumsum(np.r_[0, L_segments]) / L_segments.sum() * 2 - 1
 
-# FIXME: this is wrong! The 0.6c points do lie on the `x = 0` plane, but the
-# outter sections are twisted, which means the c0 and c4 points need their
-# y and z components adjusted along those twisted coord lines as well, not just
-# their x-components
+# Coordinates and chords are in meters, and must be normalized
+fx = scipy.interpolate.interp1d(s_xyz, xyz.T[0] / (b_flat / 2))
+fy = scipy.interpolate.interp1d(s_xyz, xyz.T[1] / (b_flat / 2))
+fz = scipy.interpolate.interp1d(s_xyz, (xyz.T[2] - xyz[6, 2]) / (b_flat / 2))
+fc = scipy.interpolate.interp1d(s_xyz, c / (b_flat / 2))
+ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
-
-# fig, ax = plt.subplots()
-# ax.plot(c0.T[1], c0.T[0])
-# ax.plot(c0.T[1], c0.T[0] - c)
-# ax.plot(c4.T[1], c4.T[0], 'g--')
-# ax.set_aspect('equal')
-# ax.grid(which='both')
-# plt.show()
-
-
-# What is the area of each panel, treating them as trapezoids?
-#  * Note: this does not account for the 3degree washout at the tips
-dA = (c[:-1] + c[1:])/2 * (xyz.T[1, 1:] - xyz.T[1, :-1])
+# Check: what is the area of each panel, treating them as trapezoids? (Does not
+# account for the 3 degree washout at the tips.)
+# FIXME: verify
+dA = (c[:-1] + c[1:]) / 2 * (xyz.T[1, 1:] - xyz.T[1, :-1])
 print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
-# I suspect the area is wrong because I'm not accounting for the twist
-
-# What is the quarter-chord sweep?
-v = c4[12] - c4[6]  # Vector from the central LE to the tip LE
-sweepMed = -np.rad2deg(np.arctan2(v[0], v[1]))
-# sweepMed -= 1.35
-sweepMed -= .5
-print(f"sweepMed: {sweepMed} [degrees]")
-
-# You could do the same for sweepMax, by solving for fx(y) as defined in PFD,
-# but that's a pain. Easier to find the root where the flat span matches the
-# specs.
 
 
 # ---------------------------------------------------------------------------
-# Second, build an approximate version using a ParafoilGeometry
+# Build the parafoil and wing
 
 airfoil_geo = Airfoil.NACA(23015, convention='british')
 airfoil_coefs = FlaplessAirfoilCoefficients(
     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
-
 airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
-# embed()
-sweepMax = 2*sweepMed + 1e-20
-# sweepMax += 11.75
-print("DEBUG> sweepMax:", sweepMax)
-planform = Parafoil.EllipticalPlanform(
-    b_flat, cc, taper, sweepMed, sweepMax,
-    torsion_exponent=1, torsion_max=0)
+
+class InterpolatedLobe:
+    """Interface to use a PchipInterpolator for the lobe."""
+
+    def __init__(self, s, y, z):
+        y = np.asarray(y)
+        z = np.asarray(z)
+
+        assert y.ndim == 1 and z.ndim == 1
+
+        self._f = PchipInterpolator(s, np.c_[y, z])
+        self._fd = self._f.derivative()
+
+    def __call__(self, s):
+        return self._f(s)
+
+    def derivative(self, s):
+        return self._fd(s)
 
 
-# Overwrite the default chord distribution; the Belloc model doesn't fit the
-# elliptical parametrization easily (the taper doesn't develop correctly).
-# Uses a smoothing spline to avoid sharp edges in the lifting line.
-dl = c4[1:] - c4[:-1]
-L = np.r_[0, np.cumsum(np.linalg.norm(dl, axis=1))]
-s = 2*(L / L[-1]) - 1  # Normalized distance, from -1..1
-# print("\n\n !!!! Avoiding the correct chord distribution !!!!\n")
-print("Replacing the default elliptical chord distribution with the raw data")
-planform.fc = PchipInterpolator(s, c)
-# Or, just use his chord distribution directly?  Belloc, Eq:2, pg 2
-# FIXME: this hotfix doesn't fix the EllipticalPlanform definition for SMC/MAC
+s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
+lobe = InterpolatedLobe(s, fy(s), fz(s))
 
-# Similarly, overwrite `ftheta` to incorporate the linear torsion
-twist = np.zeros(13)
-twist[:2] = np.deg2rad(3)
-twist[-2:] = np.deg2rad(3)
-# print("\n !!!! Avoiding the correct twist !!!!\n")
-print("Replacing the default `ftheta`")
-planform.ftheta = PchipInterpolator(s, twist)
+parafoil = Parafoil.ParafoilGeometry(
+    x=lambda _: 0,
+    r_x=0.6,
+    yz=lobe,
+    r_yz=0.6,
+    torsion=ftheta,
+    chord_length=fc,
+    b_flat=b_flat,
+    airfoil=airfoil,
+)
 
-print("Planform:")
-print(f" S: {planform.S}")
-print(f" b: {planform.b}")
-print(f" AR: {planform.AR}")
-
-dMed = -np.rad2deg(np.arctan2(h, b/2))
-dMax = -89.9
-lobe = Parafoil.EllipticalLobe(dMed, dMax)
-parafoil = Parafoil.ParafoilGeometry(planform, lobe, airfoil)
-
-# Double check the final 0.6c line (should be a straight line)
-# print("\nDEBUG> showing the final 0.6c line (should be straight)")
-# s = np.linspace(-1, 1, 200)
-# points = parafoil.c0(s)
-# orientations = parafoil.section_orientation(s)
-# points -= (0.6 * parafoil.planform.fc(s) * orientations.T[0]).T
-# plt.plot(points.T[1], points.T[0])
-# plt.xlabel('y')
-# plt.ylabel('0.6c')
-# plt.show()
-
-
-print(f"Projected span>: Expected: {b:.3f}, Actual: {parafoil.b:.3f}")
-
-print("\nFinished building the parafoil")
-
-# plots.plot_parafoil_planform(parafoil, N_sections=250)
-# plots.plot_parafoil_geo(parafoil, N_sections=250)
-
-
-# Double check the chord lengths across the span
-# s = np.linspace(-1, 1, 250)
-# fig, ax = plt.subplots()
-# ax.plot(parafoil.c4(s).T[1], parafoil.planform.fc(s), label='actual')
-# ax.plot(c4.T[1], c, marker='.', label='expected')
-# ax.legend()
-# ax.set_xlabel('projected span position')
-# ax.set_ylabel('chord length')
-# ax.set_aspect('equal')
-# plt.show()
-
-# embed()
-# 1/0
-
-
-# ---------------------------------------------------------------------------
-# Part 2: Define the wing
-
-# I want the 60% of each chord at x=0
-# ox = parafoil.planform.fc(0) * 0.6  # origin x at the central chord 60%
-# s = np.linspace(-1, 1, 13)  # 12 segments, so 13 dividing sections
-# print(parafoil.c0(s).T[0] - parafoil.planform.fc(s)*0.6 + ox)
-
-brakes = BrakeGeometry.Cubic(0, 0.75, delta_max=0)
-
-d_riser = 0.25  # For the 1/8 model, d_riser = 0.0875 / 0.350
-z_riser = 1  # The 1/8 scale model has the cg 1m below the central chord
-wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                      d_riser=d_riser, z_riser=z_riser,
-                      pA=0.08, pC=0.80,  # unused
-                      kappa_s=0.15)      # unused
+wing = ParagliderWing.ParagliderWing(
+    parafoil=parafoil,
+    force_estimator=Parafoil.Phillips,
+    brake_geo=BrakeGeometry.Cubic(0, 0.75, delta_max=0),  # unused
+    d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
+    z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
+    pA=0.08,  # unused
+    pC=0.80,  # unused
+    kappa_s=0.15,  # unused
+)
 
 # A `Harness` is required to instantiate the `Paraglider`, but should not
 # produce any forces (so zero weight and drag).
 harness = Harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
-glider = Paraglider(wing, harness)
+glider = Paraglider.Paraglider(wing, harness)
 
-print("\nFinished defining the brakes, wing, harness, and glider")
-# embed()
+print("\nFinished defining the complete wing. Pausing for review.\n")
+plots.plot_parafoil_geo(parafoil, N_sections=121)
+embed()
+# 1/0
 
 
 # ---------------------------------------------------------------------------
-# Part 3: Testing
+# Testing
 
 # The paper says the wind tunnel is being used at 40m/s to produce a Reynold's
 # number of 920,000. He neglects to mention the air density during the test,
 # but if the dynamic viscosity of the air is standard, then we can compute the
 # density of the air.
 Re = 0.92e6
-u = 40  # [m/s]
-L = 0.350  # [m]  the central chord of the model
+u = 40  # airspeed [m/s]
+L = 0.350  # central chord [m]
 mu = 1.81e-5  # Standard dynamic viscosity of air
 rho_air = Re * mu / (u * L)
 print("rho_air:", rho_air)
 
-# -----------------------------------
 # One-off test cases
-alpha, beta = np.deg2rad(7), np.deg2rad(0)
+# alpha, beta = np.deg2rad(7), np.deg2rad(0)
 # alpha, beta = np.deg2rad(25), np.deg2rad(0)
 # alpha, beta = np.deg2rad(24), np.deg2rad(5)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
-#
-# UVW = np.asarray([cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
+# UVW = np.asarray([np.cos(alpha)*np.cos(beta), np.sin(beta), np.sin(alpha)*np.cos(beta)])
 # PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
 # F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho=1)
 # embed()
@@ -322,6 +246,7 @@ alpha, beta = np.deg2rad(7), np.deg2rad(0)
 # Full-range tests
 Fs, Ms, Gammas = {}, {}, {}
 alphas = np.deg2rad(np.linspace(-5, 25, 150))
+# alphas = np.deg2rad(np.linspace(0, 10, 150))
 # betas = [0]
 # betas = [5]
 # betas = [0, 5]
@@ -338,8 +263,9 @@ for kb, beta_deg in enumerate(betas):
         # The Paraglider computes the net moments about the "CG"
 
         beta = np.deg2rad(beta_deg)
-        UVW = np.asarray([
-            cos(alpha)*cos(beta), sin(beta), sin(alpha)*cos(beta)])
+        UVW = np.asarray(
+            [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
+        )
         PQR = [0, 0, 0]
         g = [0, 0, 0]
         F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
@@ -348,9 +274,10 @@ for kb, beta_deg in enumerate(betas):
         # FIXME: if the previous solution has nan, this wastes time
         if np.any(np.isnan(Gamma)) and kb > 0:
             # Try using the solution for a previous beta as the proposal
-            Gamma = Gammas[betas[kb-1]][ka]
-            F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
-                                                    Gamma=Gamma)
+            Gamma = Gammas[betas[kb - 1]][ka]
+            F, M, Gamma = glider.forces_and_moments(
+                UVW, PQR, g=g, rho=rho_air, Gamma=Gamma,
+            )
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -359,18 +286,19 @@ for kb, beta_deg in enumerate(betas):
             Gamma = None  # Don't propagate the errors!!
     print()
 
-
 for beta in betas:
     Fs[beta] = np.asarray(Fs[beta])
     Ms[beta] = np.asarray(Ms[beta])
+
 print()
+print("\nFinished tests, preparing to plot. Pausing for review.\n")
+embed()
 
 # ---------------------------------------------------------------------------
 # Compute the aerodynamic coefficients
-#  * Uses the flattened wing area as the reference, as per the Belloc paper
+#
+# Uses the flattened wing area as the reference, as per the Belloc paper.
 
-# Hot-patching EllipticalPlanform broke `SMC`, `MAC`, and `S`
-print("Workaround: Using the planform area from the force_estimator sections")
 S = wing.force_estimator.dA.sum()
 
 coefficients = {}
@@ -380,19 +308,23 @@ for beta in betas:
 
     CX, CY, CZ = Fs[beta].T / (.5 * rho_air * S)
     CN = -CZ
-    CM = Ms[beta].T[1]/(.5 * rho_air * S * cc)  # Belloc uses the central chord
+    CM = Ms[beta].T[1] / (0.5 * rho_air * S * cc)  # Belloc uses the central chord
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
-    CD = -cos(alphas)*cos(beta_rad)*CX - sin(beta_rad)*CY + sin(alphas)*cos(beta_rad)*CN
-    CL = sin(alphas)*CX + cos(alphas)*CN
+    CD = (
+        -np.cos(alphas) * np.cos(beta_rad) * CX
+        - np.sin(beta_rad) * CY
+        + np.sin(alphas) * np.cos(beta_rad) * CN
+    )
+    CL = np.sin(alphas) * CX + np.cos(alphas) * CN
 
     # Compute the CL versus alpha slope using data from -5..5 degrees AoA
     nan_mask = np.isnan(alphas) | np.isnan(CL) | np.isnan(CD)
     alpha_mask = (alphas >= np.deg2rad(-5)) & (alphas <= np.deg2rad(5))
     mask = ~nan_mask & alpha_mask
-    CLp = Polynomial.fit(alphas[mask], CL[mask], 1)
-    CDp = Polynomial.fit(alphas[mask], CD[mask], 4)
+    CLp = np.polynomial.Polynomial.fit(alphas[mask], CL[mask], 1)
+    CDp = np.polynomial.Polynomial.fit(alphas[mask], CD[mask], 4)  # FIXME: 4?
     alpha_0 = CLp.roots()
     CD0 = CDp(alpha_0)
     print(f"CL slope: {CLp.deriv()(0)} [1/rad]")
@@ -446,11 +378,18 @@ ax[1, 0].set_ylim(-0.4, 1.0)
 ax[1, 0].legend()
 ax[1, 0].grid()
 
+# Compute the pitching moment coefficients:
+#
+# CM_CD : due to the drag force applied to the wing
+# CM_CL : due to the lift force applied to the wing
+# CM_c4 : due to the wing shape
+# CM_G: the total pitching moment = CM_CD + CM_CL + CM_c4
 CL = coefficients[0]['CL']
-CM_G = coefficients[0]['CM']                   # The total moment coefficient
-CM_CD = coefficients[0]['CD']*cos(alphas)/cc   # Eq: 8
-CM_CL = -coefficients[0]['CL']*sin(alphas)/cc  # Eq: 9
-CM_c4 = CM_G - CM_CL - CM_CD                   # Eq: 7
+CM_G = coefficients[0]['CM']
+CM_CD = coefficients[0]['CD'] * np.cos(alphas) / cc   # Eq: 8
+CM_CL = -coefficients[0]['CL'] * np.sin(alphas) / cc  # Eq: 9
+CM_c4 = CM_G - CM_CL - CM_CD                       # Eq: 7
+
 ax[0, 1].plot(CM_G, CL, label='CM_G', marker=m)
 ax[0, 1].plot(CM_CL, CL, label='CM_CL', marker=m)
 ax[0, 1].plot(CM_CD, CL, label='CM_CD', marker=m)

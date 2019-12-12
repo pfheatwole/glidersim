@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 
 import numpy as np
-from numpy import rad2deg
 
 from IPython import embed
 
@@ -46,8 +45,8 @@ def plot_polar_curve(glider, N=51):
     fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
 
     # alpha_eq
-    ax[0, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[0]), 'r')
-    ax[0, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[0]), 'g')
+    ax[0, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[0]), 'r')
+    ax[0, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[0]), 'g')
     ax[0, 0].set_ylabel('alpha_eq [deg]')
 
     # Polar curve
@@ -69,8 +68,8 @@ def plot_polar_curve(glider, N=51):
     ax[0, 1].minorticks_on()
 
     # Theta_eq
-    ax[1, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[1]), 'r')
-    ax[1, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[1]), 'g')
+    ax[1, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[1]), 'r')
+    ax[1, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[1]), 'g')
     ax[1, 0].set_xlabel('control input [percentage]')
     ax[1, 0].set_ylabel('Theta_eq [deg]')
 
@@ -155,40 +154,6 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     embed()
 
 
-def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
-                              SMC=None, MAC=None,
-                              dMax=None, sMax=None,
-                              torsion_max=0, torsion_exponent=6):
-
-    if SMC is None and MAC is None:
-        raise ValueError("One of the SMC or MAC are required")
-
-    if dMed > 0 or (dMax is not None and dMax > 0):
-        raise ValueError("dihedral must be negative")
-
-    if sMed < 0 or (sMax is not None and sMax < 0):
-        raise ValueError("sweep must be positive")  # FIXME: why?
-
-    if dMax is None:
-        dMax = 2*dMed - 1  # ref page 48 (56)
-        print(f"Using minimum max dihedral ({dMax})")
-
-    if sMax is None:
-        sMax = (2*sMed) + 1  # ref page 48 (56)
-        print(f"Using minimum max sweep ({sMax})")
-
-    if SMC is not None:
-        c0 = Parafoil.EllipticalPlanform.SMC_to_c0(SMC, taper)
-    else:
-        c0 = Parafoil.EllipticalPlanform.MAC_to_c0(MAC, taper)
-
-    planform = Parafoil.EllipticalPlanform(
-        b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
-    lobe = Parafoil.EllipticalLobe(dMed, dMax)
-
-    return Parafoil.ParafoilGeometry(planform, lobe, airfoil)
-
-
 def main():
 
     print('\n-------------------------------------------------------------\n')
@@ -246,47 +211,58 @@ def main():
     airfoil_geo = Airfoil.NACA(24018, convention='british')
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     delta_max = np.deg2rad(13.25)  # FIXME: magic number
+    # delta_max = np.deg2rad(10.00)  # FIXME: magic number  # 13.25 is giving convergence issues (and braking is broken anyway)
 
     plots.plot_airfoil_geo(airfoil_geo)
 
-    # -----------------------------------------------------------------------
-    # Parafoil
+    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
-    # Hook3 23 specs:
+    # -----------------------------------------------------------------------
+    # Parafoil: an approximate Niviuk Hook 3, size 23
+
+    # True technical specs
     chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
     S_flat, b_flat, AR_flat = 23, 11.15, 5.40
-    SMC_flat = b_flat/AR_flat
+    SMC_flat = b_flat / AR_flat
     S, b, AR = 19.55, 8.84, 4.00
-    V_limits_hook3 = np.array([24, 38, 52]) / 3.6  # min/trim/max in m/s
 
-    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
-    # parafoil = build_elliptical_parafoil(
-    #     b_flat=10, SMC=2.5, taper=0.35, dMed=-25, dMax=-70,
-    #     sMed=15, torsion_max=0, airfoil=airfoil)
-    parafoil = build_elliptical_parafoil(   # Hook 3 (ish)
-        b_flat=b_flat, SMC=SMC_flat, taper=0.35, dMed=-32, dMax=-75,
-        sMed=13.5, sMax=40, torsion_max=0, airfoil=airfoil)
+    # Build an approximate version. Anything not directly from the technical
+    # specs is a guess to make the projected values match up.
+    c_root = chord_max / (b_flat / 2)  # Proportional values
+    c_tip = chord_min / (b_flat / 2)
+    parafoil = Parafoil.ParafoilGeometry(
+        x=0,
+        r_x=0.75,
+        yz=Parafoil.elliptical_lobe(mean_anhedral=32, max_anhedral_rate=75),
+        r_yz=1.00,
+        torsion=Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2),
+        airfoil=airfoil,
+        chord_length=Parafoil.elliptical_chord(root=c_root, tip=c_tip),
+        intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),
+        b_flat=b_flat,  # Option 1: Determine the scale using the planform
+        # b=b,  # Option 2: Determine the scale using the lobe
+    )
 
-    print("planform flat span:", parafoil.planform.b)
-    print("planform flat area:", parafoil.planform.S)
-    print("planform flat AR:  ", parafoil.planform.AR)
-    print("planform flat SMC: ", parafoil.planform.SMC)
-    print("planform flat MAC: ", parafoil.planform.MAC)
+    print("planform flat span:", parafoil.b)
+    print("planform flat area:", parafoil.S)
+    print("planform flat AR:  ", parafoil.AR_flat)
+    # print("planform flat SMC: ", parafoil.SMC)
+    # print("planform flat MAC: ", parafoil.MAC)
 
     print("planform span:", parafoil.b)
     print("planform area:", parafoil.S)
     print("planform AR:  ", parafoil.AR)
 
     print("Drawing the parafoil")
-    plots.plot_parafoil_planform_topdown(parafoil)
-    plots.plot_parafoil_planform(parafoil, N_sections=50)
-    plots.plot_parafoil_geo(parafoil, N_sections=50)
+    # plots.plot_parafoil_planform_topdown(parafoil)
+    # plots.plot_parafoil_planform(parafoil, N_sections=50)
+    plots.plot_parafoil_geo(parafoil, N_sections=131)
 
     # -----------------------------------------------------------------------
     # Brake geometry
 
-    p_start, p_peak = 0, 0.75
-    # p_start, p_peak = 0.00, BrakeGeometry.Cubic.p_peak_min(0.00)
+    # p_start, p_peak = 0, 0.75
+    p_start, p_peak = 0.00, BrakeGeometry.Cubic.p_peak_min(0.00) + 1e-9
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
     # -----------------------------------------------------------------------
@@ -306,6 +282,7 @@ def main():
 
     # -----------------------------------------------------------------------
     # Tests
+    print("Computing the wing equilibrium...")
     alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
