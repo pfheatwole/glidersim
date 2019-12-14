@@ -7,6 +7,7 @@ from IPython import embed
 
 import numpy as np
 
+import scipy.interpolate
 import scipy.optimize
 
 from util import cross3
@@ -1138,7 +1139,7 @@ class Phillips(ForceEstimator):
             # G = Gamma + 0.05*p(self.s_cps)
 
             # Option 2: Smooth the final Gamma
-            p = UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
+            p = scipy.interpolate.UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
             G = p(self.s_cps)
 
             # Option 3: Smooth Gamma, and force Gamma to zero at the tips
