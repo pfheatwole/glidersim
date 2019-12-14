@@ -120,8 +120,7 @@ class ParagliderWing:
         """FIXME: add docstring."""
         def target(alpha, deltaB, deltaS):
             cp_wing = self.control_points(deltaS)
-            K = len(cp_wing)
-            v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
+            v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
             dM = dM_w.sum(axis=0)
             dM += cross3(cp_wing, dF_w).sum(axis=0)

@@ -863,7 +863,20 @@ class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
     def __call__(self, V_rel, delta):
-        """Estimate the forces and moments on a Parafoil"""
+        """
+        Estimate the forces and moments on a Parafoil.
+
+        Parameters
+        ----------
+        V_rel : array_like of float [m/s]
+            The velocity of the control points relative to the wind in FRD
+            coordinates. The shape must be able to broadcast to (K, 3), where
+            `K` is the number of control points being used by the estimator.
+        delta : array_like of float [m/s]
+            The deflection angle of each section. The shape must be able to
+            broadcast to (K,), where `K` is the number of control points being
+            used by the estimator.
+        """
 
     @property
     @abc.abstractmethod
@@ -1251,7 +1264,7 @@ class Phillips(ForceEstimator):
         return Gamma, v
 
     def __call__(self, V_rel, delta, initial_Gamma=None):
-        assert np.shape(V_rel) == (self.K, 3)
+        V_rel = np.broadcast_to(V_rel, (self.K, 3))
 
         V_w2cp = -V_rel
         Gamma, v = self._solve_circulation(V_w2cp, delta, initial_Gamma)
