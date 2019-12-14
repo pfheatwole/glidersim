@@ -206,11 +206,12 @@ class Paraglider:
 
         g = np.zeros(3)  # Don't include the weight of the harness
         V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-        dF_g, dM_g, _ = self.forces_and_moments(V, [0, 0, 0], g, rho_air,
-                                             delta_B, delta_B, delta_S)
+        F, M, _ = self.forces_and_moments(
+            V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_S,
+        )
 
         # FIXME: neglects the weight of the wing
-        Theta_eq = np.arctan2(dF_g[0], -dF_g[2])
-        V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/dF_g[2])
+        Theta_eq = np.arctan2(F[0], -F[2])
+        V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/F[2])
 
         return alpha_eq, Theta_eq, V_eq
