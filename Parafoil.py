@@ -1250,11 +1250,11 @@ class Phillips(ForceEstimator):
 
         return Gamma, v
 
-    def __call__(self, V_rel, delta, Gamma=None):
+    def __call__(self, V_rel, delta, initial_Gamma=None):
         assert np.shape(V_rel) == (self.K, 3)
 
         V_w2cp = -V_rel
-        Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma)
+        Gamma, v = self._solve_circulation(V_w2cp, delta, initial_Gamma)
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
