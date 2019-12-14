@@ -122,9 +122,9 @@ class ParagliderWing:
             cp_wing = self.control_points(deltaS)
             v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
-            dM = dM_w.sum(axis=0)
-            dM += cross3(cp_wing, dF_w).sum(axis=0)
-            return dM[1]  # Pitching moment
+            M = dM_w.sum(axis=0)
+            M += cross3(cp_wing, dF_w).sum(axis=0)
+            return M[1]  # Wing pitching moment
 
         x0, x1 = np.deg2rad([0, 9])  # FIXME: review these bounds
         res = root_scalar(target, args=(deltaB, deltaS), x0=x0, x1=x1)
