@@ -191,10 +191,10 @@ class ParagliderWing:
         return S
 
     # FIXME: moved from Parafoil. Verify and test.
-    def J(self, rho, N=2000):
+    def J(self, rho_air, N=2000):
         raise NotImplementedError("BROKEN!")
         S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho * self.density_factor
+        wing_air_density = rho_air * self.density_factor
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 

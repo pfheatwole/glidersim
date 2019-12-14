@@ -21,7 +21,7 @@ def plot_polar_curve(glider, N=51):
     print("Calculating equilibriums over the range of speedbar")
     for n, ds in enumerate(delta_ss):
         print("\rds: {:.2f}".format(ds), end="")
-        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, ds, rho=1.2)
+        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, ds, rho_air=1.2)
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
         speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
@@ -32,7 +32,7 @@ def plot_polar_curve(glider, N=51):
     print("Calculating equilibriums over the range of brake")
     for n, db in enumerate(delta_Bs):
         print("\rdb: {:.2f}".format(db), end="")
-        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(db, 0, rho=1.2)
+        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(db, 0, rho_air=1.2)
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
         brake_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
@@ -98,7 +98,7 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     for alpha in alphas:
         g = [0, 0, 0]
         UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
-        F, M, _, = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
+        F, M, _, = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho_air=rho_air,
                                          delta_Bl=delta_B, delta_Br=delta_B)
         Fs.append(F)
         Ms.append(M)
@@ -283,7 +283,7 @@ def main():
     # -----------------------------------------------------------------------
     # Tests
     print("Computing the wing equilibrium...")
-    alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
+    alpha, Theta, V = glider.equilibrium_glide(0, 0, rho_air=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
     print("Equilibrium condition: alpha={:.3f}, Theta={:.3f}, V={}".format(
@@ -295,7 +295,7 @@ def main():
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
-    F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+    F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho_air=1.2,
                                      delta_Bl=0, delta_Br=0)
 
     print("\nGlider results:")
@@ -306,7 +306,7 @@ def main():
     print("M:    ", M.round(4))
     print()
 
-    alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, 0, rho=1.2)
+    alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, 0, rho_air=1.2)
     gamma_eq = alpha_eq - Theta_eq
     print("Wing equilibrium angle of attack:", np.rad2deg(alpha_eq))
 

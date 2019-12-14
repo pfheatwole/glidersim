@@ -49,7 +49,7 @@ class Paraglider:
         harness_cps = self.harness.control_points()
         return np.vstack((wing_cps, harness_cps))
 
-    def forces_and_moments(self, UVW, PQR, g, rho,
+    def forces_and_moments(self, UVW, PQR, g, rho_air,
                            delta_Bl=0, delta_Br=0, delta_s=0,
                            v_w2e=None, xyz=None, Gamma=None):
         """
@@ -68,7 +68,7 @@ class Paraglider:
             Angular velocity of the body, in frd coordinates.
         g : array_like of float, shape (3,)
             The gravity unit vector
-        rho : float [kg/m^3]
+        rho_air : float [kg/m^3]
             The ambient air density
         delta_Bl : float [percentage]
             The fraction of maximum left brake
@@ -154,8 +154,8 @@ class Paraglider:
 
         # Scale the aerodynamic forces to account for the air density before
         # adding the weight of the harness
-        F *= rho
-        M *= rho
+        F *= rho_air
+        M *= rho_air
 
         # The harness also contributes a gravitational force, but since this
         # model places the cg at the harness, that force does not generate a
@@ -164,7 +164,7 @@ class Paraglider:
 
         return F, M, Gamma
 
-    def equilibrium_glide(self, delta_B, delta_S, rho, alpha_eq=None):
+    def equilibrium_glide(self, delta_B, delta_S, rho_air, alpha_eq=None):
         r"""
         Steady-state angle of attack, pitch angle, and airspeed.
 
@@ -174,7 +174,7 @@ class Paraglider:
             Percentage of symmetric brake application
         delta_S : float [percentage]
             Percentage of speed bar application
-        rho : float [kg/m^3]
+        rho_air : float [kg/m^3]
             Air density. Default value is 1.
         alpha_eq : float [radians] (optional)
             Steady-state angle of attack
@@ -206,7 +206,7 @@ class Paraglider:
 
         g = np.zeros(3)  # Don't include the weight of the harness
         V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-        dF_g, dM_g, _ = self.forces_and_moments(V, [0, 0, 0], g, rho,
+        dF_g, dM_g, _ = self.forces_and_moments(V, [0, 0, 0], g, rho_air,
                                              delta_B, delta_B, delta_S)
 
         # FIXME: neglects the weight of the wing
