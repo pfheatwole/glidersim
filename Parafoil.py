@@ -535,31 +535,38 @@ class ParafoilGeometry:
     @property
     def S(self):
         """
-        Approximate the surface area of the inflated parafoil.
+        Approximate the projected surface area of the inflated parafoil.
 
         This is the conventional definition using the area traced out by the
-        section chords. It is not the total surface area of the volume.
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
         """
-        warnings.warn("ParafoilGeometry.S is not well tested")
+        s = np.linspace(-1, 1, 1000)
+        LEx, LEy = self.chord_xyz(s, 0)[:, :2].T
+        TEx, TEy = self.chord_xyz(s, 1)[:, :2].T
 
-        # FIXME: crude approximation. Doesn't even account for torsion.
-        s = np.linspace(-1, 1, 10000)
-        xyz = self.chord_xyz(s, 0.5)
-        c = self.chord_length(s)
-        dA = (c[:-1] + c[1:]) / 2 * (xyz.T[1, 1:] - xyz.T[1, :-1])
-        return dA.sum()
+        # Three areas: curved front, trapezoidal mid, and curved rear
+        LE_area = scipy.integrate.simps(LEx - LEx.min(), LEy)
+        mid_area = (LEy.ptp() + TEy.ptp()) / 2 * (LEx.min() - TEx.max())
+        TE_area = -scipy.integrate.simps(TEx - TEx.max(), TEy)
+        return LE_area + mid_area + TE_area
 
     @property
     def S_flat(self):
         """
-        Approximate the surface area of the flattened parafoil.
+        Approximate the projected surface area of the flattened parafoil.
 
         This is the conventional definition using the area traced out by the
-        section chords. It is not the total surface area of the volume.
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
         """
-        warnings.warn("ParafoilGeometry.S_flat is not well tested")
+        warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
 
-        # FIXME: VERIFY!!!
+        # FIXME: Tends to overestimate since it calculates raw chord areas, not
+        # those areas projected onto the xy-plane. This is approximately
+        # correct since the planform is mostly flat, but it does mean it does
+        # not account for torsion.
+
         s_nodes = np.linspace(-1, 1, 1000)
         nodes = self.chord_xyz(s_nodes, 0.5)
         midpoints = (s_nodes[1:] + s_nodes[:-1]) / 2
