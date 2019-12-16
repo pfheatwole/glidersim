@@ -51,7 +51,7 @@ class Paraglider:
 
     def forces_and_moments(self, UVW, PQR, g, rho_air,
                            delta_Bl=0, delta_Br=0, delta_s=0,
-                           v_w2e=None, xyz=None, initial_Gamma=None):
+                           v_w2e=None, xyz=None, reference_solution=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
 
@@ -93,10 +93,8 @@ class Paraglider:
             would be the more intuitive, but would incur extra computation time
             for finding the control points; the only point of `xyz` is to avoid
             recomputing them.
-
-        initial_Gamma : array of float, shape (K,) [units?] (optional)
-            An initial guess for the circulation distribution, to improve
-            convergence
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Returns
         -------
@@ -144,7 +142,9 @@ class Paraglider:
         v_harness = v_cp2w[-1]
 
         # Compute the resultant force and moment about the cg
-        dF_w, dM_w, Gamma = self.wing.forces_and_moments(v_wing, delta_Bl, delta_Br, initial_Gamma)
+        dF_w, dM_w, ref = self.wing.forces_and_moments(
+            v_wing, delta_Bl, delta_Br, reference_solution,
+        )
         dF_h, dM_h = self.harness.forces_and_moments(v_harness)
         F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
@@ -163,9 +163,11 @@ class Paraglider:
         # moment.
         F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
 
-        return F, M, Gamma
+        return F, M, ref
 
-    def equilibrium_glide(self, delta_B, delta_S, rho_air, alpha_eq=None):
+    def equilibrium_glide(
+        self, delta_B, delta_S, rho_air, alpha_eq=None, reference_solution=None,
+    ):
         r"""
         Steady-state angle of attack, pitch angle, and airspeed.
 
@@ -179,6 +181,8 @@ class Paraglider:
             Air density. Default value is 1.
         alpha_eq : float [radians] (optional)
             Steady-state angle of attack
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Returns
         -------
@@ -188,6 +192,8 @@ class Paraglider:
             Steady-state pitch angle
         V_eq : float [meters/second]
             Steady-state airspeed
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Notes
         -----
@@ -203,11 +209,11 @@ class Paraglider:
         where `m` is the mass of the harness + pilot.
         """
         if alpha_eq is None:
-            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S)
+            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S, reference_solution)
 
         g = np.zeros(3)  # Don't include the weight of the harness
         V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-        F, M, _ = self.forces_and_moments(
+        F, M, solution = self.forces_and_moments(
             V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_S,
         )
 
@@ -215,4 +221,4 @@ class Paraglider:
         Theta_eq = np.arctan2(F[0], -F[2])
         V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/F[2])
 
-        return alpha_eq, Theta_eq, V_eq
+        return alpha_eq, Theta_eq, V_eq, solution

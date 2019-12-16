@@ -7,6 +7,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.optimize import root_scalar
 
+import Parafoil
 from util import cross3
 
 
@@ -66,7 +67,7 @@ class ParagliderWing:
         self.rho_upper = 40 / 1000  # kg/m2
         self.rho_lower = 35 / 1000  # kg/m2
 
-    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, initial_Gamma=None):
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, reference_solution=None):
         """
         FIXME: add docstring.
 
@@ -78,19 +79,20 @@ class ParagliderWing:
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
-        initial_Gamma : array of float, shape (K,) [m^2/s], optional
-            An initial guess for the circulation distribution, to improve
-            convergence
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Returns
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, Gamma = self.force_estimator(V_cp2w, delta, initial_Gamma)
-        return dF, dM, Gamma
+        dF, dM, solution = self.force_estimator(V_cp2w, delta, reference_solution)
+        return dF, dM, solution
 
     def foil_origin(self, delta_s=0):
         """
@@ -116,20 +118,24 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def equilibrium_alpha(self, deltaB, deltaS):
+    def equilibrium_alpha(self, deltaB, deltaS, reference_solution=None):
         """FIXME: add docstring."""
-        def target(alpha, deltaB, deltaS):
+        def target(alpha, deltaB, deltaS, reference_solution):
             cp_wing = self.control_points(deltaS)
             v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
-            dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
+            dF_w, dM_w, _ = self.forces_and_moments(
+                v_wing, deltaB, deltaB, reference_solution,
+            )
             M = dM_w.sum(axis=0)
             M += cross3(cp_wing, dF_w).sum(axis=0)
             return M[1]  # Wing pitching moment
 
         x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
-        res = root_scalar(target, args=(deltaB, deltaS), x0=x0, x1=x1)
+        res = root_scalar(
+            target, args=(deltaB, deltaS, reference_solution), x0=x0, x1=x1,
+        )  # FIXME: add `rtol`?
         if not res.converged:
-            raise RuntimeError(f"Failed to converge: {res.flag}")
+            raise Parafoil.ForceEstimator.ConvergenceError
         return res.root
 
     def control_points(self, delta_s=0):

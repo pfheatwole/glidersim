@@ -870,13 +870,13 @@ class ParafoilGeometry:
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, V_rel, delta):
+    def __call__(self, V_cp2w, delta):
         """
         Estimate the forces and moments on a Parafoil.
 
         Parameters
         ----------
-        V_rel : array_like of float [m/s]
+        V_cp2w : array_like of float [m/s]
             The velocity of the control points relative to the wind in FRD
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
@@ -890,6 +890,9 @@ class ForceEstimator(abc.ABC):
     @abc.abstractmethod
     def control_points(self):
         """The reference points for calculating the section forces"""
+
+    class ConvergenceError(RuntimeError):
+        """The estimator failed to converge on a solution."""
 
 
 class Phillips(ForceEstimator):
@@ -924,7 +927,16 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil):
+    def __init__(self, parafoil, alpha_ref=8.5):
+        """
+        Initialize the estimator.
+
+        Parameters
+        ----------
+        parafoil : ParafoilGeometry
+        alpha_ref : float [degrees]
+            The angle of attack for the reference solution.
+        """
         self.parafoil = parafoil
 
         # Define the spanwise and nodal and control points
@@ -970,6 +982,20 @@ class Phillips(ForceEstimator):
                 continue
             self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
+
+        # Precompute a reference solution from an easy base case
+        alpha_ref = np.deg2rad(alpha_ref)
+        V_ref = np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
+        delta_ref = np.zeros(self.K)
+        self._reference_solution = {
+            'V_w2cp': -V_ref,
+            'delta': delta_ref,
+            'Gamma': None,
+        }
+        try:
+            _, _, self._reference_solution = self.__call__(V_ref, delta_ref)
+        except ForceEstimator.ConvergenceError:
+            raise RuntimeError("Phillips: failed to initialize base case")
 
     @property
     def control_points(self):
@@ -1248,24 +1274,53 @@ class Phillips(ForceEstimator):
         #     print("The gradient method failed, using fixed-point iteration")
         #     res = self._fixed_point_circulation(Gamma0, *args, **options)
 
-        if res["success"]:
-            Gamma = res["x"]
-        else:
-            print("Phillips> failed to solve for Gamma")
-            Gamma = np.full_like(Gamma0, np.nan)
-            embed()
+        if not res["success"]:
+            raise ForceEstimator.ConvergenceError
 
-        # print("Phillips> finished _solve_circulation\n")
-        # embed()
+        return res["x"], v
 
-        return Gamma, v
-
-    def __call__(self, V_rel, delta, initial_Gamma=None):
-        V_rel = np.broadcast_to(V_rel, (self.K, 3))
+    def __call__(self, V_cp2w, delta, reference_solution=None, max_iterations=50):
+        # FIXME: this doesn't match the ForceEstimator.__call__ signature
+        V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
         delta = np.broadcast_to(delta, (self.K))
 
-        V_w2cp = -V_rel
-        Gamma, v = self._solve_circulation(V_w2cp, delta, initial_Gamma)
+        if reference_solution is None:
+            reference_solution = self._reference_solution
+
+        V_w2cp_ref = reference_solution['V_w2cp']
+        delta_ref = reference_solution['delta']
+        Gamma_ref = reference_solution['Gamma']
+        if Gamma_ref is not None:
+            assert not np.any(np.isnan(Gamma_ref))
+
+        # Try to solve for the target (`Gamma` as a function of `V_cp2w` and
+        # `delta`) directly using the `reference_solution`. If that fails, pick
+        # a point between the target and the reference, and solve for that
+        # easier case. Repeat for intermediate targets until either solving for
+        # the original target, or exceeding `max_iterations`.
+        V_w2cp = -V_cp2w
+        target_backlog = []  # Stack of pending targets
+        for _ in range(max_iterations):
+            try:
+                Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma_ref)
+            except ForceEstimator.ConvergenceError:
+                target_backlog.append((V_w2cp, delta))
+                P = 0.5  # Ratio, a point between the reference and the target
+                V_w2cp = V_w2cp_ref + P * (V_w2cp - V_w2cp_ref)
+                delta = delta_ref + P * (delta - delta_ref)
+                continue
+
+            V_w2cp_ref = V_w2cp
+            delta_ref = delta
+            Gamma_ref = Gamma
+
+            if target_backlog:
+                V_w2cp, delta = target_backlog.pop()
+            else:
+                break
+        else:
+            raise ForceEstimator.ConvergenceError("max iterations reached")
+
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
@@ -1293,7 +1348,13 @@ class Phillips(ForceEstimator):
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
-        return dF.T, dM.T, Gamma
+        solution = {
+            'V_w2cp': V_w2cp_ref,
+            'delta': delta_ref,
+            'Gamma': Gamma_ref,
+        }
+
+        return dF.T, dM.T, solution
 
 
 if __name__ == "__main__":

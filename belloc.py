@@ -239,13 +239,14 @@ print("rho_air:", rho_air)
 # alpha, beta = np.deg2rad(-5), np.deg2rad(10)
 # UVW = np.asarray([np.cos(alpha)*np.cos(beta), np.sin(beta), np.sin(alpha)*np.cos(beta)])
 # PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
-# F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho=1)
+# F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho_air=1)
 # embed()
 # 1/0
 
 # Full-range tests
-Fs, Ms, Gammas = {}, {}, {}
-alphas = np.deg2rad(np.linspace(-5, 25, 150))
+Fs, Ms, solutions = {}, {}, {}
+alphas = {}
+# alphas = np.deg2rad(np.linspace(-5, 20, 150))
 # alphas = np.deg2rad(np.linspace(0, 10, 150))
 # betas = [0]
 # betas = [5]
@@ -253,37 +254,74 @@ alphas = np.deg2rad(np.linspace(-5, 25, 150))
 # betas = [0, 5, 10]
 # betas = [0, 5, 10, 15]
 betas = np.arange(16)
+
+PQR = [0, 0, 0]
+g = [0, 0, 0]
+
 for kb, beta_deg in enumerate(betas):
-    Fs[beta_deg], Ms[beta_deg], Gammas[beta_deg] = [], [], []
+    Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
 
-    # FIXME: start from alpha=0 to improve convergence
-    Gamma = None
-    for ka, alpha in enumerate(alphas):
+    alphas_up = np.deg2rad(np.linspace(2, 25, 150))
+    alphas_down = np.deg2rad(np.linspace(-8, 2, 40, endpoint=False))[::-1]
+
+    # First, going down
+    ref = None
+    for ka, alpha in enumerate(alphas_down):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
-        # The Paraglider computes the net moments about the "CG"
-
         beta = np.deg2rad(beta_deg)
         UVW = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
-        PQR = [0, 0, 0]
-        g = [0, 0, 0]
-        F, M, Gamma = glider.forces_and_moments(UVW, PQR, g=g, rho=rho_air,
-                                                Gamma=Gamma)
 
-        # FIXME: if the previous solution has nan, this wastes time
-        if np.any(np.isnan(Gamma)) and kb > 0:
-            # Try using the solution for a previous beta as the proposal
-            Gamma = Gammas[betas[kb - 1]][ka]
-            F, M, Gamma = glider.forces_and_moments(
-                UVW, PQR, g=g, rho=rho_air, Gamma=Gamma,
+        try:
+            F, M, ref = glider.forces_and_moments(
+                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
             )
+        except Parafoil.ForceEstimator.ConvergenceError:
+            ka -= 1  # FIXME: messing with the index!
+            break
+            # FIXME: continue, or break? Maybe try the solution from a previous
+            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
-        Gammas[beta_deg].append(Gamma)
-        if np.any(np.isnan(Gamma)):
-            Gamma = None  # Don't propagate the errors!!
+        solutions[beta_deg].append(ref)
+
+    alphas_down = alphas_down[:ka+1]  # Truncate when convergence failed
+
+    # Reverse the order
+    Fs[beta_deg] = Fs[beta_deg][::-1]
+    Ms[beta_deg] = Ms[beta_deg][::-1]
+    solutions[beta_deg] = solutions[beta_deg][::-1]
+    alphas_down = alphas_down[::-1]
+
+    # Again, going up
+    ref = None
+    for ka, alpha in enumerate(alphas_up):
+        print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
+        beta = np.deg2rad(beta_deg)
+        UVW = np.asarray(
+            [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
+        )
+
+        try:
+            F, M, ref = glider.forces_and_moments(
+                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
+            )
+        except Parafoil.ForceEstimator.ConvergenceError:
+            ka -= 1  # FIXME: messing with the index!
+            break
+            # FIXME: continue, or break? Maybe try the solution from a previous
+            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+
+        Fs[beta_deg].append(F)
+        Ms[beta_deg].append(M)
+        solutions[beta_deg].append(ref)
+
+    alphas_up = alphas_up[:ka+1]  # Truncate when convergence failed
+
+    alphas[beta_deg] = np.r_[alphas_down, alphas_up]  # Stitch them together
+
     print()
 
 for beta in betas:
@@ -313,18 +351,15 @@ for beta in betas:
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
     CD = (
-        -np.cos(alphas) * np.cos(beta_rad) * CX
+        -np.cos(alphas[beta]) * np.cos(beta_rad) * CX
         - np.sin(beta_rad) * CY
-        + np.sin(alphas) * np.cos(beta_rad) * CN
+        + np.sin(alphas[beta]) * np.cos(beta_rad) * CN
     )
-    CL = np.sin(alphas) * CX + np.cos(alphas) * CN
+    CL = np.sin(alphas[beta]) * CX + np.cos(alphas[beta]) * CN
 
     # Compute the CL versus alpha slope using data from -5..5 degrees AoA
-    nan_mask = np.isnan(alphas) | np.isnan(CL) | np.isnan(CD)
-    alpha_mask = (alphas >= np.deg2rad(-5)) & (alphas <= np.deg2rad(5))
-    mask = ~nan_mask & alpha_mask
-    CLp = np.polynomial.Polynomial.fit(alphas[mask], CL[mask], 1)
-    CDp = np.polynomial.Polynomial.fit(alphas[mask], CD[mask], 4)  # FIXME: 4?
+    CLp = np.polynomial.Polynomial.fit(alphas[beta], CL, 1)
+    CDp = np.polynomial.Polynomial.fit(alphas[beta], CD, 4)  # FIXME: 4?
     alpha_0 = CLp.roots()
     CD0 = CDp(alpha_0)
     print(f"CL slope: {CLp.deriv()(0)} [1/rad]")
@@ -356,10 +391,10 @@ fig, ax = plt.subplots(2, 2)
 for beta in sorted(plotted_betas.intersection(betas)):
     CL = coefficients[beta]['CL']
     CD = coefficients[beta]['CD']
-    CM_G = coefficients[0]['CM']
+    CM_G = coefficients[beta]['CM']
     m = '.'
     m = None
-    ax[0, 0].plot(np.rad2deg(alphas), CL, label=r'$\beta$={}°'.format(beta),
+    ax[0, 0].plot(np.rad2deg(alphas[beta]), CL, label=r'$\beta$={}°'.format(beta),
                   marker=m)
     ax[1, 0].plot(CD, CL, label=r'$\beta$={}°'.format(beta), marker=m)
     ax[1, 1].plot(CM_G, CL, label=r'$\beta$={}°'.format(beta), marker=m)
@@ -386,8 +421,8 @@ ax[1, 0].grid()
 # CM_G: the total pitching moment = CM_CD + CM_CL + CM_c4
 CL = coefficients[0]['CL']
 CM_G = coefficients[0]['CM']
-CM_CD = coefficients[0]['CD'] * np.cos(alphas) / cc   # Eq: 8
-CM_CL = -coefficients[0]['CL'] * np.sin(alphas) / cc  # Eq: 9
+CM_CD = coefficients[0]['CD'] * np.cos(alphas[0]) / cc   # Eq: 8
+CM_CL = -coefficients[0]['CL'] * np.sin(alphas[0]) / cc  # Eq: 9
 CM_c4 = CM_G - CM_CL - CM_CD                       # Eq: 7
 
 ax[0, 1].plot(CM_G, CL, label='CM_G', marker=m)
@@ -410,15 +445,15 @@ ax[1, 1].grid()
 
 
 # Figures 9, 11, and 12
-ix_a0 = np.argmin(np.abs(np.rad2deg(alphas) - 0))
-ix_a5 = np.argmin(np.abs(np.rad2deg(alphas) - 5))
-ix_a10 = np.argmin(np.abs(np.rad2deg(alphas) - 10))
-ix_a15 = np.argmin(np.abs(np.rad2deg(alphas) - 15))
-
 Cy_a0, Cy_a5, Cy_a10, Cy_a15 = [], [], [], []
 Cl_a0, Cl_a5, Cl_a10, Cl_a15 = [], [], [], []
 Cn_a0, Cn_a5, Cn_a10, Cn_a15 = [], [], [], []
 for beta in betas:
+    ix_a0 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 0))
+    ix_a5 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 5))
+    ix_a10 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 10))
+    ix_a15 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 15))
+
     # Lateral force
     Cy_a0.append(Fs[beta].T[1][ix_a0] / (.5 * rho_air * S))
     Cy_a5.append(Fs[beta].T[1][ix_a5] / (.5 * rho_air * S))
