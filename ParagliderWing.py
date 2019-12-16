@@ -126,7 +126,7 @@ class ParagliderWing:
             M += cross3(cp_wing, dF_w).sum(axis=0)
             return M[1]  # Wing pitching moment
 
-        x0, x1 = np.deg2rad([0, 9])  # FIXME: review these bounds
+        x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
         res = root_scalar(target, args=(deltaB, deltaS), x0=x0, x1=x1)
         if not res.converged:
             raise RuntimeError(f"Failed to converge: {res.flag}")
