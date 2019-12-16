@@ -988,30 +988,19 @@ class Phillips(ForceEstimator):
         return v / (4 * np.pi)
 
     def _proposal1(self, V_w2cp, delta):
-        # Generate an elliptical Gamma distribution that uses the wing root
-        # velocity as a scaling factor
+        """
+        Generate a naive elliptical Gamma distribution.
 
-        # FIXME: this version is dumb in the sense that the alpha to the
-        # *section* is much less (see the alternative below), but also in the
-        # sense that I'm only using alpha at the root (CL_2d[mid]) anyway?
-        alpha_2d = np.arctan(V_w2cp[:, 2] / V_w2cp[:, 0])
-
-        # V_n = np.einsum("ik,ik->i", V_w2cp, self.u_n)  # Normal-wise
-        # V_a = np.einsum("ik,ik->i", V_w2cp, self.u_a)  # Chordwise
-        # alpha_2d = np.arctan(V_n / V_a)
-
-        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta)
+        Uses the wing root velocity as a scaling factor, and ignores the rest
+        of `V_w2cp`. Doesn't care about the wing shape either, since it uses
+        the section index to generate the values (and ignores the actual
+        coordinates of those sections).
+        """
         mid = self.K // 2
-        Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d[mid]
-
-        # Assumes the wing is symmetric and that `2 * cp_y[-1]` equals the
-        # projected span. Using `parafoil.b` directly is dangerous: if it
-        # wasn't calculated using the quarter-chord position at `s = 1` then
-        # you might get negative values for the square root.
-        # FIXME: add sanity checks.
-        cp_y = self.cps[:, 1]
-        Gamma = Gamma0 * np.sqrt(1 - (cp_y / cp_y[-1]) ** 2) + 0.01
-
+        alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
+        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
+        Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d
+        Gamma = Gamma0 * np.sqrt(1 - self.s_cps ** 2)
         return Gamma
 
     def _local_velocities(self, V_w2cp, Gamma, v):
@@ -1273,6 +1262,7 @@ class Phillips(ForceEstimator):
 
     def __call__(self, V_rel, delta, initial_Gamma=None):
         V_rel = np.broadcast_to(V_rel, (self.K, 3))
+        delta = np.broadcast_to(delta, (self.K))
 
         V_w2cp = -V_rel
         Gamma, v = self._solve_circulation(V_w2cp, delta, initial_Gamma)
