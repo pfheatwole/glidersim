@@ -935,7 +935,7 @@ class Phillips(ForceEstimator):
 
         # Option 2: cosine distribution
         # self.K = 21  # The number of bound vortex segments
-        # self.s_nodes = cos(linspace(np.pi, 0, self.K+1))
+        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
         self.nodes = self.parafoil.chord_xyz(self.s_nodes, 0.25)
