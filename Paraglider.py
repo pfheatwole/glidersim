@@ -127,6 +127,7 @@ class Paraglider:
         if xyz is None:
             xyz = self.control_points(delta_s)
 
+        UVW = np.asarray(UVW)
         if UVW.shape != (3,):
             raise ValueError("UVW must be a 3-vector velocity of the body cm")
 
