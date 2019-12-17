@@ -1,20 +1,14 @@
 General
 =======
 
+* The should module filenames be lowercase?
+
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
   Numba to warn me about it, at least.
 
-* Should types be "array of" or "ndarray of"? I lean towards "array", but
-  would it be better to use the canonical name so sphinx can link to the numpy
-  datatype documentation?
-
-* Where did I get ``dMed`` and ``dMax`` for my Hook3 specs?
-
-* Replace ``cross3`` with the new numba version (introduced in version 0.46).
-  Do a basic performance comparison to verify, but it's probably worth it. I'd
-  love to just ``try`` to jit the functions, and fail gracefully if numba is
-  not installed. (Maybe define an ``njit`` wrapper that tries to import numba
-  just once, and defines a noop if that fails.)
+* Should docstring types be "array of" or "ndarray of"? I lean towards
+  "array", but would it be better to use the canonical name so sphinx can link
+  to the numpy datatype documentation?
 
 * Bundle the components (paraglider model, wind models, simulator) into
   a unified package for delivery with my thesis
@@ -25,17 +19,34 @@ General
     <environment stuff>)? Can they?
 
 
+Plots
+-----
+
+* Clean up all the plots
+
+* Storyboard a parafoil design overview. Shoot for a (2,3) (flattened,
+  inflated) in a 16:9 ratio. Once you can generate the overview given a single
+  wing, generate a sequence of wings over an array of design parameters, and
+  animate the overview figure (ie, animate all six plots in a single video).
+
+
 Low priority
 ------------
 
 * Review function parameters for compatibility with either scalar or array
   arguments
 
-* Investigate Numba compatibility; where it's needed, and how to enable it
-
 * Investigate applying the PFD stability analyses in the context of my
   refactored design (eg, longitudinal static stability as a function of speed
   bar, and thus as a function of {d_cg, h_cg})
+
+* Do a performance comparison between `cross3` and the `np.cross`
+  implementation added to Numba `v0.46`. As of 2019-12-16, that function is
+  roughly 60% slower on small arrays, and nearly 8x slower on `10000x1000x3`
+  arrays.
+
+* Define an `njit` wrapper that replaces `njit` with a noop if `import numba`
+  fails?
 
 
 Airfoil
@@ -114,106 +125,18 @@ Low priority
 Parafoil
 ========
 
-* Redesign the `ParafoilGeometry` functions fx/fy/fz/c0/c4 (#NEXT)
+Geometry
+--------
 
-  * They're all basically doing the same thing. Like c0 and c4: you should
-    have a general function that gives the coordinates anywhere along the
-    chord for any given spanwise station, like
-    `ParafoilGeometry.chord_position(s, pc)`, where `s` is -1..1 for the
-    normalized spanwise coordinates, and `pc` is the fraction of the chord (so
-    pc=0 for the leading edge, pc=0.25 for the quarter chord, and pc=1 for the
-    trailing edge).
-
-  * Should I do a similar treatment for the upper and lower surfaces?
-    Shouldn't be difficult. For the airfoils I've defined 0..1 for the upper
-    surface and 0..-1 for the lower surface, so the API would match very
-    closely. Seems convenient since it'd let you draw arbitrary curves over
-    the surface of the wing; might be useful for visualization purposes.
-
-* Fix the naming of the central chord `c0` versus the position of the leading
-  edge `c0` (Should be a non-issue once I replace the `c0` function with
-  a generalized "position on the chord" function.)
+* `ParafoilGeometry.mass_properties` does not pass `s_upper` and `s_lower` to
+  `Airfoil.mass_properties`: the upper/lower surface inertias are likely
+  overestimated/underestimated (a little bit).
 
 * Fix the inertia calculations: right now it places all the segment mass on the
   airfoil bisecting the center of the segment. The code doesn't spread the mass
   out along the segment span, so it underestimates `I_xx` and `I_zz` by
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
-
-
-Geometry
---------
-
-* Should the `Parafoil` be responsible for `s_upper` and `s_lower`? An airfoil
-  is simply a cross-sectional area. Then again, the airfoil is determining the
-  inertia for that cross-section, which will depend on the placement of the
-  materials... Hrm. The benefit to moving ownership to the parafoil is that
-  then you could make the air intake a function of the span instead of fixed
-  over the entire wing.
-
-* **Review the origin and usage of `s` in the Parafoil geometries**. Go
-  through that sucker with a fine toothed comb; I'm not sure I trust it.
-
-* The "fx/fy/fz" are weird: their name is non-descriptive, and the fact that
-  they're completely tied to the quarter-chord is odd. Can I decouple the
-  Parafoil fx/fy/fz from the Planform or Lobe definitions? Make something more
-  general? I'm already looking to generalize the "c0" and "c4" functions;
-  seems like **those overlap with fx/fy/fz**.
-
-* Remove ``lobe_args``? They're unused right now; put them in there as
-  placeholder to remind me that some class "properties" might need to be
-  functions.
-
-* I'm a little concerned the cross-product of inertia ``J_xz`` aren't bigger.
-  I thought that rolling and yawing a pretty strongly related? Or is that rule
-  of thumb mostly for regular aircraft?
-
-
-Generalize the chord position functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-I'd like to generalize the Parafoil model to return any position on the chord
-for any spanwise station. Right now I have both ``ParafoilGeometry.c0`` and
-``ParafoilGeometry.c4``, which is not only needlessly limiting (to specific
-points on the chord), but more importantly they are confusing for several
-reason:
-
-* `c0` is basically `leading edge + c*0` whereas `c4` is really `leading edge
-  + c/4`. (Multiplication versus division.)
-
-* I use `c0` for the total length of the central chord of the planform, not
-  a position.
-
-  * Sidenote: **replace `planform.c0` with `planform.c_0`, for consistency**
-
-
-What should the new signature for chord positions look like?
-
-.. code::
-
-   fun(s, d):
-      s : float
-         Planform spanwise position, where -1 <= s <= 1
-      pc : float
-         Chordwise position, where 0 <= pc < = 1
-
-Is this consistent with my ParagliderWing terminology?
-
-* eg, there I'm using `d` to indicate the chordwise position of the
-  perpendicular line passing through the cg
-
-  * Is `d` the best variable name for that parameter in the first place?
-
-  * Seems like `f(s, pc)` is more intuitive: "spanwise, chordwise position".
-    Could parametrize `pc_cg, z_cg` for chordwise+height
-
-Also remember, the user may want this function for either the ParafoilGeometry
-or the flat ParafoilPlanform. They both provide fx+fy
-
-These changes should simplify the API by removing the ambiguous notation
-(c0/c4), as well as making it easier to implement other coefficient estimation
-methods that require chord points off the c/4 line (eg, the Pistolesi boundary
-condition).
 
 
 ParafoilSections (Low priority)
@@ -258,31 +181,37 @@ Coefficient Estimation
 
   * Same goes for the direction of the drag vectors.
 
+* Does Phillips' method detect significant differences in performance if the
+  quarter-chord lies in a plane or not? The lobe makes it curve backwards at
+  the tips, and I'm curious if that has performance considerations. You could
+  theoretically define a function that "undoes" the curvature induced by the
+  lobe.
+
 
 Phillips
 ^^^^^^^^
 
-* Phillips should check for zero `Cl_alpha`
-
-* Refactor Phillips outside `Parafoil.py` (#NEXT)
-
-  * This is a general lifting-line method, not just for parafoils. Also,
-    factoring it is the first step to generalizing for different estimation
-    methods (Phillips, Hunsaker, Chreim, etc)
-
-* Phillips is unreliable post-stall:
-
-  * The Jacobian explodes near `Cl_alpha = 0`
-
-  * Phillips recommends using "Picard iterations" to solve the system
-
-  * **WARNING**: I doubt the XFOIL data is suitable post stall anyway
+* In `Phillips` I have a fixme about using the "characteristic chord", but
+  right now I'm using the section area (`dA`). If I switch it to `c_avg`, the
+  `CL vs CD` curve looks **MUCH** more like what's in the Belloc paper, but
+  the other curves go to pot. **Investigate this.**
 
 * Refactor the drag coefficient correction terms (skin friction, etc) outside
   Phillips (#NEXT)
 
   * This belongs with the parafoil model; Phillips shouldn't care. Maybe part
     of the tentative ParafoilSections design?
+
+* Phillips should check for zero `Cl_alpha`. What should it do if it does? Can
+  it gracefully fail over to fixed-point iterations? Should it return a mask
+  of which sections are experiencing stall conditions? Does it matter if XFOIL
+  is unreliable post-stall anyway?
+
+* Refactor Phillips outside `Parafoil.py`
+
+  * This is a general lifting-line method, not just for parafoils. Also,
+    factoring it is the first step to generalizing for different estimation
+    methods (Phillips, Hunsaker, Chreim, etc)
 
 * Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
 
@@ -327,13 +256,19 @@ BrakeGeometry
 ParagliderWing
 ==============
 
+* Review parameter naming conventions (like `kappa_S`)
+
+* `d_riser` and `z_riser` are different units, which is odd.
+
+* Inconsistent use of `deltaS` and `delta_s`. Also, is `s` a bad choice for
+  "speedbar" since it overlaps with the normalized position parameters `s`?
+  Maybe call "accelerator" everywhere?
+
 * The ParagliderWing has hard-coded values for the material densities. Convert
   them to parameters.
 
 * ParagliderWing owns the force estimator for the Parafoil, but not for the
   harness. One of these is wrong...
-
-* Review parameter naming conventions (like `kappa_S`, wtf is that?)
 
 * Design the "query control points, compute wind vectors, query dynamics"
   sequence and API
@@ -410,6 +345,20 @@ Scenario Design
 * Design a set of flight scenarios (#NEXT)
 
   * Demonstrate wing behavior under different wind models and control inputs
+
+
+Documentation
+=============
+
+* I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
+  A set of Jinja2 templates from
+  `<https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary>`_
+  control the `autosummary` output. I'd kind of like it if each module would
+  list its classes in the contents tree (left hand side of the `readthedocs`
+  theme). I tried to achieve that by overriding the `module.rst` template to
+  include the ``:toctree:`` directive to the ``.. autosummary::`` that's
+  building up the classes in the module, but that makes sphinx angry since it
+  generates duplicate stubs for those class definitions.
 
 
 Testing
