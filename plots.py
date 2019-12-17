@@ -141,18 +141,25 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
+    sa = np.linspace(0, 1, N_points)
     for s in np.linspace(-1, 1, N_sections):
-        coords = parafoil.lower_surface(s, N_points).T
+        coords = parafoil.surface_points(s, sa, "lower").T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = parafoil.upper_surface(s, N_points).T
+        coords = parafoil.surface_points(s, sa, "upper").T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     s = np.linspace(-1, 1, 51)
-    c4 = parafoil.c4(s).T
+    c4 = parafoil.chord_xyz(s, 0.25).T
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
 
+    s = np.linspace(-1, 1, 151)
+    c0 = parafoil.chord_xyz(s, 0).T
+    ax.plot(c0[0], c0[1], c0[2], "k--", lw=0.8)
+    c1 = parafoil.chord_xyz(s, 1).T
+    ax.plot(c1[0], c1[1], c1[2], "k--", lw=0.8)
+
     set_axes_equal(ax)
-    clean_3d_axes(ax)
+    # clean_3d_axes(ax)
     ax.invert_yaxis()
     ax.invert_zaxis()
     fig.tight_layout()
@@ -300,14 +307,14 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=5
     ax.view_init(azim=-130, elev=25)
 
     for s in np.linspace(-1, 1, N_sections):
-        coords = wing.parafoil.lower_surface(s, N_points).T
+        coords = wing.parafoil.surface_points(s, N_points, "lower").T
         ax.plot(coords[0], coords[1], -coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = wing.parafoil.upper_surface(s, N_points).T
+        coords = wing.parafoil.surface_points(s, N_points, "upper").T
         ax.plot(coords[0], coords[1], -coords[2], c="b", lw=0.8)
 
     # Add the quarter chord line
     s = np.linspace(-1, 1, 51)
-    c4 = wing.parafoil.c4(s).T
+    c4 = wing.parafoil.chord_xyz(s, 0.25).T
     ax.plot(c4[0], c4[1], -c4[2], "g--", lw=0.8)
 
     # And the brake deflection line

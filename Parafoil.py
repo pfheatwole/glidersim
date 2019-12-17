@@ -1,172 +1,703 @@
 """FIXME: add docstring."""
 
 import abc
+import warnings
 
 from IPython import embed
 
 import numpy as np
-from numpy import arcsin, arctan, cos, deg2rad, sin, tan
-from numpy import cross, dot, einsum, linspace, sqrt
-from numpy.linalg import norm
 
+import scipy.interpolate
 import scipy.optimize
-from scipy.integrate import simps
-from scipy.interpolate import UnivariateSpline  # FIXME: use a Polynomial?
 
 from util import cross3
 
 
+class EllipticalArc:
+    """
+    An arc segment from an ellipse.
+
+    Although this internal representation uses the standard `t` parameter for
+    the parametric functions, some applications are more easily described with
+    a different domain. For example, all the `ParafoilGeometry` curves are
+    defined as functions of the section index `s`, which ranges from -1 (the
+    left wing tip) to +1 (the right wing tip).
+
+    Setting different domains for the input coordinates vs the internal
+    coordinates lets users ignore the implementation and focus on the
+    functional domain. This is somewhat analogous to the `domain` and `window`
+    parameters in a numpy `Polynomial`, although in that case the conversion
+    is for numerical improvements, whereas this is for user convenience.
+
+    This class supports both "implicit" and "parametric" representations of an
+    ellipse. The implicit version returns the vertical component as a function
+    of the horizontal coordinate, and the parametric version returns both the
+    horizontal and vertical coordinates as a function of the parametric
+    parameter.
+
+    The parametric curve in this class is always parametrized by `t`. By
+    setting `t_domain` you can constrain the curve to an elliptical arc.
+
+    For both the implicit and parametric forms, you can change the input domain
+    by setting `p_domain`, and they will be scaled automatically to map onto the
+    implicit (`x`) or parametric (`t`) parameter.
+    """
+
+    def __init__(
+        self,
+        AB_ratio,
+        A=None,
+        B=None,
+        length=None,
+        origin=None,
+        t_domain=None,
+        p_domain=None,
+        kind="parametric",
+    ):
+        """
+        Construct an ellipse segment.
+
+        Parameters
+        ----------
+        AB_ratio : float
+            The ratio of the major vs minor axes.
+        A, B, length : float, optional
+            Scaling constraints. Choose only one.
+        origin : array of float, shape (2,)
+            The (x, y) offset of the ellipse origin.
+        t_domain : array of float, shape (N, 2), optional
+            FIXME
+        p_domain : array of float, shape (N, 2), optional
+            FIXME: docstring.
+
+            The domain of the input parameter. This encodes "what values in the
+            input domain maps to `t_domain`?". For example, if you wanted to a
+            parametric function where -1 is the start and +1 is the end, then
+            `p_domain = [1, -1]` would map `t_min` to `p = 1` and `t_max` to
+            `p = -1`.
+
+        kind : {'implicit', 'parametric'}, default: 'parametric'
+            Does the class return `y = f(x)` or `<x, y> = f(p)`? The implicit
+            version returns coordinates of the second axis given coordinates
+            of the first axis. The parametric version returns both x and y
+            given a parametric coordinate.
+
+            Notice that the curve is parametrized by `p`, which may differ from
+            the internal parameter `t` if `p_domain` has been modified.
+        """
+        if sum(arg is not None for arg in [A, B, length]) > 1:
+            raise ValueError("Specify only one of width, length, or height")
+
+        if not origin:
+            origin = [0, 0]
+
+        if not t_domain:
+            t_domain = [0, np.pi]  # Default to a complete half-ellipse
+
+        # Initial values (before constraints)
+        self.A = 1
+        self.B = 1 / AB_ratio
+        self.origin = origin
+        self.t_domain = t_domain
+        self.p_domain = p_domain
+        self.kind = kind
+
+        # Apply constraints, if any
+        if A:
+            self.A, self.B = A, A / AB_ratio
+        elif B:
+            self.A, self.B = B * AB_ratio, B
+        elif length:
+            L = self.length  # The length before rescaling A and B
+            K = length / L
+            self.A *= K
+            self.B *= K
+
+    def __call__(self, p, kind=None):
+        if kind is None:
+            kind = self.kind
+
+        p = np.asarray(p)
+        t = self._transform(p, kind)
+
+        if kind == "implicit":  # the `p` are `x` in the external domain
+            vals = self.B * np.sin(t)  # Return `y = f(x)`
+        else:  # the `p` are `t` in the external domain
+            x = self.A * np.cos(t)
+            y = self.B * np.sin(t)
+            vals = np.stack((x, y), axis=-1) + self.origin  # return `<x, y> = f(t)`
+
+        return vals
+
+    @property
+    def p_domain(self):
+        if self._p_domain is not None:
+            return self._p_domain
+        else:
+            return self.t_domain  # No transform
+
+        # FIXME: if p_domain is None, then `p` might be `x` **or** `t`
+
+    @p_domain.setter
+    def p_domain(self, new_p_domain):
+        if new_p_domain:
+            new_p_domain = np.asarray(new_p_domain, dtype=float)
+            if new_p_domain.shape != (2,):
+                raise ValueError("`p_domain` must be an array_like of shape (2,)")
+        self._p_domain = new_p_domain
+
+    @property
+    def t_domain(self):
+        return self._t_domain
+
+    @t_domain.setter
+    def t_domain(self, new_t_domain):
+        new_t_domain = np.asarray(new_t_domain, dtype=float)
+        if new_t_domain.shape != (2,):
+            raise ValueError("`t_domain` must be an array_like of shape (2,)")
+
+        if (new_t_domain.max() > 2 * np.pi) or (new_t_domain.min() < 0):
+            raise ValueError("`t_domain` values must be between 0 and 2pi")
+
+        self._t_domain = new_t_domain
+
+    def _transform(self, p, kind):
+        """
+        Map the external domain onto `t` using an affine transformation.
+
+        Parameters
+        ----------
+        p : array_like of float
+            Parametric coordinates being used by the external application.
+            Values fall inside to [p_0, p_1].
+
+        Returns
+        -------
+        t : array_like of float
+            The value of the internal curve parameter `t` that maps to `p`.
+
+        """
+
+        if kind == "implicit":
+            # The implicit `y = f(x)` can be converted to `y = f(t)` by first
+            # changing the external domain to the internal `x` coordinates
+            p0, p1 = self.p_domain
+            x0, x1 = self.A * np.cos(self.t_domain)  # The internal domain of `x`
+            x = (x1 - x0) / (p1 - p0) * p
+            t = np.arccos(x / self.A)
+
+        else:
+            p0, p1 = self.p_domain
+            t0, t1 = self.t_domain
+            a = (t0 - t1) / (p0 - p1)
+            b = t1 - a * p1
+            t = a * p + b
+
+        return t
+
+    @property
+    def length(self):
+        p = np.linspace(*self.p_domain, 10000)
+        xy = self.__call__(p, kind="parametric")
+        return np.linalg.norm(np.diff(xy, axis=0), axis=1).sum()
+
+    def derivative(self, p, kind=None):
+        """
+        Compute the derivatives of the parametric components.
+
+        For now, I'm never using `dy/dx` directly, so this always returns both
+        derivatives separately to avoid divide-by-zero issues.
+        """
+        if kind is None and self.kind == "implicit":
+            raise RuntimeError("Are you SURE you really want dy/dx?")
+
+        p = np.asarray(p)
+        t = self._transform(p, "parametric")
+        dxdt = self.A * -np.sin(t)
+        dydt = self.B * np.cos(t)
+        vals = np.stack((dxdt, dydt), axis=-1)
+        return vals
+
+
+def elliptical_chord(root, tip):
+    """Build an elliptical chord distribution as a function of the section index."""
+    # FIXME: for now, only support this set of parameters
+
+    taper = tip / root
+
+    # Config inputs: root, tip, max_taper_rate
+    #
+    # For an elliptical chord functio, dc/dy = 0 at the root and the maximum
+    # rate of change of taper will always occur at the tip. This function will
+    # assume the user wants the fastest rate possible at the tip, but let them
+    # override that if they want.
+
+    # This rate is implicitly "per unit span" since it's over the normalized
+    # planform span coordinate.
+    # mean_taper_rate = root - tip
+
+    # From Benedetti: verify
+    A = 1 / np.sqrt(1 - taper ** 2)
+    B = root
+    t_min = np.arcsin(taper)
+
+    return EllipticalArc(
+        A / B, B=B, t_domain=[t_min, np.pi - t_min], p_domain=[1, -1], kind="implicit",
+    )
+
+
+def elliptical_lobe(mean_anhedral, max_anhedral_rate=90):
+    """
+    Build an elliptical lobe curve as a function of the section index.
+
+    FIXME: accept the alternative pair: {b/b_flat, max_anhedral_rate}, since
+    you typically know b/b_flat from wing specs, and max_anhedral is pretty
+    easy to approximate from pictures.
+    """
+    # For a paraglider, dihedral should be negative (anhedral)
+    if max_anhedral_rate <= 2 * mean_anhedral:
+        raise ValueError("max_anhedral_rate <= 2 * mean_anhedral")
+
+    mean_anhedral = np.deg2rad(mean_anhedral)
+    max_anhedral_rate = np.deg2rad(max_anhedral_rate)
+
+    v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
+    v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
+    A = v1 / np.sqrt(v2)
+    B = np.tan(mean_anhedral) * v1 / v2
+    t_min = np.arccos(1 / A)
+    lobe = EllipticalArc(
+        A / B, length=2, t_domain=[np.pi + t_min, 2 * np.pi - t_min], p_domain=[-1, 1],
+    )
+    lobe.origin = -lobe(0)  # The middle of the curve is the origin
+    return lobe
+
+
+class PolynomialTorsion:
+    """
+    A functor that for producing polynomial curves at the wing tips.
+
+    The curve is symmetric about the origin. Points between `[-start, start]`
+    are zero; points between [start, 1] grow from `0` to `peak` a rate
+    controlled by `exponent`.
+    """
+
+    def __init__(self, start, exponent, peak, symmetric=True):
+        """
+        Construct the curve.
+
+        Parameters
+        ----------
+        start: float
+            Where the exponential curve begins, where `0 <= start <= 1`. The
+            region between +/- `start` is zero.
+
+        exponent : float
+            The exponential growth rate. Controls the steepness of the curve.
+            For example, `2` produces a quadratic curve between `start` and 1.
+
+        peak : float
+            The peak value of the curve at `s = 1`.
+        """
+        if exponent < 1:
+            print("\nWarning: exponent is less than 1?\n")
+
+        self.start = start
+        self.exponent = exponent
+        self.peak = np.deg2rad(peak)
+
+    def __call__(self, s):
+        # FIXME: design review? Not a fan of these asarray
+        s = np.asarray(s)
+        values = np.zeros_like(s)
+        m = abs(s) > self.start  # Mask
+        if np.any(m):
+            p = (abs(s[m]) - self.start) / (1 - self.start)
+            # p /= p[-1]  # `p` goes from 0 to 1
+            values[m] = self.peak * p ** self.exponent
+        return values
+
+
+class SimpleIntakes:
+    """
+    Defines the upper and lower surface airfoil coordinates.
+
+    This version currently uses explicit `s_upper` and `s_lower` in airfoil
+    coordinates, but other options might be the intake midpoint and width
+    (where "width" might be in the airfoil `s`, or as a percentage of the
+    chord) or `c_upper` and `c_lower` as points on the chord.
+    """
+
+    def __init__(self, s_end, s_upper, s_lower):
+        """
+
+        Parameters
+        ----------
+        s_end: float
+            Section index. Air intakes are present between +/- `s_end`.
+        s_upper, s_lower : float
+            The starting coordinates of the upper and lower surface of the
+            parafoil, given in airfoil surface coordinates. The airfoil uses
+            s = 0 for the LE, s = 1 for the upper surface trailing edge, and
+            s = -1 for the lower surface trailing edge, so these choices must
+            follow `-1 <= s_lower <= s_upper <= 1`.
+
+
+        FIXME: support more types of definition:
+
+        1. su/sl : explicit upper/lower cuts in airfoil coordinates
+
+        2. midpoint (in airfoil coordinates) and width
+
+        3. Upper and lower cuts as a fraction of the chord (the "Paraglider
+           Design Manual" does it this way).
+        """
+        self.s_end = s_end
+        self.s_upper = s_upper
+        self.s_lower = s_lower
+
+    def __call__(self, s, sa, surface):
+        """
+        Convert parafoil upper surface coordinates into airfoil coordinates.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index. Unused for the upper surface in this simple model,
+            since the upper surface always extends to the same airfoil
+            coordinate. It is the lower surface that extends to close the
+            intake.
+        sa : array_like of float
+            Parafoil surface coordinate, where `0 <= sa <= 1`, with `0`
+            being the leading edge, and `1` being the trailing edge.
+        surface : {"upper", "lower"}
+            Which surface.
+
+        Returns
+        -------
+        array_like of float, shape (N,)
+            The normalized (unscaled) airfoil coordinates.
+        """
+        s = np.asarray(s)
+        sa = np.asarray(sa)
+
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if sa.min() < 0 or sa.max() > 1:
+            raise ValueError("Surface coordinates must be between 0 and 1.")
+        if surface not in {"upper", "lower"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower'}")
+
+        if surface == "upper":
+            values = self.s_upper + sa * (1 - self.s_upper)
+        else:
+            # The lower section extends forward over sections without intakes
+            starts = np.where(np.abs(s) < self.s_end, self.s_lower, self.s_upper)
+            values = starts + sa * (-1 - starts)
+
+        return values
+
+
+# ---------------------------------------------------------------------------
+
+
 class ParafoilGeometry:
-    """FIXME: add docstring."""
+    """A parafoil geometry definition using a set of parametric functions."""
 
-    def __init__(self, planform, lobe, airfoil):
-        self.planform = planform
-        self.lobe = lobe
+    def __init__(
+        self,
+        x,
+        r_x,
+        yz,
+        r_yz,
+        torsion,
+        airfoil,
+        chord_length,
+        intakes=None,
+        b_flat=None,
+        b=None,
+        N=500,
+    ):
+        """
+        Add a docstring.
+
+        Parameters
+        ----------
+        x : function
+            The x-coordinates of each section as a function of the section
+            index. Each chord is shifted forward until the x-coordinate of its
+            leading edge is at `chord_length * r_x`. This curve shapes the
+            top-down view of the flattened wing.
+        r_x : float, or a function
+            A ratio from 0 to 1 that defines what location on the chord is
+            located at the x-coordinate defined by `x`. This can be a constant
+            or a function of the normalized span. For example, `xy_r = 1` says
+            that the `x` is specifying the x-coordinate of the trailing edge.
+        yz : array_like of float, shape (N_YZ, 3)
+        xy_r : float, or a function
+            A ratio from 0 to 1 that defines the chord position of the `yz`
+            curve. This can be a constant or a function of the normalized span.
+            For example, `yz_r = 1` says that the `yz` curve is specifying the
+            z-coordinate of the trailing edge.
+        torsion : function
+            Geometric torsion as a function of the normalized span. These
+            angles specify a positive rotation about the `y-axis`, relative to
+            the central section.
+        airfoil : Airfoil
+            The airfoil.
+        chord_length : function
+            The length of each section chord as a function of section index.
+        intakes : function, optional
+            A function that defines the upper and lower intake positions in
+            airfoil surface coordinates as a function of the section index.
+        b, b_flat : float
+            The projected or the flattened wing span. Specify only one.
+        """
+        if b_flat is None and b is None:
+            raise ValueError("Specify one of `b` or `b_flat`")
+        elif b_flat is not None and b is not None:
+            raise ValueError("Specify only one of `b` or `b_flat`")
+
+        self.x = x
+        self.r_x = r_x
+        self.yz = yz
+        self.r_yz = r_yz
+        self.torsion = torsion
         self.airfoil = airfoil
-        self.span_factor = planform.b_flat / lobe.span_ratio  # FIXME: API?
+        self._chord_length = chord_length  # Normalized by `b_flat / 2`
 
-    @property
-    def b(self):
-        """Compute the span of the inflated wing."""
-        # FIXME: property, or function? This needs `lobe_args`? Or should this
-        #        be the nominal value for the inflated span? Even if it was the
-        #        nominal value, might I still need a `lobe_args`?
-        return 2 * self.fy(1)
+        if intakes:
+            self.intakes = intakes
+        else:
+            self.intakes = lambda s, sa, surface: sa if surface == "upper" else -sa
 
-    @property
-    def S(self):
-        """Compute the projected surface area of the inflated wing."""
-        # FIXME: property, or function? This needs `lobe_args`? Or should this
-        #        be the nominal value for the inflated wing? Even if it was the
-        #        nominal value, might I still need a `lobe_args`?
-        s = linspace(-1, 1, 5000)
-        return simps(self.planform.fc(s), self.fy(s))
+        # The lobe semi-span is defined by its maximum y-coordinate. Because
+        # the section index is equivalent to the length of the curve to that
+        # point, this coordinate also defines the ration between the flattened
+        # span `b_flat` and the projected span `b`.
+        #
+        # TODO: assumes the lobe is symmetric
+        # FIXME: this should be the *smallest* normalized span `y` that produces
+        #        maximum lobe y-coordinate. Subtle, but would fail if the lobe
+        #        has a vertical segment at the semi-span.
+        res = scipy.optimize.minimize_scalar(
+            lambda s: -yz(s)[0], bounds=(0, 1), method="bounded",
+        )
+        s_lobe_span = res.x
+        self.span_ratio = yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
+
+        # The property setters are now able to convert between `b` and `b_flat`
+        if b_flat is not None:
+            self.b_flat = b_flat
+        else:
+            self.b = b
+
+        # Set the origin to the central chord leading edge. (FIXME: kludgy)
+        self.LE0 = [0, 0, 0]  # Initial zero-adjustment
+        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
 
     @property
     def AR(self):
         """Compute the aspect ratio of the inflated wing."""
-        # FIXME: property, or function? This needs `lobe_args`? Or should this
-        #        be the nominal value for the inflated wing? Even if it was the
-        #        nominal value, might I still need a `lobe_args`?
         return self.b ** 2 / self.S
 
-    def fx(self, s):
-        """Compute the section quarter-chord x-coordinate."""
-        # If the wing curvature defined by the lobe is strictly limited to the
-        # yz plane, then the x-coordinate of the quarter-chord is the same for
-        # the 3D wing as for the planform, regardless of the lobe geometry.
-        return self.planform.fx(s)
+    @property
+    def AR_flat(self):
+        """Compute the aspect ratio of the flattened wing."""
+        return self.b_flat ** 2 / self.S_flat
 
-    def fy(self, s, lobe_args={}):
-        """Compute the section quarter-chord y-coordinate."""
-        return self.span_factor * self.lobe.fy(s, **lobe_args)
+    @property
+    def b(self):
+        """The project span of the inflated parafoil."""
+        return self._b
 
-    def fz(self, s, lobe_args={}):
-        """Compute the section quarter-chord z-coordinate."""
-        return self.span_factor * self.lobe.fz(s, **lobe_args)
+    @b.setter
+    def b(self, new_b):
+        self._b = new_b
+        self.b_flat = new_b / self.span_ratio
 
-    def c0(self, s, lobe_args={}):
-        """Compute the coordinates of section leading-edges.
+    @property
+    def b_flat(self):
+        """The span of the flattened parafoil."""
+        return self._b_flat
 
-        Useful for points given in the local section coordinate system, such
-        as for surface curves or the airfoil centroid.
+    @b_flat.setter
+    def b_flat(self, new_b_flat):
+        self._b_flat = new_b_flat
+        self._b = new_b_flat * self.span_ratio
+
+    @property
+    def S(self):
         """
-        u = self.section_orientation(s, lobe_args).T
-        c = self.planform.fc(s)
-        return self.c4(s, lobe_args) + (c / 4 * u[0]).T
+        Approximate the projected surface area of the inflated parafoil.
 
-    def c4(self, s, lobe_args={}):
-        """Compute the coordinates of section quarter-chords.
-
-        Useful as the point of application for section forces (if you assume
-        the aerodynamic center of that section lies on the quarter-chord).
+        This is the conventional definition using the area traced out by the
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
         """
-        x = self.fx(s)
-        y = self.fy(s, lobe_args)
-        z = self.fz(s, lobe_args)
-        return np.array([x, y, z]).T
+        s = np.linspace(-1, 1, 1000)
+        LEx, LEy = self.chord_xyz(s, 0)[:, :2].T
+        TEx, TEy = self.chord_xyz(s, 1)[:, :2].T
 
-    def section_orientation(self, s, lobe_args={}):
-        """Compute section orientation unit vectors.
+        # Three areas: curved front, trapezoidal mid, and curved rear
+        LE_area = scipy.integrate.simps(LEx - LEx.min(), LEy)
+        mid_area = (LEy.ptp() + TEy.ptp()) / 2 * (LEx.min() - TEx.max())
+        TE_area = -scipy.integrate.simps(TEx - TEx.max(), TEy)
+        return LE_area + mid_area + TE_area
 
-        The parafoil body <x, y, z> axes follow the "front, right, down"
-        convention. To find the orientation of each section, copies of the
-        parafoil body basis vectors are translated to each point on the span,
-        transformed by the planform geometric torsion at that point (rotating
-        them about their y-axis), then transformed again by the lobe dihedral
-        at that point (rotating them about their x-axis).
+    @property
+    def S_flat(self):
+        """
+        Approximate the projected surface area of the flattened parafoil.
+
+        This is the conventional definition using the area traced out by the
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
+        """
+        warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
+
+        # FIXME: Tends to overestimate since it calculates raw chord areas, not
+        # those areas projected onto the xy-plane. This is approximately
+        # correct since the planform is mostly flat, but it does mean it does
+        # not account for torsion.
+
+        s_nodes = np.linspace(-1, 1, 1000)
+        nodes = self.chord_xyz(s_nodes, 0.5)
+        midpoints = (s_nodes[1:] + s_nodes[:-1]) / 2
+        u = self.section_orientation(midpoints)[..., 0]
+
+        # Define the differential areas as parallelograms by assuming a linear
+        # chord variation between nodes.
+        dl = nodes[1:] - nodes[:-1]
+        node_chords = self.chord_length(s_nodes)
+        c_avg = (node_chords[1:] + node_chords[:-1]) / 2
+        dA = c_avg * np.linalg.norm(cross3(u, dl), axis=1)
+        return dA.sum()
+
+    def _planform_torsion(self, s):
+        """
+        Compute the planform torsion (rotations about the planform y-axis).
+
+        These angles are between the x-axis of a section and the x-axis of the
+        central chord when the wing is flat.
+        """
+        thetas = self.torsion(s)
+        ct, st = np.cos(thetas), np.sin(thetas)
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        # fmt: off
+        torsion = np.array(
+            [[ ct, _0, st],  # noqa: E201
+             [ _0, _1, _0],  # noqa: E201
+             [-st, _0, ct]],
+        )
+        # fmt: on
+
+        # Ensure the results are shaped like (*s.shape, 3, 3)
+        torsion = np.moveaxis(torsion, [0, 1], [-2, -1])
+        return torsion
+
+    def _lobe_dihedral(self, s):
+        """
+        Compute the lobe dihedral (rotations about the lobe x-axis).
+
+        This rotation refers to the angle between the y-axis of a section and
+        the y-axis of the central chord of the lobe.
+        """
+        derivatives = self.yz.derivative(s).T
+        dyds, dzds = derivatives[0].T, derivatives[1].T
+        K = np.sqrt(dyds ** 2 + dzds ** 2)  # L2-norm
+        dyds /= K
+        dzds /= K
+        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        # fmt: off
+        dihedral = np.array(
+            [[_1,   _0,    _0],  # noqa: E241
+             [_0, dyds, -dzds],
+             [_0, dzds, dyds]],
+        )
+        # fmt: on
+
+        # Ensure the results are shaped like (*s.shape, 3, 3)
+        dihedral = np.moveaxis(dihedral, [0, 1], [-2, -1])
+        return dihedral
+
+    def section_orientation(self, s):
+        """Compute the section coordinate axis unit vectors."""
+        torsion = self._planform_torsion(s)
+        dihedral = self._lobe_dihedral(s)
+        return dihedral @ torsion
+
+    def chord_length(self, s):
+        return self._chord_length(s) * (self.b_flat / 2)
+
+    def chord_xyz(self, s, chord_ratio):
+        """
+        Compute the coordinates of points on section chords.
 
         Parameters
         ----------
         s : array_like of float, shape (N,)
-            Normalized span position, where `-1 <= s <= 1`.
-
-        Returns
-        -------
-        ndarray of float, shape (N, 3, 3)
-            Column unit vectors for the orientation of each section.
+            Section index
+        chord_ratio : float
+            Position on the chords, where `chord_ratio = 0` is the leading
+            edge, and `chord_ratio = 1` is the trailing edge.
         """
-        torsion = self.planform.orientation(s)
-        dihedral = self.lobe.orientation(s, **lobe_args)
-        return dihedral @ torsion
+        assert chord_ratio >= 0 and chord_ratio <= 1
 
-    def upper_surface(self, s, N=50):
+        s = np.asarray(s)
+        torsion = self._planform_torsion(s)
+        dihedral = self._lobe_dihedral(s)
+        xhat_planform = torsion @ [1, 0, 0]
+        xhat_wing = dihedral @ torsion @ [1, 0, 0]
+        c = self._chord_length(s)[..., np.newaxis]  # Proportional chords!
+        LE = (np.concatenate((np.zeros_like(s)[..., np.newaxis], self.yz(s)), axis=-1)
+              + (self.r_x - self.r_yz) * c * xhat_planform
+              + self.r_yz * c * xhat_wing)
+        xyz = LE - chord_ratio * c * xhat_wing - self.LE0
+        xyz *= self.b_flat / 2
+        return xyz
+
+    def surface_points(self, s, sa, surface):
         """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
         ----------
-        s : float
-            Normalized span position, where `-1 <= s <= 1`
-        N : integer, optional
-            The number of sample points along the chord. Default: 50
+        s : array_like of float
+            Section index.
+        sa : array_like of float
+            Surface coordinates, where `0 <= sa <= 1`, with `1` being the
+            trailing edge of the surface. Maps to either the upper or lower
+            surface airfoil coordinates, depending on the value of `surface`.
+        surface : {"upper", "lower"}
+            Which surface to sample. If "upper", then `sa` maps to the range
+            `s_upper:1`. If "lower", then `sa` maps to the range `s_lower:-1`.
 
         Returns
         -------
-        ndarray of float, shape (N, 3)
-            A set of points from the upper surface of the airfoil in FRD.
-
+        array of float
+            A set of points from the upper surface of the airfoil in FRD. The
+            shape is determined by standard numpy broadcasting of `s` and `sa`.
         """
-        # FIXME: support `s` broadcasting?
-        if not np.isscalar(s) or np.abs(s) > 1:
-            raise ValueError("`s` must be a scalar between -1..1")
-        if not isinstance(N, int) or N < 1:
-            raise ValueError("`N` must be a positive integer")
+        s = np.asarray(s)
+        sa = np.asarray(sa)
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if sa.min() < 0 or sa.max() > 1:
+            raise ValueError("Surface coordinates must be between 0 and 1.")
+        if surface not in {"upper", "lower"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
-        sa = linspace(self.airfoil.geometry.s_upper, 1, N)
-        upper = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
-        upper = np.array([-upper[0], np.zeros(N), -upper[1]])
-        surface = self.section_orientation(s) @ upper * self.planform.fc(s)
-        return surface.T + self.c0(s)
+        sa = self.intakes(s, sa, surface)
+        c = self.chord_length(s)
+        coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
+        coords = np.stack(
+            (-coords_a[..., 0], np.zeros_like(sa), -coords_a[..., 1]), axis=-1,
+        )
+        orientations = self.section_orientation(s)
+        surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
+        return surface + self.chord_xyz(s, 0)
 
-    def lower_surface(self, s, N=50):
-        """Sample points on the lower surface curve of a parafoil section.
-
-        Parameters
-        ----------
-        s : float
-            Normalized span position, where `-1 <= s <= 1`
-        N : integer, optional
-            The number of sample points along the chord. Default: 50
-
-        Returns
-        -------
-        ndarray of float, shape (N, 3)
-            A set of points from the lower surface of the airfoil in FRD.
-
-        """
-        # FIXME: support `s` broadcasting?
-        if not np.isscalar(s) or np.abs(s) > 1:
-            raise ValueError("`s` must be a scalar between -1..1")
-        if not isinstance(N, int) or N < 1:
-            raise ValueError("`N` must be a positive integer")
-
-        sa = linspace(self.airfoil.geometry.s_lower, -1, N)
-        lower = self.airfoil.geometry.surface_curve(sa).T  # Unscaled airfoil
-        lower = np.array([-lower[0], np.zeros(N), -lower[1]])
-        surface = self.section_orientation(s) @ lower * self.planform.fc(s)
-        return surface.T + self.c0(s)
-
-    def mass_properties(self, lobe_args={}, N=250):
+    def mass_properties(self, N=250):
         """
         Compute the quantities that control inertial behavior.
 
@@ -221,14 +752,14 @@ class ParafoilGeometry:
         volume) using the parallel axis theorem.
 
         """
-        s_nodes = cos(linspace(np.pi, 0, N + 1))
+        s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.c4(s_nodes, lobe_args)  # Segment endpoints
+        nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
         section = self.airfoil.geometry.mass_properties()
-        node_chords = self.planform.fc(s_nodes)
+        node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
-        u = self.section_orientation(s_mid_nodes, lobe_args)
+        u = self.section_orientation(s_mid_nodes)
         u_inv = np.linalg.inv(u)
 
         # Segment centroids
@@ -236,9 +767,9 @@ class ParafoilGeometry:
             [*section["upper_centroid"], 0],
             [*section["area_centroid"], 0],
             [*section["lower_centroid"], 0]])
-        segment_origins = self.c0(s_mid_nodes)
+        segment_origins = self.chord_xyz(s_mid_nodes, 0)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
-            einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
+            np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + segment_origins[None, ...])
 
         # Scaling factors for converting 2D airfoils into 3D segments.
@@ -276,8 +807,8 @@ class ParafoilGeometry:
 
         # Segment distances to the group centroids
         R = np.array([Ru, Rv, Rl])
-        D = (einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
-             - einsum("Rki,Rkj->Rkij", R, R))
+        D = (np.einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
+             - np.einsum("Rki,Rkj->Rkij", R, R))
         Du, Dv, Dl = D
 
         # And finally, apply the parallel axis theorem
@@ -302,424 +833,32 @@ class ParafoilGeometry:
 # ---------------------------------------------------------------------------
 
 
-class ParafoilPlanform(abc.ABC):
-    """
-    Define the planform geometry of a flattened (non-inflated) parafoil.
-
-    This contradicts the common definition of "planform", which usually refers
-    to the projected area of a 3D wing, not a wing that has been flattened to
-    remove dihedral (curvature in the yz-plane). This mild abuse of terminology
-    is reasonable because the projected area of an inflated parafoil is not
-    particularly useful, and this redefinition avoids prefixing "flattened" to
-    the geometries.
-    """
-
-    @property
-    def b(self):
-        """Compute the span of the flattened wing."""
-        return 2 * self.fy(1)
-
-    @property
-    def MAC(self):
-        """Compute the mean aerodynamic chord.
-
-        See Also
-        --------
-        MAC : standard aerodynamic chord
-        """
-        # Subclasses can override this brute method with an analytical solution
-        s = linspace(0, 1, 5000)
-        return (2 / self.S) * simps(self.fc(s) ** 2, self.fy(s))
-
-    @property
-    def SMC(self):
-        """Compute the standard mean chord.
-
-        See Also
-        --------
-        MAC : mean aerodynamic chord
-        """
-        # Subclasses can override this brute method with an analytical solution
-        s = linspace(-1, 1, 5000)
-        return np.mean(self.fc(s))
-
-    @property
-    def S(self):
-        """Compute the surface area of the flattened wing."""
-        return self.SMC * self.b
-
-    @property
-    def AR(self):
-        """Compute the aspect ratio of the flattened wing."""
-        return self.b / self.SMC
-
-    @abc.abstractmethod
-    def fx(self, s):
-        """Compute the x-coordinate of the section quarter-chord."""
-
-    @abc.abstractmethod
-    def fy(self, s):
-        """Compute the y-coordinate of the section quarter-chord."""
-
-    @abc.abstractmethod
-    def fc(self, s):
-        """Compute the chord length of a section."""
-
-    @abc.abstractmethod
-    def ftheta(self, s):
-        """Compute the geometric torsion of a section.
-
-        That is, the section chord pitch angle relative to the central chord.
-        """
-
-    @abc.abstractmethod
-    def orientation(self, s):
-        """Compute the orientation unit vectors of a section.
-
-        Parameters
-        ----------
-        s : float, or array_like of float, shape (N,)
-            Normalized span position, where `-1 <= s <= 1`
-
-        Returns
-        -------
-        torsion : ndarray of float, shape (3,3) or (N,3,3)
-            The orientation matrices at each section. The columns of each
-            matrix are the transformed <x,y,z> unit vectors.
-        """
-
-
-class EllipticalPlanform(ParafoilPlanform):
-    """
-    A planform that uses ellipses for the sweep and chord lengths.
-
-    ref: PFD p43 (51)
-    """
-
-    def __init__(self, b_flat, c0, taper, sweepMed, sweepMax,
-                 torsion_exponent=5, torsion_max=0):
-        self.b_flat = b_flat
-        self.c0 = c0
-        self.taper = taper
-        self.sweepMed = deg2rad(sweepMed)
-        self.sweepMax = deg2rad(sweepMax)
-        self.torsion_exponent = torsion_exponent
-        self.torsion_max = np.deg2rad(torsion_max)
-
-        if torsion_exponent < 1:
-            raise ValueError("torsion_exponent must be >= 1")
-
-        # Ellipse coefficients for quarter-chord projected on the xy plane
-        tMed = tan(self.sweepMed)
-        tMax = tan(self.sweepMax)
-        self.Ax = (b_flat / 2) * (1 - tMed / tMax) / sqrt(1 - 2 * tMed / tMax)
-        self.Bx = (b_flat / 2) * tMed * (1 - tMed / tMax) / (1 - 2 * tMed / tMax)
-        self.Cx = -self.Bx - self.c0 / 4
-
-        # Ellipse coefficients for the chord lengths
-        self.Ac = (b_flat / 2) / sqrt(1 - self.taper ** 2)
-        self.Bc = self.c0
-
-    @property
-    def MAC(self):
-        # ref: PFD Table:3-6, p46 (54)
-        tmp = arcsin(sqrt(1 - self.taper ** 2)) / sqrt(1 - self.taper ** 2)
-        return (2 / 3 * self.c0 * (2 + self.taper ** 2)) / (self.taper + tmp)
-
-    @property
-    def SMC(self):
-        # ref: PFD Table:3-6, p46 (54)
-        L = 1 - self.taper ** 2
-        return self.c0 / 2 * (self.taper + np.arcsin(np.sqrt(L)) / np.sqrt(L))
-
-    @property
-    def sweep_smoothness(self):
-        """Compute the rate of change in sweep along the span."""
-        # ref: PFD p47 (54)
-        # FIXME: untested
-        # FIXME: misnamed? Taken directly from PFD
-        # FIXME: how does this differ from `Lambda`?
-        sMax, min_sMax = abs(self.sweepMax), abs(2 * self.sweepMed)
-        ratio = (sMax - min_sMax) / (np.pi / 2 - min_sMax)
-        return (1 - ratio) * 100
-
-    def fx(self, s):
-        y = self.b_flat / 2 * s
-        return self.Bx * np.sqrt(1 - y ** 2 / self.Ax ** 2) + self.Cx
-
-    def fy(self, s):
-        return self.b_flat / 2 * s
-
-    def fc(self, s):
-        y = self.b_flat / 2 * s
-        return self.Bc * np.sqrt(1 - y ** 2 / self.Ac ** 2)
-
-    def ftheta(self, s):
-        return self.torsion_max * np.abs(s)**self.torsion_exponent
-
-    def orientation(self, s):
-        theta = self.ftheta(s)
-        ct, st = cos(theta), sin(theta)
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
-        torsion = np.array([
-            [ct,  _0, st],
-            [_0,  _1, _0],
-            [-st, _0, ct]])
-
-        # Rearrange into a (K,3,3) if necessary
-        if torsion.ndim == 3:  # `s` was an array_like
-            torsion = np.moveaxis(torsion, [0, 1, 2], [1, 2, 0])
-        return torsion
-
-    def _dfxdy(self, s):
-        y = self.b_flat / 2 * s
-        return -y * (self.Bx / self.Ax) / np.sqrt(self.Ax ** 2 - y ** 2)
-
-    def Lambda(self, s):
-        """Compute the sweep angle rate of change of a section."""
-        # FIXME: should this be part of the ParafoilGeometry interface?
-        return arctan(self._dfxdy(s))
-
-    @staticmethod
-    def SMC_to_c0(SMC, taper):
-        """
-        Compute the central chord of a tapered elliptical wing from the SMC.
-
-        This elliptical geometry is parametrized by the central chord, but the
-        SMC is more commonly known."""
-        L = 1 - taper ** 2
-        return SMC / (1 / 2 * (taper + np.arcsin(np.sqrt(L)) / np.sqrt(L)))
-
-    @staticmethod
-    def MAC_to_c0(MAC, taper):
-        """
-        Compute the central chord of a tapered elliptical wing from the MAC.
-
-        If the MAC and taper of a wing are known, then this function can be
-        used to determine the equivalent central chord for that wing.
-        """
-        # PFD Table:3-6, p54
-        tmp = arcsin(sqrt(1 - taper ** 2)) / sqrt(1 - taper ** 2)
-        c0 = (MAC / (2 / 3) / (2 + taper ** 2)) * (taper + tmp)
-        return c0
-
-
-# ---------------------------------------------------------------------------
-
-
-class ParafoilLobe:
-    """
-    FIXME: document.
-
-    In particular, note that this is a proportional geometry: the span of the
-    lobes are defined as `b=1` to simplify the conversion between the flat and
-    projected spans.
-    """
-
-    @property
-    def span_ratio(self):
-        """Compute the ratio of the planform span to the projected span."""
-        # FIXME: should this be cached?
-        # FIXME: is this always the nominal value, or does it deform?
-        N = 500
-        s = linspace(-1, 1, N)
-        points = np.vstack([self.fy(s), self.fz(s)])
-        L = np.sum(np.linalg.norm(points[:, :-1] - points[:, 1:], axis=0))
-        return L  # The ellipse line length = b_flat/b_projected
-
-    @abc.abstractmethod
-    def fy(self, s):
-        """FIXME: docstring."""
-
-    @abc.abstractmethod
-    def fz(self, s):
-        """FIXME: docstring."""
-
-    @abc.abstractmethod
-    def orientation(self, s):
-        """Compute the orientation unit vectors of a section.
-
-        Parameters
-        ----------
-        s : float, or array_like of float, shape (N,)
-            Normalized span position, where `-1 <= s <= 1`
-
-        Returns
-        -------
-        dihedral : ndarray of float, shape (3,3) or (N,3,3)
-            The orientation matrices at each section. The columns of each
-            matrix are the transformed <x,y,z> unit vectors.
-        """
-
-    @abc.abstractmethod
-    def Gamma(self, s):
-        """Dihedral angle"""
-
-
-class EllipticalLobe(ParafoilLobe):
-    """
-    A parafoil lobe that uses an ellipse for the arc dihedral.
-    """
-
-    def __init__(self, dihedralMed, dihedralMax):
-        self.dihedralMed = deg2rad(dihedralMed)
-        self.dihedralMax = deg2rad(dihedralMax)
-
-        # Ellipse coefficients for quarter-chord projected on the yz plane
-        # This ellipse will be proportional to the true ellipse by a scaling
-        # factor:  true_ellipse = (b_flat/L) * this_ellipse
-        #
-        # FIXME: needs clearer documentation, and "span_ratio" is not defined
-        #        correctly
-        tMed = tan(self.dihedralMed)
-        tMax = tan(self.dihedralMax)
-        b = 1  # Explicitly highlight that this class assumes a unit span
-        self.Az = (b / 2) * (1 - tMed / tMax) / sqrt(1 - 2 * tMed / tMax)
-        self.Bz = (b / 2) * tMed * (1 - tMed / tMax) / (1 - 2 * tMed / tMax)
-        self.Cz = -self.Bz
-
-        # The span is parametrized by the normalized span position `s`, but the
-        # ellipse is parametrized by the angle `t`, so a change of variables
-        # transformation is needed. There isn't a closed form solution for the
-        # arc length of an ellipse (which is essentially `s`), so pre-compute
-        # the mapping and fit it with a spline.
-        t_min_z = np.arccos(b / (2 * self.Az))  # t_min <= t <= (np.pi-t_min)
-        t = linspace(np.pi - t_min_z, t_min_z, 500)
-        p = np.vstack((self.Az * cos(t), self.Bz * sin(t) + self.Cz))
-        s = np.r_[0, np.cumsum(np.linalg.norm(p[:, 1:] - p[:, :-1], axis=0))]
-        s = (s - s[-1] / 2) / (s[-1] / 2)  # Normalized span coordinates for `t`
-        self.s2t = UnivariateSpline(s, t, k=5)
-
-    def fy(self, s):
-        t = self.s2t(s)
-        return self.Az * cos(t)
-
-    def fz(self, s):
-        t = self.s2t(s)
-        return self.Bz * sin(t) + self.Cz
-
-    def orientation(self, s):
-        t = self.s2t(s)
-        dydt = -self.Az * sin(t)
-        dzdt = self.Bz * cos(t)
-
-        # Normalize the derivatives into unit vectors, and negate to orient
-        # them with increasing `s` instead of increasing `t`
-        K = np.sqrt(dydt ** 2 + dzdt ** 2)  # Faster version of 1d L2-norm
-        dydt, dzdt = -dydt / K, -dzdt / K
-
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
-        dihedral = np.array([
-            [_1,   _0,    _0],
-            [_0, dydt, -dzdt],
-            [_0, dzdt,  dydt]])
-
-        # Rearrange into a (K,3,3) if necessary
-        if dihedral.ndim == 3:  # `s` was an array_like
-            dihedral = np.moveaxis(dihedral, [0, 1, 2], [1, 2, 0])
-        return dihedral
-
-    def _dfzdy(self, s):
-        t = self.s2t(s)
-        return -self.Bz / self.Az / np.tan(t)
-
-    def Gamma(self, s):
-        return arctan(self._dfzdy(s))
-
-    @property
-    def dihedral_smoothness(self):
-        """Measure the curvature rate of change along the span."""
-        # ref: PFD p47 (54)
-        # FIXME: untested
-        # FIXME: unused? What's the purpose?
-        dMax, min_dMax = abs(self.dihedralMax), abs(2 * self.dihedralMed)
-        ratio = (dMax - min_dMax) / (np.pi / 2 - min_dMax)
-        return (1 - ratio) * 100
-
-
-class DeformingLobe:
-    """
-    Deforms a lobe it by rotating a central section.
-
-    The wing is split into three sections by two points equidistant from the
-    central chord. The central section rotates about the central chord based on
-    the vertical displacement of the right riser, `deltaZR`.
-
-    This is intended as a crude approximation of how the parafoil deforms when
-    a pilot is applying weight shift.
-    """
-
-    def __init__(self, lobe, central_width):
-        """
-
-        Parameters
-        ----------
-        lobe : ParafoilLobe
-            The nominal (non-deformed) lobe
-        central_width : float
-            The width of the central section that will rotate.
-
-
-            FIXME: should this automatically scale the units for the user?
-            Lobes don't know the planform span, and so are proportional scaling
-            values. This seems frustrating for the user: they'd probably like
-            to just say "the central section is 1m wide", not "the central
-            section is 0.0772 units". The lobe already uses a scaling factor,
-            but I don't think that has enough information to scale this
-            unitless central_width into meters. More to the point, I don't see
-            how you can do this without knowing the planform span.
-             * What's the formula for planform span -> `central_width` here?
-             * Should central_width be a percentage of the lobe "span"?
-        """
-        self.lobe = lobe
-        self.w = central_width
-        self.p = central_width / 2  # Two points at +/- central_width/2
-
-    def fy(self, s, deltaZR):
-        # deltaY = np.sqrt(self.w**2 - deltaZR**2) - 2*w
-        # FIXME: implement
-        return self.lobe.fy(s)
-
-    def fz(self, s, deltaZR):
-        # FIXME: implement
-        return self.lobe.fz(s)
-
-    def Gamma(self, s, deltaZR):
-        # FIXME: implement
-        return self.lobe.Gamma(s)
-
-# ---------------------------------------------------------------------------
-
-# Note sure where this piece goes: it's a utility function for computing the
-# span of an EllipticalPlanform+EllipticalLobe, given the c0+AR+taper. It
-# made sense when there was a single EllipticalGeometry, but now the planform
-# and lobe are separate.
-#
-# This seems like a more general issue of design helper functions. You specify
-# a planform+lobe, and different parameters and it tells you the others.
-#
-#   @staticmethod
-#   def AR_to_b(c0, AR, taper):
-#       """Compute the span of a tapered elliptical wing"""
-#       # ref: PFD Table:3-6, p46 (54)
-#       tmp = arcsin(sqrt(1 - taper**2))/sqrt(1 - taper**2)
-#       b = (AR / 2)*c0*(taper + tmp)
-#       return b
-
-
-# ---------------------------------------------------------------------------
-
-
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, V_rel, delta):
-        """Estimate the forces and moments on a Parafoil"""
+    def __call__(self, V_cp2w, delta):
+        """
+        Estimate the forces and moments on a Parafoil.
+
+        Parameters
+        ----------
+        V_cp2w : array_like of float [m/s]
+            The velocity of the control points relative to the wind in FRD
+            coordinates. The shape must be able to broadcast to (K, 3), where
+            `K` is the number of control points being used by the estimator.
+        delta : array_like of float [m/s]
+            The deflection angle of each section. The shape must be able to
+            broadcast to (K,), where `K` is the number of control points being
+            used by the estimator.
+        """
 
     @property
     @abc.abstractmethod
     def control_points(self):
         """The reference points for calculating the section forces"""
+
+    class ConvergenceError(RuntimeError):
+        """The estimator failed to converge on a solution."""
 
 
 class Phillips(ForceEstimator):
@@ -754,44 +893,52 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil, lobe_args={}):
+    def __init__(self, parafoil, alpha_ref=8.5):
+        """
+        Initialize the estimator.
+
+        Parameters
+        ----------
+        parafoil : ParafoilGeometry
+        alpha_ref : float [degrees]
+            The angle of attack for the reference solution.
+        """
         self.parafoil = parafoil
-        self.lobe_args = lobe_args
 
         # Define the spanwise and nodal and control points
 
         # Option 1: linear distribution
-        self.K = 191  # The number of bound vortex segments
-        self.s_nodes = linspace(-1, 1, self.K + 1)
+        self.K = 91  # The number of bound vortex segments
+        self.s_nodes = np.linspace(-1, 1, self.K + 1)
 
         # Option 2: cosine distribution
         # self.K = 21  # The number of bound vortex segments
-        # self.s_nodes = cos(linspace(np.pi, 0, self.K+1))
+        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.parafoil.c4(self.s_nodes)
+        self.nodes = self.parafoil.chord_xyz(self.s_nodes, 0.25)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.parafoil.c4(self.s_cps)
+        self.cps = self.parafoil.chord_xyz(self.s_cps, 0.25)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
         self.R2 = self.cps - self.nodes[1:, None]
-        self.r1 = norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
-        self.r2 = norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
+        self.r1 = np.linalg.norm(self.R1, axis=2)  # Magnitudes of R_{i1,j}
+        self.r2 = np.linalg.norm(self.R2, axis=2)  # Magnitudes of R_{i2,j}
 
         # Wing section orientation unit vectors at each control point
         # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
-        u = -self.parafoil.section_orientation(self.s_cps, lobe_args).T
+        u = -self.parafoil.section_orientation(self.s_cps).T
         self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.planform.fc(self.s_nodes)
+        node_chords = self.parafoil.chord_length(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
-        self.dA = self.c_avg * norm(cross3(self.u_a, self.dl), axis=1)
+        self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
         # Precompute the `v` terms that do not depend on `u_inf`
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
@@ -800,7 +947,21 @@ class Phillips(ForceEstimator):
             if ij[0] == ij[1]:  # Skip singularities when `i == j`
                 continue
             self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
-                (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + dot(R1[ij], R2[ij])))
+                (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
+
+        # Precompute a reference solution from an easy base case
+        alpha_ref = np.deg2rad(alpha_ref)
+        V_ref = np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
+        delta_ref = np.zeros(self.K)
+        self._reference_solution = {
+            'V_w2cp': -V_ref,
+            'delta': delta_ref,
+            'Gamma': None,
+        }
+        try:
+            _, _, self._reference_solution = self.__call__(V_ref, delta_ref)
+        except ForceEstimator.ConvergenceError:
+            raise RuntimeError("Phillips: failed to initialize base case")
 
     @property
     def control_points(self):
@@ -813,34 +974,38 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross3(u_inf, R2) / (r2 * (r2 - einsum("k,ijk->ij", u_inf, R2)))[..., None]
-        v -= cross3(u_inf, R1) / (r1 * (r1 - einsum("k,ijk->ij", u_inf, R1)))[..., None]
+        v += cross3(u_inf, R2) / (r2 * (r2 - np.einsum("k,ijk->ij", u_inf, R2)))[..., None]
+        v -= cross3(u_inf, R1) / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
 
         return v / (4 * np.pi)
 
     def _proposal1(self, V_w2cp, delta):
-        # Generate an elliptical Gamma distribution that uses the wing root
-        # velocity as a scaling factor
-        cp_y = self.cps[:, 1]
-        alpha_2d = np.arctan(V_w2cp[:, 2] / V_w2cp[:, 0])
-        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta)
-        mid = self.K // 2
-        Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d[mid]
-        Gamma = Gamma0 * np.sqrt(1 - ((2 * cp_y) / self.parafoil.b) ** 2)
+        """
+        Generate a naive elliptical Gamma distribution.
 
+        Uses the wing root velocity as a scaling factor, and ignores the rest
+        of `V_w2cp`. Doesn't care about the wing shape either, since it uses
+        the section index to generate the values (and ignores the actual
+        coordinates of those sections).
+        """
+        mid = self.K // 2
+        alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
+        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
+        Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d
+        Gamma = Gamma0 * np.sqrt(1 - self.s_cps ** 2)
         return Gamma
 
     def _local_velocities(self, V_w2cp, Gamma, v):
         # Compute the local fluid velocities
         #  * ref: Hunsaker-Snyder Eq:5
         #  * ref: Phillips Eq:5 (nondimensional version)
-        V = V_w2cp + einsum("j,jik->ik", Gamma, v)
+        V = V_w2cp + np.einsum("j,jik->ik", Gamma, v)
 
         # Compute the local angle of attack for each section
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
-        V_n = einsum("ik,ik->i", V, self.u_n)  # Normal-wise
-        V_a = einsum("ik,ik->i", V, self.u_a)  # Chordwise
-        alpha = arctan(V_n / V_a)
+        V_n = np.einsum("ik,ik->i", V, self.u_n)  # Normal-wise
+        V_a = np.einsum("ik,ik->i", V, self.u_a)  # Chordwise
+        alpha = np.arctan(V_n / V_a)
 
         return V, V_n, V_a, alpha
 
@@ -850,7 +1015,7 @@ class Phillips(ForceEstimator):
         #  * ref: Hunsaker-Snyder Eq:8
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
+        W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
@@ -864,7 +1029,7 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
-        W_norm = np.sqrt(einsum("ik,ik->i", W, W))
+        W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
         Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
@@ -874,12 +1039,12 @@ class Phillips(ForceEstimator):
         opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm,
+        J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm,
                         cross3(v, self.dl), optimize=opt2)
-        J3 = (einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
-              - einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
+        J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
+              - np.einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na, optimize=opt4)
+        J4 = 2 * np.einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na, optimize=opt4)
         J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
@@ -946,7 +1111,7 @@ class Phillips(ForceEstimator):
             # and the Kutta-Joukowski theorem, then solve for Gamma
             # FIXME: Should `G` use `V*V` or `(V_n**2 + V_a**2)`?
             V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
-            W_norm = norm(cross(V, self.dl), axis=1)
+            W_norm = np.linalg.norm(np.cross(V, self.dl), axis=1)
             Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
             G = (.5 * (V_n ** 2 + V_a ** 2) * self.dA * Cl) / W_norm
 
@@ -962,7 +1127,7 @@ class Phillips(ForceEstimator):
             # G = Gamma + 0.05*p(self.s_cps)
 
             # Option 2: Smooth the final Gamma
-            p = UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
+            p = scipy.interpolate.UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
             G = p(self.s_cps)
 
             # Option 3: Smooth Gamma, and force Gamma to zero at the tips
@@ -1075,22 +1240,53 @@ class Phillips(ForceEstimator):
         #     print("The gradient method failed, using fixed-point iteration")
         #     res = self._fixed_point_circulation(Gamma0, *args, **options)
 
-        if res["success"]:
-            Gamma = res["x"]
+        if not res["success"]:
+            raise ForceEstimator.ConvergenceError
+
+        return res["x"], v
+
+    def __call__(self, V_cp2w, delta, reference_solution=None, max_iterations=50):
+        # FIXME: this doesn't match the ForceEstimator.__call__ signature
+        V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
+        delta = np.broadcast_to(delta, (self.K))
+
+        if reference_solution is None:
+            reference_solution = self._reference_solution
+
+        V_w2cp_ref = reference_solution['V_w2cp']
+        delta_ref = reference_solution['delta']
+        Gamma_ref = reference_solution['Gamma']
+        if Gamma_ref is not None:
+            assert not np.any(np.isnan(Gamma_ref))
+
+        # Try to solve for the target (`Gamma` as a function of `V_cp2w` and
+        # `delta`) directly using the `reference_solution`. If that fails, pick
+        # a point between the target and the reference, and solve for that
+        # easier case. Repeat for intermediate targets until either solving for
+        # the original target, or exceeding `max_iterations`.
+        V_w2cp = -V_cp2w
+        target_backlog = []  # Stack of pending targets
+        for _ in range(max_iterations):
+            try:
+                Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma_ref)
+            except ForceEstimator.ConvergenceError:
+                target_backlog.append((V_w2cp, delta))
+                P = 0.5  # Ratio, a point between the reference and the target
+                V_w2cp = V_w2cp_ref + P * (V_w2cp - V_w2cp_ref)
+                delta = delta_ref + P * (delta - delta_ref)
+                continue
+
+            V_w2cp_ref = V_w2cp
+            delta_ref = delta
+            Gamma_ref = Gamma
+
+            if target_backlog:
+                V_w2cp, delta = target_backlog.pop()
+            else:
+                break
         else:
-            # print("Phillips> failed to solve for Gamma")
-            Gamma = np.full_like(Gamma0, np.nan)
+            raise ForceEstimator.ConvergenceError("max iterations reached")
 
-        # print("Phillips> finished _solve_circulation\n")
-        # embed()
-
-        return Gamma, v
-
-    def __call__(self, V_rel, delta, Gamma=None):
-        assert np.shape(V_rel) == (self.K, 3)
-
-        V_w2cp = -V_rel
-        Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma)
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
@@ -1102,7 +1298,7 @@ class Phillips(ForceEstimator):
         #        term in particular, which is for ram-air parachutes.
         # FIXME: these extra terms should be in the AirfoilCoefficients
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
 
         V2 = (V ** 2).sum(axis=1)
@@ -1118,4 +1314,47 @@ class Phillips(ForceEstimator):
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
-        return dF.T, dM.T, Gamma
+        solution = {
+            'V_w2cp': V_w2cp_ref,
+            'delta': delta_ref,
+            'Gamma': Gamma_ref,
+        }
+
+        return dF.T, dM.T, solution
+
+
+if __name__ == "__main__":
+    import Airfoil
+    import plots
+
+    # Build an example wing: a Niviuk Hook 3, size 23
+
+    # True technical specs
+    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
+    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
+    SMC_flat = b_flat / AR_flat
+    S, b, AR = 19.55, 8.84, 4.00
+
+    # Build an approximate version. Anything not directly from the technical
+    # specs is a guess to make the projected values match up.
+    c_root = chord_max / (b_flat / 2)  # Proportional values
+    c_tip = chord_min / (b_flat / 2)
+    parafoil = ParafoilGeometry(
+        x=0,
+        r_x=0.75,
+        yz=elliptical_lobe(mean_anhedral=32, max_anhedral_rate=75),
+        r_yz=1.00,
+        torsion=PolynomialTorsion(start=0.8, peak=4, exponent=2),
+        airfoil=Airfoil.Airfoil(coefficients=None, geometry=Airfoil.NACA(23015)),
+        chord_length=elliptical_chord(root=c_root, tip=c_tip),
+        intakes=SimpleIntakes(0.85, -0.04, -0.09),
+        b_flat=b_flat,  # Option 1: Determine the scale using the planform
+        # b=b,  # Option 2: Determine the scale using the lobe
+    )
+
+    # FIXME: add `S`, `b`, etc to the new ParafoilGeometry, then verify this
+    #        approximation.
+
+    plots.plot_parafoil_geo(parafoil, N_sections=131)
+
+    embed()

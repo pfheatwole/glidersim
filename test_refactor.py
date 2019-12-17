@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 
 import numpy as np
-from numpy import rad2deg
 
 from IPython import embed
 
@@ -20,9 +19,12 @@ def plot_polar_curve(glider, N=51):
     speedbar_equilibriums = np.empty((N, 5))
     delta_ss = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
+    ref = None  # Reference solution; speeds convergence
     for n, ds in enumerate(delta_ss):
         print("\rds: {:.2f}".format(ds), end="")
-        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, ds, rho=1.2)
+        alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
+            0, ds, rho_air=1.2, reference_solution=ref,
+        )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
         speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
@@ -31,12 +33,24 @@ def plot_polar_curve(glider, N=51):
     brake_equilibriums = np.empty((N, 5))
     delta_Bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
+    ref = None
     for n, db in enumerate(delta_Bs):
         print("\rdb: {:.2f}".format(db), end="")
-        alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(db, 0, rho=1.2)
+        try:
+            alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
+                db, 0, rho_air=1.2, reference_solution=ref,
+            )
+        except Parafoil.ForceEstimator.ConvergenceError:
+            print("\nConvergence started failing. Aborting early.")
+            break
         gamma_eq = alpha_eq - Theta_eq
         GR = 1/np.tan(gamma_eq)
         brake_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+    print()
+
+    # Truncate everything after convergence failed
+    delta_Bs = delta_Bs[:n]
+    brake_equilibriums = brake_equilibriums[:n]
 
     # Build the polar curves
     be, se = brake_equilibriums.T, speedbar_equilibriums.T
@@ -46,8 +60,8 @@ def plot_polar_curve(glider, N=51):
     fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
 
     # alpha_eq
-    ax[0, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[0]), 'r')
-    ax[0, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[0]), 'g')
+    ax[0, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[0]), 'r')
+    ax[0, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[0]), 'g')
     ax[0, 0].set_ylabel('alpha_eq [deg]')
 
     # Polar curve
@@ -69,8 +83,8 @@ def plot_polar_curve(glider, N=51):
     ax[0, 1].minorticks_on()
 
     # Theta_eq
-    ax[1, 0].plot(-delta_Bs, rad2deg(brake_equilibriums.T[1]), 'r')
-    ax[1, 0].plot(delta_ss, rad2deg(speedbar_equilibriums.T[1]), 'g')
+    ax[1, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[1]), 'r')
+    ax[1, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[1]), 'g')
     ax[1, 0].set_xlabel('control input [percentage]')
     ax[1, 0].set_ylabel('Theta_eq [deg]')
 
@@ -96,11 +110,17 @@ def plot_polar_curve(glider, N=51):
 def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-8, 20, 50))
     Fs, Ms = [], []
+    reference_solution = None
     for alpha in alphas:
-        g = [0, 0, 0]
-        UVW = np.array([np.cos(alpha), 0, np.sin(alpha)])
-        F, M, _, = glider.forces_and_moments(UVW, [0, 0, 0], g=g, rho=rho_air,
-                                         delta_Bl=delta_B, delta_Br=delta_B)
+        F, M, reference_solution, = glider.forces_and_moments(
+            UVW=[np.cos(alpha), 0, np.sin(alpha)],
+            PQR=[0, 0, 0],
+            g=[0, 0, 0],
+            rho_air=rho_air,
+            delta_Bl=delta_B,
+            delta_Br=delta_B,
+            reference_solution=reference_solution,
+        )
         Fs.append(F)
         Ms.append(M)
 
@@ -112,7 +132,7 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
         D = -F[0]*np.cos(alphas[n]) - F[2]*np.sin(alphas[n])
         CL = 2*L/(rho_air * glider.wing.parafoil.S)
         CD = 2*D/(rho_air * glider.wing.parafoil.S)
-        CM = 2*Ms[n][1]/(rho_air * glider.wing.parafoil.S * glider.wing.parafoil.planform.fc(0))
+        CM = 2*Ms[n][1]/(rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chord_length(0))
         CLs.append(CL)
         CDs.append(CD)
         CMs.append(CM)
@@ -153,40 +173,6 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     plt.show()
 
     embed()
-
-
-def build_elliptical_parafoil(b_flat, taper, dMed, sMed, airfoil,
-                              SMC=None, MAC=None,
-                              dMax=None, sMax=None,
-                              torsion_max=0, torsion_exponent=6):
-
-    if SMC is None and MAC is None:
-        raise ValueError("One of the SMC or MAC are required")
-
-    if dMed > 0 or (dMax is not None and dMax > 0):
-        raise ValueError("dihedral must be negative")
-
-    if sMed < 0 or (sMax is not None and sMax < 0):
-        raise ValueError("sweep must be positive")  # FIXME: why?
-
-    if dMax is None:
-        dMax = 2*dMed - 1  # ref page 48 (56)
-        print(f"Using minimum max dihedral ({dMax})")
-
-    if sMax is None:
-        sMax = (2*sMed) + 1  # ref page 48 (56)
-        print(f"Using minimum max sweep ({sMax})")
-
-    if SMC is not None:
-        c0 = Parafoil.EllipticalPlanform.SMC_to_c0(SMC, taper)
-    else:
-        c0 = Parafoil.EllipticalPlanform.MAC_to_c0(MAC, taper)
-
-    planform = Parafoil.EllipticalPlanform(
-        b_flat, c0, taper, sMed, sMax, torsion_exponent, torsion_max)
-    lobe = Parafoil.EllipticalLobe(dMed, dMax)
-
-    return Parafoil.ParafoilGeometry(planform, lobe, airfoil)
 
 
 def main():
@@ -245,56 +231,87 @@ def main():
     print("\nAirfoil: NACA 24018, curving flap")
     airfoil_geo = Airfoil.NACA(24018, convention='british')
     airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
-    delta_max = np.deg2rad(13.25)  # FIXME: magic number
+    # delta_max = np.deg2rad(13.25)  # FIXME: magic number
+    delta_max = np.deg2rad(10.00)  # FIXME: magic number  # 13.25 is giving convergence issues
+
+    # print("\nAirfoil: NACA 23015, curving flap")
+    # airfoil_geo = Airfoil.NACA(23015, convention='british')
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_23015.csv')  # delta_max = 13.38
+    # delta_max = np.deg2rad(12.00)  # FIXME: magic number
 
     # plots.plot_airfoil_geo(airfoil_geo)
 
-    # -----------------------------------------------------------------------
-    # Parafoil
-
-    # Hook3 specs:
-    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
-    SMC_flat = b_flat/AR_flat
-    S, b, AR = 19.55, 8.84, 4.00
-    V_limits_hook3 = np.array([24, 38, 52]) / 3.6  # min/trim/max in m/s
-
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
-    # parafoil = build_elliptical_parafoil(
-    #     b_flat=10, SMC=2.5, taper=0.35, dMed=-25, dMax=-70,
-    #     sMed=15, torsion_max=0, airfoil=airfoil)
-    parafoil = build_elliptical_parafoil(   # Hook 3 (ish)
-        b_flat=b_flat, SMC=SMC_flat, taper=0.35, dMed=-32, dMax=-75,
-        sMed=13.5, sMax=40, torsion_max=0, airfoil=airfoil)
 
-    print("planform flat span:", parafoil.planform.b)
-    print("planform flat area:", parafoil.planform.S)
-    print("planform flat AR:  ", parafoil.planform.AR)
-    print("planform flat SMC: ", parafoil.planform.SMC)
-    print("planform flat MAC: ", parafoil.planform.MAC)
+    # -----------------------------------------------------------------------
+    # Parafoil: an approximate Niviuk Hook 3, size 23
 
-    print("planform span:", parafoil.b)
-    print("planform area:", parafoil.S)
-    print("planform AR:  ", parafoil.AR)
+    # True technical specs
+    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
+    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
+    SMC_flat = b_flat / AR_flat
+    S, b, AR = 19.55, 8.84, 4.00
+
+    # Build an approximate version. Anything not directly from the technical
+    # specs is a guess to make the projected values match up.
+    c_root = chord_max / (b_flat / 2)  # Proportional values
+    c_tip = chord_min / (b_flat / 2)
+    parafoil = Parafoil.ParafoilGeometry(
+        x=0,
+        r_x=0.75,
+        yz=Parafoil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
+        r_yz=1.00,
+        torsion=Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2),
+        # torsion=Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75),  # From Sec. 11.4, pg 17 of the manual ("Line Plan")
+        airfoil=airfoil,
+        chord_length=Parafoil.elliptical_chord(root=c_root, tip=c_tip),
+        intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),
+        b_flat=b_flat,  # Option 1: Determine the scale using the planform
+        # b=b,  # Option 2: Determine the scale using the lobe
+    )
+
+    print("planform flat span:", parafoil.b_flat)
+    print("planform flat area:", parafoil.S_flat)
+    print("planform flat AR:  ", parafoil.AR_flat)
+    # print("planform flat SMC: ", parafoil.SMC)
+    # print("planform flat MAC: ", parafoil.MAC)
+
+    print("projected span:", parafoil.b)
+    print("projected area:", parafoil.S)
+    print("projected AR:  ", parafoil.AR)
 
     # print("Drawing the parafoil")
     # plots.plot_parafoil_planform_topdown(parafoil)
     # plots.plot_parafoil_planform(parafoil, N_sections=50)
-    # plots.plot_parafoil_geo(parafoil, N_sections=50)
+    # plots.plot_parafoil_geo(parafoil, N_sections=131)
+    plots.plot_parafoil_geo_topdown(parafoil, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Brake geometry
 
-    p_start, p_peak = 0, 0.75
-    # p_start, p_peak = 0.00, BrakeGeometry.Cubic.p_peak_min(0.00)
+    # p_start, p_peak = 0, 0.75
+    p_start = 0.00
+    p_peak = BrakeGeometry.Cubic.p_peak_min(p_start) + 1e-9
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
 
     # -----------------------------------------------------------------------
     # Wing and glider
 
-    wing = ParagliderWing(parafoil, Parafoil.Phillips, brakes,
-                          d_riser=0.49, z_riser=6.8,
-                          pA=0.08, pC=0.80,
-                          kappa_s=0.15)
+    wing = ParagliderWing(
+        parafoil,
+        Parafoil.Phillips,
+        brakes,
+        d_riser=0.49,  # FIXME: where'd this come from? Trying to match `Theta_eq` at trim?
+        z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
+        pA=0.11,  # Approximated from a picture in the manual
+        pC=0.59,
+        kappa_s=0.15,  # From the Hook 3 manual
+    )
+
+    # Note to self: the wing should weight 4.7kG in total; according to these
+    # specs, and the `rho_upper`/`rho_lower` embedded in ParagliderWing, the
+    # wing materials I'm accounting for total to 1.83kg, so there's a lot left
+    # in the lines, risers, ribs, etc.
 
     harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
 
@@ -303,9 +320,15 @@ def main():
     # print("Plotting the basic glider performance curves")
     # plot_CL_curve(glider)
 
+    # print("\nFinished building the glider.\n")
+    # embed()
+    # 1/0
+
+
     # -----------------------------------------------------------------------
     # Tests
-    alpha, Theta, V = glider.equilibrium_glide(0, 0, rho=1.2)
+    print("Computing the wing equilibrium...")
+    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, rho_air=1.2)
     UVW = V*np.array([np.cos(alpha), 0, np.sin(alpha)])
 
     print("Equilibrium condition: alpha={:.3f}, Theta={:.3f}, V={}".format(
@@ -317,7 +340,7 @@ def main():
     # PQR = np.array([P, Q, R])
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
-    F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho=1.2,
+    F, M, _, = glider.forces_and_moments(UVW, PQR, g=g, rho_air=1.2,
                                      delta_Bl=0, delta_Br=0)
 
     print("\nGlider results:")
@@ -328,7 +351,7 @@ def main():
     print("M:    ", M.round(4))
     print()
 
-    alpha_eq, Theta_eq, V_eq = glider.equilibrium_glide(0, 0, rho=1.2)
+    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, rho_air=1.2)
     gamma_eq = alpha_eq - Theta_eq
     print("Wing equilibrium angle of attack:", np.rad2deg(alpha_eq))
 

@@ -1,7 +1,5 @@
 """FIXME: add module docstring."""
 
-from functools import partial
-
 from IPython import embed
 
 import numpy as np
@@ -9,6 +7,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.optimize import root_scalar
 
+import Parafoil
 from util import cross3
 
 
@@ -29,6 +28,8 @@ class ParagliderWing:
             The geometric shape of the lifting surface.
         force_estimator : Parafoil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
+        brake_Geo : BrakeGeometry
+            Section trailing edge deflections as a function of delta_s
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -53,7 +54,7 @@ class ParagliderWing:
         # one defined by the Parafoil. The axes of both systems are parallel,
         # but the origin moves from the central leading edge to the midpoint
         # of the risers.
-        self.c0 = parafoil.planform.fc(0)
+        self.c0 = parafoil.chord_length(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
 
@@ -66,7 +67,7 @@ class ParagliderWing:
         self.rho_upper = 40 / 1000  # kg/m2
         self.rho_lower = 35 / 1000  # kg/m2
 
-    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, Gamma=None):
+    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, reference_solution=None):
         """
         FIXME: add docstring.
 
@@ -78,19 +79,20 @@ class ParagliderWing:
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
-        Gamma : array of float, shape (K,) [m^2/s], optional
-            An initial guess for the circulation distribution, to improve
-            convergence
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Returns
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
             Forces and moments for each section, proportional to the air
             density in [kg/m^3]. (This function assumes an air density of 1.)
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, Gamma = self.force_estimator(V_cp2w, delta, Gamma)
-        return dF, dM, Gamma
+        dF, dM, solution = self.force_estimator(V_cp2w, delta, reference_solution)
+        return dF, dM, solution
 
     def foil_origin(self, delta_s=0):
         """
@@ -116,21 +118,24 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def equilibrium_alpha(self, deltaB, deltaS):
+    def equilibrium_alpha(self, deltaB, deltaS, reference_solution=None):
         """FIXME: add docstring."""
-        def opt(deltaB, deltaS, alpha):
+        def target(alpha, deltaB, deltaS, reference_solution):
             cp_wing = self.control_points(deltaS)
-            K = len(cp_wing)
-            v_wing = np.array([[np.cos(alpha), 0, np.sin(alpha)]] * K)
-            dF_w, dM_w, _ = self.forces_and_moments(v_wing, deltaB, deltaB)
-            dM = dM_w.sum(axis=0)
-            dM += cross3(cp_wing, dF_w).sum(axis=0)
-            return dM[1]  # Pitching moment
+            v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
+            dF_w, dM_w, _ = self.forces_and_moments(
+                v_wing, deltaB, deltaB, reference_solution,
+            )
+            M = dM_w.sum(axis=0)
+            M += cross3(cp_wing, dF_w).sum(axis=0)
+            return M[1]  # Wing pitching moment
 
-        f = partial(opt, deltaB, deltaS)
-        res = root_scalar(f, x0=np.deg2rad(0), x1=np.deg2rad(9))
+        x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
+        res = root_scalar(
+            target, args=(deltaB, deltaS, reference_solution), x0=x0, x1=x1,
+        )  # FIXME: add `rtol`?
         if not res.converged:
-            raise RuntimeError(f"Failed to converge: {res.flag}")
+            raise Parafoil.ForceEstimator.ConvergenceError
         return res.root
 
     def control_points(self, delta_s=0):
@@ -173,8 +178,8 @@ class ParagliderWing:
         """
         N = 501
         s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
-        x, y, z = (self.parafoil.c4(s) + self.foil_origin(delta_s)).T
-        c = self.parafoil.planform.fc(s)
+        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_s)).T
+        c = self.parafoil.chord_length(s)
 
         Sxx = simps((y ** 2 + z ** 2) * c, y)
         Syy = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * z ** 2) * c, y) / 6
@@ -191,10 +196,10 @@ class ParagliderWing:
         return S
 
     # FIXME: moved from Parafoil. Verify and test.
-    def J(self, rho, N=2000):
+    def J(self, rho_air, N=2000):
         raise NotImplementedError("BROKEN!")
         S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho * self.density_factor
+        wing_air_density = rho_air * self.density_factor
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 
