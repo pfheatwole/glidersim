@@ -541,7 +541,7 @@ class ParafoilGeometry:
         section chords projected onto the xy-plane. It is not the total surface
         area of the volume.
         """
-        warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
+        # warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
 
         # FIXME: Tends to overestimate since it calculates raw chord areas, not
         # those areas projected onto the xy-plane. This is approximately
@@ -1315,40 +1315,3 @@ class Phillips(ForceEstimator):
         }
 
         return dF.T, dM.T, solution
-
-
-if __name__ == "__main__":
-    import Airfoil
-    import plots
-
-    # Build an example wing: a Niviuk Hook 3, size 23
-
-    # True technical specs
-    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
-    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
-    SMC_flat = b_flat / AR_flat
-    S, b, AR = 19.55, 8.84, 4.00
-
-    # Build an approximate version. Anything not directly from the technical
-    # specs is a guess to make the projected values match up.
-    c_root = chord_max / (b_flat / 2)  # Proportional values
-    c_tip = chord_min / (b_flat / 2)
-    parafoil = ParafoilGeometry(
-        x=0,
-        r_x=0.75,
-        yz=elliptical_lobe(mean_anhedral=32, max_anhedral_rate=75),
-        r_yz=1.00,
-        torsion=PolynomialTorsion(start=0.8, peak=4, exponent=2),
-        airfoil=Airfoil.Airfoil(coefficients=None, geometry=Airfoil.NACA(23015)),
-        chord_length=elliptical_chord(root=c_root, tip=c_tip),
-        intakes=SimpleIntakes(0.85, -0.04, -0.09),
-        b_flat=b_flat,  # Option 1: Determine the scale using the planform
-        # b=b,  # Option 2: Determine the scale using the lobe
-    )
-
-    # FIXME: add `S`, `b`, etc to the new ParafoilGeometry, then verify this
-    #        approximation.
-
-    plots.plot_parafoil_geo(parafoil, N_sections=131)
-
-    embed()
