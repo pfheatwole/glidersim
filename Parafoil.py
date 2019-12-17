@@ -221,22 +221,8 @@ class EllipticalArc:
 
 def elliptical_chord(root, tip):
     """Build an elliptical chord distribution as a function of the section index."""
-    # FIXME: for now, only support this set of parameters
 
     taper = tip / root
-
-    # Config inputs: root, tip, max_taper_rate
-    #
-    # For an elliptical chord functio, dc/dy = 0 at the root and the maximum
-    # rate of change of taper will always occur at the tip. This function will
-    # assume the user wants the fastest rate possible at the tip, but let them
-    # override that if they want.
-
-    # This rate is implicitly "per unit span" since it's over the normalized
-    # planform span coordinate.
-    # mean_taper_rate = root - tip
-
-    # From Benedetti: verify
     A = 1 / np.sqrt(1 - taper ** 2)
     B = root
     t_min = np.arcsin(taper)
@@ -431,22 +417,23 @@ class ParafoilGeometry:
         r_x : float, or a function
             A ratio from 0 to 1 that defines what location on the chord is
             located at the x-coordinate defined by `x`. This can be a constant
-            or a function of the normalized span. For example, `xy_r = 1` says
+            or a function of the section index. For example, `xy_r = 1` says
             that the `x` is specifying the x-coordinate of the trailing edge.
         yz : array_like of float, shape (N_YZ, 3)
         xy_r : float, or a function
             A ratio from 0 to 1 that defines the chord position of the `yz`
-            curve. This can be a constant or a function of the normalized span.
+            curve. This can be a constant or a function of the section index.
             For example, `yz_r = 1` says that the `yz` curve is specifying the
             z-coordinate of the trailing edge.
         torsion : function
-            Geometric torsion as a function of the normalized span. These
-            angles specify a positive rotation about the `y-axis`, relative to
-            the central section.
+            Geometric torsion as a function of the section index. These angles
+            specify a positive rotation about the `y-axis`, relative to the
+            central section. Function range must be in radians.
         airfoil : Airfoil
             The airfoil.
         chord_length : function
-            The length of each section chord as a function of section index.
+            The length of each section chord as a function of section index,
+            normalized by `b_flat / 2`.
         intakes : function, optional
             A function that defines the upper and lower intake positions in
             airfoil surface coordinates as a function of the section index.
@@ -464,7 +451,7 @@ class ParafoilGeometry:
         self.r_yz = r_yz
         self.torsion = torsion
         self.airfoil = airfoil
-        self._chord_length = chord_length  # Normalized by `b_flat / 2`
+        self._chord_length = chord_length
 
         if intakes:
             self.intakes = intakes
@@ -477,7 +464,7 @@ class ParafoilGeometry:
         # span `b_flat` and the projected span `b`.
         #
         # TODO: assumes the lobe is symmetric
-        # FIXME: this should be the *smallest* normalized span `y` that produces
+        # FIXME: this should be the *smallest* section index that produces the
         #        maximum lobe y-coordinate. Subtle, but would fail if the lobe
         #        has a vertical segment at the semi-span.
         res = scipy.optimize.minimize_scalar(
@@ -492,9 +479,9 @@ class ParafoilGeometry:
         else:
             self.b = b
 
-        # Set the origin to the central chord leading edge. (FIXME: kludgy)
-        self.LE0 = [0, 0, 0]  # Initial zero-adjustment
-        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
+        # Set the origin to the central chord leading edge.
+        self.LE0 = [0, 0, 0]  # Empty offset to find the real offset
+        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)  # The real offset
 
     @property
     def AR(self):
@@ -750,8 +737,15 @@ class ParafoilGeometry:
         the perpendicular axis theorem, then oriented into body coordinates,
         and finally translated to the global centroid (of the surface or
         volume) using the parallel axis theorem.
-
         """
+        # FIXME: doesn't account for `s_upper`/`s_lower` (minor effect)
+        #
+        # FIXME: Places all the segment mass on the section bisecting the
+        #        center of the segment instead of spreading the mass out along
+        #        the segment span, so it underestimates `I_xx` and `I_zz` by a
+        #        factor of `\int{y^2 dm}`. Doesn't make a big difference in
+        #        practice, but still: it's wrong.
+
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
@@ -1303,7 +1297,7 @@ class Phillips(ForceEstimator):
 
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
-        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
+        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"? I think it means the MAC of the section
 
         dF = dF_inviscid + dF_viscous
 
