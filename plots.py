@@ -143,9 +143,9 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
 
     sa = np.linspace(0, 1, N_points)
     for s in np.linspace(-1, 1, N_sections):
-        coords = parafoil.lower_surface(s, sa).T
+        coords = parafoil.surface_points(s, sa, "lower").T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = parafoil.upper_surface(s, sa).T
+        coords = parafoil.surface_points(s, sa, "upper").T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     s = np.linspace(-1, 1, 51)
@@ -307,9 +307,9 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=5
     ax.view_init(azim=-130, elev=25)
 
     for s in np.linspace(-1, 1, N_sections):
-        coords = wing.parafoil.lower_surface(s, N_points).T
+        coords = wing.parafoil.surface_points(s, N_points, "lower").T
         ax.plot(coords[0], coords[1], -coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = wing.parafoil.upper_surface(s, N_points).T
+        coords = wing.parafoil.surface_points(s, N_points, "upper").T
         ax.plot(coords[0], coords[1], -coords[2], c="b", lw=0.8)
 
     # Add the quarter chord line

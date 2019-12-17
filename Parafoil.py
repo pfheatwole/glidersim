@@ -356,7 +356,7 @@ class SimpleIntakes:
         self.s_upper = s_upper
         self.s_lower = s_lower
 
-    def upper(self, s, su):
+    def __call__(self, s, sa, surface):
         """
         Convert parafoil upper surface coordinates into airfoil coordinates.
 
@@ -367,43 +367,34 @@ class SimpleIntakes:
             since the upper surface always extends to the same airfoil
             coordinate. It is the lower surface that extends to close the
             intake.
-        su : array_like of float
-            Parafoil upper surface coordinate, where `0 <= su <= 1`, with `0`
+        sa : array_like of float
+            Parafoil surface coordinate, where `0 <= sa <= 1`, with `0`
             being the leading edge, and `1` being the trailing edge.
+        surface : {"upper", "lower"}
+            Which surface.
 
         Returns
         -------
         array_like of float, shape (N,)
-            The airfoil surface coordinates from `self.s_upper` to 1.
-        """
-        values = self.s_upper + su * (1 - self.s_upper)
-        return values
-
-    def lower(self, s, sl):
-        """
-        Convert parafoil lower surface coordinates into airfoil coordinates.
-
-        Parameters
-        ----------
-        s : array_like of float
-            Section index. Unused for this simple model, since the upper
-            surface always extends to the same airfoil coordinate, while its
-            the lower surface that changes to close the intake.
-        sl : array_like of float, shape (N,)
-            Parafoil lower surface coordinate, where `0 <= sl <= 1`, with `0`
-            being the leading edge, and `1` being the trailing edge.
-
-        Returns
-        -------
-        array_like of float, shape (N,)
-            The airfoil surface coordinates from `self.s_lower` to -1.
+            The normalized (unscaled) airfoil coordinates.
         """
         s = np.asarray(s)
-        sl = np.asarray(sl)
+        sa = np.asarray(sa)
 
-        # The lower section extends forward over sections without intakes
-        starts = np.where(np.abs(s) < self.s_end, self.s_lower, self.s_upper)
-        values = starts + sl * (-1 - starts)
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if sa.min() < 0 or sa.max() > 1:
+            raise ValueError("Surface coordinates must be between 0 and 1.")
+        if surface not in {"upper", "lower"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower'}")
+
+        if surface == "upper":
+            values = self.s_upper + sa * (1 - self.s_upper)
+        else:
+            # The lower section extends forward over sections without intakes
+            starts = np.where(np.abs(s) < self.s_end, self.s_lower, self.s_upper)
+            values = starts + sa * (-1 - starts)
+
         return values
 
 
@@ -456,10 +447,9 @@ class ParafoilGeometry:
             The airfoil.
         chord_length : function
             The length of each section chord as a function of section index.
-        intakes : class, optional
-            A class that provides two functions, `upper` and `lower`, that
-            define the upper and lower air intake positions in airfoil surface
-            coordinates as a function of the section index.
+        intakes : function, optional
+            A function that defines the upper and lower intake positions in
+            airfoil surface coordinates as a function of the section index.
         b, b_flat : float
             The projected or the flattened wing span. Specify only one.
         """
@@ -475,7 +465,11 @@ class ParafoilGeometry:
         self.torsion = torsion
         self.airfoil = airfoil
         self._chord_length = chord_length  # Normalized by `b_flat / 2`
-        self.intakes = intakes
+
+        if intakes:
+            self.intakes = intakes
+        else:
+            self.intakes = lambda s, sa, surface: sa if surface == "upper" else -sa
 
         # The lobe semi-span is defined by its maximum y-coordinate. Because
         # the section index is equivalent to the length of the curve to that
@@ -663,72 +657,44 @@ class ParafoilGeometry:
         xyz *= self.b_flat / 2
         return xyz
 
-    def upper_surface(self, s, su):
+    def surface_points(self, s, sa, surface):
         """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
         ----------
         s : array_like of float
             Section index.
-        su : array_like of float
-            Upper surface coordinates, where `0 <= su <= 1`.
+        sa : array_like of float
+            Surface coordinates, where `0 <= sa <= 1`, with `1` being the
+            trailing edge of the surface. Maps to either the upper or lower
+            surface airfoil coordinates, depending on the value of `surface`.
+        surface : {"upper", "lower"}
+            Which surface to sample. If "upper", then `sa` maps to the range
+            `s_upper:1`. If "lower", then `sa` maps to the range `s_lower:-1`.
 
         Returns
         -------
         array of float
             A set of points from the upper surface of the airfoil in FRD. The
-            shape is determined by standard numpy broadcasting of `s` and `su`.
+            shape is determined by standard numpy broadcasting of `s` and `sa`.
         """
         s = np.asarray(s)
-        su = np.asarray(su)
+        sa = np.asarray(sa)
         if s.min() < -1 or s.max() > 1:
-            raise ValueError("Section indices must be between 0 and 1.")
-        if su.min() < 0 or su.max() > 1:
-            raise ValueError("The airfoil coordinates must be between 0 and 1.")
+            raise ValueError("Section indices must be between -1 and 1.")
+        if sa.min() < 0 or sa.max() > 1:
+            raise ValueError("Surface coordinates must be between 0 and 1.")
+        if surface not in {"upper", "lower"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
-        if self.intakes:
-            sa = self.intakes.upper(s, su)
-        else:
-            sa = su  # No intakes, the upper surface starts at the leading edge
-
+        sa = self.intakes(s, sa, surface)
         c = self.chord_length(s)
-        upper_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
-        upper = np.stack((-upper_a[..., 0], np.zeros_like(sa), -upper_a[..., 1]), axis=-1)
+        coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
+        coords = np.stack(
+            (-coords_a[..., 0], np.zeros_like(sa), -coords_a[..., 1]), axis=-1,
+        )
         orientations = self.section_orientation(s)
-        surface = np.einsum("...ij,...j,...->...i", orientations, upper, c)
-        return surface + self.chord_xyz(s, 0)
-
-    def lower_surface(self, s, sl):
-        """Sample points on the lower surface curve of a parafoil section.
-
-        Parameters
-        ----------
-        s : array_like of float
-            Section index.
-        sl : array_like of float
-            Lower surface coordinates, where `0 <= sl <= 1`.
-
-        Returns
-        -------
-        array of float, shape (..., 3)
-            A set of points from the upper surface of the airfoil in FRD. The
-            shape is determined by standard numpy broadcasting of `s` and `sl`.
-        """
-        s = np.asarray(s)
-        sl = np.asarray(sl)
-        if sl.min() < 0 or sl.max() > 1:
-            raise ValueError("The airfoil coordinates must be between 0 and 1.")
-
-        if self.intakes:
-            sa = self.intakes.lower(s, sl)
-        else:
-            sa = -sl  # No intakes, the lower surface starts at the leading edge
-
-        c = self.chord_length(s)
-        lower_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
-        lower = np.stack((-lower_a[..., 0], np.zeros_like(sa), -lower_a[..., 1]), axis=-1)
-        orientations = self.section_orientation(s)
-        surface = np.einsum("...ij,...j,...->...i", orientations, lower, c)
+        surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
         return surface + self.chord_xyz(s, 0)
 
     def mass_properties(self, N=250):
