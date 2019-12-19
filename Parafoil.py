@@ -614,18 +614,24 @@ class ParafoilGeometry:
             Position on the chords, where `chord_ratio = 0` is the leading
             edge, and `chord_ratio = 1` is the trailing edge.
         """
-        assert chord_ratio >= 0 and chord_ratio <= 1
-
         s = np.asarray(s)
+        chord_ratio = np.asarray(chord_ratio)
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if chord_ratio.min() < 0 or chord_ratio.max() > 1:
+            raise ValueError("Chord ratios must be between 0 and 1.")
+
         torsion = self._planform_torsion(s)
         dihedral = self._lobe_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
         xhat_wing = dihedral @ torsion @ [1, 0, 0]
-        c = self._chord_length(s)[..., np.newaxis]  # Proportional chords!
-        LE = (np.concatenate((np.zeros_like(s)[..., np.newaxis], self.yz(s)), axis=-1)
-              + (self.r_x - self.r_yz) * c * xhat_planform
-              + self.r_yz * c * xhat_wing)
-        xyz = LE - chord_ratio * c * xhat_wing - self.LE0
+        c = self._chord_length(s)  # *Proportional* chords
+
+        # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
+        LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
+              + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
+              + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
+        xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
         xyz *= self.b_flat / 2
         return xyz
 
