@@ -1267,29 +1267,48 @@ class Phillips(ForceEstimator):
             raise ForceEstimator.ConvergenceError("max iterations reached")
 
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+
+        # Compute the inviscid forces using the 3D vortex lifting law
+        #  * ref: Hunsaker-Snyder Eq:1
+        #  * ref: Phillips Eq:4
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
-        # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
+        # Compute the viscous forces.
+        #  * ref: Hunsaker-Snyder Eq:17
+        #
+        # The equation in the paper uses the "characteristic chord", but I
+        # believe that is a mistake; it produces *massive* drag. Here I use the
+        # section area like they do in "MachUp_Py" (see where they compute
+        # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
+        #
+        # Include nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
         #  1. Additional drag from the air intakes
         #  2. Additional drag from "surface characteristics"
         # FIXME: these extra terms have not been verified. The air intake
         #        term in particular, which is for ram-air parachutes.
-        # FIXME: these extra terms should be in the AirfoilCoefficients
+        # FIXME: these extra terms depend on the Parafoil design, and so should
+        #        be provided by the Airfoil (similar to the "extra drag" terms
+        #        you can specify in the XFLR5 wing design tool)
         Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
         # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
-
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
-        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"? I think it means the MAC of the section
+        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag
 
+        # The total forces applied at each control point
         dF = dF_inviscid + dF_viscous
 
-        # Compute the local pitching moments applied to each section
+        # Compute the section moments.
         #  * ref: Hunsaker-Snyder Eq:19
         #  * ref: Phillips Eq:28
-        # FIXME: This is a hack! Should use integral(c**2), not `dA * c_avg`
+        #
+        # These are strictly the section moments caused by airflow around the
+        # section. It does not include moments about the aircraft reference
+        # point (commonly the center of gravity); those extra moments must be
+        # calculated by the wing.
+        #  * ref: Hunsaker-Snyder Eq:20
         Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
