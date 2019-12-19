@@ -384,56 +384,71 @@ class SimpleIntakes:
         return values
 
 
-# ---------------------------------------------------------------------------
+class FlatYZ:
+    """Helper class for completely flat wings (no dihedral anywhere)."""
 
+    def __init__(self):
+        pass
+
+    def __call__(self, s):
+        _0 = np.zeros_like(s)
+        return np.stack((s, _0), axis=-1)
+
+    def derivative(self, s):
+        x = np.array([0, 0])
+        return np.broadcast_to(x, (*s.shape, 2))
+
+
+# ---------------------------------------------------------------------------
 
 class ParafoilGeometry:
     """A parafoil geometry definition using a set of parametric functions."""
 
     def __init__(
         self,
-        x,
-        r_x,
-        yz,
-        r_yz,
-        torsion,
         airfoil,
         chord_length,
-        intakes=None,
+        r_x,
+        x,
+        r_yz,
+        yz,
         b_flat=None,
         b=None,
-        N=500,
+        torsion=0,
+        intakes=None,
     ):
         """
         Add a docstring.
 
         Parameters
         ----------
-        x : function
-            The x-coordinates of each section as a function of the section
-            index. Each chord is shifted forward until the x-coordinate of its
-            leading edge is at `chord_length * r_x`. This curve shapes the
-            top-down view of the flattened wing.
-        r_x : float, or a function
-            A ratio from 0 to 1 that defines what location on the chord is
-            located at the x-coordinate defined by `x`. This can be a constant
-            or a function of the section index. For example, `xy_r = 1` says
-            that the `x` is specifying the x-coordinate of the trailing edge.
-        yz : array_like of float, shape (N_YZ, 3)
-        xy_r : float, or a function
-            A ratio from 0 to 1 that defines the chord position of the `yz`
-            curve. This can be a constant or a function of the section index.
-            For example, `yz_r = 1` says that the `yz` curve is specifying the
-            z-coordinate of the trailing edge.
-        torsion : function
-            Geometric torsion as a function of the section index. These angles
-            specify a positive rotation about the `y-axis`, relative to the
-            central section. Function range must be in radians.
         airfoil : Airfoil
             The airfoil.
         chord_length : function
             The length of each section chord as a function of section index,
             normalized by `b_flat / 2`.
+        r_x : float or callable
+            A ratio from 0 to 1 that defines what location on each chord is
+            located at the x-coordinate defined by `x`. This can be a constant
+            or a function of the section index. For example, `xy_r = 1` says
+            that `x` is specifying the x-coordinate of the trailing edge.
+        x : float or callable
+            The x-coordinates of each section as a function of the section
+            index. Each chord is shifted forward until the x-coordinate of its
+            leading edge is at `chord_length * r_x`.
+        r_yz : float or callable
+            A ratio from 0 to 1 that defines the chord position of the `yz`
+            curve. This can be a constant or a function of the section index.
+            For example, `yz_r = 0.25` says that the `yz` curve is specifying
+            the yz-coordinates of the quarter-chord.
+        yz : callable
+            A function that returns the (y, z) coordinate pair of each section
+            as a function of the section index. This curve shapes the yz-plane
+            view of the inflated wing.
+        torsion : function
+            Geometric torsion as a function of the section index. These angles
+            specify a positive rotation about the `y-axis`, relative to the
+            central section. Function range must be in radians.
         intakes : function, optional
             A function that defines the upper and lower intake positions in
             airfoil surface coordinates as a function of the section index.
@@ -445,13 +460,39 @@ class ParafoilGeometry:
         elif b_flat is not None and b is not None:
             raise ValueError("Specify only one of `b` or `b_flat`")
 
-        self.x = x
-        self.r_x = r_x
-        self.yz = yz
-        self.r_yz = r_yz
-        self.torsion = torsion
         self.airfoil = airfoil
-        self._chord_length = chord_length
+
+        if callable(chord_length):
+            self._chord_length = chord_length
+        else:
+            self._chord_length = lambda s: np.full(np.shape(s), float(chord_length))
+
+        if callable(r_x):
+            self.r_x = r_x
+        else:
+            self.r_x = lambda s: np.full(np.shape(s), float(r_x))
+
+        if callable(x):
+            self.x = x
+        else:
+            self.x = lambda s: np.full(np.shape(s), float(x))
+
+        if callable(r_yz):
+            self.r_yz = r_yz
+        else:
+            self.r_yz = lambda s: np.full(np.shape(s), float(r_yz))
+
+        if callable(yz):
+            self.yz = yz
+        elif yz is None:
+            self.yz = FlatYZ()
+        else:
+            raise ValueError("FIXME: need a good `yz` error message")
+
+        if callable(torsion):
+            self.torsion = torsion
+        else:
+            self.torsion = lambda s: np.full(np.shape(s), float(torsion))
 
         if intakes:
             self.intakes = intakes
@@ -468,10 +509,10 @@ class ParafoilGeometry:
         #        maximum lobe y-coordinate. Subtle, but would fail if the lobe
         #        has a vertical segment at the semi-span.
         res = scipy.optimize.minimize_scalar(
-            lambda s: -yz(s)[0], bounds=(0, 1), method="bounded",
+            lambda s: -self.yz(s)[0], bounds=(0, 1), method="bounded",
         )
         s_lobe_span = res.x
-        self.span_ratio = yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
+        self.span_ratio = self.yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
 
         # The property setters are now able to convert between `b` and `b_flat`
         if b_flat is not None:
