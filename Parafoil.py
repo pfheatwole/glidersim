@@ -387,16 +387,14 @@ class SimpleIntakes:
 class FlatYZ:
     """Helper class for completely flat wings (no dihedral anywhere)."""
 
-    def __init__(self):
-        pass
-
     def __call__(self, s):
-        _0 = np.zeros_like(s)
+        """Define `(y, z) = (s, 0)` for all sections."""
+        _0 = np.full(np.shape(s), 0.0)
         return np.stack((s, _0), axis=-1)
 
     def derivative(self, s):
-        x = np.array([0, 0])
-        return np.broadcast_to(x, (*s.shape, 2))
+        """Define `(dyds, dzds) = (1, 0)` for all sections."""
+        return np.broadcast_to([1.0, 0.0], (*np.shape(s), 2)).copy()
 
 
 # ---------------------------------------------------------------------------
