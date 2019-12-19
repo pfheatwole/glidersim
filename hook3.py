@@ -260,14 +260,14 @@ if __name__ == "__main__":
     c_root = chord_max / (b_flat / 2)  # Proportional values
     c_tip = chord_min / (b_flat / 2)
     parafoil = Parafoil.ParafoilGeometry(
-        x=0,
-        r_x=0.75,
-        yz=Parafoil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
-        r_yz=1.00,
-        torsion=Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2),
-        # torsion=Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75),  # From Sec. 11.4, pg 17 of the manual ("Line Plan")
         airfoil=airfoil,
         chord_length=Parafoil.elliptical_chord(root=c_root, tip=c_tip),
+        r_x=0.75,
+        x=0,
+        r_yz=1.00,
+        yz=Parafoil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
+        torsion=Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2),
+        # torsion=Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75),  # From Sec. 11.4, pg 17 of the manual ("Line Plan")
         intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),
         b_flat=b_flat,  # Option 1: Determine the scale using the planform
         # b=b,  # Option 2: Determine the scale using the lobe

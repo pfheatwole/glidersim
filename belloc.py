@@ -186,7 +186,7 @@ s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
 parafoil = Parafoil.ParafoilGeometry(
-    x=lambda _: 0,
+    x=0,
     r_x=0.6,
     yz=lobe,
     r_yz=0.6,
