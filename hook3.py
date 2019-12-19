@@ -178,71 +178,22 @@ def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
     embed()
 
 
-if __name__ == "__main__":
+def build_hook3():
 
-    print("\n-------------------------------------------------------------\n")
+    print("Building an (approximate) Niviuk Hook 3 23\n")
 
     # -----------------------------------------------------------------------
     # Airfoil
 
-    # print("\nAirfoil: GNULAB3, simple flap, hinge at 80%")
-    # TODO: AirfoilGeometry importer for .DAT files (`gnulab3.dat`)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/gnulab3_polars.csv', 0.8)
-
-    # print("\nAirfoil: NACA2412, simple flap, hinge at 80%")
-    # airfoil_geo = Airfoil.NACA(2412)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca2412_xhinge80_yhinge_50.csv', 0.8)
-
-    # print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
-    # airfoil_geo = Airfoil.NACA(4412)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4412_xhinge80_yhinge_50.csv', 0.8)
-
-    # print("\nAirfoil: NACA4412, simple flap, hinge at 80%")
-    # airfoil_geo = Airfoil.NACA(4415)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50.csv')
-
-    # print("\nAirfoil: NACA4415, simple flap, hinge at 80%")
-    # airfoil_geo = Airfoil.NACA(4415)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_xhinge80_yhinge_50_Re2_cleaned.csv')
-    # delta_max = np.deg2rad(50)*0.99 * (1 - 0.8)   # FIXME: magic number!
-
-    # print("\nAirfoil: NACA4415, simple flap, variable xhinge")
-    # airfoil_geo = Airfoil.NACA(4415)
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/naca4415_fixed_flap65.csv')
-    # delta_max = np.deg2rad(10)  # FIXME: magic number
-
-    # print("\nAirfoil: NACA4418, curving flap")
-    # airfoil_geo = Airfoil.NACA(4418, open_TE=False, convention='british')
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA4418_theta30_epsilon10_Ku4_Kl0.5_ver3.csv')
-    # delta_max = np.deg2rad(10.8)  # FIXME: magic number
-
-    # print("\nAirfoil: NACA 23015, curving flap")
-    # airfoil_geo = Airfoil.NACA(23015, convention='british')
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku3_Kl0.5.csv')  # delta_max = 13.84
-    # delta_max = np.deg2rad(13.8)  # FIXME: magic number
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku6_Kl0.75.csv')  # delta_max = 11.75
-    # delta_max = np.deg2rad(11.74)  # FIXME: magic number
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA23015_theta30_epsilon10_Ku3_Kl0.5_N0.1.csv')  # delta_max = 15.15
-    # delta_max = np.deg2rad(13)  # FIXME: magic number
-    # For a Hook 3, I want max brake to produce a mininum speed of ~6.6m/s
-
-    # print("\nAirfoil: NACA 24018, curving flap")
-    # airfoil_geo = Airfoil.NACA(24018, convention='british')
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/NACA24018_theta30_epsilon10_Ku3_Kl0.5.csv')  # delta_max = 13.76
-    # delta_max = np.deg2rad(13.75)  # FIXME: magic number
-
-    print("Airfoil: NACA 24018, curving flap")
+    print("Airfoil: NACA 24018, curving flap\n")
     airfoil_geo = Airfoil.NACA(24018, convention="british")
-    airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
-    # delta_max = np.deg2rad(13.25)  # FIXME: magic number
-    delta_max = np.deg2rad(10.00)  # FIXME: magic number  # 13.25 is giving convergence issues
+    airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')
+    delta_max = np.deg2rad(10.00)  # True value: 13.28
 
     # print("\nAirfoil: NACA 23015, curving flap")
     # airfoil_geo = Airfoil.NACA(23015, convention='british')
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_23015.csv')  # delta_max = 13.38
-    # delta_max = np.deg2rad(12.00)  # FIXME: magic number
-
-    # plots.plot_airfoil_geo(airfoil_geo)
+    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_23015.csv')
+    # delta_max = np.deg2rad(12.00)  # True value: 13.38
 
     airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
@@ -259,6 +210,15 @@ if __name__ == "__main__":
     # specs is a guess to make the projected values match up.
     c_root = chord_max / (b_flat / 2)  # Proportional values
     c_tip = chord_min / (b_flat / 2)
+
+    # The geometric torsion distribution is uncertain. In Sec. 11.4, pg 17 of
+    # the manual ("Line Plan") it appears to have a roughly square-root
+    # spanwise distribution with a maximum valueof 6 or so? Unfortunately that
+    # distribution proves difficult for Phillips method, so here I provide an
+    # "easier" alternative.
+    # torsion = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
+    torsion = Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
+
     parafoil = Parafoil.ParafoilGeometry(
         airfoil=airfoil,
         chord_length=Parafoil.elliptical_chord(root=c_root, tip=c_tip),
@@ -266,14 +226,12 @@ if __name__ == "__main__":
         x=0,
         r_yz=1.00,
         yz=Parafoil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
-        torsion=Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2),
-        # torsion=Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75),  # From Sec. 11.4, pg 17 of the manual ("Line Plan")
-        intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),
+        torsion=torsion,
+        intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
         b_flat=b_flat,  # Option 1: Determine the scale using the planform
         # b=b,  # Option 2: Determine the scale using the lobe
     )
 
-    print()
     print("Parafoil geometry:")
     print(f"  planform flat span: {parafoil.b_flat:>6.3f}")
     print(f"  planform flat area: {parafoil.S_flat:>6.3f}")
@@ -284,17 +242,23 @@ if __name__ == "__main__":
     print(f"  projected span:     {parafoil.b:>6.3f}")
     print(f"  projected area:     {parafoil.S:>6.3f}")
     print(f"  projected AR:       {parafoil.AR:>6.3f}")
+    print()
 
     # print("Drawing the parafoil")
     # plots.plot_parafoil_planform_topdown(parafoil)
     # plots.plot_parafoil_planform(parafoil, N_sections=50)
     # plots.plot_parafoil_geo(parafoil, N_sections=131)
-    plots.plot_parafoil_geo_topdown(parafoil, N_sections=77)
+
+    # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
+    # plots.plot_parafoil_geo_topdown(parafoil, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Brake geometry
+    #
+    # FIXME: this is completely unknown. For now this just a standin until I
+    #        implement a proper line geometry and can calculate the deflection
+    #        distributions from that.
 
-    # p_start, p_peak = 0, 0.75
     p_start = 0.00
     p_peak = BrakeGeometry.Cubic.p_peak_min(p_start) + 1e-9
     brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
@@ -329,8 +293,15 @@ if __name__ == "__main__":
     # embed()
     # 1/0
 
-    # -----------------------------------------------------------------------
-    # Tests
+    return glider
+
+
+if __name__ == "__main__":
+
+    print("\n-------------------------------------------------------------\n")
+
+    glider = build_hook3()
+
     print("\nComputing the wing equilibrium...")
     alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, rho_air=1.2)
 
@@ -338,7 +309,8 @@ if __name__ == "__main__":
     print(f"  Theta: {np.rad2deg(Theta):>6.3f} [deg]")
     print(f"  Speed: {V:>6.3f} [m/s]")
 
-    print("\nComputing the glider equilibrium...")
+    print()
+    print("Computing the glider equilibrium...")
     UVW = V * np.array([np.cos(alpha), 0, np.sin(alpha)])
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
@@ -363,7 +335,7 @@ if __name__ == "__main__":
     # alpha_rad = np.linalg.inv(J_wing) @ M
     # print("Angular acceleration at equilibrium:", np.rad2deg(alpha_rad))
 
-    print("\n<pausing>\n")
+    print("\n<pausing before polar curves>\n")
     embed()
 
     input("Plot the polar curve?  Press any key")
