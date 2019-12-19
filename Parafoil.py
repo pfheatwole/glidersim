@@ -1000,8 +1000,14 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross3(u_inf, R2) / (r2 * (r2 - np.einsum("k,ijk->ij", u_inf, R2)))[..., None]
-        v -= cross3(u_inf, R1) / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
+        v += (
+            cross3(u_inf, R2)
+            / (r2 * (r2 - np.einsum("k,ijk->ij", u_inf, R2)))[..., None]
+        )
+        v -= (
+            cross3(u_inf, R1)
+            / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
+        )
 
         return v / (4 * np.pi)
 
@@ -1065,8 +1071,9 @@ class Phillips(ForceEstimator):
         opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm,
-                        cross3(v, self.dl), optimize=opt2)
+        J2 = 2 * np.einsum(
+            "i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl), optimize=opt2,
+        )
         J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
               - np.einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
@@ -1129,7 +1136,7 @@ class Phillips(ForceEstimator):
         G = Gamma
         Gammas = [G]  # FIXME: For debugging
         success = False
-        for k in range(maxiter):
+        for _k in range(maxiter):
             print(".", end="")
             G_old = G
 
@@ -1153,7 +1160,9 @@ class Phillips(ForceEstimator):
             # G = Gamma + 0.05*p(self.s_cps)
 
             # Option 2: Smooth the final Gamma
-            p = scipy.interpolate.UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
+            p = scipy.interpolate.UnivariateSpline(
+                self.s_cps, G_old + 0.5 * (G - G_old), s=0.001,
+            )
             G = p(self.s_cps)
 
             # Option 3: Smooth Gamma, and force Gamma to zero at the tips
@@ -1292,7 +1301,7 @@ class Phillips(ForceEstimator):
         # the original target, or exceeding `max_iterations`.
         V_w2cp = -V_cp2w
         target_backlog = []  # Stack of pending targets
-        for _ in range(max_iterations):
+        for _m in range(max_iterations):
             try:
                 Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma_ref)
             except ForceEstimator.ConvergenceError:
