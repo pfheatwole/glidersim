@@ -535,31 +535,16 @@ class ParafoilGeometry:
     @property
     def S_flat(self):
         """
-        Approximate the projected surface area of the flattened parafoil.
+        Compute the projected surface area of the flattened parafoil.
 
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane. It is not the total surface
         area of the volume.
         """
-        # warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
-
-        # FIXME: Tends to overestimate since it calculates raw chord areas, not
-        # those areas projected onto the xy-plane. This is approximately
-        # correct since the planform is mostly flat, but it does mean it does
-        # not account for torsion.
-
-        s_nodes = np.linspace(-1, 1, 1000)
-        nodes = self.chord_xyz(s_nodes, 0.5)
-        midpoints = (s_nodes[1:] + s_nodes[:-1]) / 2
-        u = self.section_orientation(midpoints)[..., 0]
-
-        # Define the differential areas as parallelograms by assuming a linear
-        # chord variation between nodes.
-        dl = nodes[1:] - nodes[:-1]
-        node_chords = self.chord_length(s_nodes)
-        c_avg = (node_chords[1:] + node_chords[:-1]) / 2
-        dA = c_avg * np.linalg.norm(cross3(u, dl), axis=1)
-        return dA.sum()
+        s = np.linspace(-1, 1, 1000)
+        c = self.chord_length(s)  # Projected section lengths before torsion
+        lengths = (self._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
+        return scipy.integrate.simps(lengths, s) * self.b_flat / 2
 
     def _planform_torsion(self, s):
         """
