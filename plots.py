@@ -9,10 +9,9 @@ import numpy as np
 
 
 def plot_airfoil_geo(foil_geo):
-    su = np.linspace(foil_geo.s_upper, 1, 200)
-    sl = np.linspace(foil_geo.s_lower, -1, 200)
-    upper = foil_geo.surface_curve(su).T
-    lower = foil_geo.surface_curve(sl).T
+    sa = np.linspace(0, 1, 200)
+    upper = foil_geo.surface_curve(sa).T
+    lower = foil_geo.surface_curve(-sa).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75)
     ax.plot(lower[0], lower[1], c="r", lw=0.75)

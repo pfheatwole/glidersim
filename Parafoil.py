@@ -306,38 +306,35 @@ class PolynomialTorsion:
 
 class SimpleIntakes:
     """
-    Defines the upper and lower surface airfoil coordinates.
+    Defines the upper and lower surface coordinates as constant along the span.
 
     This version currently uses explicit `s_upper` and `s_lower` in airfoil
-    coordinates, but other options might be the intake midpoint and width
-    (where "width" might be in the airfoil `s`, or as a percentage of the
+    coordinates, but other parametrizations might be the intake midpoint and
+    width (where "width" might be in the airfoil `s`, or as a percentage of the
     chord) or `c_upper` and `c_lower` as points on the chord.
+
+    Parameters
+    ----------
+    s_end: float
+        Section index. Air intakes are present between +/- `s_end`.
+    s_upper, s_lower : float
+        The starting coordinates of the upper and lower surface of the
+        parafoil, given in airfoil surface coordinates. These are used to
+        define air intakes, and for determining the inertial properties of the
+        upper and lower surfaces.
+
+        The airfoil coordinates use `s = 0` for the leading edge, `s = 1` for
+        trailing edge of the curve above the chord, and `s = -1` for the
+        trailing edge of the curve below the chord, so these choices must
+        follow `-1 <= s_lower <= s_upper <= 1`.
     """
 
     def __init__(self, s_end, s_upper, s_lower):
-        """
-
-        Parameters
-        ----------
-        s_end: float
-            Section index. Air intakes are present between +/- `s_end`.
-        s_upper, s_lower : float
-            The starting coordinates of the upper and lower surface of the
-            parafoil, given in airfoil surface coordinates. The airfoil uses
-            s = 0 for the LE, s = 1 for the upper surface trailing edge, and
-            s = -1 for the lower surface trailing edge, so these choices must
-            follow `-1 <= s_lower <= s_upper <= 1`.
-
-
-        FIXME: support more types of definition:
-
-        1. su/sl : explicit upper/lower cuts in airfoil coordinates
-
-        2. midpoint (in airfoil coordinates) and width
-
-        3. Upper and lower cuts as a fraction of the chord (the "Paraglider
-           Design Manual" does it this way).
-        """
+        # FIXME: support more types of definition:
+        #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
+        #  2. midpoint (in airfoil coordinates) and width
+        #  3. Upper and lower cuts as a fraction of the chord (the "Paraglider
+        #     Design Manual" does it this way).
         self.s_end = s_end
         self.s_upper = s_upper
         self.s_lower = s_lower
