@@ -148,15 +148,13 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
         coords = parafoil.surface_points(s, sa, "upper").T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
-    s = np.linspace(-1, 1, 51)
+    s = np.linspace(-1, 1, N_sections)
+    LE = parafoil.chord_xyz(s, 0).T
     c4 = parafoil.chord_xyz(s, 0.25).T
+    TE = parafoil.chord_xyz(s, 1).T
+    ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
-
-    s = np.linspace(-1, 1, 151)
-    c0 = parafoil.chord_xyz(s, 0).T
-    ax.plot(c0[0], c0[1], c0[2], "k--", lw=0.8)
-    c1 = parafoil.chord_xyz(s, 1).T
-    ax.plot(c1[0], c1[1], c1[2], "k--", lw=0.8)
+    ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
     set_axes_equal(ax)
     # clean_3d_axes(ax)
