@@ -18,7 +18,7 @@ class ParagliderWing:
     #        controls?
 
     def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
-                 pA, pC, kappa_s=0):
+                 pA, pC, kappa_s, rho_upper, rho_lower):
         """
         FIXME: add docstring.
 
@@ -49,6 +49,8 @@ class ParagliderWing:
         self.pA = pA
         self.pC = pC
         self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
+        self.rho_upper = rho_upper
+        self.rho_lower = rho_lower
 
         # The ParagliderWing coordinate system is a shifted version of the
         # one defined by the Parafoil. The axes of both systems are parallel,
@@ -62,10 +64,6 @@ class ParagliderWing:
         self.A = np.sqrt((foil_x - self.pA * self.c0) ** 2 + foil_z ** 2)
         self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
         self.AC = (self.pC - self.pA) * self.c0
-
-        # FIXME: relocate. Here for testing, from a Hook 3
-        self.rho_upper = 40 / 1000  # kg/m2
-        self.rho_lower = 35 / 1000  # kg/m2
 
     def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, reference_solution=None):
         """

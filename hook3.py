@@ -275,6 +275,8 @@ def build_hook3():
         pA=0.11,  # Approximated from a picture in the manual
         pC=0.59,
         kappa_s=0.15,  # From the Hook 3 manual
+        rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
+        rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )
 
     # Note to self: the wing should weight 4.7kG in total; according to these
