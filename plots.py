@@ -163,6 +163,21 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     plt.show()
 
 
+def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50):
+    """Plot a 3D Parafoil in topdown projection."""
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    for s in np.linspace(-1, 1, N_sections):
+        LE_xy = parafoil.chord_xyz(s, 0)[:2]
+        TE_xy = parafoil.chord_xyz(s, 1)[:2]
+        coords = np.stack((LE_xy, TE_xy))
+        ax.plot(coords.T[1], coords.T[0], linewidth=0.75)
+
+    ax.set_aspect("equal")
+    fig.tight_layout()
+    plt.show()
+
+
 def plot_parafoil_planform_topdown(parafoil):
     """Plot a parafoil planform as a top-down view."""
     # FIXME: accept either a Parafoil or a ParafoilPlanform?
