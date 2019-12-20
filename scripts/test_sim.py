@@ -7,8 +7,8 @@ import numpy as np
 import scipy.integrate
 
 import hook3
-import quaternion
-from util import cross3
+from pfh.glidersim import quaternion
+from pfh.glidersim.util import cross3
 
 
 class GliderSim:

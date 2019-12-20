@@ -4,7 +4,7 @@ import numpy as np
 
 from IPython import embed
 
-from util import cross3
+from .util import cross3
 
 
 class Paraglider:

@@ -43,16 +43,18 @@ import pandas as pd
 import scipy.interpolate
 from scipy.interpolate import PchipInterpolator, UnivariateSpline
 
-import airfoil
-import brake_geometry
-import foil
-import harness
-import paraglider
-import paraglider_wing
-import plots
+# import airfoil
+# import brake_geometry
+# import foil
+# import harness
+# import paraglider
+# import paraglider_wing
+# import plots
+
+import pfh.glidersim as gsim
 
 
-class FlaplessAirfoilCoefficients(airfoil.AirfoilCoefficients):
+class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
     """
     Use airfoil coefficients from a CSV file.
 
@@ -157,10 +159,10 @@ print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
 # ---------------------------------------------------------------------------
 # Build the parafoil and wing
 
-airfoil_geo = airfoil.NACA(23015, convention='british')
+airfoil_geo = gsim.airfoil.NACA(23015, convention='british')
 airfoil_coefs = FlaplessAirfoilCoefficients(
     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
-_airfoil = airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
 
 class InterpolatedLobe:
@@ -185,7 +187,7 @@ class InterpolatedLobe:
 s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
-parafoil = foil.FoilGeometry(
+parafoil = gsim.foil.FoilGeometry(
     x=0,
     r_x=0.6,
     yz=lobe,
@@ -193,13 +195,13 @@ parafoil = foil.FoilGeometry(
     torsion=ftheta,
     chord_length=fc,
     b_flat=b_flat,
-    airfoil=_airfoil,
+    airfoil=airfoil,
 )
 
-wing = paraglider_wing.ParagliderWing(
+wing = gsim.paraglider_wing.ParagliderWing(
     parafoil=parafoil,
-    force_estimator=foil.Phillips,
-    brake_geo=brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
+    force_estimator=gsim.foil.Phillips,
+    brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
     pA=0.08,  # unused
@@ -211,11 +213,11 @@ wing = paraglider_wing.ParagliderWing(
 
 # A `Harness` is required to instantiate the `Paraglider`, but should not
 # produce any forces (so zero weight and drag).
-_harness = harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
-glider = paraglider.Paraglider(wing, _harness)
+harness = gsim.harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
+glider = gsim.paraglider.Paraglider(wing, harness)
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
-plots.plot_parafoil_geo(parafoil, N_sections=121)
+gsim.plots.plot_parafoil_geo(parafoil, N_sections=121)
 embed()
 # 1/0
 
@@ -279,7 +281,7 @@ for kb, beta_deg in enumerate(betas):
             F, M, ref = glider.forces_and_moments(
                 UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
             )
-        except foil.ForceEstimator.ConvergenceError:
+        except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
@@ -310,7 +312,7 @@ for kb, beta_deg in enumerate(betas):
             F, M, ref = glider.forces_and_moments(
                 UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
             )
-        except foil.ForceEstimator.ConvergenceError:
+        except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous

@@ -6,14 +6,12 @@ import numpy as np
 
 import pandas as pd
 
+import pfh.glidersim as gsim
+
 from scipy.interpolate import UnivariateSpline
 
-import airfoil
-import foil
-import plots
 
-
-class FlaplessAirfoilCoefficients(airfoil.AirfoilCoefficients):
+class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
     """
     Use airfoil coefficients from a CSV file.
 
@@ -58,72 +56,72 @@ class FlaplessAirfoilCoefficients(airfoil.AirfoilCoefficients):
 
 if __name__ == "__main__":
 
-    # airfoil_geo = airfoil.NACA(24018, convention="british")
-    # airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
+    # airfoil_geo = gsim.airfoil.NACA(24018, convention="british")
+    # airfoil_coefs = gsim.airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     # delta_max = np.deg2rad(10.00)  # True max: 13.28
 
-    airfoil_geo = airfoil.NACA(23015)
+    airfoil_geo = gsim.airfoil.NACA(23015)
     # airfoil_coefs = FlaplessAirfoilCoefficients('polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
     airfoil_coefs = FlaplessAirfoilCoefficients('/home/peter/stupid_wing/T1_Re0.650_M0.03_N0.1_XtrTop 5%_XtrBot 5%.csv')
 
-    airfoil = airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
+    airfoil = gsim.airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
 
     # Straight
-    wing1 = foil.FoilGeometry(
+    wing1 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=0.25,
         r_x=0,
         x=0,
         r_yz=0,
-        yz=foil.FlatYZ(),
+        yz=gsim.foil.FlatYZ(),
         b_flat=8,
     )
     M_ref1 = wing1.chord_xyz(0, 0)
 
     # Elliptical
-    wing2 = foil.FoilGeometry(
+    wing2 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
-        chord_length=foil.elliptical_chord(.25, .1),
+        chord_length=gsim.foil.elliptical_chord(.25, .1),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=foil.FlatYZ(),
+        yz=gsim.foil.FlatYZ(),
         b_flat=8,
     )
     M_ref2 = wing2.chord_xyz(0, 0.5)
 
     # Diagonal
-    wing3 = foil.FoilGeometry(
+    wing3 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=0.5,
         r_x=0.5,
         x=lambda s: -np.abs(s),
         r_yz=0,
-        yz=foil.FlatYZ(),
+        yz=gsim.foil.FlatYZ(),
         b_flat=1,
     )
     M_ref3 = wing3.chord_xyz(0, 0.0)
 
     # Triangle
-    wing4 = foil.FoilGeometry(
+    wing4 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=lambda s: 1 - np.abs(s),
         r_x=1.0,
         x=0,
         r_yz=0,
-        yz=foil.FlatYZ(),
+        yz=gsim.foil.FlatYZ(),
         b_flat=1,
     )
     M_ref4 = wing4.chord_xyz(0, 0.0)
 
     # Diamond
-    wing5 = foil.FoilGeometry(
+    wing5 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=lambda s: 1 - np.abs(s),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=foil.FlatYZ(),
+        yz=gsim.foil.FlatYZ(),
         b_flat=1,
     )
     M_ref5 = wing5.chord_xyz(0, 0.0)
@@ -134,7 +132,7 @@ if __name__ == "__main__":
     # wing, M_ref = wing4, M_ref4
     # wing, M_ref = wing5, M_ref5
 
-    plots.plot_parafoil_geo(wing, N_sections=51)
+    gsim.plots.plot_parafoil_geo(wing, N_sections=51)
 
     # For a flat wing:
     #
@@ -150,7 +148,7 @@ if __name__ == "__main__":
     )
     rho_air = 1.225
 
-    fe = foil.Phillips(wing, alpha_ref=5)
+    fe = gsim.foil.Phillips(wing, alpha_ref=5)
     dF, dM, solution = fe(UVW, 0)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)

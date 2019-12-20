@@ -7,8 +7,8 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.optimize import root_scalar
 
-import foil
-from util import cross3
+from . import foil
+from .util import cross3
 
 
 class ParagliderWing:
