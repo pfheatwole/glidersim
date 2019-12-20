@@ -204,7 +204,7 @@ wing = ParagliderWing.ParagliderWing(
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
     pA=0.08,  # unused
     pC=0.80,  # unused
-    kappa_s=0,  # unused
+    kappa_a=0,  # unused
     rho_upper=0,  # unused
     rho_lower=0,  # unused
 )

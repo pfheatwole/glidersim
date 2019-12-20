@@ -18,7 +18,7 @@ class ParagliderWing:
     #        controls?
 
     def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
-                 pA, pC, kappa_s, rho_upper, rho_lower):
+                 pA, pC, kappa_a, rho_upper, rho_lower):
         """
         FIXME: add docstring.
 
@@ -28,8 +28,8 @@ class ParagliderWing:
             The geometric shape of the lifting surface.
         force_estimator : Parafoil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
-        brake_Geo : BrakeGeometry
-            Section trailing edge deflections as a function of delta_s
+        brake_geo : BrakeGeometry
+            Section trailing edge deflections as a function of delta_Bl/Br
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -39,7 +39,7 @@ class ParagliderWing:
             The position of the A and C lines as a fraction of the central
             chord. The speedbar adjusts the length of the A lines, while C
             remains fixed, causing a rotation about the point `pC`.
-        kappa_s : float [meters], optional
+        kappa_a : float [meters], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
         """
@@ -48,7 +48,7 @@ class ParagliderWing:
         self.brake_geo = brake_geo
         self.pA = pA
         self.pC = pC
-        self.kappa_s = kappa_s  # FIXME: strange notation. Why `kappa`?
+        self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
 
@@ -92,14 +92,14 @@ class ParagliderWing:
         dF, dM, solution = self.force_estimator(V_cp2w, delta, reference_solution)
         return dF, dM, solution
 
-    def foil_origin(self, delta_s=0):
+    def foil_origin(self, delta_a=0):
         """
         Compute the origin of the Parafoil coordinate system in FRD.
 
         Parameters
         ----------
-        delta_s : float or array of float, shape (N,) [percentage] (optional)
-            Fraction of maximum speed bar application
+        delta_a : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application
 
         Returns
         -------
@@ -108,7 +108,7 @@ class ParagliderWing:
             ParagliderWing coordinates.
         """
         # Speedbar shortens the A lines, while AC and C remain fixed
-        A = self.A - (delta_s * self.kappa_s)
+        A = self.A - (delta_a * self.kappa_a)
         foil_x = (A ** 2 - self.C ** 2 + self.AC ** 2) / (2 * self.AC)
         foil_y = 0  # FIXME: not with weight shift?
         foil_z = -np.sqrt(A ** 2 - foil_x ** 2)
@@ -116,10 +116,10 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def equilibrium_alpha(self, deltaB, deltaS, reference_solution=None):
+    def equilibrium_alpha(self, deltaB, delta_a, reference_solution=None):
         """FIXME: add docstring."""
-        def target(alpha, deltaB, deltaS, reference_solution):
-            cp_wing = self.control_points(deltaS)
+        def target(alpha, deltaB, delta_a, reference_solution):
+            cp_wing = self.control_points(delta_a)
             v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(
                 v_wing, deltaB, deltaB, reference_solution,
@@ -130,13 +130,13 @@ class ParagliderWing:
 
         x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
         res = root_scalar(
-            target, args=(deltaB, deltaS, reference_solution), x0=x0, x1=x1,
+            target, args=(deltaB, delta_a, reference_solution), x0=x0, x1=x1,
         )  # FIXME: add `rtol`?
         if not res.converged:
             raise Parafoil.ForceEstimator.ConvergenceError
         return res.root
 
-    def control_points(self, delta_s=0):
+    def control_points(self, delta_a=0):
         """
         Compute the Parafoil control points in FRD.
 
@@ -144,8 +144,8 @@ class ParagliderWing:
 
         Parameters
         ----------
-        delta_s : float or array of float, shape (N,) [percentage] (optional)
-            Fraction of maximum speed bar application
+        delta_a : float or array of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application
 
         Returns
         -------
@@ -153,10 +153,10 @@ class ParagliderWing:
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
-        return cps + self.foil_origin(delta_s)  # In Wing coordinates
+        return cps + self.foil_origin(delta_a)  # In Wing coordinates
 
     # FIXME: moved from foil. Verify and test.
-    def surface_distributions(self, delta_s=0):
+    def surface_distributions(self, delta_a=0):
         """
         Compute the surface area distributions that define the inertial moments.
 
@@ -176,7 +176,7 @@ class ParagliderWing:
         """
         N = 501
         s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
-        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_s)).T
+        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_a)).T
         c = self.parafoil.chord_length(s)
 
         Sxx = simps((y ** 2 + z ** 2) * c, y)
@@ -201,11 +201,11 @@ class ParagliderWing:
         surface_density = self.wing_density + wing_air_density
         return surface_density * S
 
-    def inertia(self, rho_air, delta_s=0, N=200):
+    def inertia(self, rho_air, delta_a=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
 
-        TODO: this function currently only uses `delta_s` to determine the
-              shift of the cg, but in the future `delta_s` may also deform the
+        TODO: this function currently only uses `delta_a` to determine the
+              shift of the cg, but in the future `delta_a` may also deform the
               ParafoilLobe (if `lobe_args` starts getting used)
 
         TODO: precompute the static components that don't depend on `rho_air`
@@ -214,8 +214,8 @@ class ParagliderWing:
         ----------
         rho_air : float [kg/m^3]
             Volumetric air density of the atmosphere
-        delta_s : float [percentage], optional
-            Percentage of speed bar application
+        delta_a : float [percentage], optional
+            Percentage of accelerator application
         N : integer
             The number of points for integration across the span
 
@@ -242,7 +242,7 @@ class ParagliderWing:
         #                air_mass * p['volume_centroid'] +
         #                lower_mass * p['lower_centroid']) / total_mass
 
-        o = -self.foil_origin(delta_s)  # Origin is `risers->origin`
+        o = -self.foil_origin(delta_a)  # Origin is `risers->origin`
         Ru = o - p["upper_centroid"]
         Rv = o - p["volume_centroid"]
         Rl = o - p["lower_centroid"]

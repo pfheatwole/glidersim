@@ -16,13 +16,13 @@ import plots
 def plot_polar_curve(glider, N=51):
     """Compute the equilibrium conditions and plot the polar curves."""
     speedbar_equilibriums = np.empty((N, 5))
-    delta_ss = np.linspace(0, 1, N)
+    delta_as = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
     ref = None  # Reference solution; speeds convergence
-    for n, ds in enumerate(delta_ss):
-        print(f"\r{ds:.2f}", end="")
+    for n, da in enumerate(delta_as):
+        print(f"\r{da:.2f}", end="")
         alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            0, ds, rho_air=1.2, reference_solution=ref,
+            0, da, rho_air=1.2, reference_solution=ref,
         )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1 / np.tan(gamma_eq)
@@ -60,7 +60,7 @@ def plot_polar_curve(glider, N=51):
 
     # alpha_eq
     ax[0, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[0]), "r")
-    ax[0, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[0]), "g")
+    ax[0, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[0]), "g")
     ax[0, 0].set_ylabel("alpha_eq [deg]")
 
     # Polar curve
@@ -83,7 +83,7 @@ def plot_polar_curve(glider, N=51):
 
     # Theta_eq
     ax[1, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[1]), "r")
-    ax[1, 0].plot(delta_ss, np.rad2deg(speedbar_equilibriums.T[1]), "g")
+    ax[1, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[1]), "g")
     ax[1, 0].set_xlabel("control input [percentage]")
     ax[1, 0].set_ylabel("Theta_eq [deg]")
 
@@ -106,7 +106,7 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_CL_curve(glider, delta_B=0, delta_S=0, rho_air=1.2):
+def plot_CL_curve(glider, delta_B=0, delta_a=0, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-8, 20, 50))
     Fs, Ms = [], []
     reference_solution = None
@@ -274,7 +274,7 @@ def build_hook3():
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
         pA=0.11,  # Approximated from a picture in the manual
         pC=0.59,
-        kappa_s=0.15,  # From the Hook 3 manual
+        kappa_a=0.15,  # From the Hook 3 manual
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )

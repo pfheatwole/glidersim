@@ -22,7 +22,7 @@ class GliderSim:
         self.glider = glider
 
         # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_s is zero (no weight shift deformations)
+        #        and delta_a is zero (no weight shift deformations)
         self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
         self.J_inv = np.linalg.inv(self.J)
 
@@ -59,10 +59,10 @@ class GliderSim:
         # rho_air = self.rho_air(t, x['p'])
         rho_air = self.rho_air  # FIXME: support air density functions
 
-        delta_s, delta_Br, delta_Bl = 0, 0, 0  # FIXME: time-varying input
+        delta_a, delta_Br, delta_Bl = 0, 0, 0  # FIXME: time-varying input
 
         q_inv = x['q'] * [1, -1, -1, -1]  # for frd->ned
-        # cps_frd = self.glider.control_points(delta_s)  # In body coordinates
+        # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
         # cps = x['p'] + quaternion.apply_quaternion_rotation(x['q'], cps_frd)
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
         v_w2e = 0  # FIXME: implement wind lookups
@@ -75,7 +75,7 @@ class GliderSim:
         v_frd = quaternion.apply_quaternion_rotation(x['q'], x['v'])
         F, M, solution = self.glider.forces_and_moments(
             v_frd, x['omega'], g, rho_air=rho_air,
-            delta_s=delta_s, delta_Bl=delta_Bl, delta_Br=delta_Br,
+            delta_a=delta_a, delta_Bl=delta_Bl, delta_Br=delta_Br,
             reference_solution=params['solution'])
 
         # FIXME: what if Phillips fails? How do I abort gracefully?

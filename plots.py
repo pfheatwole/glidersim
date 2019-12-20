@@ -310,7 +310,7 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     plt.show()
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=50):
+def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=21, N_points=50):
     """Plot a ParagliderWing using 3D cross-sections."""
     # FIXME: this function is horrifying
 
