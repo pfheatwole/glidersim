@@ -7,7 +7,7 @@ import numpy as np
 from scipy.integrate import simps
 from scipy.optimize import root_scalar
 
-import Parafoil
+import foil
 from util import cross3
 
 
@@ -24,9 +24,9 @@ class ParagliderWing:
 
         Parameters
         ----------
-        parafoil : Parafoil.ParafoilGeometry
+        parafoil : foil.FoilGeometry
             The geometric shape of the lifting surface.
-        force_estimator : Parafoil.ForceEstimator
+        force_estimator : foil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
         brake_geo : BrakeGeometry
             Section trailing edge deflections as a function of delta_Bl/Br
@@ -133,7 +133,7 @@ class ParagliderWing:
             target, args=(deltaB, delta_a, reference_solution), x0=x0, x1=x1,
         )  # FIXME: add `rtol`?
         if not res.converged:
-            raise Parafoil.ForceEstimator.ConvergenceError
+            raise foil.ForceEstimator.ConvergenceError
         return res.root
 
     def control_points(self, delta_a=0):

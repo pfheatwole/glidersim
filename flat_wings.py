@@ -8,12 +8,12 @@ import pandas as pd
 
 from scipy.interpolate import UnivariateSpline
 
-import Airfoil
-import Parafoil
+import airfoil
+import foil
 import plots
 
 
-class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
+class FlaplessAirfoilCoefficients(airfoil.AirfoilCoefficients):
     """
     Use airfoil coefficients from a CSV file.
 
@@ -58,83 +58,83 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
 
 if __name__ == "__main__":
 
-    # airfoil_geo = Airfoil.NACA(24018, convention="british")
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
+    # airfoil_geo = airfoil.NACA(24018, convention="british")
+    # airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
     # delta_max = np.deg2rad(10.00)  # True max: 13.28
 
-    airfoil_geo = Airfoil.NACA(23015)
+    airfoil_geo = airfoil.NACA(23015)
     # airfoil_coefs = FlaplessAirfoilCoefficients('polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
     airfoil_coefs = FlaplessAirfoilCoefficients('/home/peter/stupid_wing/T1_Re0.650_M0.03_N0.1_XtrTop 5%_XtrBot 5%.csv')
 
-    airfoil = Airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
+    airfoil = airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
 
     # Straight
-    foil1 = Parafoil.ParafoilGeometry(
+    wing1 = foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=0.25,
         r_x=0,
         x=0,
         r_yz=0,
-        yz=Parafoil.FlatYZ(),
+        yz=foil.FlatYZ(),
         b_flat=8,
     )
-    M_ref1 = foil1.chord_xyz(0, 0)
+    M_ref1 = wing1.chord_xyz(0, 0)
 
     # Elliptical
-    foil2 = Parafoil.ParafoilGeometry(
+    wing2 = foil.FoilGeometry(
         airfoil=airfoil,
-        chord_length=Parafoil.elliptical_chord(.25, .1),
+        chord_length=foil.elliptical_chord(.25, .1),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=Parafoil.FlatYZ(),
+        yz=foil.FlatYZ(),
         b_flat=8,
     )
-    M_ref2 = foil2.chord_xyz(0, 0.5)
+    M_ref2 = wing2.chord_xyz(0, 0.5)
 
     # Diagonal
-    foil3 = Parafoil.ParafoilGeometry(
+    wing3 = foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=0.5,
         r_x=0.5,
         x=lambda s: -np.abs(s),
         r_yz=0,
-        yz=Parafoil.FlatYZ(),
+        yz=foil.FlatYZ(),
         b_flat=1,
     )
-    M_ref3 = foil3.chord_xyz(0, 0.0)
+    M_ref3 = wing3.chord_xyz(0, 0.0)
 
     # Triangle
-    foil4 = Parafoil.ParafoilGeometry(
+    wing4 = foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=lambda s: 1 - np.abs(s),
         r_x=1.0,
         x=0,
         r_yz=0,
-        yz=Parafoil.FlatYZ(),
+        yz=foil.FlatYZ(),
         b_flat=1,
     )
-    M_ref4 = foil4.chord_xyz(0, 0.0)
+    M_ref4 = wing4.chord_xyz(0, 0.0)
 
     # Diamond
-    foil5 = Parafoil.ParafoilGeometry(
+    wing5 = foil.FoilGeometry(
         airfoil=airfoil,
         chord_length=lambda s: 1 - np.abs(s),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=Parafoil.FlatYZ(),
+        yz=foil.FlatYZ(),
         b_flat=1,
     )
-    M_ref5 = foil5.chord_xyz(0, 0.0)
+    M_ref5 = wing5.chord_xyz(0, 0.0)
 
-    # foil, M_ref = foil1, M_ref1
-    foil, M_ref = foil2, M_ref2
-    # foil, M_ref = foil3, M_ref3
-    # foil, M_ref = foil4, M_ref4
-    # foil, M_ref = foil5, M_ref5
+    # wing, M_ref = wing1, M_ref1
+    wing, M_ref = wing2, M_ref2
+    # wing, M_ref = wing3, M_ref3
+    # wing, M_ref = wing4, M_ref4
+    # wing, M_ref = wing5, M_ref5
 
-    plots.plot_parafoil_geo(foil, N_sections=51)
+    plots.plot_parafoil_geo(wing, N_sections=51)
 
     # For a flat wing:
     #
@@ -150,18 +150,18 @@ if __name__ == "__main__":
     )
     rho_air = 1.225
 
-    fe = Parafoil.Phillips(foil, alpha_ref=5)
+    fe = foil.Phillips(wing, alpha_ref=5)
     dF, dM, solution = fe(UVW, 0)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)
 
     M += np.cross(fe.cps - M_ref, dF).sum(axis=0)
 
-    S = foil.S
+    S = wing.S
 
     CX, CY, CZ = F / (.5 * rho_air * V_total ** 2 * S)
     CN = -CZ
-    CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * foil.chord_length(0))
+    CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     CD = (
@@ -175,13 +175,13 @@ if __name__ == "__main__":
     print(f"Force coefficients: CL={CL:.3f}, CD={CD:.3f}")
     print(
         "Moment coefficients:",
-        (M / (0.5 * rho_air * V_total ** 2 * S * foil.chord_length(0))).round(3),
+        (M / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))).round(3),
     )
     print()
 
     # FIXME: broken
     # CD0 = airfoil_coefs.Cd(alpha, 0)
-    # e_0 = CL**2 / ((CD - CD0) * foil.AR * np.pi)
+    # e_0 = CL**2 / ((CD - CD0) * wing.AR * np.pi)
     # print("Oswald efficiency:", e_0)
 
     # plt.plot(solution['Gamma'])

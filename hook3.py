@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 
-import Airfoil
-import Parafoil
-import BrakeGeometry
-import Harness
-from ParagliderWing import ParagliderWing
-from Paraglider import Paraglider
+import airfoil
+import foil
+import brake_geometry
+import harness
+import paraglider_wing
+import paraglider
 import plots
 
 
@@ -39,7 +39,7 @@ def plot_polar_curve(glider, N=51):
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
                 db, 0, rho_air=1.2, reference_solution=ref,
             )
-        except Parafoil.ForceEstimator.ConvergenceError:
+        except foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
             break
         gamma_eq = alpha_eq - Theta_eq
@@ -186,16 +186,16 @@ def build_hook3():
     # Airfoil
 
     print("Airfoil: NACA 24018, curving flap\n")
-    airfoil_geo = Airfoil.NACA(24018, convention="british")
-    airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_24018.csv')
+    airfoil_geo = airfoil.NACA(24018, convention="british")
+    airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_24018.csv')
     delta_max = np.deg2rad(10.00)  # True value: 13.28
 
     # print("\nAirfoil: NACA 23015, curving flap")
-    # airfoil_geo = Airfoil.NACA(23015, convention='british')
-    # airfoil_coefs = Airfoil.GridCoefficients('polars/exp_curving_23015.csv')
+    # airfoil_geo = airfoil.NACA(23015, convention='british')
+    # airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_23015.csv')
     # delta_max = np.deg2rad(12.00)  # True value: 13.38
 
-    airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+    _airfoil = airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil: an approximate Niviuk Hook 3, size 23
@@ -217,17 +217,17 @@ def build_hook3():
     # distribution proves difficult for Phillips method, so here I provide an
     # "easier" alternative.
     # torsion = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
-    torsion = Parafoil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
+    torsion = foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    parafoil = Parafoil.ParafoilGeometry(
-        airfoil=airfoil,
-        chord_length=Parafoil.elliptical_chord(root=c_root, tip=c_tip),
+    parafoil = foil.FoilGeometry(
+        airfoil=_airfoil,
+        chord_length=foil.elliptical_chord(root=c_root, tip=c_tip),
         r_x=0.75,
         x=0,
         r_yz=1.00,
-        yz=Parafoil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
+        yz=foil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
         torsion=torsion,
-        intakes=Parafoil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
+        intakes=foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
         b_flat=b_flat,  # Option 1: Determine the scale using the planform
         # b=b,  # Option 2: Determine the scale using the lobe
     )
@@ -260,15 +260,15 @@ def build_hook3():
     #        distributions from that.
 
     p_start = 0.00
-    p_peak = BrakeGeometry.Cubic.p_peak_min(p_start) + 1e-9
-    brakes = BrakeGeometry.Cubic(p_start, p_peak, delta_max)
+    p_peak = brake_geometry.Cubic.p_peak_min(p_start) + 1e-9
+    brakes = brake_geometry.Cubic(p_start, p_peak, delta_max)
 
     # -----------------------------------------------------------------------
     # Wing and glider
 
-    wing = ParagliderWing(
+    wing = paraglider_wing.ParagliderWing(
         parafoil,
-        Parafoil.Phillips,
+        foil.Phillips,
         brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `Theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
@@ -284,9 +284,9 @@ def build_hook3():
     # wing materials I'm accounting for total to 1.83kg, so there's a lot left
     # in the lines, risers, ribs, etc.
 
-    harness = Harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    _harness = harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
 
-    glider = Paraglider(wing, harness)
+    glider = paraglider.Paraglider(wing, _harness)
 
     # print("Plotting the basic glider performance curves")
     # plot_CL_curve(glider)

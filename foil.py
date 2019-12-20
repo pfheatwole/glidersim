@@ -19,9 +19,9 @@ class EllipticalArc:
 
     Although this internal representation uses the standard `t` parameter for
     the parametric functions, some applications are more easily described with
-    a different domain. For example, all the `ParafoilGeometry` curves are
-    defined as functions of the section index `s`, which ranges from -1 (the
-    left wing tip) to +1 (the right wing tip).
+    a different domain. For example, all the `FoilGeometry` curves are defined
+    as functions of the section index `s`, which ranges from -1 (the left wing
+    tip) to +1 (the right wing tip).
 
     Setting different domains for the input coordinates vs the internal
     coordinates lets users ignore the implementation and focus on the
@@ -396,8 +396,15 @@ class FlatYZ:
 
 # ---------------------------------------------------------------------------
 
-class ParafoilGeometry:
-    """A parafoil geometry definition using a set of parametric functions."""
+class FoilGeometry:
+    """
+    A foil geometry definition using a set of parametric functions.
+
+    In fluid mechanics, a "foil" is simply a 3D object in a moving fluid.
+    Because this project is currently focused on parafoils, some of the
+    terminology will tend towards that application. For example, "flattened"
+    versus "inflated" span and area.
+    """
 
     def __init__(
         self,
@@ -859,7 +866,7 @@ class ForceEstimator(abc.ABC):
     @abc.abstractmethod
     def __call__(self, V_cp2w, delta):
         """
-        Estimate the forces and moments on a Parafoil.
+        Estimate the forces and moments on a foil.
 
         Parameters
         ----------
@@ -914,17 +921,17 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil, alpha_ref=8.5):
+    def __init__(self, foil, alpha_ref=8.5):
         """
         Initialize the estimator.
 
         Parameters
         ----------
-        parafoil : ParafoilGeometry
+        foil : FoilGeometry
         alpha_ref : float [degrees]
             The angle of attack for the reference solution.
         """
-        self.parafoil = parafoil
+        self.foil = foil
 
         # Define the spanwise and nodal and control points
 
@@ -937,11 +944,11 @@ class Phillips(ForceEstimator):
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.parafoil.chord_xyz(self.s_nodes, 0.25)
+        self.nodes = self.foil.chord_xyz(self.s_nodes, 0.25)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.parafoil.chord_xyz(self.s_cps, 0.25)
+        self.cps = self.foil.chord_xyz(self.s_cps, 0.25)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -951,13 +958,13 @@ class Phillips(ForceEstimator):
 
         # Wing section orientation unit vectors at each control point
         # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
-        u = -self.parafoil.section_orientation(self.s_cps).T
+        u = -self.foil.section_orientation(self.s_cps).T
         self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.chord_length(self.s_nodes)
+        node_chords = self.foil.chord_length(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
@@ -1017,7 +1024,7 @@ class Phillips(ForceEstimator):
         """
         mid = self.K // 2
         alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
-        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
+        CL_2d = self.foil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
         Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d
         Gamma = Gamma0 * np.sqrt(1 - self.s_cps ** 2)
         return Gamma
@@ -1043,7 +1050,7 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+        Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
         f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
@@ -1057,8 +1064,8 @@ class Phillips(ForceEstimator):
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
-        Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
+        Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
+        Cl_alpha = self.foil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
         # Use precomputed optimal einsum paths
         opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
@@ -1140,7 +1147,7 @@ class Phillips(ForceEstimator):
             # FIXME: Should `G` use `V*V` or `(V_n**2 + V_a**2)`?
             V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
             W_norm = np.linalg.norm(np.cross(V, self.dl), axis=1)
-            Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+            Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
             G = (.5 * (V_n ** 2 + V_a ** 2) * self.dA * Cl) / W_norm
 
             # --------------------------------------------------------------
@@ -1341,8 +1348,8 @@ class Phillips(ForceEstimator):
         # FIXME: these extra terms depend on the Parafoil design, and so should
         #        be provided by the Airfoil (similar to the "extra drag" terms
         #        you can specify in the XFLR5 wing design tool)
-        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        Cd = self.foil.airfoil.coefficients.Cd(alpha, delta)
+        # Cd += 0.07 * self.foil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
@@ -1360,7 +1367,7 @@ class Phillips(ForceEstimator):
         # point (commonly the center of gravity); those extra moments must be
         # calculated by the wing.
         #  * ref: Hunsaker-Snyder Eq:20
-        Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
+        Cm = self.foil.airfoil.coefficients.Cm(alpha, delta)
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
