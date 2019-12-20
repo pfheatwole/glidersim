@@ -2,3 +2,4 @@ _autosummary/
 _build/
 __pycache__/
 polars/
+OLD/
