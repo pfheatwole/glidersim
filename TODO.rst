@@ -4,7 +4,7 @@ General
 * The should module filenames be lowercase?
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
-  Numba to warn me about it, at least.
+  Numba to warn me about it, at least. (see `test_sim.py` using `quaternion`)
 
 * Should docstring types be "array of" or "ndarray of"? I lean towards
   "array", but would it be better to use the canonical name so sphinx can link
@@ -128,6 +128,14 @@ Parafoil
 Geometry
 --------
 
+* The `ParafoilGeometry` docstrings are really hard to follow. The parameter
+  names (`x`, `r_yz`, etc) aren't helping.
+
+* Should the `ParafoilGeometry.r_x` etc be private members?
+
+* If I change `ParafoilGeometry` to a generalized `FoilGeometry`, I need to
+  remove references to "inflated" wings vs "flattened" wings.
+
 * `ParafoilGeometry.mass_properties` does not pass `s_upper` and `s_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
   overestimated/underestimated (a little bit).
@@ -190,6 +198,10 @@ Coefficient Estimation
 
 Phillips
 ^^^^^^^^
+
+* My Jacobian calculations seem to be broken again; at least, the
+  finite-difference approximation disagrees with the analytical version. And
+  the equations for the `J` terms don't match Hunsaker; why not?
 
 * In `Phillips` I have a fixme about using the "characteristic chord", but
   right now I'm using the section area (`dA`). If I switch it to `c_avg`, the
@@ -256,13 +268,9 @@ BrakeGeometry
 ParagliderWing
 ==============
 
-* Review parameter naming conventions (like `kappa_S`)
+* Review parameter naming conventions (like `kappa_a`). Why "kappa"?
 
 * `d_riser` and `z_riser` are different units, which is odd.
-
-* Inconsistent use of `deltaS` and `delta_s`. Also, is `s` a bad choice for
-  "speedbar" since it overlaps with the normalized position parameters `s`?
-  Maybe call "accelerator" everywhere?
 
 * The ParagliderWing has hard-coded values for the material densities. Convert
   them to parameters.
