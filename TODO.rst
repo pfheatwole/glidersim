@@ -1,7 +1,13 @@
+Packaging
+=========
+
+* Add a README.rst
+
+* Fill out `setup.cfg` more thoroughly
+
+
 General
 =======
-
-* The should module filenames be lowercase?
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
   Numba to warn me about it, at least. (see `test_sim.py` using `quaternion`)
@@ -9,9 +15,6 @@ General
 * Should docstring types be "array of" or "ndarray of"? I lean towards
   "array", but would it be better to use the canonical name so sphinx can link
   to the numpy datatype documentation?
-
-* Bundle the components (paraglider model, wind models, simulator) into
-  a unified package for delivery with my thesis
 
 * Review the API for consistency
 
@@ -22,7 +25,7 @@ General
 Plots
 -----
 
-* Clean up all the plots
+* Clean up the plotting functions
 
 * Storyboard a parafoil design overview. Shoot for a (2,3) (flattened,
   inflated) in a 16:9 ratio. Once you can generate the overview given a single
@@ -34,11 +37,12 @@ Low priority
 ------------
 
 * Review function parameters for compatibility with either scalar or array
-  arguments
+  arguments. (Broadcasting is useful together with `np.meshgrid`, etc.)
 
-* Investigate applying the PFD stability analyses in the context of my
-  refactored design (eg, longitudinal static stability as a function of speed
-  bar, and thus as a function of {d_cg, h_cg})
+* Investigate applying the "Paraglider Flight Dynamics" (Bendetti, 2012)
+  stability analyses in the context of my refactored design (eg, longitudinal
+  static stability as a function of speed bar, and thus as a function of
+  {d_cg, h_cg})
 
 * Do a performance comparison between `cross3` and the `np.cross`
   implementation added to Numba `v0.46`. As of 2019-12-16, that function is
@@ -52,7 +56,7 @@ Low priority
 Airfoil
 =======
 
-* Add some references. For NACA airfoils, there are:
+* Add some literature references. For NACA airfoils, there are:
 
   * Abbott, "Theory of Wing Sections, Sec. 6
 
@@ -72,23 +76,24 @@ Airfoil
 * **HIGH PRIORITY**: Figure out why the polar curve look so terrible for small
   applications of brakes!!
 
-  I really REALLY don't trust the XFOIL output. It is extremely sensitive to
-  tiny changes to the number of points, the point distribution, and *super*
-  sensitve to trailing edge gaps. Just creating a nominal 23015 with the
-  builtin generator then removing the tiny TE gap causes the pitching moment
-  in particular to change dramatically. For now I'm focusing on the getting
-  the wing calculations correct given the airfoil data, but the sample airfoil
-  data I'm using seems totally untrustworthy. (#NEXT)
+  I really REALLY don't trust the XFOIL output (user error seems very likely).
+  It is extremely sensitive to tiny changes to the number of points, the point
+  distribution, and *super* sensitve to trailing edge gaps. Just creating
+  a nominal 23015 with the builtin generator then removing the tiny TE gap
+  causes the pitching moment in particular to change dramatically. For now I'm
+  focusing on the getting the wing calculations correct given the airfoil
+  data, but the sample airfoil data I'm using seems totally untrustworthy.
+  (#NEXT)
 
 * The NACA airfoils have the `convention` parameter, but the `AirfoilGeometry`
   superclass does not, yet the `AirfoilGeometry.thickness` docstring
   references the convention.
 
-* Implement `camber_curve` and `thickness` in `AirfoilGeometry`. Their
-  definitions depend on the `convention`: "American" defines "thickness is
-  perpendicular to the camber line", British defines "thickness is
-  perpendicular to the chord". (This is the same issue as in the definitions
-  of the NACA equations.)
+* Implement generalized `camber_curve` and `thickness` thickness functions in
+  `AirfoilGeometry`. Their definitions depend on the `convention`: "American"
+  defines "thickness is perpendicular to the camber line", British defines
+  "thickness is perpendicular to the chord". (This is the same issue as in the
+  definitions of the NACA equations.)
 
 * Should `AirfoilGeometry` provide an `acs2frd` conversion method? Or include
   that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar?
@@ -96,7 +101,8 @@ Airfoil
 * Add a note somewhere about the "American" convention having stability issues
   with some codes (I forget now which! Check the NACA5 range.)
 
-* NACA code `7199` really throws my "derotate and normalize" code for a loop
+* NACA code `7199` really throws my "derotate and normalize" code for a loop.
+  **Needs more testing.**
 
 
 Low priority
@@ -129,12 +135,9 @@ Geometry
 --------
 
 * The `ParafoilGeometry` docstrings are really hard to follow. The parameter
-  names (`x`, `r_yz`, etc) aren't helping.
+  names (`x`, `r_yz`, etc) are not very helpful.
 
-* Should the `ParafoilGeometry.r_x` etc be private members?
-
-* If I change `ParafoilGeometry` to a generalized `FoilGeometry`, I need to
-  remove references to "inflated" wings vs "flattened" wings.
+* Should the `ParafoilGeometry.r_x` etc be private members (`_r_x`)?
 
 * `ParafoilGeometry.mass_properties` does not pass `s_upper` and `s_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
@@ -146,11 +149,16 @@ Geometry
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
 
+* Nice to have: exporters for the common open CAD formats (IGES, STEP, STL,
+  etc). Seems like a good stepping stone to working with other programs, like
+  OpenFOAM (instead of targeting the OpenFOAM format directly).
 
-ParafoilSections (Low priority)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-(This is a long term goal.)
+ParafoilSections
+^^^^^^^^^^^^^^^^
+
+Low priority, long term goal: a new class to encapsulate spanwise variation in
+wing sections (airfoil geometry, airfoil coefficients, intakes, etc)
 
 In theory, a designer may want a spanwise variation in the airfoil. This
 requires varying both the coefficients (for performance) and the geometry (for
@@ -177,7 +185,7 @@ Coefficient Estimation
 
 * Design review how the coefficient estimator signals non-convergence (#NEXT)
 
-  * Right now Phillips' just sets the Gamma to NaN
+  * All users that call `Phillips.__call__` should be exception-aware
 
 * Double check the drag correction terms for viscous effects
 
@@ -199,14 +207,10 @@ Coefficient Estimation
 Phillips
 ^^^^^^^^
 
-* My Jacobian calculations seem to be broken again; at least, the
-  finite-difference approximation disagrees with the analytical version. And
-  the equations for the `J` terms don't match Hunsaker; why not?
-
 * In `Phillips` I have a fixme about using the "characteristic chord", but
   right now I'm using the section area (`dA`). If I switch it to `c_avg`, the
-  `CL vs CD` curve looks **MUCH** more like what's in the Belloc paper, but
-  the other curves go to pot. **Investigate this.**
+  `CL vs CD` curve looks MUCH more like what's in the Belloc paper, but
+  the other curves go to pot. **(#NEXT)**
 
 * Refactor the drag coefficient correction terms (skin friction, etc) outside
   Phillips (#NEXT)
@@ -214,55 +218,53 @@ Phillips
   * This belongs with the parafoil model; Phillips shouldn't care. Maybe part
     of the tentative ParafoilSections design?
 
+* My Jacobian calculations seem to be broken again; at least, the
+  finite-difference approximation disagrees with the analytical version. And
+  the equations for the `J` terms don't match Hunsaker; why not?
+
 * Phillips should check for zero `Cl_alpha`. What should it do if it does? Can
   it gracefully fail over to fixed-point iterations? Should it return a mask
   of which sections are experiencing stall conditions? Does it matter if XFOIL
   is unreliable post-stall anyway?
 
-* Refactor Phillips outside `Parafoil.py`
-
-  * This is a general lifting-line method, not just for parafoils. Also,
-    factoring it is the first step to generalizing for different estimation
-    methods (Phillips, Hunsaker, Chreim, etc)
+* Refactor Phillips outside `foil.py`?
 
 * Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
 
-* I could really use better Gamma proposals; they are super ugly right now
-
-  * Is Phillips2d a good predictor? Maybe convert Phillip's velocities into
-    <Gamma> and scale it?
+* Review the Gamma proposals.
 
 * I compute the complete Jacobian, but MINPACK's documentation for `hybrj`
-  says it should be the `Q` from a `QR` factorization?
+  says it should be the `Q` from a `QR` factorization? I can't say
+  I understand this.
 
 * The Jacobian uses the smoothed `Cl_alpha`, which technically will not match
-  the finite-difference of the raw `Cl`. Should I smooth the `Cl`, and
-  replace that as well?
+  the finite-difference of the raw `Cl`. Should I smooth the `Cl` and replace
+  that as well, so they match?
 
 * Profile and optimize
 
-  * `python -m cProfile -o belloc.prof belloc.py`, then `>>>
-    p = pstats.Stats('belloc.prof');
-    p.sort_stats('cumtime').print_stats(50)`
+  * For example, ``python -m cProfile -o belloc.prof belloc.py``, then ``>>>
+    p = pstats.Stats('belloc.prof'); p.sort_stats('cumtime').print_stats(50)``
 
-  * The `einsum` are not optimized by default; also, can precompute the
-    optimal contraction "path" with `einsum_path`
+  * Do the matrices used in the `einsum` calls have the optimal in-memory
+    layout? Consider the access patterns and verify they are contiguous in the
+    correct dimensions (ie, `C` vs `F` contiguous; see ``ndarray.flags``)
 
-* Compare my Phillips implementation against some more straightforward wings,
-  such as those in `chreimViscousEffectsAssessment2017`. Generating straight,
-  untapered wings should be pretty straightforward using my geometry
-  definitions.
+* Phillips' could always use more testing against XFLR5 or similar. I don't
+  have geometry export yet, but simple flat wings should be good for comparing
+  my Phillips implementation against the VLM methods in XFLR5.
 
 
 BrakeGeometry
 =============
 
-* Need a proper BrakeGeometry; the `Cubic` seems weird
-
-  * Create a more realistic brake distribution based on line angles?
+* Need a proper BrakeGeometry; the `Cubic` seems weird. (This will probably
+  have to wait until I create a more realistic brake distribution based on
+  line angles.)
 
 * Nice to have: automatically compute an upper bound for
-  `BrakeGeometry.delta_max` based on the maximum supported by the Airfoils
+  `BrakeGeometry.delta_max` based on the maximum supported by the Airfoils.
+  (Setting ``delta_max`` to a magic number is *awful*.)
 
 
 ParagliderWing
@@ -270,29 +272,28 @@ ParagliderWing
 
 * Review parameter naming conventions (like `kappa_a`). Why "kappa"?
 
-* `d_riser` and `z_riser` are different units, which is odd.
-
-* The ParagliderWing has hard-coded values for the material densities. Convert
-  them to parameters.
+* `d_riser` and `z_riser` are different units, which is odd. Almost everything
+  is proportional to `b_flat`, but `z_riser` is a concrete unit?
 
 * ParagliderWing owns the force estimator for the Parafoil, but not for the
-  harness. One of these is wrong...
+  harness...
 
-* Design the "query control points, compute wind vectors, query dynamics"
+* *Design* the "query control points, compute wind vectors, query dynamics"
   sequence and API
 
 * Paraglider should be responsible for weight shifting?
 
   * The wing doesn't care about the glider cm, only the changes to the riser
-    positions!
+    positions. However, **that would change if the lobe supports
+    deformations** in response to weight shift.
 
 
 Wing inertia
 ------------
 
-I'm using a naive isotropic model for wing inertia (the standard definition).
-But, because the surrounding air mass is in motion, it adds an additional
-damping effect, which combines with the true inertia. The effective inertia is
+I'm using a naive isotropic model for wing inertia (the standard definition),
+but because the surrounding air mass is in motion it adds an additional
+damping effect, which adds to the naive inertia. The *effective inertia* is
 then the result of the **apparent mass**. There are several definitions, like
 apparent mass, real mass, and solid mass; see "Apparent mass of parafoils with
 spanwise camber" (Barrows; 2002) for more information.
@@ -372,23 +373,16 @@ Documentation
 Testing
 =======
 
-* Review the wing performance under speedbar
+* Still issues with the Hook 3 polar curves
 
-  * Right now, I've capped the minimimum wing alpha_eq to avoid super gnarly
-    results, but this is clearly **WRONG**
+  * Min-sink is much too low; should be 1.1m/s (I should start by including
+    the weight of the wing)
 
-  * Test without the fixed bounds, and plot the polar curve with a large
-    number of sample points
+  * Max speed is too low (should be 54kmh)
 
-* Still issues with the polar curves
-
-  * My "Hook3-ish" min-sink is much too low; should be 1.1m/s (I should start
-    by including the weight of the wing)
-
-  * My "Hook3-ish" max speed is too low (should be 54kmh)
-
-  * My "Hook3-ish" creates bad `alpha_eq` for small application of brakes;
-    need to plot polar curves with a large number of points to detect this
+  * Is `alpha_eq` accurate when brakes are applied? It'd be fascinating if
+    alpha and Theta do actually decrease; I'd have expected Theta to
+    *increase*.
 
 * Does my model demonstrate "control reversal" for small brake deflections?
 
@@ -409,4 +403,4 @@ Testing
 
   * Why don't my results match as well as in
     `kulhanek2019IdentificationDegradationAerodynamic`? They use Phillips'
-    method just like I do!
+    method just like I do! I'm guessing my airfoil data is junk.
