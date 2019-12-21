@@ -18,3 +18,8 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+# Publish the HTML output to Github Pages
+github: html
+	ghp-import -m 'Generated from "$(shell git symbolic-ref --short HEAD)" @ $(shell git rev-parse --short HEAD)' -n $(BUILDDIR)/html
+	git push origin gh-pages
