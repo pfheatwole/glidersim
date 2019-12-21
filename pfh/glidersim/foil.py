@@ -1,7 +1,6 @@
 """FIXME: add docstring."""
 
 import abc
-import warnings
 
 from IPython import embed
 
