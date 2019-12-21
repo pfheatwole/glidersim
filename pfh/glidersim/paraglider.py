@@ -1,8 +1,8 @@
 """FIXME: add module docstring."""
 
-import numpy as np
-
 from IPython import embed
+
+import numpy as np
 
 from pfh.glidersim.util import cross3
 
