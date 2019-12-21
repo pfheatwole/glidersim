@@ -41,15 +41,6 @@ import numpy as np
 import pandas as pd
 
 import scipy.interpolate
-from scipy.interpolate import PchipInterpolator, UnivariateSpline
-
-# import airfoil
-# import brake_geometry
-# import foil
-# import harness
-# import paraglider
-# import paraglider_wing
-# import plots
 
 import pfh.glidersim as gsim
 
@@ -72,9 +63,9 @@ class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
         if convert_degrees:
             data['alpha'] = np.deg2rad(data.alpha)
 
-        self._Cl = UnivariateSpline(data[['alpha']], data.CL, s=0.001)
-        self._Cd = UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
-        self._Cm = UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
+        self._Cl = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CL, s=0.001)
+        self._Cd = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
+        self._Cm = scipy.interpolate.UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
         self._Cl_alpha = self._Cl.derivative()
 
     def _clean(self, alpha, val):
@@ -174,7 +165,7 @@ class InterpolatedLobe:
 
         assert y.ndim == 1 and z.ndim == 1
 
-        self._f = PchipInterpolator(s, np.c_[y, z])
+        self._f = scipy.interpolate.PchipInterpolator(s, np.c_[y, z])
         self._fd = self._f.derivative()
 
     def __call__(self, s):
