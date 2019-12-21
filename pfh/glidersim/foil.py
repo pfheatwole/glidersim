@@ -10,7 +10,7 @@ import numpy as np
 import scipy.interpolate
 import scipy.optimize
 
-from .util import cross3
+from pfh.glidersim.util import cross3
 
 
 class EllipticalArc:
