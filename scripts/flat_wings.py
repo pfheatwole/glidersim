@@ -6,9 +6,9 @@ import numpy as np
 
 import pandas as pd
 
-import pfh.glidersim as gsim
-
 from scipy.interpolate import UnivariateSpline
+
+import pfh.glidersim as gsim
 
 
 class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
@@ -27,11 +27,11 @@ class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
         self.data = data
 
         if convert_degrees:
-            data['alpha'] = np.deg2rad(data.alpha)
+            data["alpha"] = np.deg2rad(data.alpha)
 
-        self._Cl = UnivariateSpline(data[['alpha']], data.CL, s=0.001)
-        self._Cd = UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
-        self._Cm = UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
+        self._Cl = UnivariateSpline(data[["alpha"]], data.CL, s=0.001)
+        self._Cd = UnivariateSpline(data[["alpha"]], data.CD, s=0.0001)
+        self._Cm = UnivariateSpline(data[["alpha"]], data.Cm, s=0.0001)
         self._Cl_alpha = self._Cl.derivative()
 
     def _clean(self, alpha, val):
@@ -57,12 +57,12 @@ class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
 if __name__ == "__main__":
 
     # airfoil_geo = gsim.airfoil.NACA(24018, convention="british")
-    # airfoil_coefs = gsim.airfoil.GridCoefficients('polars/exp_curving_24018.csv')  # delta_max = 13.38
-    # delta_max = np.deg2rad(10.00)  # True max: 13.28
+    # airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018.csv")
 
     airfoil_geo = gsim.airfoil.NACA(23015)
-    # airfoil_coefs = FlaplessAirfoilCoefficients('polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
-    airfoil_coefs = FlaplessAirfoilCoefficients('/home/peter/stupid_wing/T1_Re0.650_M0.03_N0.1_XtrTop 5%_XtrBot 5%.csv')
+    airfoil_coefs = FlaplessAirfoilCoefficients(
+        "/home/peter/stupid_wing/T1_Re0.650_M0.03_N0.1_XtrTop 5%_XtrBot 5%.csv",
+    )
 
     airfoil = gsim.airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # Elliptical
     wing2 = gsim.foil.FoilGeometry(
         airfoil=airfoil,
-        chord_length=gsim.foil.elliptical_chord(.25, .1),
+        chord_length=gsim.foil.elliptical_chord(0.25, 0.1),
         r_x=0.5,
         x=0,
         r_yz=0,
@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     S = wing.S
 
-    CX, CY, CZ = F / (.5 * rho_air * V_total ** 2 * S)
+    CX, CY, CZ = F / (0.5 * rho_air * V_total ** 2 * S)
     CN = -CZ
     CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))
 
@@ -182,12 +182,12 @@ if __name__ == "__main__":
     # e_0 = CL**2 / ((CD - CD0) * wing.AR * np.pi)
     # print("Oswald efficiency:", e_0)
 
-    # plt.plot(solution['Gamma'])
+    # plt.plot(solution["Gamma"])
     # plt.show()
 
     # Check the resulting section alphas
     u_inf = -np.array([np.cos(alpha), 0, np.sin(alpha)])
     v = fe._induced_velocities(u_inf)
-    V, V_n, V_a, alphas = fe._local_velocities(-UVW, solution['Gamma'], v)
+    V, V_n, V_a, alphas = fe._local_velocities(-UVW, solution["Gamma"], v)
 
     embed()

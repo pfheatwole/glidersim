@@ -181,7 +181,7 @@ def build_hook3():
 
     print("Airfoil: NACA 24018, curving flap\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="british")
-    airfoil_coefs = gsim.airfoil.GridCoefficients('polars/exp_curving_24018.csv')
+    airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018.csv")
     delta_max = np.deg2rad(10.00)  # True value: 13.28
 
     # print("\nAirfoil: NACA 23015, curving flap")
