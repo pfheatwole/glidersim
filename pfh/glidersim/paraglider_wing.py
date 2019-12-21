@@ -42,6 +42,8 @@ class ParagliderWing:
         kappa_a : float [meters], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
+        rho_upper, rho_lower : float [kg m^-2]
+            Surface area densities of the upper and lower foil surfaces.
         """
         self.parafoil = parafoil
         self.force_estimator = force_estimator(parafoil)
