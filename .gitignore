@@ -3,4 +3,3 @@ _build/
 __pycache__/
 pfh_glidersim.egg-info/
 polars/
-OLD/
