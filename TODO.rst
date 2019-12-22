@@ -1,13 +1,24 @@
 Packaging
 =========
 
-* Add a README.rst
+* Add a `README.rst`
 
 * Fill out `setup.cfg` more thoroughly
+
+  * **Add a license** (https://choosealicense.com/)
+
+  * Add `author` and `author_email`? Required as a pair. Pity the email
+    address becomes public.
+
+  * Verify the dependencies
 
 
 General
 =======
+
+* Lots of missing/incomplete docstrings, and particularly for modules. (#NEXT)
+
+* Verify function docstrings match the signatures
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
   Numba to warn me about it, at least. (see `test_sim.py` using `quaternion`)
