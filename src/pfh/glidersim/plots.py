@@ -9,10 +9,9 @@ import numpy as np
 
 
 def plot_airfoil_geo(foil_geo):
-    su = np.linspace(foil_geo.s_upper, 1, 200)
-    sl = np.linspace(foil_geo.s_lower, -1, 200)
-    upper = foil_geo.surface_curve(su).T
-    lower = foil_geo.surface_curve(sl).T
+    sa = np.linspace(0, 1, 200)
+    upper = foil_geo.surface_curve(sa).T
+    lower = foil_geo.surface_curve(-sa).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75)
     ax.plot(lower[0], lower[1], c="r", lw=0.75)
@@ -148,20 +147,33 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
         coords = parafoil.surface_points(s, sa, "upper").T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
-    s = np.linspace(-1, 1, 51)
+    s = np.linspace(-1, 1, N_sections)
+    LE = parafoil.chord_xyz(s, 0).T
     c4 = parafoil.chord_xyz(s, 0.25).T
+    TE = parafoil.chord_xyz(s, 1).T
+    ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
-
-    s = np.linspace(-1, 1, 151)
-    c0 = parafoil.chord_xyz(s, 0).T
-    ax.plot(c0[0], c0[1], c0[2], "k--", lw=0.8)
-    c1 = parafoil.chord_xyz(s, 1).T
-    ax.plot(c1[0], c1[1], c1[2], "k--", lw=0.8)
+    ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
     set_axes_equal(ax)
     # clean_3d_axes(ax)
     ax.invert_yaxis()
     ax.invert_zaxis()
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50):
+    """Plot a 3D Parafoil in topdown projection."""
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    for s in np.linspace(-1, 1, N_sections):
+        LE_xy = parafoil.chord_xyz(s, 0)[:2]
+        TE_xy = parafoil.chord_xyz(s, 1)[:2]
+        coords = np.stack((LE_xy, TE_xy))
+        ax.plot(coords.T[1], coords.T[0], linewidth=0.75)
+
+    ax.set_aspect("equal")
     fig.tight_layout()
     plt.show()
 
@@ -298,7 +310,7 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     plt.show()
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_S=0, N_sections=21, N_points=50):
+def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=21, N_points=50):
     """Plot a ParagliderWing using 3D cross-sections."""
     # FIXME: this function is horrifying
 

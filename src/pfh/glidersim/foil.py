@@ -1,7 +1,6 @@
 """FIXME: add docstring."""
 
 import abc
-import warnings
 
 from IPython import embed
 
@@ -10,7 +9,7 @@ import numpy as np
 import scipy.interpolate
 import scipy.optimize
 
-from util import cross3
+from pfh.glidersim.util import cross3
 
 
 class EllipticalArc:
@@ -19,9 +18,9 @@ class EllipticalArc:
 
     Although this internal representation uses the standard `t` parameter for
     the parametric functions, some applications are more easily described with
-    a different domain. For example, all the `ParafoilGeometry` curves are
-    defined as functions of the section index `s`, which ranges from -1 (the
-    left wing tip) to +1 (the right wing tip).
+    a different domain. For example, all the `FoilGeometry` curves are defined
+    as functions of the section index `s`, which ranges from -1 (the left wing
+    tip) to +1 (the right wing tip).
 
     Setting different domains for the input coordinates vs the internal
     coordinates lets users ignore the implementation and focus on the
@@ -221,22 +220,8 @@ class EllipticalArc:
 
 def elliptical_chord(root, tip):
     """Build an elliptical chord distribution as a function of the section index."""
-    # FIXME: for now, only support this set of parameters
 
     taper = tip / root
-
-    # Config inputs: root, tip, max_taper_rate
-    #
-    # For an elliptical chord functio, dc/dy = 0 at the root and the maximum
-    # rate of change of taper will always occur at the tip. This function will
-    # assume the user wants the fastest rate possible at the tip, but let them
-    # override that if they want.
-
-    # This rate is implicitly "per unit span" since it's over the normalized
-    # planform span coordinate.
-    # mean_taper_rate = root - tip
-
-    # From Benedetti: verify
     A = 1 / np.sqrt(1 - taper ** 2)
     B = root
     t_min = np.arcsin(taper)
@@ -320,38 +305,35 @@ class PolynomialTorsion:
 
 class SimpleIntakes:
     """
-    Defines the upper and lower surface airfoil coordinates.
+    Defines the upper and lower surface coordinates as constant along the span.
 
     This version currently uses explicit `s_upper` and `s_lower` in airfoil
-    coordinates, but other options might be the intake midpoint and width
-    (where "width" might be in the airfoil `s`, or as a percentage of the
+    coordinates, but other parametrizations might be the intake midpoint and
+    width (where "width" might be in the airfoil `s`, or as a percentage of the
     chord) or `c_upper` and `c_lower` as points on the chord.
+
+    Parameters
+    ----------
+    s_end: float
+        Section index. Air intakes are present between +/- `s_end`.
+    s_upper, s_lower : float
+        The starting coordinates of the upper and lower surface of the
+        parafoil, given in airfoil surface coordinates. These are used to
+        define air intakes, and for determining the inertial properties of the
+        upper and lower surfaces.
+
+        The airfoil coordinates use `s = 0` for the leading edge, `s = 1` for
+        trailing edge of the curve above the chord, and `s = -1` for the
+        trailing edge of the curve below the chord, so these choices must
+        follow `-1 <= s_lower <= s_upper <= 1`.
     """
 
     def __init__(self, s_end, s_upper, s_lower):
-        """
-
-        Parameters
-        ----------
-        s_end: float
-            Section index. Air intakes are present between +/- `s_end`.
-        s_upper, s_lower : float
-            The starting coordinates of the upper and lower surface of the
-            parafoil, given in airfoil surface coordinates. The airfoil uses
-            s = 0 for the LE, s = 1 for the upper surface trailing edge, and
-            s = -1 for the lower surface trailing edge, so these choices must
-            follow `-1 <= s_lower <= s_upper <= 1`.
-
-
-        FIXME: support more types of definition:
-
-        1. su/sl : explicit upper/lower cuts in airfoil coordinates
-
-        2. midpoint (in airfoil coordinates) and width
-
-        3. Upper and lower cuts as a fraction of the chord (the "Paraglider
-           Design Manual" does it this way).
-        """
+        # FIXME: support more types of definition:
+        #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
+        #  2. midpoint (in airfoil coordinates) and width
+        #  3. Upper and lower cuts as a fraction of the chord (the "Paraglider
+        #     Design Manual" does it this way).
         self.s_end = s_end
         self.s_upper = s_upper
         self.s_lower = s_lower
@@ -398,55 +380,76 @@ class SimpleIntakes:
         return values
 
 
+class FlatYZ:
+    """Helper class for completely flat wings (no dihedral anywhere)."""
+
+    def __call__(self, s):
+        """Define `(y, z) = (s, 0)` for all sections."""
+        _0 = np.full(np.shape(s), 0.0)
+        return np.stack((s, _0), axis=-1)
+
+    def derivative(self, s):
+        """Define `(dyds, dzds) = (1, 0)` for all sections."""
+        return np.broadcast_to([1.0, 0.0], (*np.shape(s), 2)).copy()
+
+
 # ---------------------------------------------------------------------------
 
+class FoilGeometry:
+    """
+    A foil geometry definition using a set of parametric functions.
 
-class ParafoilGeometry:
-    """A parafoil geometry definition using a set of parametric functions."""
+    In fluid mechanics, a "foil" is simply a 3D object in a moving fluid.
+    Because this project is currently focused on parafoils, some of the
+    terminology will tend towards that application. For example, "flattened"
+    versus "inflated" span and area.
+    """
 
     def __init__(
         self,
-        x,
-        r_x,
-        yz,
-        r_yz,
-        torsion,
         airfoil,
         chord_length,
-        intakes=None,
+        r_x,
+        x,
+        r_yz,
+        yz,
         b_flat=None,
         b=None,
-        N=500,
+        torsion=0,
+        intakes=None,
     ):
         """
         Add a docstring.
 
         Parameters
         ----------
-        x : function
-            The x-coordinates of each section as a function of the section
-            index. Each chord is shifted forward until the x-coordinate of its
-            leading edge is at `chord_length * r_x`. This curve shapes the
-            top-down view of the flattened wing.
-        r_x : float, or a function
-            A ratio from 0 to 1 that defines what location on the chord is
-            located at the x-coordinate defined by `x`. This can be a constant
-            or a function of the normalized span. For example, `xy_r = 1` says
-            that the `x` is specifying the x-coordinate of the trailing edge.
-        yz : array_like of float, shape (N_YZ, 3)
-        xy_r : float, or a function
-            A ratio from 0 to 1 that defines the chord position of the `yz`
-            curve. This can be a constant or a function of the normalized span.
-            For example, `yz_r = 1` says that the `yz` curve is specifying the
-            z-coordinate of the trailing edge.
-        torsion : function
-            Geometric torsion as a function of the normalized span. These
-            angles specify a positive rotation about the `y-axis`, relative to
-            the central section.
         airfoil : Airfoil
             The airfoil.
         chord_length : function
-            The length of each section chord as a function of section index.
+            The length of each section chord as a function of section index,
+            normalized by `b_flat / 2`.
+        r_x : float or callable
+            A ratio from 0 to 1 that defines what location on each chord is
+            located at the x-coordinate defined by `x`. This can be a constant
+            or a function of the section index. For example, `xy_r = 1` says
+            that `x` is specifying the x-coordinate of the trailing edge.
+        x : float or callable
+            The x-coordinates of each section as a function of the section
+            index. Each chord is shifted forward until the x-coordinate of its
+            leading edge is at `chord_length * r_x`.
+        r_yz : float or callable
+            A ratio from 0 to 1 that defines the chord position of the `yz`
+            curve. This can be a constant or a function of the section index.
+            For example, `yz_r = 0.25` says that the `yz` curve is specifying
+            the yz-coordinates of the quarter-chord.
+        yz : callable
+            A function that returns the (y, z) coordinate pair of each section
+            as a function of the section index. This curve shapes the yz-plane
+            view of the inflated wing.
+        torsion : function
+            Geometric torsion as a function of the section index. These angles
+            specify a positive rotation about the `y-axis`, relative to the
+            central section. Function range must be in radians.
         intakes : function, optional
             A function that defines the upper and lower intake positions in
             airfoil surface coordinates as a function of the section index.
@@ -458,13 +461,39 @@ class ParafoilGeometry:
         elif b_flat is not None and b is not None:
             raise ValueError("Specify only one of `b` or `b_flat`")
 
-        self.x = x
-        self.r_x = r_x
-        self.yz = yz
-        self.r_yz = r_yz
-        self.torsion = torsion
         self.airfoil = airfoil
-        self._chord_length = chord_length  # Normalized by `b_flat / 2`
+
+        if callable(chord_length):
+            self._chord_length = chord_length
+        else:
+            self._chord_length = lambda s: np.full(np.shape(s), float(chord_length))
+
+        if callable(r_x):
+            self.r_x = r_x
+        else:
+            self.r_x = lambda s: np.full(np.shape(s), float(r_x))
+
+        if callable(x):
+            self.x = x
+        else:
+            self.x = lambda s: np.full(np.shape(s), float(x))
+
+        if callable(r_yz):
+            self.r_yz = r_yz
+        else:
+            self.r_yz = lambda s: np.full(np.shape(s), float(r_yz))
+
+        if callable(yz):
+            self.yz = yz
+        elif yz is None:
+            self.yz = FlatYZ()
+        else:
+            raise ValueError("FIXME: need a good `yz` error message")
+
+        if callable(torsion):
+            self.torsion = torsion
+        else:
+            self.torsion = lambda s: np.full(np.shape(s), float(torsion))
 
         if intakes:
             self.intakes = intakes
@@ -477,14 +506,14 @@ class ParafoilGeometry:
         # span `b_flat` and the projected span `b`.
         #
         # TODO: assumes the lobe is symmetric
-        # FIXME: this should be the *smallest* normalized span `y` that produces
+        # FIXME: this should be the *smallest* section index that produces the
         #        maximum lobe y-coordinate. Subtle, but would fail if the lobe
         #        has a vertical segment at the semi-span.
         res = scipy.optimize.minimize_scalar(
-            lambda s: -yz(s)[0], bounds=(0, 1), method="bounded",
+            lambda s: -self.yz(s)[0], bounds=(0, 1), method="bounded",
         )
         s_lobe_span = res.x
-        self.span_ratio = yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
+        self.span_ratio = self.yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
 
         # The property setters are now able to convert between `b` and `b_flat`
         if b_flat is not None:
@@ -492,9 +521,9 @@ class ParafoilGeometry:
         else:
             self.b = b
 
-        # Set the origin to the central chord leading edge. (FIXME: kludgy)
-        self.LE0 = [0, 0, 0]  # Initial zero-adjustment
-        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
+        # Set the origin to the central chord leading edge.
+        self.LE0 = [0, 0, 0]  # Empty offset to find the real offset
+        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)  # The real offset
 
     @property
     def AR(self):
@@ -548,31 +577,16 @@ class ParafoilGeometry:
     @property
     def S_flat(self):
         """
-        Approximate the projected surface area of the flattened parafoil.
+        Compute the projected surface area of the flattened parafoil.
 
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane. It is not the total surface
         area of the volume.
         """
-        warnings.warn("ParafoilGeometry.S_flat tends to overestimate slightly")
-
-        # FIXME: Tends to overestimate since it calculates raw chord areas, not
-        # those areas projected onto the xy-plane. This is approximately
-        # correct since the planform is mostly flat, but it does mean it does
-        # not account for torsion.
-
-        s_nodes = np.linspace(-1, 1, 1000)
-        nodes = self.chord_xyz(s_nodes, 0.5)
-        midpoints = (s_nodes[1:] + s_nodes[:-1]) / 2
-        u = self.section_orientation(midpoints)[..., 0]
-
-        # Define the differential areas as parallelograms by assuming a linear
-        # chord variation between nodes.
-        dl = nodes[1:] - nodes[:-1]
-        node_chords = self.chord_length(s_nodes)
-        c_avg = (node_chords[1:] + node_chords[:-1]) / 2
-        dA = c_avg * np.linalg.norm(cross3(u, dl), axis=1)
-        return dA.sum()
+        s = np.linspace(-1, 1, 1000)
+        c = self.chord_length(s)  # Projected section lengths before torsion
+        lengths = (self._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
+        return scipy.integrate.simps(lengths, s) * self.b_flat / 2
 
     def _planform_torsion(self, s):
         """
@@ -642,18 +656,24 @@ class ParafoilGeometry:
             Position on the chords, where `chord_ratio = 0` is the leading
             edge, and `chord_ratio = 1` is the trailing edge.
         """
-        assert chord_ratio >= 0 and chord_ratio <= 1
-
         s = np.asarray(s)
+        chord_ratio = np.asarray(chord_ratio)
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if chord_ratio.min() < 0 or chord_ratio.max() > 1:
+            raise ValueError("Chord ratios must be between 0 and 1.")
+
         torsion = self._planform_torsion(s)
         dihedral = self._lobe_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
         xhat_wing = dihedral @ torsion @ [1, 0, 0]
-        c = self._chord_length(s)[..., np.newaxis]  # Proportional chords!
-        LE = (np.concatenate((np.zeros_like(s)[..., np.newaxis], self.yz(s)), axis=-1)
-              + (self.r_x - self.r_yz) * c * xhat_planform
-              + self.r_yz * c * xhat_wing)
-        xyz = LE - chord_ratio * c * xhat_wing - self.LE0
+        c = self._chord_length(s)  # *Proportional* chords
+
+        # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
+        LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
+              + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
+              + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
+        xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
         xyz *= self.b_flat / 2
         return xyz
 
@@ -750,8 +770,15 @@ class ParafoilGeometry:
         the perpendicular axis theorem, then oriented into body coordinates,
         and finally translated to the global centroid (of the surface or
         volume) using the parallel axis theorem.
-
         """
+        # FIXME: doesn't account for `s_upper`/`s_lower` (minor effect)
+        #
+        # FIXME: Places all the segment mass on the section bisecting the
+        #        center of the segment instead of spreading the mass out along
+        #        the segment span, so it underestimates `I_xx` and `I_zz` by a
+        #        factor of `\int{y^2 dm}`. Doesn't make a big difference in
+        #        practice, but still: it's wrong.
+
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
@@ -838,7 +865,7 @@ class ForceEstimator(abc.ABC):
     @abc.abstractmethod
     def __call__(self, V_cp2w, delta):
         """
-        Estimate the forces and moments on a Parafoil.
+        Estimate the forces and moments on a foil.
 
         Parameters
         ----------
@@ -893,17 +920,17 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, parafoil, alpha_ref=8.5):
+    def __init__(self, foil, alpha_ref=8.5):
         """
         Initialize the estimator.
 
         Parameters
         ----------
-        parafoil : ParafoilGeometry
+        foil : FoilGeometry
         alpha_ref : float [degrees]
             The angle of attack for the reference solution.
         """
-        self.parafoil = parafoil
+        self.foil = foil
 
         # Define the spanwise and nodal and control points
 
@@ -916,11 +943,11 @@ class Phillips(ForceEstimator):
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.parafoil.chord_xyz(self.s_nodes, 0.25)
+        self.nodes = self.foil.chord_xyz(self.s_nodes, 0.25)
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.parafoil.chord_xyz(self.s_cps, 0.25)
+        self.cps = self.foil.chord_xyz(self.s_cps, 0.25)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -930,13 +957,13 @@ class Phillips(ForceEstimator):
 
         # Wing section orientation unit vectors at each control point
         # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
-        u = -self.parafoil.section_orientation(self.s_cps).T
+        u = -self.foil.section_orientation(self.s_cps).T
         self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
-        node_chords = self.parafoil.chord_length(self.s_nodes)
+        node_chords = self.foil.chord_length(self.s_nodes)
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
@@ -974,8 +1001,14 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips, Eq:6
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         v = self.v_ij.copy()
-        v += cross3(u_inf, R2) / (r2 * (r2 - np.einsum("k,ijk->ij", u_inf, R2)))[..., None]
-        v -= cross3(u_inf, R1) / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
+        v += (
+            cross3(u_inf, R2)
+            / (r2 * (r2 - np.einsum("k,ijk->ij", u_inf, R2)))[..., None]
+        )
+        v -= (
+            cross3(u_inf, R1)
+            / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
+        )
 
         return v / (4 * np.pi)
 
@@ -990,7 +1023,7 @@ class Phillips(ForceEstimator):
         """
         mid = self.K // 2
         alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
-        CL_2d = self.parafoil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
+        CL_2d = self.foil.airfoil.coefficients.Cl(alpha_2d, delta[mid])
         Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d
         Gamma = Gamma0 * np.sqrt(1 - self.s_cps ** 2)
         return Gamma
@@ -1016,7 +1049,7 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+        Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
         f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
@@ -1030,8 +1063,8 @@ class Phillips(ForceEstimator):
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
-        Cl_alpha = self.parafoil.airfoil.coefficients.Cl_alpha(alpha, delta)
+        Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
+        Cl_alpha = self.foil.airfoil.coefficients.Cl_alpha(alpha, delta)
 
         # Use precomputed optimal einsum paths
         opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
@@ -1039,8 +1072,9 @@ class Phillips(ForceEstimator):
         opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm,
-                        cross3(v, self.dl), optimize=opt2)
+        J2 = 2 * np.einsum(
+            "i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl), optimize=opt2,
+        )
         J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
               - np.einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
         J3 *= (self.dA * Cl_alpha)[:, None]
@@ -1103,7 +1137,7 @@ class Phillips(ForceEstimator):
         G = Gamma
         Gammas = [G]  # FIXME: For debugging
         success = False
-        for k in range(maxiter):
+        for _k in range(maxiter):
             print(".", end="")
             G_old = G
 
@@ -1112,7 +1146,7 @@ class Phillips(ForceEstimator):
             # FIXME: Should `G` use `V*V` or `(V_n**2 + V_a**2)`?
             V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
             W_norm = np.linalg.norm(np.cross(V, self.dl), axis=1)
-            Cl = self.parafoil.airfoil.coefficients.Cl(alpha, delta)
+            Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
             G = (.5 * (V_n ** 2 + V_a ** 2) * self.dA * Cl) / W_norm
 
             # --------------------------------------------------------------
@@ -1127,7 +1161,9 @@ class Phillips(ForceEstimator):
             # G = Gamma + 0.05*p(self.s_cps)
 
             # Option 2: Smooth the final Gamma
-            p = scipy.interpolate.UnivariateSpline(self.s_cps, G_old + 0.5 * (G - G_old), s=0.001)
+            p = scipy.interpolate.UnivariateSpline(
+                self.s_cps, G_old + 0.5 * (G - G_old), s=0.001,
+            )
             G = p(self.s_cps)
 
             # Option 3: Smooth Gamma, and force Gamma to zero at the tips
@@ -1266,7 +1302,7 @@ class Phillips(ForceEstimator):
         # the original target, or exceeding `max_iterations`.
         V_w2cp = -V_cp2w
         target_backlog = []  # Stack of pending targets
-        for _ in range(max_iterations):
+        for _m in range(max_iterations):
             try:
                 Gamma, v = self._solve_circulation(V_w2cp, delta, Gamma_ref)
             except ForceEstimator.ConvergenceError:
@@ -1288,30 +1324,49 @@ class Phillips(ForceEstimator):
             raise ForceEstimator.ConvergenceError("max iterations reached")
 
         V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+
+        # Compute the inviscid forces using the 3D vortex lifting law
+        #  * ref: Hunsaker-Snyder Eq:1
+        #  * ref: Phillips Eq:4
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
-        # Nominal airfoil drag plus some extra hacks from PFD p63 (71)
+        # Compute the viscous forces.
+        #  * ref: Hunsaker-Snyder Eq:17
+        #
+        # The equation in the paper uses the "characteristic chord", but I
+        # believe that is a mistake; it produces *massive* drag. Here I use the
+        # section area like they do in "MachUp_Py" (see where they compute
+        # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
+        #
+        # Include nominal airfoil drag plus some extra hacks from PFD p63 (71)
         #  0. Nominal airfoil drag
         #  1. Additional drag from the air intakes
         #  2. Additional drag from "surface characteristics"
         # FIXME: these extra terms have not been verified. The air intake
         #        term in particular, which is for ram-air parachutes.
-        # FIXME: these extra terms should be in the AirfoilCoefficients
-        Cd = self.parafoil.airfoil.coefficients.Cd(alpha, delta)
-        # Cd += 0.07 * self.parafoil.airfoil.geometry.thickness(0.03)
+        # FIXME: these extra terms depend on the Parafoil design, and so should
+        #        be provided by the Airfoil (similar to the "extra drag" terms
+        #        you can specify in the XFLR5 wing design tool)
+        Cd = self.foil.airfoil.coefficients.Cd(alpha, delta)
+        # Cd += 0.07 * self.foil.airfoil.geometry.thickness(0.03)
         Cd += 0.004
-
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
-        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag  # FIXME: `dA` or `c_avg`? Hunsaker says the "characteristic chord"
+        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag
 
+        # The total forces applied at each control point
         dF = dF_inviscid + dF_viscous
 
-        # Compute the local pitching moments applied to each section
+        # Compute the section moments.
         #  * ref: Hunsaker-Snyder Eq:19
         #  * ref: Phillips Eq:28
-        # FIXME: This is a hack! Should use integral(c**2), not `dA * c_avg`
-        Cm = self.parafoil.airfoil.coefficients.Cm(alpha, delta)
+        #
+        # These are strictly the section moments caused by airflow around the
+        # section. It does not include moments about the aircraft reference
+        # point (commonly the center of gravity); those extra moments must be
+        # calculated by the wing.
+        #  * ref: Hunsaker-Snyder Eq:20
+        Cm = self.foil.airfoil.coefficients.Cm(alpha, delta)
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
@@ -1321,40 +1376,3 @@ class Phillips(ForceEstimator):
         }
 
         return dF.T, dM.T, solution
-
-
-if __name__ == "__main__":
-    import Airfoil
-    import plots
-
-    # Build an example wing: a Niviuk Hook 3, size 23
-
-    # True technical specs
-    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
-    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
-    SMC_flat = b_flat / AR_flat
-    S, b, AR = 19.55, 8.84, 4.00
-
-    # Build an approximate version. Anything not directly from the technical
-    # specs is a guess to make the projected values match up.
-    c_root = chord_max / (b_flat / 2)  # Proportional values
-    c_tip = chord_min / (b_flat / 2)
-    parafoil = ParafoilGeometry(
-        x=0,
-        r_x=0.75,
-        yz=elliptical_lobe(mean_anhedral=32, max_anhedral_rate=75),
-        r_yz=1.00,
-        torsion=PolynomialTorsion(start=0.8, peak=4, exponent=2),
-        airfoil=Airfoil.Airfoil(coefficients=None, geometry=Airfoil.NACA(23015)),
-        chord_length=elliptical_chord(root=c_root, tip=c_tip),
-        intakes=SimpleIntakes(0.85, -0.04, -0.09),
-        b_flat=b_flat,  # Option 1: Determine the scale using the planform
-        # b=b,  # Option 2: Determine the scale using the lobe
-    )
-
-    # FIXME: add `S`, `b`, etc to the new ParafoilGeometry, then verify this
-    #        approximation.
-
-    plots.plot_parafoil_geo(parafoil, N_sections=131)
-
-    embed()

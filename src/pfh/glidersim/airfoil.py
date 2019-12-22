@@ -247,18 +247,9 @@ class AirfoilGeometry(abc.ABC):
         Ensures the leading edge is at (0, 0) and the trailing edge is at
         (1, 0). This ensures the chord is aligned with the x-axis, and is
         unit length.
-    s_upper, s_lower : float, where `-1 < s_lower <= s_upper < 1`
-        The normalized starting positions of the upper and lower surfaces.
-        These are used for determining the inertial properties of the upper and
-        lower surfaces by allowing the upper surface to wrap over the leading
-        edge (`s_upper < 0`), and for the presence of an air intake. They do
-        not change the underlying curve specified by the input points; users of
-        this class are responsible for checking these positions when drawing
-        the wing.
-
     """
 
-    def __init__(self, points, *, normalize=True, s_upper=0, s_lower=0):
+    def __init__(self, points, *, normalize=True):
         def _target(d, curve, derivative, TE):
             # Optimization target for finding the leading edge. The position
             # `0 < d < L` is a leading edge proposal, where L is the total
@@ -270,8 +261,6 @@ class AirfoilGeometry(abc.ABC):
             chord /= np.linalg.norm(chord)
             return dydx @ chord
 
-        self.s_upper = s_upper
-        self.s_lower = s_lower
         self._raw_points = points.copy()  # FIXME: for debugging
         points = points[::-1]  # Clockwise order is more convenient for `s`
 
@@ -316,7 +305,7 @@ class AirfoilGeometry(abc.ABC):
         sl = dl / du[0] - 1  # d < d_LE -> `0 < s <= -1`
         self._curve = PchipInterpolator(np.r_[sl, su], points)
 
-    def mass_properties(self, N=200):
+    def mass_properties(self, s_upper=0, s_lower=0, N=200):
         """
         Calculate the inertia matrices for the the planar area and curves.
 
@@ -326,6 +315,9 @@ class AirfoilGeometry(abc.ABC):
 
         Parameters
         ----------
+        s_upper, s_lower : float
+            The starting coordinates of the upper and lower surfaces. Requires
+            that `-1 <= s_lower <= s_upper, 1`.
         N : integer
             The number of chordwise sample points. Used to create the vertical
             strips for calculating the area, and for creating line segments of
@@ -376,6 +368,13 @@ class AirfoilGeometry(abc.ABC):
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
         >>> inertia_frd = C @ inertia_acs @ C
         """
+        if s_lower < -1:
+            raise ValueError("Required: s_lower >= -1")
+        if s_lower > s_upper:
+            raise ValueError("Required: s_lower <= s_upper")
+        if s_upper > 1:
+            raise ValueError("Required: s_upper <= 1")
+
         # -------------------------------------------------------------------
         # 1. Area calculations
 
@@ -411,8 +410,8 @@ class AirfoilGeometry(abc.ABC):
         # -------------------------------------------------------------------
         # 2. Surface line calculations
 
-        su = np.linspace(self.s_upper, 1, N)
-        sl = np.linspace(self.s_lower, -1, N)
+        su = np.linspace(s_upper, 1, N)
+        sl = np.linspace(s_lower, -1, N)
         upper = self.surface_curve(su).T
         lower = self.surface_curve(sl).T
 

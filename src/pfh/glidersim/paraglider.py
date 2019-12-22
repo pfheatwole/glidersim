@@ -1,10 +1,10 @@
 """FIXME: add module docstring."""
 
-import numpy as np
-
 from IPython import embed
 
-from util import cross3
+import numpy as np
+
+from pfh.glidersim.util import cross3
 
 
 class Paraglider:
@@ -36,7 +36,7 @@ class Paraglider:
         self.wing = wing
         self.harness = harness
 
-    def control_points(self, delta_s=0):
+    def control_points(self, delta_a=0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -45,12 +45,12 @@ class Paraglider:
         creating a list of the coordinates where they need the value of the
         wind. This function then transforms them into body coordinates.
         """
-        wing_cps = self.wing.control_points(delta_s=delta_s)
+        wing_cps = self.wing.control_points(delta_a=delta_a)
         harness_cps = self.harness.control_points()
         return np.vstack((wing_cps, harness_cps))
 
     def forces_and_moments(self, UVW, PQR, g, rho_air,
-                           delta_Bl=0, delta_Br=0, delta_s=0,
+                           delta_Bl=0, delta_Br=0, delta_a=0,
                            v_w2e=None, xyz=None, reference_solution=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
@@ -74,8 +74,8 @@ class Paraglider:
             The fraction of maximum left brake
         delta_Br : float [percentage]
             The fraction of maximum right brake
-        delta_s : float [percentage]
-            The fraction of maximum speed bar
+        delta_a : float [percentage]
+            The fraction of maximum accelerator
         v_w2e : ndarray of float, shape (3,) or (K,3)
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -86,10 +86,10 @@ class Paraglider:
             simulator used these coordinates to determine the wind vectors
             at each control point.
 
-            FIXME: This docstring is wrong; they are useful if delta_s != 0,
+            FIXME: This docstring is wrong; they are useful if delta_a != 0,
             they have nothing to do with wind field uniformity. And really,
-            why do I even have both `xyz` and `delta_s` as inputs? The only
-            purpose of `delta_s` is to compute the xyz. Using `delta_s` alone
+            why do I even have both `xyz` and `delta_a` as inputs? The only
+            purpose of `delta_a` is to compute the xyz. Using `delta_a` alone
             would be the more intuitive, but would incur extra computation time
             for finding the control points; the only point of `xyz` is to avoid
             recomputing them.
@@ -119,11 +119,11 @@ class Paraglider:
         if v_w2e is None:
             v_w2e = np.array([0, 0, 0])
         if v_w2e.ndim > 1 and xyz is None:
-            raise ValueError("Control point relative winds require xyz")                # Why? I probably did this to ensure the <v_w2e and xyz are computed using the same delta_s
+            raise ValueError("Control point relative winds require xyz")                # Why? I probably did this to ensure the <v_w2e and xyz are computed using the same delta_a
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
-            xyz = self.control_points(delta_s)
+            xyz = self.control_points(delta_a)
 
         UVW = np.asarray(UVW)
         if UVW.shape != (3,):
@@ -166,7 +166,7 @@ class Paraglider:
         return F, M, ref
 
     def equilibrium_glide(
-        self, delta_B, delta_S, rho_air, alpha_eq=None, reference_solution=None,
+        self, delta_B, delta_a, rho_air, alpha_eq=None, reference_solution=None,
     ):
         r"""
         Steady-state angle of attack, pitch angle, and airspeed.
@@ -175,8 +175,8 @@ class Paraglider:
         ----------
         delta_B : float [percentage]
             Percentage of symmetric brake application
-        delta_S : float [percentage]
-            Percentage of speed bar application
+        delta_a : float [percentage]
+            Percentage of accelerator application
         rho_air : float [kg/m^3]
             Air density. Default value is 1.
         alpha_eq : float [radians] (optional)
@@ -209,12 +209,12 @@ class Paraglider:
         where `m` is the mass of the harness + pilot.
         """
         if alpha_eq is None:
-            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_S, reference_solution)
+            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_a, reference_solution)
 
         g = np.zeros(3)  # Don't include the weight of the harness
         V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
         F, M, solution = self.forces_and_moments(
-            V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_S,
+            V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_a,
         )
 
         # FIXME: neglects the weight of the wing

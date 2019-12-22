@@ -41,18 +41,11 @@ import numpy as np
 import pandas as pd
 
 import scipy.interpolate
-from scipy.interpolate import PchipInterpolator, UnivariateSpline
 
-import Airfoil
-import BrakeGeometry
-import Parafoil
-import Harness
-import Paraglider
-import ParagliderWing
-import plots
+import pfh.glidersim as gsim
 
 
-class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
+class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
     """
     Use airfoil coefficients from a CSV file.
 
@@ -70,9 +63,9 @@ class FlaplessAirfoilCoefficients(Airfoil.AirfoilCoefficients):
         if convert_degrees:
             data['alpha'] = np.deg2rad(data.alpha)
 
-        self._Cl = UnivariateSpline(data[['alpha']], data.CL, s=0.001)
-        self._Cd = UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
-        self._Cm = UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
+        self._Cl = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CL, s=0.001)
+        self._Cd = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
+        self._Cm = scipy.interpolate.UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
         self._Cl_alpha = self._Cl.derivative()
 
     def _clean(self, alpha, val):
@@ -157,10 +150,10 @@ print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
 # ---------------------------------------------------------------------------
 # Build the parafoil and wing
 
-airfoil_geo = Airfoil.NACA(23015, convention='british')
+airfoil_geo = gsim.airfoil.NACA(23015, convention='british')
 airfoil_coefs = FlaplessAirfoilCoefficients(
     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
-airfoil = Airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
 
 class InterpolatedLobe:
@@ -172,7 +165,7 @@ class InterpolatedLobe:
 
         assert y.ndim == 1 and z.ndim == 1
 
-        self._f = PchipInterpolator(s, np.c_[y, z])
+        self._f = scipy.interpolate.PchipInterpolator(s, np.c_[y, z])
         self._fd = self._f.derivative()
 
     def __call__(self, s):
@@ -185,8 +178,8 @@ class InterpolatedLobe:
 s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
-parafoil = Parafoil.ParafoilGeometry(
-    x=lambda _: 0,
+parafoil = gsim.foil.FoilGeometry(
+    x=0,
     r_x=0.6,
     yz=lobe,
     r_yz=0.6,
@@ -196,24 +189,26 @@ parafoil = Parafoil.ParafoilGeometry(
     airfoil=airfoil,
 )
 
-wing = ParagliderWing.ParagliderWing(
+wing = gsim.paraglider_wing.ParagliderWing(
     parafoil=parafoil,
-    force_estimator=Parafoil.Phillips,
-    brake_geo=BrakeGeometry.Cubic(0, 0.75, delta_max=0),  # unused
+    force_estimator=gsim.foil.Phillips,
+    brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
     pA=0.08,  # unused
     pC=0.80,  # unused
-    kappa_s=0.15,  # unused
+    kappa_a=0,  # unused
+    rho_upper=0,  # unused
+    rho_lower=0,  # unused
 )
 
 # A `Harness` is required to instantiate the `Paraglider`, but should not
 # produce any forces (so zero weight and drag).
-harness = Harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
-glider = Paraglider.Paraglider(wing, harness)
+harness = gsim.harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
+glider = gsim.paraglider.Paraglider(wing, harness)
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
-plots.plot_parafoil_geo(parafoil, N_sections=121)
+gsim.plots.plot_parafoil_geo(parafoil, N_sections=121)
 embed()
 # 1/0
 
@@ -277,7 +272,7 @@ for kb, beta_deg in enumerate(betas):
             F, M, ref = glider.forces_and_moments(
                 UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
             )
-        except Parafoil.ForceEstimator.ConvergenceError:
+        except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
@@ -308,7 +303,7 @@ for kb, beta_deg in enumerate(betas):
             F, M, ref = glider.forces_and_moments(
                 UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
             )
-        except Parafoil.ForceEstimator.ConvergenceError:
+        except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous

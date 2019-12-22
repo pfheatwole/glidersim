@@ -6,7 +6,7 @@ from numba import float64, guvectorize
 
 import numpy as np
 
-from util import _cross3
+from pfh.glidersim.util import _cross3
 
 
 def skew(v):

@@ -12,12 +12,12 @@ An introductory message goes here.
 .. autosummary::
    :toctree: _autosummary
 
-   Airfoil
-   BrakeGeometry
-   Harness
-   Parafoil
-   ParagliderWing
-   Paraglider
+   pfh.glidersim.airfoil
+   pfh.glidersim.brake_geometry
+   pfh.glidersim.harness
+   pfh.glidersim.foil
+   pfh.glidersim.paraglider_wing
+   pfh.glidersim.paraglider
 
 
 Indices and tables
