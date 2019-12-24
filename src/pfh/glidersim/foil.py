@@ -685,29 +685,32 @@ class FoilGeometry:
         s : array_like of float
             Section index.
         sa : array_like of float
-            Surface coordinates, where `0 <= sa <= 1`, with `1` being the
-            trailing edge of the surface. Maps to either the upper or lower
-            surface airfoil coordinates, depending on the value of `surface`.
-        surface : {"upper", "lower"}
-            Which surface to sample. If "upper", then `sa` maps to the range
-            `s_upper:1`. If "lower", then `sa` maps to the range `s_lower:-1`.
+            Surface or airfoil coordinates, depending on the value of `surface`.
+        surface : {"upper", "lower", "airfoil"}
+            How to interpret the coordinates in `sa`. If "upper", then `sa` is
+            mapped to the range `s_upper:1`. If "lower", then `sa` is mapped to
+            the range `s_lower:-1`.  If "airfoil", then `sa` is treated as raw
+            airfoil coordinates, which must range from -1 to +1.
 
         Returns
         -------
         array of float
-            A set of points from the upper surface of the airfoil in FRD. The
-            shape is determined by standard numpy broadcasting of `s` and `sa`.
+            A set of points from the surface of the airfoil in FRD. The shape
+            is determined by standard numpy broadcasting of `s` and `sa`.
         """
         s = np.asarray(s)
         sa = np.asarray(sa)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if sa.min() < 0 or sa.max() > 1:
+        if surface not in {"upper", "lower", "airfoil"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
+        if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
+            raise ValueError("Airfoil coordinates must be between -1 and 1.")
+        elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
             raise ValueError("Surface coordinates must be between 0 and 1.")
-        if surface not in {"upper", "lower"}:
-            raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
-        sa = self.intakes(s, sa, surface)
+        if surface != "airfoil":
+            sa = self.intakes(s, sa, surface)
         c = self.chord_length(s)
         coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
         coords = np.stack(
