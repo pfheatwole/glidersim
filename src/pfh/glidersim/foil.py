@@ -644,7 +644,7 @@ class FoilGeometry:
     def chord_length(self, s):
         return self._chord_length(s) * (self.b_flat / 2)
 
-    def chord_xyz(self, s, chord_ratio):
+    def chord_xyz(self, s, chord_ratio, flatten=False):
         """
         Compute the coordinates of points on section chords.
 
@@ -655,6 +655,10 @@ class FoilGeometry:
         chord_ratio : float
             Position on the chords, where `chord_ratio = 0` is the leading
             edge, and `chord_ratio = 1` is the trailing edge.
+        flatten : boolean
+            Whether to flatten the foil by disregarding dihedral (curvature in
+            the yz-plane). This is useful for inflatable wings, such as
+            parafoils. Default: False.
         """
         s = np.asarray(s)
         chord_ratio = np.asarray(chord_ratio)
@@ -664,20 +668,26 @@ class FoilGeometry:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
         torsion = self._planform_torsion(s)
-        dihedral = self._lobe_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
-        xhat_wing = dihedral @ torsion @ [1, 0, 0]
         c = self._chord_length(s)  # *Proportional* chords
 
         # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
-        LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
-              + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
-              + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
-        xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
+        if flatten:  # Disregard dihedral (curvature in the yz-plane)
+            LE = (np.stack((self.x(s), s, np.zeros(np.shape(s))), axis=-1)
+                  + ((self.r_x(s) * c)[..., np.newaxis] * xhat_planform))
+            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_planform - self.LE0
+        else:  # The fully specified wing
+            dihedral = self._lobe_dihedral(s)
+            xhat_wing = dihedral @ torsion @ [1, 0, 0]
+            LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
+                  + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
+                  + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
+            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
+
         xyz *= self.b_flat / 2
         return xyz
 
-    def surface_points(self, s, sa, surface):
+    def surface_points(self, s, sa, surface, flatten=False):
         """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
@@ -691,6 +701,10 @@ class FoilGeometry:
             mapped to the range `s_upper:1`. If "lower", then `sa` is mapped to
             the range `s_lower:-1`.  If "airfoil", then `sa` is treated as raw
             airfoil coordinates, which must range from -1 to +1.
+        flatten : boolean
+            Whether to flatten the foil by disregarding dihedral (curvature in
+            the yz-plane). This is useful for inflatable wings, such as
+            parafoils. Default: False.
 
         Returns
         -------
@@ -716,9 +730,12 @@ class FoilGeometry:
         coords = np.stack(
             (-coords_a[..., 0], np.zeros_like(sa), -coords_a[..., 1]), axis=-1,
         )
-        orientations = self.section_orientation(s)
+        if flatten:
+            orientations = self._planform_torsion(s)
+        else:
+            orientations = self.section_orientation(s)
         surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
-        return surface + self.chord_xyz(s, 0)
+        return surface + self.chord_xyz(s, 0, flatten=flatten)
 
     def mass_properties(self, N=250):
         """
