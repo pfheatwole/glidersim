@@ -71,6 +71,15 @@ def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
         ax.w_zaxis.set_pane_color((1, 1, 1, 0))
 
 
+def _create_3d_axes():
+    fig = plt.figure(figsize=(16, 16))
+    ax = fig.gca(projection="3d")
+    ax.view_init(azim=-130, elev=25)
+    ax.invert_yaxis()
+    ax.invert_zaxis()
+    return fig, ax
+
+
 def plot_airfoil_geo(foil_geo):
     sa = np.linspace(0, 1, 200)
     upper = foil_geo.surface_curve(sa).T
@@ -146,11 +155,14 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
+def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, ax=None):
     """Plot a Parafoil in 3D."""
-    fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection="3d")
-    ax.view_init(azim=-130, elev=25)
+
+    if ax is None:
+        fig, ax = _create_3d_axes()
+        independent_plot = True
+    else:
+        independent_plot = False
 
     sa = np.linspace(0, 1, N_points)
     for s in np.linspace(-1, 1, N_sections):
@@ -167,12 +179,13 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
-    _set_axes_equal(ax)
-    # _clean_3d_axes(ax)
-    ax.invert_yaxis()
-    ax.invert_zaxis()
-    fig.tight_layout()
-    plt.show()
+    if independent_plot:
+        _set_axes_equal(ax)
+        fig.tight_layout()
+        plt.show()
+        return fig, ax
+    else:
+        return ax      # FIXME: should return (lines,)
 
 
 def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50):
@@ -322,37 +335,28 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     plt.show()
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=131, N_points=50):
+def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None):
     """
     Plot a ParagliderWing using 3D cross-sections.
 
     Uses a dashed black line to approximately visualize brake deflections.
     Deflections are assumed to start at 80% of the section chord, and deflect
-    in a straight line at an angle `delta` downwards from the section chord.
+    the last 20% of the chord as a straight line to an angle `delta` downwards
+    from the section chord.
 
     This isn't terribly accurate, but it's decently helpful for checking if
     a brake deflection distribution seems reasonable.
     """
-    # FIXME: this function is horrifying
+    if ax is None:
+        fig, ax = _create_3d_axes()
+        independent_plot = True
+    else:
+        independent_plot = False
 
-    fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection="3d")
-    ax.view_init(azim=-130, elev=25)
+    plot_parafoil_geo(wing.parafoil, N_sections=N_sections, N_points=N_points, ax=ax)
 
-    sa = np.linspace(0, 1, N_points)
-    for s in np.linspace(-1, 1, N_sections):
-        coords = wing.parafoil.surface_points(s, sa, "lower").T
-        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = wing.parafoil.surface_points(s, sa, "upper").T
-        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
-
-    # Add the quarter chord line
-    s = np.linspace(-1, 1, 51)
-    c4 = wing.parafoil.chord_xyz(s, 0.25).T
-    ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
-
-    # And the brake deflection line
-    s = np.linspace(-1, 1, 200)
+    # Add a dashed brake deflection line
+    s = np.linspace(-1, 1, N_sections)
     delta = wing.brake_geo(s, delta_Bl, delta_Br)
     flap = delta / 0.2
     c = wing.parafoil.chord_length(s)
@@ -362,7 +366,11 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=131, N_points=
     p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.chord_xyz(s, 0)
     ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
 
-    _set_axes_equal(ax)
-    ax.invert_yaxis()
-    ax.invert_zaxis()
-    plt.show()
+    if independent_plot:
+        _set_axes_equal(ax)
+        ax.view_init(azim=0, elev=0)  # Rear view to see deflections
+        fig.tight_layout()
+        plt.show()
+        return fig, ax
+    else:
+        return ax        # FIXME: should return the (lines,)
