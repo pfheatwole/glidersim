@@ -16,14 +16,18 @@ def _set_axes_equal(ax):
     one possible solution to Matplotlib's ``ax.set_aspect('equal')`` and
     ``ax.axis('equal')`` not working for 3D.
 
+    Must be called after the data has been plotted, since that establishes the
+    baseline axes limits. This function then computes a bounding sphere over
+    those axes, and scales each axis until they have equal scales.
+
+    Original source: https://stackoverflow.com/a/31364297. Modified to restore
+    inverted axes.
+
     Parameters
     ----------
     ax: matplotlib axis
         The axes to equalize.
     """
-
-    # FIXME: does not respect inverted axes
-
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
     z_limits = ax.get_zlim3d()
@@ -42,6 +46,14 @@ def _set_axes_equal(ax):
     ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+    # Restore any inverted axes
+    if x_limits[0] > x_limits[1]:
+        ax.invert_xaxis()
+    if y_limits[0] > y_limits[1]:
+        ax.invert_yaxis()
+    if z_limits[0] > z_limits[1]:
+        ax.invert_zaxis()
 
 
 def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
