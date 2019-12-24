@@ -8,6 +8,57 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import numpy as np
 
 
+def _set_axes_equal(ax):
+    """
+    Set equal scaling for 3D plot axes.
+
+    This ensures that spheres appear as spheres, cubes as cubes, etc.  This is
+    one possible solution to Matplotlib's ``ax.set_aspect('equal')`` and
+    ``ax.axis('equal')`` not working for 3D.
+
+    Parameters
+    ----------
+    ax: matplotlib axis
+        The axes to equalize.
+    """
+
+    # FIXME: does not respect inverted axes
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5 * max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+
+def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
+    if not ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+    if not spines:
+        ax.w_xaxis.line.set_color((1, 1, 1, 0))
+        ax.w_yaxis.line.set_color((1, 1, 1, 0))
+        ax.w_zaxis.line.set_color((1, 1, 1, 0))
+    if not panes:
+        ax.w_xaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_yaxis.set_pane_color((1, 1, 1, 0))
+        ax.w_zaxis.set_pane_color((1, 1, 1, 0))
+
+
 def plot_airfoil_geo(foil_geo):
     sa = np.linspace(0, 1, 200)
     upper = foil_geo.surface_curve(sa).T
@@ -83,57 +134,6 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def set_axes_equal(ax):
-    """
-    Set equal scaling for 3D plot axes.
-
-    This ensures that spheres appear as spheres, cubes as cubes, etc.  This is
-    one possible solution to Matplotlib's ``ax.set_aspect('equal')`` and
-    ``ax.axis('equal')`` not working for 3D.
-
-    Parameters
-    ----------
-    ax: matplotlib axis
-        The axes to equalize.
-    """
-
-    # FIXME: does not respect inverted axes
-
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-
-    x_range = abs(x_limits[1] - x_limits[0])
-    x_middle = np.mean(x_limits)
-    y_range = abs(y_limits[1] - y_limits[0])
-    y_middle = np.mean(y_limits)
-    z_range = abs(z_limits[1] - z_limits[0])
-    z_middle = np.mean(z_limits)
-
-    # The plot bounding box is a sphere in the sense of the infinity
-    # norm, hence I call half the max range the plot radius.
-    plot_radius = 0.5 * max([x_range, y_range, z_range])
-
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
-
-
-def clean_3d_axes(ax, ticks=False, spines=False, panes=False):
-    if not ticks:
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_zticks([])
-    if not spines:
-        ax.w_xaxis.line.set_color((1, 1, 1, 0))
-        ax.w_yaxis.line.set_color((1, 1, 1, 0))
-        ax.w_zaxis.line.set_color((1, 1, 1, 0))
-    if not panes:
-        ax.w_xaxis.set_pane_color((1, 1, 1, 0))
-        ax.w_yaxis.set_pane_color((1, 1, 1, 0))
-        ax.w_zaxis.set_pane_color((1, 1, 1, 0))
-
-
 def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     """Plot a Parafoil in 3D."""
     fig = plt.figure(figsize=(16, 16))
@@ -155,8 +155,8 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50):
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
-    set_axes_equal(ax)
-    # clean_3d_axes(ax)
+    _set_axes_equal(ax)
+    # _clean_3d_axes(ax)
     ax.invert_yaxis()
     ax.invert_zaxis()
     fig.tight_layout()
@@ -257,7 +257,7 @@ def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
     ax.plot(
         parafoil.planform.fx(s), parafoil.planform.fy(s), np.zeros(50), "g--", lw=0.8
     )
-    set_axes_equal(ax)
+    _set_axes_equal(ax)
     ax.invert_yaxis()
     ax.invert_zaxis()
     fig.tight_layout()
@@ -303,7 +303,7 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     # ax.plot_surface(X, Y, Z, facecolors=colors)
     ax.plot_surface(X, Y, Z)
 
-    set_axes_equal(ax)
+    _set_axes_equal(ax)
     ax.invert_yaxis()
     ax.invert_zaxis()
     fig.tight_layout()
@@ -341,6 +341,6 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=21, N_points=5
     p = p.T
     ax.plot(p[0], p[1], -p[2], "k--", lw=0.8)
 
-    set_axes_equal(ax)
+    _set_axes_equal(ax)
     ax.invert_yaxis()
     plt.show()
