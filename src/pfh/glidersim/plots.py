@@ -310,37 +310,47 @@ def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     plt.show()
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=21, N_points=50):
-    """Plot a ParagliderWing using 3D cross-sections."""
+def plot_wing(wing, delta_Bl=0, delta_Br=0, delta_a=0, N_sections=131, N_points=50):
+    """
+    Plot a ParagliderWing using 3D cross-sections.
+
+    Uses a dashed black line to approximately visualize brake deflections.
+    Deflections are assumed to start at 80% of the section chord, and deflect
+    in a straight line at an angle `delta` downwards from the section chord.
+
+    This isn't terribly accurate, but it's decently helpful for checking if
+    a brake deflection distribution seems reasonable.
+    """
     # FIXME: this function is horrifying
 
     fig = plt.figure(figsize=(16, 16))
     ax = fig.gca(projection="3d")
     ax.view_init(azim=-130, elev=25)
 
+    sa = np.linspace(0, 1, N_points)
     for s in np.linspace(-1, 1, N_sections):
-        coords = wing.parafoil.surface_points(s, N_points, "lower").T
-        ax.plot(coords[0], coords[1], -coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = wing.parafoil.surface_points(s, N_points, "upper").T
-        ax.plot(coords[0], coords[1], -coords[2], c="b", lw=0.8)
+        coords = wing.parafoil.surface_points(s, sa, "lower").T
+        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
+        coords = wing.parafoil.surface_points(s, sa, "upper").T
+        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     # Add the quarter chord line
     s = np.linspace(-1, 1, 51)
     c4 = wing.parafoil.chord_xyz(s, 0.25).T
-    ax.plot(c4[0], c4[1], -c4[2], "g--", lw=0.8)
+    ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
 
     # And the brake deflection line
     s = np.linspace(-1, 1, 200)
     delta = wing.brake_geo(s, delta_Bl, delta_Br)
     flap = delta / 0.2
-    c = wing.parafoil.planform.fc(s)
+    c = wing.parafoil.chord_length(s)
     orientations = wing.parafoil.section_orientation(s)
     p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
          + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
-    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.c0(s)
-    p = p.T
-    ax.plot(p[0], p[1], -p[2], "k--", lw=0.8)
+    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.chord_xyz(s, 0)
+    ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
 
     _set_axes_equal(ax)
     ax.invert_yaxis()
+    ax.invert_zaxis()
     plt.show()
