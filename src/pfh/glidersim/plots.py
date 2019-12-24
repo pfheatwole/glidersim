@@ -155,7 +155,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, ax=None):
+def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=None):
     """Plot a Parafoil in 3D."""
 
     if ax is None:
@@ -166,15 +166,15 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, ax=None):
 
     sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
-        coords = parafoil.surface_points(s, sa, "lower").T
+        coords = parafoil.surface_points(s, sa, "lower", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
-        coords = parafoil.surface_points(s, sa, "upper").T
+        coords = parafoil.surface_points(s, sa, "upper", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
 
     s = np.linspace(-1, 1, N_sections)
-    LE = parafoil.chord_xyz(s, 0).T
-    c4 = parafoil.chord_xyz(s, 0.25).T
-    TE = parafoil.chord_xyz(s, 1).T
+    LE = parafoil.chord_xyz(s, 0, flatten=flatten).T
+    c4 = parafoil.chord_xyz(s, 0.25, flatten=flatten).T
+    TE = parafoil.chord_xyz(s, 1, flatten=flatten).T
     ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
