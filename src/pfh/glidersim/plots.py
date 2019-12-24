@@ -164,7 +164,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, ax=None):
     else:
         independent_plot = False
 
-    sa = np.linspace(0, 1, N_points)
+    sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
         coords = parafoil.surface_points(s, sa, "lower").T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
