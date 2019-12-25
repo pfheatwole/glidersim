@@ -196,7 +196,7 @@ def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50, flatten=Fals
         LE_xy = parafoil.chord_xyz(s, 0, flatten=flatten)[:2]
         TE_xy = parafoil.chord_xyz(s, 1, flatten=flatten)[:2]
         coords = np.stack((LE_xy, TE_xy))
-        ax.plot(coords.T[1], coords.T[0], linewidth=0.75)
+        ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     ax.set_aspect("equal")
     fig.tight_layout()
