@@ -254,41 +254,6 @@ def plot_parafoil_planform_topdown(parafoil):
     plt.show()
 
 
-def plot_parafoil_planform(parafoil, N_sections=21, N_points=50):
-    """Plot a Parafoil as a 3D wireframe."""
-    # Not very elegant, but it gets the job done.
-
-    fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection="3d")
-    ax.view_init(azim=-130, elev=25)
-
-    su = np.linspace(parafoil.airfoil.geometry.s_upper, 1, N_points)
-    sl = np.linspace(parafoil.airfoil.geometry.s_lower, -1, N_points)
-    lower = parafoil.airfoil.geometry.surface_curve(sl).T
-    lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
-    upper = parafoil.airfoil.geometry.surface_curve(su).T
-    upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
-
-    for s in np.linspace(-1, 1, N_sections):
-        c = parafoil.planform.fc(s)
-        u = parafoil.planform.orientation(s)
-        c0 = np.array([parafoil.planform.fx(s) + c / 4, parafoil.planform.fy(s), 0])
-        surface = ((u @ lower_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], surface[2], c="r", zorder=0.9, lw=0.8)
-        surface = ((u @ upper_curve * c).T + c0).T
-        ax.plot(surface[0], surface[1], surface[2], c="g", zorder=0.9, lw=0.8)
-
-    s = np.linspace(-1, 1, 50)
-    ax.plot(
-        parafoil.planform.fx(s), parafoil.planform.fy(s), np.zeros(50), "g--", lw=0.8
-    )
-    _set_axes_equal(ax)
-    ax.invert_yaxis()
-    ax.invert_zaxis()
-    fig.tight_layout()
-    plt.show()
-
-
 def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
     """Plot a Parafoil as a 3D surface."""
     # Not very elegant, but it gets the job done.
