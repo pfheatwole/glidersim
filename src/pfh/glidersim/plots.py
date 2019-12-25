@@ -72,9 +72,9 @@ def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
 
 
 def _create_3d_axes():
-    fig = plt.figure(figsize=(16, 16))
+    fig = plt.figure(figsize=(12, 12))
     ax = fig.gca(projection="3d")
-    ax.view_init(azim=-130, elev=25)
+    ax.view_init(azim=-120, elev=20)
     ax.invert_yaxis()
     ax.invert_zaxis()
     return fig, ax
