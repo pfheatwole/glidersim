@@ -205,6 +205,12 @@ def plot_parafoil_geo_topdown(
         coords = np.stack((LE_xy, TE_xy))
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
+    s = np.linspace(-1, 1, N_sections)
+    LE = parafoil.chord_xyz(s, 0, flatten=flatten)
+    TE = parafoil.chord_xyz(s, 1, flatten=flatten)
+    ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
+    ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
+
     if independent_plot:
         ax.set_aspect("equal")
         fig.tight_layout()
