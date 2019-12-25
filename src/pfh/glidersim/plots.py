@@ -188,13 +188,13 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
         return ax      # FIXME: should return (lines,)
 
 
-def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50):
+def plot_parafoil_geo_topdown(parafoil, N_sections=21, N_points=50, flatten=False):
     """Plot a 3D Parafoil in topdown projection."""
     fig, ax = plt.subplots(figsize=(16, 16))
 
     for s in np.linspace(-1, 1, N_sections):
-        LE_xy = parafoil.chord_xyz(s, 0)[:2]
-        TE_xy = parafoil.chord_xyz(s, 1)[:2]
+        LE_xy = parafoil.chord_xyz(s, 0, flatten=flatten)[:2]
+        TE_xy = parafoil.chord_xyz(s, 1, flatten=flatten)[:2]
         coords = np.stack((LE_xy, TE_xy))
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75)
 
