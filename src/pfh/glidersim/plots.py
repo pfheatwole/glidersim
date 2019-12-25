@@ -4,6 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
+from matplotlib.collections import PolyCollection
 
 import numpy as np
 
@@ -179,13 +180,32 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
+    _set_axes_equal(ax)
+    ax.set_proj_type('ortho')  # FIXME: better for this application?
+
+    # Plot projections of the quarter-chord
+    xlim = ax.get_xlim3d()
+    zlim = ax.get_zlim3d()
+
+    # Outline and quarter-chord projection onto the xy-pane (`z` held fixed)
+    z = max(zlim)
+    z *= 1.035  # Fix the distortion due to small distance from the xy-pane
+    vertices = np.vstack((LE[0:2].T, TE[0:2].T[::-1]))  # shape: (2 * N_sections, 2)
+    poly = PolyCollection([vertices], facecolors=['k'], alpha=0.25)
+    ax.add_collection3d(poly, zs=[z], zdir='z')
+    ax.plot(c4[0], c4[1], z, "g--", lw=1.0)
+
+    # Quarter-chord projection onto the yz-pane (`x` held fixed)
+    x = np.full(*c4[1].shape, min(xlim))
+    x *= 1.035  # Fix distortion due to small distance from the yz-pane
+    ax.plot(x, c4[1], c4[2], "g--", lw=0.8)
+
     if independent_plot:
-        _set_axes_equal(ax)
         fig.tight_layout()
         plt.show()
         return fig, ax
     else:
-        return ax      # FIXME: should return (lines,)
+        return (*ax.lines, *ax.collections)
 
 
 def plot_parafoil_geo_topdown(
