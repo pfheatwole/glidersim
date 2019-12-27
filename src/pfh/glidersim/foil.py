@@ -876,6 +876,160 @@ class FoilGeometry:
 
         return mass_properties
 
+    def _mesh_vertex_lists(self, N_s=131, N_sa=151, filename=None):
+        """
+        Generate sets of triangle faces on the upper and lower surfaces.
+
+        Each triangle mesh is described by a set of vertices and a set of
+        "faces". The vertices are the surface coordiantes sampled on a
+        rectilinear grid over the section indices and surface coordinates. The
+        faces are the list of vertices that define the triangles.
+
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+        filename : string, optional
+            Save the outputs in a numpy `.npz` file.
+
+        Returns
+        -------
+        vertices_upper, vertices_lower : array of float, shape (N_s * N_sa, 3)
+            The vertices on the upper and lower surfaces.
+        face_indices : array of int, shape (N_s * N_sa * 2, 3)
+            A array of arrays of vertex indices. These define the triangles
+            over the surfaces by their index on the grid. The same grid was
+            used for both surfaces, so this array defines both meshes.
+
+        See Also
+        --------
+        _mesh_triangles : Helper function that produces the meshes themselves
+                          as two lists of vertex triplets (the triangles in
+                          FRD coordinates).
+
+        Examples
+        --------
+        To export the mesh into Blender:
+
+        1. Generate the mesh
+
+           >>> foil._mesh_vertex_lists(filename='/path/to/mesh.npz')
+
+        2. In the Blender (v2.8) Python console:
+
+           import numpy
+           data = numpy.load('/path/to/mesh.npz')
+           # Blender doesn't support numpy arrays
+           vu = data['vertices_upper'].tolist()
+           vl = data['vertices_lower'].tolist()
+           fi = data['face_indices'].tolist()
+           mesh_upper = bpy.data.meshes.new("upper")
+           mesh_lower = bpy.data.meshes.new("lower")
+           object_upper = bpy.data.objects.new("upper", mesh_upper)
+           object_lower = bpy.data.objects.new("lower", mesh_lower)
+           bpy.context.scene.collection.objects.link(object_upper)
+           bpy.context.scene.collection.objects.link(object_lower)
+           mesh_upper.from_pydata(vu, [], fi)
+           mesh_lower.from_pydata(vl, [], fi)
+           mesh_upper.update(calc_edges=True)
+           mesh_lower.update(calc_edges=True)
+        """
+        # Compute the vertices
+        s = np.linspace(-1, 1, N_s)
+        sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
+        vu = self.surface_points(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
+        vl = self.surface_points(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
+
+        # Compute the vertex lists for all of the faces (the triangles). The
+        # input grid is conceptually a set of rectangles, and each rectangle
+        # must be represented by two triangles, so this computes two sets of
+        # triangles, where each triangle is a set of 3 vertex indices. Finally,
+        # because most programs expect the vertices as a flat (2D) array, we
+        # need to convert the 3D indices over (N_s, N_sa, 3) into their flat
+        # counterparts in (N_s * N_sa, 3).
+        S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(N_sa - 1), indexing='ij')
+        triangle_indices = np.concatenate(
+            (
+                [[S, SA], [S + 1, SA + 1], [S + 1, SA]],
+                [[S, SA], [S, SA + 1], [S + 1, SA + 1]],
+            ),
+            axis=-2,
+        )
+        ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
+        face_indices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
+
+        if filename:
+            np.savez_compressed(
+                filename,
+                vertices_upper=vu,
+                vertices_lower=vl,
+                face_indices=face_indices,  # Same list for both surfaces
+            )
+
+        return vu, vl, face_indices
+
+    def _mesh_triangles(self, N_s=131, N_sa=151, filename=None):
+        """Generate triangle meshes over the upper and lower surfaces.
+
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+        filename : string, optional
+            Save the outputs in a numpy `.npz` file.
+
+        Returns
+        -------
+        tu, tl : array of float, shape ((N_s - 1) * (N_sa - 1) * 2, 3, 3)
+            Lists of vertex triplets that define the triangles on the upper
+            and lower surfaces.
+
+            The shape warrants an explanation: the grid has `N_s * N_sa` points
+            for `(N_s - 1) * (N_sa - 1)` rectangles. Each rectangle requires
+            2 triangles, each triangle has 3 vertices, and each vertex has
+            3 coordinates (in FRD).
+
+        See Also
+        --------
+        _mesh_vertex_lists : the sets of vertices and the indices that define
+                             the triangles
+
+        Examples
+        --------
+        To export the mesh into FreeCAD:
+
+        1. Generate the mesh
+
+           >>> foil._mesh_triangles('/path/to/triangles.npz')
+
+        2. In the FreeCAD Python (v0.18) console:
+
+           >>> # See: https://www.freecadweb.org/wiki/Mesh_Scripting
+           >>> import Mesh
+           >>> triangles = np.load('/path/to/triangles.npz')
+           >>> # As of FreeCAD v0.18, `Mesh` doesn't support numpy arrays
+           >>> mesh_upper = Mesh.Mesh(triangles['upper_triangles'].tolist())
+           >>> mesh_lower = Mesh.Mesh(triangles['lower_triangles'].tolist())
+           >>> Mesh.show(mesh_upper)
+           >>> Mesh.show(mesh_lower)
+        """
+        vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_sa=N_sa)
+        triangles_upper = vu[fi]
+        triangles_lower = vl[fi]
+
+        if filename:
+            np.savez_compressed(
+                filename,
+                triangles_upper=triangles_upper,
+                triangles_lower=triangles_lower,
+            )
+
+        return triangles_upper, triangles_lower
+
 
 # ---------------------------------------------------------------------------
 
