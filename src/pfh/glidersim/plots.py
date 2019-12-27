@@ -290,52 +290,6 @@ def plot_parafoil_planform_topdown(parafoil):
     plt.show()
 
 
-def plot_parafoil_planform_SURFACE(parafoil, N_sections=21, N_points=50):
-    """Plot a Parafoil as a 3D surface."""
-    # Not very elegant, but it gets the job done.
-
-    fig = plt.figure(figsize=(16, 16))
-    ax = fig.gca(projection="3d")
-    ax.view_init(azim=-130, elev=25)
-
-    su = np.linspace(parafoil.airfoil.geometry.s_upper, 1, N_points)
-    sl = np.linspace(parafoil.airfoil.geometry.s_lower, -1, N_points)
-    lower = parafoil.airfoil.geometry.surface_curve(sl).T
-    lower_curve = np.array([-lower[0], np.zeros(N_points), -lower[1]])
-    upper = parafoil.airfoil.geometry.surface_curve(su).T
-    upper_curve = np.array([-upper[0], np.zeros(N_points), -upper[1]])
-
-    lower_surfaces, upper_surfaces = [], []
-    for s in np.linspace(-1, 1, N_sections):
-        c = parafoil.planform.fc(s)
-        u = parafoil.planform.orientation(s)
-        c0 = np.array([parafoil.planform.fx(s) + c / 4, parafoil.planform.fy(s), 0])
-        surface = (u @ lower_curve * c).T + c0
-        lower_surfaces.append(surface)
-        # ax.plot(surface[0], surface[1], surface[2], c='r', zorder=.9, lw=0.8)
-        surface = (u @ upper_curve * c).T + c0
-        upper_surfaces.append(surface)
-        # ax.plot(surface[0], surface[1], surface[2], c='g', zorder=.9, lw=0.8)
-
-    # The surfaces are from -y to +y. Reverse the upper surfaces from +y..-y
-    upper_surfaces.reverse()
-
-    ls = np.asarray(lower_surfaces)
-    us = np.asarray(upper_surfaces)
-    X, Y, Z = np.concatenate((ls, us)).T
-    X, Y, Z = X.T, Y.T, Z.T
-    # colors = np.concatenate((np.full(ls.shape, 'r'), np.full(us.shape, 'b')))
-    embed()
-    # ax.plot_surface(X, Y, Z, facecolors=colors)
-    ax.plot_surface(X, Y, Z)
-
-    _set_axes_equal(ax)
-    ax.invert_yaxis()
-    ax.invert_zaxis()
-    fig.tight_layout()
-    plt.show()
-
-
 def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None):
     """
     Plot a ParagliderWing using 3D cross-sections.
