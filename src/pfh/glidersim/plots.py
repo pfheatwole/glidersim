@@ -158,7 +158,6 @@ def plot_airfoil_coef(airfoil, coef, N=100):
 
 def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=None):
     """Plot a Parafoil in 3D."""
-
     if ax is None:
         fig, ax = _create_3d_axes()
         independent_plot = True
@@ -168,9 +167,9 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
         coords = parafoil.surface_points(s, sa, "lower", flatten=flatten).T
-        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
         coords = parafoil.surface_points(s, sa, "upper", flatten=flatten).T
-        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.8)
+        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
 
     s = np.linspace(-1, 1, N_sections)
     LE = parafoil.chord_xyz(s, 0, flatten=flatten).T
@@ -193,7 +192,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     vertices = np.vstack((LE[0:2].T, TE[0:2].T[::-1]))  # shape: (2 * N_sections, 2)
     poly = PolyCollection([vertices], facecolors=['k'], alpha=0.25)
     ax.add_collection3d(poly, zs=[z], zdir='z')
-    ax.plot(c4[0], c4[1], z, "g--", lw=1.0)
+    ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # Quarter-chord projection onto the yz-pane (`x` held fixed)
     x = np.full(*c4[1].shape, min(xlim))
