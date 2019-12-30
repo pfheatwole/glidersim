@@ -2,9 +2,9 @@ from IPython import embed
 
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
 
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
-from matplotlib.collections import PolyCollection
 
 import numpy as np
 
