@@ -202,7 +202,6 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     if independent_plot:
         fig.tight_layout()
         plt.show()
-        return fig, ax
     else:
         return (*ax.lines, *ax.collections)
 
@@ -325,6 +324,5 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None
         ax.view_init(azim=0, elev=0)  # Rear view to see deflections
         fig.tight_layout()
         plt.show()
-        return fig, ax
     else:
-        return ax        # FIXME: should return the (lines,)
+        return ax.lines
