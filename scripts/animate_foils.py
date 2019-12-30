@@ -272,9 +272,7 @@ foil = pfh.glidersim.foil.FoilGeometry(
         transform=axes[0].transAxes,
         verticalalignment="center",
     )
-    foil_artists = gsim.plots.plot_parafoil_geo(
-        foil, N_sections=51, ax=axes[1], surface_lw=0.25,
-    )
+    foil_artists = gsim.plots.plot_parafoil_geo(foil, N_sections=51, ax=axes[1])
 
     return (code_text, *foil_artists)
 
