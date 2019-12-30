@@ -294,7 +294,7 @@ class PolynomialTorsion:
     def __call__(self, s):
         # FIXME: design review? Not a fan of these asarray
         s = np.asarray(s)
-        values = np.zeros_like(s)
+        values = np.zeros(s.shape)
         m = abs(s) > self.start  # Mask
         if np.any(m):
             p = (abs(s[m]) - self.start) / (1 - self.start)
@@ -597,7 +597,7 @@ class FoilGeometry:
         """
         thetas = self.torsion(s)
         ct, st = np.cos(thetas), np.sin(thetas)
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
         torsion = np.array(
             [[ ct, _0, st],  # noqa: E201
@@ -622,7 +622,7 @@ class FoilGeometry:
         K = np.sqrt(dyds ** 2 + dzds ** 2)  # L2-norm
         dyds /= K
         dzds /= K
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
         dihedral = np.array(
             [[_1,   _0,    _0],  # noqa: E241
@@ -728,7 +728,7 @@ class FoilGeometry:
         c = self.chord_length(s)
         coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
         coords = np.stack(
-            (-coords_a[..., 0], np.zeros_like(sa), -coords_a[..., 1]), axis=-1,
+            (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
         )
         if flatten:
             orientations = self._planform_torsion(s)
