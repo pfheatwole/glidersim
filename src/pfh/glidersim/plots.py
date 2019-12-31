@@ -194,10 +194,23 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     ax.add_collection3d(poly, zs=[z], zdir='z')
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
+    # `x` reference curve projection onto the xy-pane
+    xyz = parafoil.chord_xyz(s, parafoil.r_x(s))
+    x, y = xyz[..., 0], xyz[..., 1]
+    ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
+
     # Quarter-chord projection onto the yz-pane (`x` held fixed)
     x = np.full(*c4[1].shape, min(xlim))
     x *= 1.035  # Fix distortion due to small distance from the yz-pane
-    ax.plot(x, c4[1], c4[2], "g--", lw=0.8)
+    ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
+
+    # `yz` reference curve projection onto the yz-pane
+    xyz = parafoil.chord_xyz(s, parafoil.r_yz(s))
+    y, z = xyz[..., 1], xyz[..., 2]
+    ax.plot(x, y, z, 'r--', lw=0.8)
+
+    ax.legend()
+
 
     if independent_plot:
         fig.tight_layout()
