@@ -85,24 +85,7 @@ def sweep_torsion2(start, peak_start, peak_stop, exponent, T, fps):
         }
 
 
-# ---------------------------------------------------------------------------
-
-
-def foil_generator(fps=60):
-    base_config = {
-        "airfoil": "Airfoil(None, NACA(24018))",
-        "b_flat": "11",
-        "chord_length": "elliptical_chord(root=0.5, tip=0.1)",
-        "r_x": "0.75",
-        "x": "0",
-        "r_yz": "1.00",
-        "yz": "elliptical_lobe(34, 75)",
-        "torsion": "PolynomialTorsion(start=0.8, peak=4, exponent=2)",
-        "intakes": "SimpleIntakes(s_end=0.85, s_upper=-0.04, s_lower=-0.09)",
-    }
-
-    # -----------------------------------------------------------------------
-
+def compose_sequences(fps):
     T1 = 3
     seq1 = [
         sweep_scalar("r_x", 0, 1, T1, fps=fps),
@@ -195,23 +178,59 @@ def foil_generator(fps=60):
     # ----------------------------------------------------------------------
 
     sequences = [
-        # [seq1, T1],
-        # [seq2, T2],
-        # [seq3, T3],
-        # [seq4, T4],
+        [seq1, T1],
+        [seq2, T2],
+        [seq3, T3],
+        [seq4, T4],
         # [seq5, T5],
         # [seq6, T6],
         # [seq7a, T7],
         # [seq7b, T7],
         # [seq7c, T7],
         # [seq7d, T7],
-        [seq7e, T7],
-        [seq7f, T7 * 2],
-        # [seq8, T8],
+        # [seq7e, T7],
+        # [seq7f, T7 * 2],
+        [seq8, T8],
     ]
 
-    # -----------------------------------------------------------------------
+    return sequences
 
+
+# ---------------------------------------------------------------------------
+
+
+def setup_figure(dpi):
+    fig = plt.figure(figsize=(16, 9), dpi=dpi, constrained_layout=False)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 2], wspace=0, hspace=0)
+    gs.tight_layout(fig, pad=1, h_pad=0, w_pad=0)
+
+    # Setup the text region
+    ax1 = fig.add_subplot(gs[0])
+    ax1.spines["left"].set_visible(False)
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+    ax1.spines["bottom"].set_visible(False)
+    ax1.xaxis.set_ticks([])
+    ax1.xaxis.set_ticklabels("")
+    ax1.yaxis.set_ticks([])
+    ax1.yaxis.set_ticklabels("")
+
+    # Setup the 3D wing region
+    ax2 = fig.add_subplot(gs[1], projection="3d")
+    ax2.invert_yaxis()
+    ax2.invert_zaxis()
+    ax2.view_init(azim=-120, elev=20)
+    ax2.set_xlabel("x [m]")
+    ax2.set_ylabel("y [m]")
+    ax2.set_zlabel("z [m]")
+
+    axes = [ax1, ax2]
+    fig.tight_layout()
+
+    return fig, axes
+
+
+def foil_generator(base_config, sequences, fps=60):
     n = 0  # Current frame
     N = sum(s[1] for s in sequences) * fps  # Total number of frames
     for seq, _T in sequences:  # Each sequence is a set of generators
@@ -232,7 +251,7 @@ def foil_generator(fps=60):
 
 
 def update(config_and_foil, axes):
-    """Update the plot."""
+    """Update the plots."""
     # print(f"Entering `update`, frames={frames}")
 
     config, foil = config_and_foil
@@ -278,52 +297,42 @@ foil = pfh.glidersim.foil.FoilGeometry(
 
 
 if __name__ == "__main__":
-    save = False
-    # save = True
+    outfile = '/home/peter/animated.mp4'
+    outfile = None  # Switch to live plot (disables movie output)
 
-    dpi = 400 if save else 100
-    fps = 60 if save else 10
-    fig = plt.figure(figsize=(16, 9), dpi=dpi, constrained_layout=False)
-    gs = fig.add_gridspec(1, 2, width_ratios=[1, 2], wspace=0, hspace=0)
-    gs.tight_layout(fig, pad=1, h_pad=0, w_pad=0)
+    # Use high quality output for movies
+    dpi = 400 if outfile else 100
+    fps = 60 if outfile else 10
 
-    # Setup the text region
-    ax1 = fig.add_subplot(gs[0])
-    ax1.spines["left"].set_visible(False)
-    ax1.spines["top"].set_visible(False)
-    ax1.spines["right"].set_visible(False)
-    ax1.spines["bottom"].set_visible(False)
-    ax1.xaxis.set_ticks([])
-    ax1.xaxis.set_ticklabels("")
-    ax1.yaxis.set_ticks([])
-    ax1.yaxis.set_ticklabels("")
+    # Each sequence modifies this baseline configuration
+    base_config = {
+        "airfoil": "Airfoil(None, NACA(24018))",
+        "b_flat": "10",
+        # "chord_length": "elliptical_chord(root=0.5, tip=0.1)",
+        "chord_length": "0.2",
+        "r_x": "0.5",
+        "x": "0",
+        "r_yz": "1.00",
+        "yz": "FlatYZ()",
+        "torsion": "0",
+        "intakes": "None",
+    }
 
-    # Setup the 3D wing region
-    ax2 = fig.add_subplot(gs[1], projection="3d")
-    ax2.invert_yaxis()
-    ax2.invert_zaxis()
-    ax2.view_init(azim=-120, elev=20)
-    ax2.set_xlabel("x [m]")
-    ax2.set_ylabel("y [m]")
-    ax2.set_zlabel("z [m]")
+    sequences = compose_sequences(fps)
+    frames = foil_generator(base_config, sequences, fps)
 
-    axes = [ax1, ax2]
-    fig.tight_layout()
-
+    fig, axes = setup_figure(dpi)
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=foil_generator(fps=fps),  # Produces (config, FoilGeometry)
+        frames=frames,  # Each frame is a (config, FoilGeometry)
         fargs=(axes,),
         repeat=False,
         interval=20,
         save_count=999999,
     )
 
-    if save:
-        # progress_callback = lambda i, n: print(f"\rSaving frame {i}", end="")  # noqa: E731
-        progress_callback = None
-
+    if outfile:
         writer = animation.FFMpegWriter(
             fps=fps,
             # bitrate=10_000,
@@ -334,15 +343,15 @@ if __name__ == "__main__":
                 "lanczos",
             ],
         )
+
+        # progress_callback = lambda i, n: print(f"\rSaving frame {i}", end="")  # noqa: E731
+        progress_callback = None  # FIXME: not helpful if you dont know the total number of frames to be rendered
+
         ani.save(
-            "/home/peter/animated.mp4",
+            outfile,
             progress_callback=progress_callback,
             dpi=dpi,
             writer=writer,
         )
     else:
         plt.show()
-
-    print("\nDone.")
-
-    # embed()
