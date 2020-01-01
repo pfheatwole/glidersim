@@ -1,3 +1,13 @@
+* I claim that FoilGeometry is defined as having the central chord leading
+  edge at `x = 0` and that the central chord lies in the xy-plane, **by
+  definition**, but I never enforce that. I do shift the leading edge to the
+  origin, but I don't derotate the global wing.
+
+  I guess it'd be good enough to just require that `torsion(s=0) = 0`, but
+  I guess I could also just compute `torsion(s=0)` and subtract that from all
+  torsions, thus "centering" the twist in the same manner as the origin.
+
+
 Packaging
 =========
 
@@ -12,9 +22,13 @@ Packaging
 
   * Verify the dependencies
 
+* Replace `setup.cfg` with `pyproject.toml`? (ie, use `poetry`?)
+
 
 General
 =======
+
+* Define an `njit` wrapper that replaces `njit` with a noop
 
 * Lots of missing/incomplete docstrings, and particularly for modules. (#NEXT)
 
@@ -36,12 +50,10 @@ General
 Plots
 -----
 
-* Clean up the plotting functions
-
-* Storyboard a parafoil design overview. Shoot for a (2,3) (flattened,
-  inflated) in a 16:9 ratio. Once you can generate the overview given a single
-  wing, generate a sequence of wings over an array of design parameters, and
-  animate the overview figure (ie, animate all six plots in a single video).
+* I'd sure like it if the 3D plots could use a figsize that wasn't square (it
+  wastes too much space). I think it's because `_set_axes_equal` uses
+  a radius, and all axes must contain that sphere. **Can you keep the equal
+  scaling property with different axes lengths?**
 
 
 Low priority
@@ -59,9 +71,6 @@ Low priority
   implementation added to Numba `v0.46`. As of 2019-12-16, that function is
   roughly 60% slower on small arrays, and nearly 8x slower on `10000x1000x3`
   arrays.
-
-* Define an `njit` wrapper that replaces `njit` with a noop if `import numba`
-  fails?
 
 
 Airfoil
@@ -160,9 +169,10 @@ Geometry
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
 
-* Nice to have: exporters for the common open CAD formats (IGES, STEP, STL,
-  etc). Seems like a good stepping stone to working with other programs, like
-  OpenFOAM (instead of targeting the OpenFOAM format directly).
+* Add an example for exporting the triangle mesh to `vtkPolyData` (or whatever
+  the correct data structure would be). Would make it easier to interface with
+  OpenFOAM (you can import the mesh into Blender and export an STL, but I'm
+  sure there are easier ways to go about it).
 
 
 ParafoilSections
