@@ -156,8 +156,8 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=None):
-    """Plot a Parafoil in 3D."""
+def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
+    """Plot a FoilGeometry in 3D."""
     if ax is None:
         fig, ax = _create_3d_axes()
         independent_plot = True
@@ -166,15 +166,15 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
 
     sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
-        coords = parafoil.surface_points(s, sa, "lower", flatten=flatten).T
+        coords = foil.surface_points(s, sa, "lower", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
-        coords = parafoil.surface_points(s, sa, "upper", flatten=flatten).T
+        coords = foil.surface_points(s, sa, "upper", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
 
     s = np.linspace(-1, 1, N_sections)
-    LE = parafoil.chord_xyz(s, 0, flatten=flatten).T
-    c4 = parafoil.chord_xyz(s, 0.25, flatten=flatten).T
-    TE = parafoil.chord_xyz(s, 1, flatten=flatten).T
+    LE = foil.chord_xyz(s, 0, flatten=flatten).T
+    c4 = foil.chord_xyz(s, 0.25, flatten=flatten).T
+    TE = foil.chord_xyz(s, 1, flatten=flatten).T
     ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
@@ -195,7 +195,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = parafoil.chord_xyz(s, parafoil.r_x(s))
+    xyz = foil.chord_xyz(s, foil.r_x(s))
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -205,7 +205,7 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = parafoil.chord_xyz(s, parafoil.r_yz(s))
+    xyz = foil.chord_xyz(s, foil.r_yz(s))
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
@@ -219,11 +219,8 @@ def plot_parafoil_geo(parafoil, N_sections=21, N_points=50, flatten=False, ax=No
         return (*ax.lines, *ax.collections)
 
 
-def plot_parafoil_geo_topdown(
-    parafoil, N_sections=21, N_points=50, flatten=False, ax=None,
-):
-    """Plot a 3D Parafoil in topdown projection."""
-
+def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, ax=None):
+    """Plot a 3D foil in topdown projection."""
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 12))
         independent_plot = True
@@ -231,14 +228,14 @@ def plot_parafoil_geo_topdown(
         independent_plot = False
 
     for s in np.linspace(-1, 1, N_sections):
-        LE_xy = parafoil.chord_xyz(s, 0, flatten=flatten)[:2]
-        TE_xy = parafoil.chord_xyz(s, 1, flatten=flatten)[:2]
+        LE_xy = foil.chord_xyz(s, 0, flatten=flatten)[:2]
+        TE_xy = foil.chord_xyz(s, 1, flatten=flatten)[:2]
         coords = np.stack((LE_xy, TE_xy))
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     s = np.linspace(-1, 1, N_sections)
-    LE = parafoil.chord_xyz(s, 0, flatten=flatten)
-    TE = parafoil.chord_xyz(s, 1, flatten=flatten)
+    LE = foil.chord_xyz(s, 0, flatten=flatten)
+    TE = foil.chord_xyz(s, 1, flatten=flatten)
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
@@ -268,7 +265,7 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None
     else:
         independent_plot = False
 
-    plot_parafoil_geo(wing.parafoil, N_sections=N_sections, N_points=N_points, ax=ax)
+    plot_foil(wing.parafoil, N_sections=N_sections, N_points=N_points, ax=ax)
 
     # Add a dashed brake deflection line
     s = np.linspace(-1, 1, N_sections)

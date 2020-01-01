@@ -239,15 +239,13 @@ def build_hook3():
     print()
 
     # print("Drawing the parafoil")
-    # gsim.plots.plot_parafoil_planform_topdown(parafoil)
-    # gsim.plots.plot_parafoil_planform(parafoil, N_sections=50)
-    gsim.plots.plot_parafoil_geo(parafoil, N_sections=131, flatten=False)
-    # gsim.plots.plot_parafoil_geo(parafoil, N_sections=71, flatten=True)
-    # gsim.plots.plot_parafoil_geo_topdown(parafoil, N_sections=51)
-    # gsim.plots.plot_parafoil_geo_topdown(parafoil, N_sections=51, flatten=True)
+    gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
+    # gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
+    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # plots.plot_parafoil_geo_topdown(parafoil, N_sections=77)
+    # plots.plot_foil_topdown(parafoil, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Brake geometry

@@ -400,7 +400,7 @@ foil = FoilGeometry(
 
     maxlen = max(len(k) for k in config.keys())  # For aligning the "="
     code += "\n  ".join(f"{k:>{maxlen}} = {v}" for k, v in config.items())
-    code += "\n)\n\npfh.glidersim.plots.plot_parafoil_geo(foil)"
+    code += "\n)\n\npfh.glidersim.plots.plot_foil(foil)"
     code_text = axes[0].text(
         0,
         0.5,
@@ -410,7 +410,7 @@ foil = FoilGeometry(
         transform=axes[0].transAxes,
         verticalalignment="center",
     )
-    foil_artists = gsim.plots.plot_parafoil_geo(foil, N_sections=51, ax=axes[1])
+    foil_artists = gsim.plots.plot_foil(foil, N_sections=51, ax=axes[1])
 
     return (code_text, *foil_artists)
 

@@ -208,7 +208,7 @@ harness = gsim.harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
 glider = gsim.paraglider.Paraglider(wing, harness)
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
-gsim.plots.plot_parafoil_geo(parafoil, N_sections=121)
+gsim.plots.plot_foil(parafoil, N_sections=121)
 embed()
 # 1/0
 

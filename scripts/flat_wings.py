@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # wing, M_ref = wing4, M_ref4
     # wing, M_ref = wing5, M_ref5
 
-    gsim.plots.plot_parafoil_geo(wing, N_sections=51)
+    gsim.plots.plot_foil(wing, N_sections=51)
 
     # For a flat wing:
     #

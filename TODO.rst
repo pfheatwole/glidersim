@@ -154,12 +154,12 @@ Parafoil
 Geometry
 --------
 
-* The `ParafoilGeometry` docstrings are really hard to follow. The parameter
-  names (`x`, `r_yz`, etc) are not very helpful.
+* The `FoilGeometry` docstrings are really hard to follow. The parameter names
+  (`x`, `r_yz`, etc) are not very helpful.
 
-* Should the `ParafoilGeometry.r_x` etc be private members (`_r_x`)?
+* Should the `FoilGeometry.r_x` etc be private members (`_r_x`)?
 
-* `ParafoilGeometry.mass_properties` does not pass `s_upper` and `s_lower` to
+* `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
   overestimated/underestimated (a little bit).
 
