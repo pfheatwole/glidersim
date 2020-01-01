@@ -62,27 +62,23 @@ class EllipticalArc:
             The ratio of the major vs minor axes.
         A, B, length : float, optional
             Scaling constraints. Choose only one.
-        origin : array of float, shape (2,)
-            The (x, y) offset of the ellipse origin.
-        t_domain : array of float, shape (N, 2), optional
-            FIXME
-        p_domain : array of float, shape (N, 2), optional
-            FIXME: docstring.
-
+        origin : array of float, shape (2,), optional
+            The (x, y) offset of the ellipse origin. (For example, shifting the
+            curve up or down to produce a constant offset.)
+        t_domain : array of float, shape (2,), optional
+            The domain of the internal parameter. Values from 0 to pi/2 are the
+            first quadrant, pi/2 to pi are the second, etc.
+        p_domain : array of float, shape (2,), optional
             The domain of the input parameter. This encodes "what values in the
             input domain maps to `t_domain`?". For example, if you wanted to a
-            parametric function where -1 is the start and +1 is the end, then
-            `p_domain = [1, -1]` would map `t_min` to `p = 1` and `t_max` to
-            `p = -1`.
-
+            parametric function where -1 and +1 are the start and end of the
+            curve then `p_domain = [1, -1]` would map `t_min` to `p = 1` and
+            `t_max` to `p = -1`.
         kind : {'implicit', 'parametric'}, default: 'parametric'
-            Does the class return `y = f(x)` or `<x, y> = f(p)`? The implicit
-            version returns coordinates of the second axis given coordinates
-            of the first axis. The parametric version returns both x and y
-            given a parametric coordinate.
-
-            Notice that the curve is parametrized by `p`, which may differ from
-            the internal parameter `t` if `p_domain` has been modified.
+            Specifies whether the class return `y = f(x)` or `<x, y> = f(p)`.
+            The implicit version returns coordinates of the second axis given
+            coordinates of the first axis. The parametric version returns both
+            x and y given a parametric coordinate.
         """
         if sum(arg is not None for arg in [A, B, length]) > 1:
             raise ValueError("Specify only one of width, length, or height")
