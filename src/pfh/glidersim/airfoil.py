@@ -305,7 +305,7 @@ class AirfoilGeometry(abc.ABC):
         sl = dl / du[0] - 1  # d < d_LE -> `0 < s <= -1`
         self._curve = PchipInterpolator(np.r_[sl, su], points)
 
-    def mass_properties(self, s_upper=0, s_lower=0, N=200):
+    def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
         Calculate the inertia matrices for the the planar area and curves.
 
@@ -315,9 +315,9 @@ class AirfoilGeometry(abc.ABC):
 
         Parameters
         ----------
-        s_upper, s_lower : float
+        sa_upper, sa_lower : float
             The starting coordinates of the upper and lower surfaces. Requires
-            that `-1 <= s_lower <= s_upper, 1`.
+            that `-1 <= sa_lower <= sa_upper, 1`.
         N : integer
             The number of chordwise sample points. Used to create the vertical
             strips for calculating the area, and for creating line segments of
@@ -368,19 +368,19 @@ class AirfoilGeometry(abc.ABC):
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
         >>> inertia_frd = C @ inertia_acs @ C
         """
-        if s_lower < -1:
-            raise ValueError("Required: s_lower >= -1")
-        if s_lower > s_upper:
-            raise ValueError("Required: s_lower <= s_upper")
-        if s_upper > 1:
-            raise ValueError("Required: s_upper <= 1")
+        if sa_lower < -1:
+            raise ValueError("Required: sa_lower >= -1")
+        if sa_lower > sa_upper:
+            raise ValueError("Required: sa_lower <= sa_upper")
+        if sa_upper > 1:
+            raise ValueError("Required: sa_upper <= 1")
 
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        s = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= s <= 1`
-        top = self.surface_curve(s).T  # Top half (above s = 0)
-        bottom = self.surface_curve(-s).T  # Bottom half (below s = 0)
+        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
+        top = self.surface_curve(sa).T  # Top half (above sa = 0)
+        bottom = self.surface_curve(-sa).T  # Bottom half (below sa = 0)
         Tx, Ty = top[0], top[1]
         Bx, By = bottom[0], bottom[1]
 
@@ -410,8 +410,8 @@ class AirfoilGeometry(abc.ABC):
         # -------------------------------------------------------------------
         # 2. Surface line calculations
 
-        su = np.linspace(s_upper, 1, N)
-        sl = np.linspace(s_lower, -1, N)
+        su = np.linspace(sa_upper, 1, N)
+        sl = np.linspace(sa_lower, -1, N)
         upper = self.surface_curve(su).T
         lower = self.surface_curve(sl).T
 
@@ -468,13 +468,13 @@ class AirfoilGeometry(abc.ABC):
 
         return properties
 
-    def surface_curve(self, s):
+    def surface_curve(self, sa):
         """
         Compute points on the surface curve.
 
         Parameters
         ----------
-        s : array_like of float, shape (N,)
+        sa : array_like of float, shape (N,)
             The curve parameter from -1..1, with -1 the lower surface trailing
             edge, 0 is the leading edge, and +1 is the upper surface trailing
             edge
@@ -482,46 +482,46 @@ class AirfoilGeometry(abc.ABC):
         Returns
         -------
         points : array of float, shape (N, 2)
-            The (x, y) coordinates of points on the airfoil at `s`.
+            The (x, y) coordinates of points on the airfoil at `sa`.
         """
-        return self._curve(s)
+        return self._curve(sa)
 
-    def surface_curve_tangent(self, s):
+    def surface_curve_tangent(self, sa):
         """
         Compute the tangent unit vector at points on the surface curve.
 
         Parameters
         ----------
-        s : array_like of float
+        sa : array_like of float
             The surface curve parameter.
 
         Returns
         -------
         dxdy : array, shape (N, 2)
             The unit tangent lines at the specified points, oriented with
-            increasing `s`, so the tangents trace from the lower surface to
+            increasing `sa`, so the tangents trace from the lower surface to
             the upper surface.
         """
-        dxdy = self._curve.derivative()(s).T
+        dxdy = self._curve.derivative()(sa).T
         dxdy /= np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
-    def surface_curve_normal(self, s):
+    def surface_curve_normal(self, sa):
         """
         Compute the normal unit vector at points on the surface curve.
 
         Parameters
         ----------
-        s : array_like of float
+        sa : array_like of float
             The surface curve parameter.
 
         Returns
         -------
         dxdy : array, shape (N, 2)
             The unit normal vectors at the specified points, oriented with
-            increasing `s`, so the normals point "out" of the airfoil.
+            increasing `sa`, so the normals point "out" of the airfoil.
         """
-        dxdy = (self._curve.derivative()(s) * [1, -1]).T
+        dxdy = (self._curve.derivative()(sa) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
