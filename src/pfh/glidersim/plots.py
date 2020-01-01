@@ -250,57 +250,6 @@ def plot_parafoil_geo_topdown(
         return ax.lines
 
 
-def plot_parafoil_planform_topdown(parafoil):
-    """Plot a parafoil planform as a top-down view."""
-    # FIXME: accept either a Parafoil or a ParafoilPlanform?
-    N = 250
-    s = np.linspace(-1, 1, N)
-    c = parafoil.planform.fc(s)
-    x = parafoil.planform.fx(s)
-    y = parafoil.planform.fy(s)
-
-    def fmt(x, pos):
-        # Don't plot the origin tick labels
-        return "" if np.isclose(x, 0) else f"{x:g}"
-
-    fig, ax = plt.subplots()
-    ax.set_title("Planform (top-down)")
-    ax.title.set_verticalalignment("bottom")  # Give a larger margin
-    ax.tick_params(axis="x", pad=-15)  # Move the tick labels up
-    ax.plot(y, x + c / 4, color="k", lw=0.8)  # Leading edge
-    ax.plot(y, x - 3 * c / 4, color="k", lw=0.8)  # Trailing edge
-    ax.plot(y, x, color="k", linestyle="--", lw=0.5)  # Quarter-chord
-
-    # Plot the wing tip outer edges
-    ax.plot([y[0], y[0]], [x[0] + c[0] / 4, x[0] - 3 * c[0] / 4], color="k", lw=0.8)
-    ax.plot(
-        [y[-1], y[-1]], [x[-1] + c[-1] / 4, x[-1] - 3 * c[-1] / 4], color="k", lw=0.8
-    )
-    tip_text = ax.text(y[-1] + 0.1, (x[-1] - c[-1] / 4), f"{c[-1]:.2g}", fontsize=10)
-    tip_text.set_verticalalignment("center")
-    # ax.set_ylabel('x [m]')
-    # ax.set_xlabel('y [m]')
-    ax.set_aspect("equal", adjustable="datalim")
-    ax.spines["left"].set_position(("data", 0))
-    ax.spines["bottom"].set_position(("data", 0))
-    ax.spines["left"].set_linestyle((0, (5, 5, 5, 5)))
-    ax.spines["bottom"].set_linestyle((0, (5, 5, 5, 5)))
-    ax.spines["top"].set_color(None)
-    ax.spines["right"].set_color(None)
-    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(fmt))
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(fmt))
-
-    # FIXME: add an inset with the span, area, AR, c0, etc
-    # FIXME: make this work with an animator for interactive design in Jupyter
-
-    fig.tight_layout()
-
-    # fig.savefig(
-    #     "/home/peter/planform.svg", transparent=True, bbox_inches="tight", pad_inches=0
-    # )
-    plt.show()
-
-
 def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None):
     """
     Plot a ParagliderWing using 3D cross-sections.
