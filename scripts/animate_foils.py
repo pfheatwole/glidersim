@@ -113,7 +113,7 @@ def SEQS_sweep_elliptical_chord_ratios(T, fps):
         f(.11, .7, .1, T, fps, False),
     ]
     seq2 = [
-        f(.7, .5, .1, T, fps, False),
+        f(.7, .5, .1, T // 2, fps, False),
     ]
 
     return (seq1, T), (seq2, T)
@@ -252,8 +252,8 @@ def SEQS_sweep_elliptical_anhedral(T, fps):
         f1(1, 44, T, fps, False),
     ]
     seq1b = [
-        [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * T * fps,
-        f1(44, 30, T, fps, False),
+        [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * (T // 2) * fps,
+        f1(44, 30, T // 2, fps, False),
     ]
     seq2 = [
         [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * T * fps,
