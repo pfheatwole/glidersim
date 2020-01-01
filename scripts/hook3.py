@@ -241,7 +241,7 @@ def build_hook3():
     # print("Drawing the parafoil")
     # gsim.plots.plot_parafoil_planform_topdown(parafoil)
     # gsim.plots.plot_parafoil_planform(parafoil, N_sections=50)
-    # gsim.plots.plot_parafoil_geo(parafoil, N_sections=131, flatten=False)
+    gsim.plots.plot_parafoil_geo(parafoil, N_sections=131, flatten=False)
     # gsim.plots.plot_parafoil_geo(parafoil, N_sections=71, flatten=True)
     # gsim.plots.plot_parafoil_geo_topdown(parafoil, N_sections=51)
     # gsim.plots.plot_parafoil_geo_topdown(parafoil, N_sections=51, flatten=True)
