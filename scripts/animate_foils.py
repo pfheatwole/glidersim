@@ -62,41 +62,61 @@ def sweep_scalar(name, vstart, vstop, T, fps, reverse=True):
 # ---------------------------------------------------------------------------
 
 
-def SEQ_sweep_chord_lengths(T, fps):
+def SEQS_sweep_chord_lengths(T, fps):
     """Sweep chord_length over a rectangular wing."""
-    seq = [
-        sweep_scalar("chord_length", .1, .5, T=T, fps=fps),
+    seq1 = [
+        sweep_scalar("chord_length", .3, .5, T, fps, False),
     ]
-    return seq, T
+    seq2 = [
+        sweep_scalar("chord_length", .5, .1, T, fps, False),
+    ]
+    seq3 = [
+        sweep_scalar("chord_length", .1, .3, T, fps, False),
+    ]
+    return (seq1, T), (seq2, T), (seq3, T)
 
 
-def SEQ_sweep_linear_chord_ratios(T, fps):
-    """Sweep the central chord while hold the tip constant."""
-
-    def f(vmin, vmax, tip, T, fps):
-        for c0 in sweep(vmin, vmax, T, fps):
+def SEQS_sweep_linear_chord_ratios(T, fps):
+    def f1(vmin, vmax, tip, T, fps, reverse):
+        for c0 in sweep(vmin, vmax, T, fps, reverse):
             m = c0 - tip
             yield {"chord_length": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
 
-    seq = [
-        f(.1, .5, .1, T, fps),
+    def f2(vstart, vstop, c0, T, fps, reverse):
+        for tip in sweep(vstart, vstop, T, fps, reverse):
+            m = c0 - tip
+            yield {"chord_length": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
+
+    seq0 = [
+        sweep_scalar("r_x", 0.5, 1, T, fps, False)
+    ]
+    seq1 = [
+        [{"r_x": "1"}] * T * fps,
+        f1(.3, .5, .3, T, fps, reverse=False),
+    ]
+    seq2 = [
+        [{"r_x": "1"}] * T * fps,
+        f2(.3, 0, .5, T, fps, reverse=False),
     ]
 
-    return seq, T
+    return (seq0, T), (seq1, T), (seq2, T)
 
 
-def SEQ_sweep_elliptical_chord_ratios(T, fps):
+def SEQS_sweep_elliptical_chord_ratios(T, fps):
     """Sweep the central chord while hold the tip constant."""
 
-    def f(vmin, vmax, tip, T, fps):
-        for c0 in sweep(vmin, vmax, T, fps):
+    def f(vmin, vmax, tip, T, fps, reverse):
+        for c0 in sweep(vmin, vmax, T, fps, reverse):
             yield {"chord_length": f"elliptical_chord({c0:4.3g}, {tip:4.3g})"}
 
-    seq = [
-        f(.11, .7, .1, T, fps),
+    seq1 = [
+        f(.11, .7, .1, T, fps, False),
+    ]
+    seq2 = [
+        f(.7, .5, .1, T, fps, False),
     ]
 
-    return seq, T
+    return (seq1, T), (seq2, T)
 
 
 def SEQS_sweep_xrx_rectangle(T, fps):
@@ -112,9 +132,13 @@ def SEQS_sweep_xrx_rectangle(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    seq1 = [
+    seq1a = [
         [{"x": "0"}] * T * fps,
-        sweep_scalar("r_x", 0, 1, T, fps),
+        sweep_scalar("r_x", 0.5, 1, T, fps),
+    ]
+    seq1b = [
+        [{"x": "0"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 0, T, fps),
     ]
 
     seq2 = [
@@ -129,7 +153,7 @@ def SEQS_sweep_xrx_rectangle(T, fps):
         [{"r_x": "0.5"}] * T * fps,
         f3(T, fps),
     ]
-    return (seq1, T), (seq2, T), (seq3, T), (seq4, T)
+    return (seq1a, T), (seq1b, T), (seq2, T), (seq3, T), (seq4, T)
 
 
 def SEQS_sweep_xrx_triangle(T, fps):
@@ -145,10 +169,15 @@ def SEQS_sweep_xrx_triangle(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    seq1 = [
-        [{"chord_length": "lambda s: 0.5 * (1 - abs(s))"}] * T * fps,
-        [{"x": "0"}] * T * fps,
-        sweep_scalar("r_x", 0, 1, T, fps),
+    seq1a = [
+        [{"chord_length": "lambda s: 0.5 * (1 - abs(s))"}] * (T // 2) * fps,
+        [{"x": "0"}] * (T // 2) * fps,
+        sweep_scalar("r_x", 1, 0, T // 2, fps, False),
+    ]
+    seq1b = [
+        [{"chord_length": "lambda s: 0.5 * (1 - abs(s))"}] * (T // 2) * fps,
+        [{"x": "0"}] * (T // 2) * fps,
+        sweep_scalar("r_x", 0, 0.5, T // 2, fps, False),
     ]
 
     seq2 = [
@@ -166,7 +195,7 @@ def SEQS_sweep_xrx_triangle(T, fps):
         [{"r_x": "0.5"}] * T * fps,
         f3(T, fps),
     ]
-    return (seq1, T), (seq2, T), (seq3, T), (seq4, T)
+    return (seq1a, T // 2), (seq1b, T // 2), (seq2, T), (seq3, T), (seq4, T)
 
 
 def SEQS_sweep_xrx_elliptical(T, fps):
@@ -182,49 +211,30 @@ def SEQS_sweep_xrx_elliptical(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    seq1 = [
+    seq1a = [
         [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
         [{"x": "0"}] * T * fps,
-        sweep_scalar("r_x", 0, 1, T, fps),
+        sweep_scalar("r_x", 0.5, 1, T, fps, True),
+    ]
+    seq1b = [
+        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
+        [{"x": "0"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 0, T, fps, True),
     ]
 
     seq2 = [
         [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
-        [{"r_x": "0.5"}] * T * fps,
         f1(T, fps),
     ]
     seq3 = [
         [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
-        [{"r_x": "0.5"}] * T * fps,
         f2(T, fps),
     ]
     seq4 = [
         [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
-        [{"r_x": "0.5"}] * T * fps,
         f3(T, fps),
     ]
-    return (seq1, T), (seq2, T), (seq3, T), (seq4, T)
-
-
-def SEQS_sweep_xrx_elliptical_arched(T, fps):
-    def f(T, fps):
-        for p in sweep(0, .25, T, fps):
-            yield {"x": f"lambda s: {p:>#.3f} * (1 - (s**2))"}
-
-    seq1 = [
-        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
-        [{"x": "0"}] * T * fps,
-        sweep_scalar("r_x", 0, 1, T, fps),
-        [{"yz": "elliptical_lobe(34, 75)"}] * T * fps,
-    ]
-
-    seq2 = [
-        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
-        [{"r_x": "0.5"}] * T * fps,
-        f(T, fps),
-        [{"yz": "elliptical_lobe(34, 75)"}] * T * fps,
-    ]
-    return (seq1, T), (seq2, T)
+    return (seq1a, T), (seq1b, T), (seq2, T), (seq3, T), (seq4, T)
 
 
 def SEQS_sweep_elliptical_anhedral(T, fps):
@@ -237,16 +247,54 @@ def SEQS_sweep_elliptical_anhedral(T, fps):
         for mar in sweep(vstart * 2 + 1, vstop, T, fps, reverse):
             yield {"yz": f"elliptical_lobe({ma:<#5.2f}, {mar:<#5.2f})"}
 
-    seq1 = [
+    seq1a = [
         [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * T * fps,
-        f1(1, 44, T, fps),
+        f1(1, 44, T, fps, False),
+    ]
+    seq1b = [
+        [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * T * fps,
+        f1(44, 30, T, fps, False),
     ]
     seq2 = [
         [{"chord_length": "elliptical_chord(0.5, 0.1)"}] * T * fps,
-        f2(20, 89, T, fps),
+        f2(30, 85, T, fps, False),
     ]
 
-    return (seq1, T), (seq2, T)
+    return (seq1a, T), (seq1b, T), (seq2, T)
+
+
+def SEQS_sweep_xrx_elliptical_arched(T, fps):
+    def f(start, stop, T, fps, reverse=True):
+        for p in sweep(start, stop, T, fps, reverse):
+            yield {"x": f"lambda s: {p:>#.3f} * (1 - (s**2))"}
+
+    seq1a = [
+        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
+        [{"x": "0"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 0, T, fps),
+        [{"yz": "elliptical_lobe(30, 85)"}] * T * fps,
+    ]
+    seq1b = [
+        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
+        [{"x": "0"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 1, T, fps),
+        [{"yz": "elliptical_lobe(30, 85)"}] * T * fps,
+    ]
+
+    seq2a = [
+        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
+        [{"r_x": "0.5"}] * T * fps,
+        f(0, -.2, T, fps),
+        [{"yz": "elliptical_lobe(30, 85)"}] * T * fps,
+    ]
+    seq2b = [
+        [{"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}] * T * fps,
+        [{"r_x": "0.5"}] * T * fps,
+        f(0, .2, T, fps),
+        [{"yz": "elliptical_lobe(30, 85)"}] * T * fps,
+    ]
+
+    return (seq1a, T), (seq1b, T), (seq2a, T), (seq2b, T)
 
 
 def SEQS_sweep_torsion(T, fps):
@@ -390,15 +438,15 @@ if __name__ == "__main__":
     }
 
     sequences = [
-        SEQ_sweep_chord_lengths(3, fps),
-        SEQ_sweep_linear_chord_ratios(3, fps),
-        SEQ_sweep_elliptical_chord_ratios(3, fps),
-        *SEQS_sweep_xrx_rectangle(3, fps),
-        *SEQS_sweep_xrx_triangle(3, fps),
-        *SEQS_sweep_xrx_elliptical(3, fps),
-        *SEQS_sweep_xrx_elliptical_arched(3, fps),
-        *SEQS_sweep_elliptical_anhedral(3, fps),
+        *SEQS_sweep_chord_lengths(3, fps),
         *SEQS_sweep_torsion(3, fps),
+        *SEQS_sweep_xrx_rectangle(3, fps),
+        *SEQS_sweep_linear_chord_ratios(3, fps),
+        *SEQS_sweep_xrx_triangle(3, fps),
+        *SEQS_sweep_elliptical_chord_ratios(3, fps),
+        *SEQS_sweep_xrx_elliptical(3, fps),
+        *SEQS_sweep_elliptical_anhedral(3, fps),
+        *SEQS_sweep_xrx_elliptical_arched(3, fps),
     ]
 
     frames = foil_generator(base_config, sequences, fps)
