@@ -420,6 +420,7 @@ class FoilGeometry:
         b=None,
         torsion=0,
         intakes=None,
+        center=True,
     ):
         """
         Add a docstring.
@@ -458,6 +459,10 @@ class FoilGeometry:
             airfoil surface coordinates as a function of the section index.
         b, b_flat : float
             The projected or the flattened wing span. Specify only one.
+        center : bool, optional
+            Whether to center the foil such that the leading edge of the
+            central section defines the origin of the FoilGeometry coordinate
+            system.
         """
         if b_flat is None and b is None:
             raise ValueError("Specify one of `b` or `b_flat`")
@@ -524,9 +529,11 @@ class FoilGeometry:
         else:
             self.b = b
 
-        # Set the origin to the central chord leading edge.
-        self.LE0 = [0, 0, 0]  # Empty offset to find the real offset
-        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)  # The real offset
+        # Set the origin to the central chord leading edge. A default value of
+        # zeros must be set before calling `chord_xyz` to find the real offset.
+        self.LE0 = [0, 0, 0]
+        if center:
+            self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
 
     @property
     def AR(self):
