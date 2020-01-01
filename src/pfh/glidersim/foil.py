@@ -231,7 +231,7 @@ def elliptical_chord(root, tip):
     )
 
 
-def elliptical_lobe(mean_anhedral, max_anhedral_rate=90):
+def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
     """
     Build an elliptical lobe curve as a function of the section index.
 
@@ -239,6 +239,9 @@ def elliptical_lobe(mean_anhedral, max_anhedral_rate=90):
     you typically know b/b_flat from wing specs, and max_anhedral is pretty
     easy to approximate from pictures.
     """
+    if max_anhedral_rate is None:
+        max_anhedral_rate = 2 * mean_anhedral + 1e-6
+
     # For a paraglider, dihedral should be negative (anhedral)
     if max_anhedral_rate <= 2 * mean_anhedral:
         raise ValueError("max_anhedral_rate <= 2 * mean_anhedral")
