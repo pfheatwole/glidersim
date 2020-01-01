@@ -308,9 +308,17 @@ def SEQS_sweep_torsion(T, fps):
 
     seq1 = [f1(0, 0, 25, 2, T, fps)]
     seq2 = [f2(0, 0.8, 25, 2, T, fps)]
-    seq3 = [f1(0, 25, 0, 2, T, fps)]
+    seq3a = [
+        [{"torsion": "PT(start=0, peak=25.0, exponent=2)"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 1, T, fps, True)
+    ]
+    seq3b = [
+        [{"torsion": "PT(start=0, peak=25.0, exponent=2)"}] * T * fps,
+        sweep_scalar("r_x", 0.5, 0, T, fps, True)
+    ]
+    seq4 = [f1(0, 25, 0, 2, T, fps)]
 
-    return (seq1, T), (seq2, T), (seq3, T)
+    return (seq1, T), (seq2, T), (seq3a, T), (seq3b, T), (seq4, T)
 
 
 # ---------------------------------------------------------------------------
