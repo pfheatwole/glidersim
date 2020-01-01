@@ -62,27 +62,23 @@ class EllipticalArc:
             The ratio of the major vs minor axes.
         A, B, length : float, optional
             Scaling constraints. Choose only one.
-        origin : array of float, shape (2,)
-            The (x, y) offset of the ellipse origin.
-        t_domain : array of float, shape (N, 2), optional
-            FIXME
-        p_domain : array of float, shape (N, 2), optional
-            FIXME: docstring.
-
+        origin : array of float, shape (2,), optional
+            The (x, y) offset of the ellipse origin. (For example, shifting the
+            curve up or down to produce a constant offset.)
+        t_domain : array of float, shape (2,), optional
+            The domain of the internal parameter. Values from 0 to pi/2 are the
+            first quadrant, pi/2 to pi are the second, etc.
+        p_domain : array of float, shape (2,), optional
             The domain of the input parameter. This encodes "what values in the
             input domain maps to `t_domain`?". For example, if you wanted to a
-            parametric function where -1 is the start and +1 is the end, then
-            `p_domain = [1, -1]` would map `t_min` to `p = 1` and `t_max` to
-            `p = -1`.
-
+            parametric function where -1 and +1 are the start and end of the
+            curve then `p_domain = [1, -1]` would map `t_min` to `p = 1` and
+            `t_max` to `p = -1`.
         kind : {'implicit', 'parametric'}, default: 'parametric'
-            Does the class return `y = f(x)` or `<x, y> = f(p)`? The implicit
-            version returns coordinates of the second axis given coordinates
-            of the first axis. The parametric version returns both x and y
-            given a parametric coordinate.
-
-            Notice that the curve is parametrized by `p`, which may differ from
-            the internal parameter `t` if `p_domain` has been modified.
+            Specifies whether the class return `y = f(x)` or `<x, y> = f(p)`.
+            The implicit version returns coordinates of the second axis given
+            coordinates of the first axis. The parametric version returns both
+            x and y given a parametric coordinate.
         """
         if sum(arg is not None for arg in [A, B, length]) > 1:
             raise ValueError("Specify only one of width, length, or height")
@@ -231,7 +227,7 @@ def elliptical_chord(root, tip):
     )
 
 
-def elliptical_lobe(mean_anhedral, max_anhedral_rate=90):
+def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
     """
     Build an elliptical lobe curve as a function of the section index.
 
@@ -239,6 +235,9 @@ def elliptical_lobe(mean_anhedral, max_anhedral_rate=90):
     you typically know b/b_flat from wing specs, and max_anhedral is pretty
     easy to approximate from pictures.
     """
+    if max_anhedral_rate is None:
+        max_anhedral_rate = 2 * mean_anhedral + 1e-6
+
     # For a paraglider, dihedral should be negative (anhedral)
     if max_anhedral_rate <= 2 * mean_anhedral:
         raise ValueError("max_anhedral_rate <= 2 * mean_anhedral")
@@ -294,7 +293,7 @@ class PolynomialTorsion:
     def __call__(self, s):
         # FIXME: design review? Not a fan of these asarray
         s = np.asarray(s)
-        values = np.zeros_like(s)
+        values = np.zeros(s.shape)
         m = abs(s) > self.start  # Mask
         if np.any(m):
             p = (abs(s[m]) - self.start) / (1 - self.start)
@@ -307,7 +306,7 @@ class SimpleIntakes:
     """
     Defines the upper and lower surface coordinates as constant along the span.
 
-    This version currently uses explicit `s_upper` and `s_lower` in airfoil
+    This version currently uses explicit `sa_upper` and `sa_lower` in airfoil
     coordinates, but other parametrizations might be the intake midpoint and
     width (where "width" might be in the airfoil `s`, or as a percentage of the
     chord) or `c_upper` and `c_lower` as points on the chord.
@@ -316,7 +315,7 @@ class SimpleIntakes:
     ----------
     s_end: float
         Section index. Air intakes are present between +/- `s_end`.
-    s_upper, s_lower : float
+    sa_upper, sa_lower : float
         The starting coordinates of the upper and lower surface of the
         parafoil, given in airfoil surface coordinates. These are used to
         define air intakes, and for determining the inertial properties of the
@@ -325,18 +324,18 @@ class SimpleIntakes:
         The airfoil coordinates use `s = 0` for the leading edge, `s = 1` for
         trailing edge of the curve above the chord, and `s = -1` for the
         trailing edge of the curve below the chord, so these choices must
-        follow `-1 <= s_lower <= s_upper <= 1`.
+        follow `-1 <= sa_lower <= sa_upper <= 1`.
     """
 
-    def __init__(self, s_end, s_upper, s_lower):
+    def __init__(self, s_end, sa_upper, sa_lower):
         # FIXME: support more types of definition:
         #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
         #  2. midpoint (in airfoil coordinates) and width
         #  3. Upper and lower cuts as a fraction of the chord (the "Paraglider
         #     Design Manual" does it this way).
         self.s_end = s_end
-        self.s_upper = s_upper
-        self.s_lower = s_lower
+        self.sa_upper = sa_upper
+        self.sa_lower = sa_lower
 
     def __call__(self, s, sa, surface):
         """
@@ -371,10 +370,10 @@ class SimpleIntakes:
             raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
         if surface == "upper":
-            values = self.s_upper + sa * (1 - self.s_upper)
+            values = self.sa_upper + sa * (1 - self.sa_upper)
         else:
             # The lower section extends forward over sections without intakes
-            starts = np.where(np.abs(s) < self.s_end, self.s_lower, self.s_upper)
+            starts = np.where(np.abs(s) < self.s_end, self.sa_lower, self.sa_upper)
             values = starts + sa * (-1 - starts)
 
         return values
@@ -417,6 +416,7 @@ class FoilGeometry:
         b=None,
         torsion=0,
         intakes=None,
+        center=True,
     ):
         """
         Add a docstring.
@@ -455,6 +455,10 @@ class FoilGeometry:
             airfoil surface coordinates as a function of the section index.
         b, b_flat : float
             The projected or the flattened wing span. Specify only one.
+        center : bool, optional
+            Whether to center the foil such that the leading edge of the
+            central section defines the origin of the FoilGeometry coordinate
+            system.
         """
         if b_flat is None and b is None:
             raise ValueError("Specify one of `b` or `b_flat`")
@@ -521,9 +525,11 @@ class FoilGeometry:
         else:
             self.b = b
 
-        # Set the origin to the central chord leading edge.
-        self.LE0 = [0, 0, 0]  # Empty offset to find the real offset
-        self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)  # The real offset
+        # Set the origin to the central chord leading edge. A default value of
+        # zeros must be set before calling `chord_xyz` to find the real offset.
+        self.LE0 = [0, 0, 0]
+        if center:
+            self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
 
     @property
     def AR(self):
@@ -597,7 +603,7 @@ class FoilGeometry:
         """
         thetas = self.torsion(s)
         ct, st = np.cos(thetas), np.sin(thetas)
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
         torsion = np.array(
             [[ ct, _0, st],  # noqa: E201
@@ -622,7 +628,7 @@ class FoilGeometry:
         K = np.sqrt(dyds ** 2 + dzds ** 2)  # L2-norm
         dyds /= K
         dzds /= K
-        _0, _1 = np.zeros_like(s), np.ones_like(s)
+        _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
         dihedral = np.array(
             [[_1,   _0,    _0],  # noqa: E241
@@ -644,7 +650,7 @@ class FoilGeometry:
     def chord_length(self, s):
         return self._chord_length(s) * (self.b_flat / 2)
 
-    def chord_xyz(self, s, chord_ratio):
+    def chord_xyz(self, s, chord_ratio, flatten=False):
         """
         Compute the coordinates of points on section chords.
 
@@ -655,6 +661,10 @@ class FoilGeometry:
         chord_ratio : float
             Position on the chords, where `chord_ratio = 0` is the leading
             edge, and `chord_ratio = 1` is the trailing edge.
+        flatten : boolean
+            Whether to flatten the foil by disregarding dihedral (curvature in
+            the yz-plane). This is useful for inflatable wings, such as
+            parafoils. Default: False.
         """
         s = np.asarray(s)
         chord_ratio = np.asarray(chord_ratio)
@@ -664,20 +674,26 @@ class FoilGeometry:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
         torsion = self._planform_torsion(s)
-        dihedral = self._lobe_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
-        xhat_wing = dihedral @ torsion @ [1, 0, 0]
         c = self._chord_length(s)  # *Proportional* chords
 
         # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
-        LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
-              + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
-              + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
-        xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
+        if flatten:  # Disregard dihedral (curvature in the yz-plane)
+            LE = (np.stack((self.x(s), s, np.zeros(np.shape(s))), axis=-1)
+                  + ((self.r_x(s) * c)[..., np.newaxis] * xhat_planform))
+            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_planform - self.LE0
+        else:  # The fully specified wing
+            dihedral = self._lobe_dihedral(s)
+            xhat_wing = dihedral @ torsion @ [1, 0, 0]
+            LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
+                  + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
+                  + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
+            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
+
         xyz *= self.b_flat / 2
         return xyz
 
-    def surface_points(self, s, sa, surface):
+    def surface_points(self, s, sa, surface, flatten=False):
         """Sample points on the upper surface curve of a parafoil section.
 
         Parameters
@@ -685,37 +701,47 @@ class FoilGeometry:
         s : array_like of float
             Section index.
         sa : array_like of float
-            Surface coordinates, where `0 <= sa <= 1`, with `1` being the
-            trailing edge of the surface. Maps to either the upper or lower
-            surface airfoil coordinates, depending on the value of `surface`.
-        surface : {"upper", "lower"}
-            Which surface to sample. If "upper", then `sa` maps to the range
-            `s_upper:1`. If "lower", then `sa` maps to the range `s_lower:-1`.
+            Surface or airfoil coordinates, depending on the value of `surface`.
+        surface : {"upper", "lower", "airfoil"}
+            How to interpret the coordinates in `sa`. If "upper", then `sa` is
+            mapped to the range `sa_upper:1`. If "lower", then `sa` is mapped to
+            the range `sa_lower:-1`.  If "airfoil", then `sa` is treated as raw
+            airfoil coordinates, which must range from -1 to +1.
+        flatten : boolean
+            Whether to flatten the foil by disregarding dihedral (curvature in
+            the yz-plane). This is useful for inflatable wings, such as
+            parafoils. Default: False.
 
         Returns
         -------
         array of float
-            A set of points from the upper surface of the airfoil in FRD. The
-            shape is determined by standard numpy broadcasting of `s` and `sa`.
+            A set of points from the surface of the airfoil in FRD. The shape
+            is determined by standard numpy broadcasting of `s` and `sa`.
         """
         s = np.asarray(s)
         sa = np.asarray(sa)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if sa.min() < 0 or sa.max() > 1:
+        if surface not in {"upper", "lower", "airfoil"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
+        if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
+            raise ValueError("Airfoil coordinates must be between -1 and 1.")
+        elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
             raise ValueError("Surface coordinates must be between 0 and 1.")
-        if surface not in {"upper", "lower"}:
-            raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
-        sa = self.intakes(s, sa, surface)
+        if surface != "airfoil":
+            sa = self.intakes(s, sa, surface)
         c = self.chord_length(s)
         coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
         coords = np.stack(
-            (-coords_a[..., 0], np.zeros_like(sa), -coords_a[..., 1]), axis=-1,
+            (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
         )
-        orientations = self.section_orientation(s)
+        if flatten:
+            orientations = self._planform_torsion(s)
+        else:
+            orientations = self.section_orientation(s)
         surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
-        return surface + self.chord_xyz(s, 0)
+        return surface + self.chord_xyz(s, 0, flatten=flatten)
 
     def mass_properties(self, N=250):
         """
@@ -771,7 +797,7 @@ class FoilGeometry:
         and finally translated to the global centroid (of the surface or
         volume) using the parallel axis theorem.
         """
-        # FIXME: doesn't account for `s_upper`/`s_lower` (minor effect)
+        # FIXME: doesn't account for `sa_upper`/`sa_lower` (minor effect)
         #
         # FIXME: Places all the segment mass on the section bisecting the
         #        center of the segment instead of spreading the mass out along
@@ -855,6 +881,160 @@ class FoilGeometry:
             "lower_inertia": lower_J}
 
         return mass_properties
+
+    def _mesh_vertex_lists(self, N_s=131, N_sa=151, filename=None):
+        """
+        Generate sets of triangle faces on the upper and lower surfaces.
+
+        Each triangle mesh is described by a set of vertices and a set of
+        "faces". The vertices are the surface coordiantes sampled on a
+        rectilinear grid over the section indices and surface coordinates. The
+        faces are the list of vertices that define the triangles.
+
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+        filename : string, optional
+            Save the outputs in a numpy `.npz` file.
+
+        Returns
+        -------
+        vertices_upper, vertices_lower : array of float, shape (N_s * N_sa, 3)
+            The vertices on the upper and lower surfaces.
+        face_indices : array of int, shape (N_s * N_sa * 2, 3)
+            A array of arrays of vertex indices. These define the triangles
+            over the surfaces by their index on the grid. The same grid was
+            used for both surfaces, so this array defines both meshes.
+
+        See Also
+        --------
+        _mesh_triangles : Helper function that produces the meshes themselves
+                          as two lists of vertex triplets (the triangles in
+                          FRD coordinates).
+
+        Examples
+        --------
+        To export the mesh into Blender:
+
+        1. Generate the mesh
+
+           >>> foil._mesh_vertex_lists(filename='/path/to/mesh.npz')
+
+        2. In the Blender (v2.8) Python console:
+
+           import numpy
+           data = numpy.load('/path/to/mesh.npz')
+           # Blender doesn't support numpy arrays
+           vu = data['vertices_upper'].tolist()
+           vl = data['vertices_lower'].tolist()
+           fi = data['face_indices'].tolist()
+           mesh_upper = bpy.data.meshes.new("upper")
+           mesh_lower = bpy.data.meshes.new("lower")
+           object_upper = bpy.data.objects.new("upper", mesh_upper)
+           object_lower = bpy.data.objects.new("lower", mesh_lower)
+           bpy.context.scene.collection.objects.link(object_upper)
+           bpy.context.scene.collection.objects.link(object_lower)
+           mesh_upper.from_pydata(vu, [], fi)
+           mesh_lower.from_pydata(vl, [], fi)
+           mesh_upper.update(calc_edges=True)
+           mesh_lower.update(calc_edges=True)
+        """
+        # Compute the vertices
+        s = np.linspace(-1, 1, N_s)
+        sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
+        vu = self.surface_points(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
+        vl = self.surface_points(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
+
+        # Compute the vertex lists for all of the faces (the triangles). The
+        # input grid is conceptually a set of rectangles, and each rectangle
+        # must be represented by two triangles, so this computes two sets of
+        # triangles, where each triangle is a set of 3 vertex indices. Finally,
+        # because most programs expect the vertices as a flat (2D) array, we
+        # need to convert the 3D indices over (N_s, N_sa, 3) into their flat
+        # counterparts in (N_s * N_sa, 3).
+        S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(N_sa - 1), indexing='ij')
+        triangle_indices = np.concatenate(
+            (
+                [[S, SA], [S + 1, SA + 1], [S + 1, SA]],
+                [[S, SA], [S, SA + 1], [S + 1, SA + 1]],
+            ),
+            axis=-2,
+        )
+        ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
+        face_indices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
+
+        if filename:
+            np.savez_compressed(
+                filename,
+                vertices_upper=vu,
+                vertices_lower=vl,
+                face_indices=face_indices,  # Same list for both surfaces
+            )
+
+        return vu, vl, face_indices
+
+    def _mesh_triangles(self, N_s=131, N_sa=151, filename=None):
+        """Generate triangle meshes over the upper and lower surfaces.
+
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+        filename : string, optional
+            Save the outputs in a numpy `.npz` file.
+
+        Returns
+        -------
+        tu, tl : array of float, shape ((N_s - 1) * (N_sa - 1) * 2, 3, 3)
+            Lists of vertex triplets that define the triangles on the upper
+            and lower surfaces.
+
+            The shape warrants an explanation: the grid has `N_s * N_sa` points
+            for `(N_s - 1) * (N_sa - 1)` rectangles. Each rectangle requires
+            2 triangles, each triangle has 3 vertices, and each vertex has
+            3 coordinates (in FRD).
+
+        See Also
+        --------
+        _mesh_vertex_lists : the sets of vertices and the indices that define
+                             the triangles
+
+        Examples
+        --------
+        To export the mesh into FreeCAD:
+
+        1. Generate the mesh
+
+           >>> foil._mesh_triangles('/path/to/triangles.npz')
+
+        2. In the FreeCAD Python (v0.18) console:
+
+           >>> # See: https://www.freecadweb.org/wiki/Mesh_Scripting
+           >>> import Mesh
+           >>> triangles = np.load('/path/to/triangles.npz')
+           >>> # As of FreeCAD v0.18, `Mesh` doesn't support numpy arrays
+           >>> mesh_upper = Mesh.Mesh(triangles['upper_triangles'].tolist())
+           >>> mesh_lower = Mesh.Mesh(triangles['lower_triangles'].tolist())
+           >>> Mesh.show(mesh_upper)
+           >>> Mesh.show(mesh_lower)
+        """
+        vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_sa=N_sa)
+        triangles_upper = vu[fi]
+        triangles_lower = vl[fi]
+
+        if filename:
+            np.savez_compressed(
+                filename,
+                triangles_upper=triangles_upper,
+                triangles_lower=triangles_lower,
+            )
+
+        return triangles_upper, triangles_lower
 
 
 # ---------------------------------------------------------------------------
