@@ -706,25 +706,21 @@ class NACA(AirfoilGeometry):
             directly above the chord line, regardless of the convention.
             (The convention only changes the definition of the surface curves.)
         """
-        x = np.asarray(x, dtype=float)
+        x = np.asarray(x)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
+        y = np.empty(x.shape)
         if self.series == 4:
             m, p = self.m, self.p
             f = x < p  # Filter for the two cases, `x < p` and `x >= p`
-            y = np.empty_like(x)
-
-            # The tests are necessary for when `m > 0` and `p = 0`
-            if np.any(f):
+            if p > 0:
                 y[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
-            if np.any(~f):
-                y[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
+            y[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
 
         elif self.series == 5:
             m, k1 = self.m, self.k1
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
-            y = np.empty_like(x)
             y[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
             y[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
 
