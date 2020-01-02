@@ -669,17 +669,24 @@ class NACA(AirfoilGeometry):
         m = self.m
         p = self.p
 
-        x = np.asarray(x, dtype=float)
+        x = np.asarray(x)
         assert np.all(x >= 0) and np.all(x <= 1)
 
-        f = x < p  # Filter for the two cases, `x < p` and `x >= p`
-        dyc = np.empty_like(x)
+        if self.series == 4:
+            dyc = np.full(x.shape, 2 * m * (p - x))  # Common factors
+            f = x < p  # Filter for the two cases, `x < p` and `x >= p`
+            if p > 0:
+                dyc[f] /= p ** 2
+            dyc[~f] /= (1 - p) ** 2
 
-        # The tests are necessary for when `m > 0` and `p = 0`
-        if np.any(f):
-            dyc[f] = (2 * m / p ** 2) * (p - x[f])
-        if np.any(~f):
-            dyc[~f] = (2 * m / (1 - p) ** 2) * (p - x[~f])
+        elif self.series == 5:
+            dyc = np.full(x.shape, self.k1 / 6)  # Common factors
+            f = x < m  # Filter for the two cases, `x < m` and `x >= m`
+            dyc[f] *= 3 * x[f] ** 2 - 6 * m * x[f] + m ** 2 * (3 - m)
+            dyc[~f] *= -m ** 3
+
+        else:
+            raise RuntimeError(f"Invalid NACA series '{self.series}'")
 
         return arctan(dyc)
 
