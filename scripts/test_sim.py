@@ -95,7 +95,7 @@ class GliderSim:
         #  * ref: Stevens, Eq:1.7-5, p36 (50)
         alpha = self.J_inv @ (M - cross3(x["omega"], self.J @ x["omega"]))
 
-        # Quatnernion derivative
+        # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
         P, Q, R = x["omega"]
         # fmt: off
