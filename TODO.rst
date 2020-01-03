@@ -211,12 +211,10 @@ Coefficient Estimation
 * Double check the drag correction terms for viscous effects
 
   * Should the section drag really include the local sideslip airspeed for
-    calculating their drag?
-
-  * Or should they "discard" the sideway velocity and calculate using only the
-    chordwise+normal velocities?
-
-  * Same goes for the direction of the drag vectors.
+    calculating their drag? Or should they "discard" the sideways velocity and
+    calculate using only the chordwise+normal velocities? [WAIT: doesn't it
+    work out that the local velocity has no sideslip? Weird, but I think
+    that's the case.] Same goes for the direction of the drag vectors.
 
 * Does Phillips' method detect significant differences in performance if the
   quarter-chord lies in a plane or not? The lobe makes it curve backwards at
