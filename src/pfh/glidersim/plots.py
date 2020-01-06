@@ -81,8 +81,8 @@ def _create_3d_axes(figsize=(12, 12), dpi=100):
     return fig, ax
 
 
-def plot_airfoil_geo(foil_geo):
-    sa = np.linspace(0, 1, 200)
+def plot_airfoil_geo(foil_geo, N_points=200):
+    sa = np.linspace(0, 1, N_points)
     upper = foil_geo.surface_curve(sa).T
     lower = foil_geo.surface_curve(-sa).T
     fig, ax = plt.subplots()
@@ -90,7 +90,7 @@ def plot_airfoil_geo(foil_geo):
     ax.plot(lower[0], lower[1], c="r", lw=0.75)
 
     try:
-        x = (1 - np.cos(np.linspace(0, np.pi, 200))) / 2
+        x = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
         y = foil_geo._yc(x)  # FIXME: NACA specific; should be `camber_curve`
         ax.plot(x, y, label="mean camber line", color="k", linestyle="--", linewidth=0.75)
     except AttributeError:
