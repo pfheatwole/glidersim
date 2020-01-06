@@ -297,13 +297,11 @@ class AirfoilGeometry(abc.ABC):
             bracket=(d[-1] * 0.4, d[-1] * 0.6),
         )
         d_LE = result.root
-        idx_u = np.arange(len(d))[d >= d_LE]
-        idx_l = np.arange(len(d))[d < d_LE]
-        du = d[idx_u]
-        dl = d[idx_l]
-        su = (du - du[0]) / (du[-1] - du[0])  # d >= d_LE -> `0 <= s <= 1`
-        sl = dl / du[0] - 1  # d < d_LE -> `0 < s <= -1`
-        self._curve = PchipInterpolator(np.r_[sl, su], points)
+        sa = np.empty(d.shape)
+        f = d <= d_LE  # Mask: points on the lower surface
+        sa[f] = -1 + d[f] / d_LE  # d <= d_LE -> `-1 <= sa <= 0`
+        sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)  # `0 <= sa <= 1`
+        self._curve = PchipInterpolator(sa, points)
 
     def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
