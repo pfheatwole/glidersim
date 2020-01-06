@@ -213,7 +213,7 @@ class GridCoefficients(AirfoilCoefficients):
 # ---------------------------------------------------------------------------
 
 
-class AirfoilGeometry(abc.ABC):
+class AirfoilGeometry:
     """
     Classes that describe the shapes and mass properties of an airfoil.
 
