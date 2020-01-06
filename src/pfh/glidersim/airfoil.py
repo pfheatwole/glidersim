@@ -291,9 +291,7 @@ class AirfoilGeometry:
 
         self.points = points
 
-        # Parametrize the curve with the normalized distance `sa`. Assumes the
-        # airfoil chord lies on the x-axis, in which case the leading edge is
-        # simply where the curve crosses the x-axis.
+        # Parametrize the curve with the normalized distance `sa`.
         d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
         curve = PchipInterpolator(d, points)
         TE = (curve(0) + curve(d[-1])) / 2
@@ -309,24 +307,21 @@ class AirfoilGeometry:
         sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)  # `0 <= sa <= 1`
         self._curve = PchipInterpolator(sa, points)
 
-        # Build a camber curve function (assumes a normalized airfoil!)
-        #
-        # FIXME: this assumes the normalization successfully placed the LE at
-        #        `x = 0`. If it fails, then sampling the curves at `x = 0` can
-        #        produce gnarly results due extrapolation. I think it's
-        #        particularly bad due to the curvature at the LE (small error
-        #        in `x` make HUGE error in `y`). Example: NACA(7111) with the
-        #        "American" convention.
-        #
-        N = self.points.shape[0]
-        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
-        upper = PchipInterpolator(*self.surface_curve(sa).T)
-        lower = PchipInterpolator(*self.surface_curve(-sa).T)
-        cc = (upper(sa) + lower(sa)) / 2  # `sa` doubles as `x` here
-        self._camber_curve = PchipInterpolator(sa, cc)  # y_camber = f(x)
+        # Build a camber curve function. Assumes a normalized airfoil.
+        # FIXME: Crude, and assumes the upper and lower surface trailing edges
+        #        end at the same `x` coordinate.
+        N = 200
+        pc = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= pc <= 1`
+        y_upper = PchipInterpolator(*self.surface_curve(pc).T)  # y = f(x)
+        y_lower = PchipInterpolator(*self.surface_curve(-pc).T)  # y = f(x)
+        LEx, TEx = self.surface_curve([0, 1]).T[0]
+        x_c = LEx + pc * (TEx - LEx)  # The range of `x` from the LE to the TE
+        y_c = (y_upper(x_c) + y_lower(x_c)) / 2
+        self._camber_curve = PchipInterpolator(pc, np.c_[x_c, y_c])
 
-        # Build a thickness function (assumes a normalized airfoil!)
-        self._thickness = PchipInterpolator(sa, upper(sa) - lower(sa))
+        # Build a thickness function. Assumes a normalized airfoil.
+        # FIXME: Assumes both trailing edges end at `x = 1`
+        self._thickness = PchipInterpolator(pc, y_upper(pc) - y_lower(pc))
 
     def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
@@ -562,8 +557,8 @@ class AirfoilGeometry:
 
         Returns
         -------
-        y : array_like of float
-            The y-coordinates of the camber line
+        array of float, shape (N, 2)
+            The xy coordinate pairs of the camber line.
         """
         return self._camber_curve(pc)
 
