@@ -641,7 +641,13 @@ class NACA(AirfoilGeometry):
 
         super().__init__(np.r_[xyu, xyl], **kwargs)
 
-    def thickness(self, x):
+    def _yt(self, x):
+        """
+        Compute the thickness of the airfoil.
+
+        Whether the thickness is measured orthogonal to the camber curve or the
+        chord depends on the convention. See the docstring for this class.
+        """
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
@@ -752,7 +758,7 @@ class NACA(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        t = self.thickness(x)
+        t = self._yt(x)
 
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, t]).T
@@ -792,7 +798,7 @@ class NACA(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        t = self.thickness(x)
+        t = self._yt(x)
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, -t]).T
         else:  # Cambered airfoil
