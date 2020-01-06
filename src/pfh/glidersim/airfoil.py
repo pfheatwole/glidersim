@@ -587,7 +587,7 @@ class AirfoilGeometry:
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, *, open_TE=True, convention="British", **kwargs):
+    def __init__(self, code, *, open_TE=False, convention="British", **kwargs):
         """
         Generate an airfoil using a NACA4 or NACA5 parameterization.
 
@@ -602,7 +602,7 @@ class NACA(AirfoilGeometry):
             expressed as LPSTT; valid codes for this implementation are
             restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
         open_TE : bool, optional
-            Generate airfoils with an open trailing edge. Default: True.
+            Generate airfoils with an open trailing edge. Default: False.
         convention : {"American", "British"}, optional
             The convention to use for calculating the airfoil thickness. The
             default is 'British'.
