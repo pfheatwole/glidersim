@@ -215,19 +215,12 @@ class GridCoefficients(AirfoilCoefficients):
 
 class AirfoilGeometry:
     """
-    Classes that describe the shapes and mass properties of an airfoil.
+    A class that describes the shapes and mass properties of an airfoil.
 
     The most general description of an airfoil is a set of points that define
     the upper and lower surfaces. This class divides that set of points into
     top and bottom regions, separated by the leading edge, and provides access
-    to those curves as a parametric function. It also provides the unitless
-    magnitudes, centroids, and inertia matrices of the upper curve, lower
-    curve, and planar area, which can be scaled by the physical units of the
-    target application.
-
-    The curves are also useful for drawing a 3D wing. The mass properties are
-    useful for calculating the upper and lower surface areas, internal volume,
-    and inertia matrix of a 3D wing.
+    to those curves as a parametric function.
 
     Unlike standard airfoil definitions, this class converts the set of
     counter-clockwise points to a parametric curve parametrized by a clockwise
@@ -235,6 +228,19 @@ class AirfoilGeometry:
     `sa = 1` is the tip of the upper surface, and `sa = -1` is the tip of the
     lower surface. Midpoints of the upper and lower surface curves are given by
     `sa = 0.5` and `sa = -0.5`.
+
+    This class defines the airfoil thickness as the distance between the upper
+    and lower surfaces as measured perpendicular to the chord (sometimes known
+    as the "British" convention). This does disagree with the other "American"
+    convention, which measures thickness perpendicular to the camber line (see
+    the NACA geometry for an example), but this definition makes finding the
+    camber lines much more straightforward.
+
+    This class provides the unitless magnitudes, centroids, and inertia
+    matrices of the upper curve, lower curve, and planar area, which can be
+    scaled by the physical units of the target application. These properties
+    are useful for calculating the upper and lower surface areas, internal
+    volume, and inertia matrix of a 3D wing.
 
     Parameters
     ----------
