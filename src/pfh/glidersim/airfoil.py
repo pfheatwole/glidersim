@@ -231,10 +231,10 @@ class AirfoilGeometry(abc.ABC):
 
     Unlike standard airfoil definitions, this class converts the set of
     counter-clockwise points to a parametric curve parametrized by a clockwise
-    normalized position `-1 <= s <= 1`, where `s = 0` is the leading edge,
-    `s = 1` is the tip of the upper surface, and `s = -1` is the tip of the
+    normalized position `-1 <= sa <= 1`, where `sa = 0` is the leading edge,
+    `sa = 1` is the tip of the upper surface, and `sa = -1` is the tip of the
     lower surface. Midpoints of the upper and lower surface curves are given by
-    `s = 0.5` and `s = -0.5`.
+    `sa = 0.5` and `sa = -0.5`.
 
     Parameters
     ----------
@@ -262,7 +262,7 @@ class AirfoilGeometry(abc.ABC):
             return dydx @ chord
 
         self._raw_points = points.copy()  # FIXME: for debugging
-        points = points[::-1]  # Clockwise order is more convenient for `s`
+        points = points[::-1]  # Clockwise order is more convenient for `sa`
 
         # Find the chord, align it to the x-axis, and scale it to unit length
         if normalize:
@@ -285,7 +285,7 @@ class AirfoilGeometry(abc.ABC):
 
         self.points = points
 
-        # Parametrize the curve with the normalized distance `s`. Assumes the
+        # Parametrize the curve with the normalized distance `sa`. Assumes the
         # airfoil chord lies on the x-axis, in which case the leading edge is
         # simply where the curve crosses the x-axis.
         d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
