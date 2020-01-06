@@ -303,6 +303,25 @@ class AirfoilGeometry(abc.ABC):
         sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)  # `0 <= sa <= 1`
         self._curve = PchipInterpolator(sa, points)
 
+        # Build a camber curve function (assumes a normalized airfoil!)
+        #
+        # FIXME: this assumes the normalization successfully placed the LE at
+        #        `x = 0`. If it fails, then sampling the curves at `x = 0` can
+        #        produce gnarly results due extrapolation. I think it's
+        #        particularly bad due to the curvature at the LE (small error
+        #        in `x` make HUGE error in `y`). Example: NACA(7111) with the
+        #        "American" convention.
+        #
+        N = self.points.shape[0]
+        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
+        upper = PchipInterpolator(*self.surface_curve(sa).T)
+        lower = PchipInterpolator(*self.surface_curve(-sa).T)
+        cc = (upper(sa) + lower(sa)) / 2  # `sa` doubles as `x` here
+        self._camber_curve = PchipInterpolator(sa, cc)  # y_camber = f(x)
+
+        # Build a thickness function (assumes a normalized airfoil!)
+        self._thickness = PchipInterpolator(sa, upper(sa) - lower(sa))
+
     def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
         Calculate the inertia matrices for the the planar area and curves.
@@ -523,27 +542,42 @@ class AirfoilGeometry(abc.ABC):
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
-    def camber_curve(self, x):
-        raise NotImplementedError
-
-    def thickness(self, x):
+    def camber_curve(self, pc):
         """
-        Compute airfoil thickness perpendicular to a reference line.
+        Compute points on the camber curve.
 
-        This measurement is perpendicular to either the camber line ('American'
-        convention) or the chord ('British' convention). Refer to the specific
-        AirfoilGeometry class documentation to determine which is being used.
+        In this class, the camber curve is defined as the midpoint between the
+        upper and lower surfaces, as measured perpendicular to the chord.
 
         Parameters
         ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
+        pc : array_like of float [percentage]
+            Fractional position on the chord line, where `0 <= pc <= 1`
 
         Returns
         -------
-        FIXME: describe
+        y : array_like of float
+            The y-coordinates of the camber line
         """
-        raise NotImplementedError
+        return self._camber_curve(pc)
+
+    def thickness(self, pc):
+        """
+        Compute airfoil thickness.
+
+        In this class, thickness is defined as the distance between the upper
+        and lower surfaces as measured perpendicular to the chord.
+
+        Parameters
+        ----------
+        pc : array_like of float [percentage]
+            Fractional position on the chord line, where `0 <= pc <= 1`
+
+        Returns
+        -------
+        thickness : array_like of float
+        """
+        return self._thickness(pc)
 
 
 class NACA(AirfoilGeometry):
