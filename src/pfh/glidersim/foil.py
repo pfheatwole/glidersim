@@ -2,8 +2,6 @@
 
 import abc
 
-from IPython import embed
-
 import numpy as np
 
 import scipy.interpolate
@@ -1267,7 +1265,7 @@ class Phillips(ForceEstimator):
             mask = ~np.isnan(J_true) | ~np.isnan(J)
             if not np.allclose(J[mask], J_true[mask]):
                 print("\n !!! The analytical Jacobian is wrong. Halting. !!!")
-                embed()
+                breakpoint()
 
         return J
 
@@ -1367,7 +1365,7 @@ class Phillips(ForceEstimator):
         # RMSE = [np.sqrt(sum(r**2) / self.K) for r in residuals]
 
         # print("Finished fixed_point iterations")
-        # embed()
+        # breakpoint()
 
         return {"x": G, "success": success}
 
