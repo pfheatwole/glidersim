@@ -682,7 +682,7 @@ class FoilGeometry:
             xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_planform - self.LE0
         else:  # The fully specified wing
             dihedral = self._lobe_dihedral(s)
-            xhat_wing = dihedral @ torsion @ [1, 0, 0]
+            xhat_wing = dihedral @ xhat_planform
             LE = (np.concatenate((self.x(s)[..., np.newaxis], self.yz(s)), axis=-1)
                   + ((self.r_x(s) - self.r_yz(s)) * c)[..., np.newaxis] * xhat_planform
                   + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
