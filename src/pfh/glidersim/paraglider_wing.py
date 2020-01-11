@@ -1,7 +1,5 @@
 """FIXME: add module docstring."""
 
-from IPython import embed
-
 import numpy as np
 
 from scipy.integrate import simps

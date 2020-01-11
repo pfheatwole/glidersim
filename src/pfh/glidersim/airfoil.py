@@ -11,8 +11,6 @@ and pitching moment.
 
 import abc
 
-from IPython import embed
-
 import numpy as np
 from numpy import arctan, cos, cumsum, sin
 from numpy.polynomial import Polynomial

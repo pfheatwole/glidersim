@@ -1,5 +1,3 @@
-from IPython import embed
-
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
