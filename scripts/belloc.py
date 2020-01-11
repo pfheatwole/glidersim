@@ -175,7 +175,7 @@ class InterpolatedLobe:
         return self._fd(s)
 
 
-s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
+s = np.linspace(-1, 1, 1000)  # Resample so the cubic-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
 parafoil = gsim.foil.FoilGeometry(
