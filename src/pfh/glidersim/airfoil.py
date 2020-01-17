@@ -580,7 +580,7 @@ class AirfoilGeometry:
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, *, open_TE=False, convention="British", **kwargs):
+    def __init__(self, code, *, open_TE=False, convention="perpendicular", **kwargs):
         """
         Generate an airfoil using a NACA4 or NACA5 parameterization.
 
@@ -596,22 +596,30 @@ class NACA(AirfoilGeometry):
             restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
         open_TE : bool, optional
             Generate airfoils with an open trailing edge. Default: False.
-        convention : {"American", "British"}, optional
-            The convention to use for calculating the airfoil thickness. The
-            default is 'British'.
+        convention : {"perpendicular", "vertical"}, optional
+            The convention to use for defining the airfoil thickness.
+            Default: "perpendicular".
 
-            The American convention measures airfoil thickness perpendicular to
-            the camber line. The British convention measures airfoil thickness
-            perpendicular to the chord. Many texts use the American definition
-            to define the NACA geometry, but the popular tool "XFOIL" uses the
-            British convention.
+            The "perpendicular" convention (sometimes called the "American"
+            convention) measures airfoil thickness perpendicular to the mean
+            camber line. The "vertical" convention (sometimes called the
+            "British" convention) measures airfoil thickness in vertical strips
+            (the y-axis distance between points on the upper and lower
+            surfaces).
 
-            Beware that because the NACA equations use the thickness to define
-            the upper and lower surface curves, this option changes the shape
-            of the resulting airfoil.
+            The "American" convention is used here since it was the original
+            definition (see [0]_), but the "British" convention is available
+            in case the output needs to match the popular tool "XFOIL".
 
         Any additional keyword parameters will be forwarded to the parent class
         initializer, `AirfoilGeometry.__init__`.
+
+        References
+        ----------
+
+        .. [0] Jacobs, Eastman N., Ward, Kenneth E., Pinkerton, Robert M. "The
+           characteristics of 78 related airfoil sections from tests in the
+           variable-density wind tunnel". NACA Technical Report 460. 1933.
         """
         if not isinstance(code, int):
             try:
@@ -624,10 +632,9 @@ class NACA(AirfoilGeometry):
         elif code > 99999:
             raise ValueError(f"Unsupported NACA code '{code}': more than 5 digits")
 
-        convention = convention.lower()
-        valid_conventions = {"american", "british"}
+        valid_conventions = {"perpendicular", "vertical"}
         if convention not in valid_conventions:
-            raise ValueError("The convention must be 'American' or 'British'")
+            raise ValueError("The convention must be 'perpendicular' or 'vertical'")
 
         self.code = code
         self.open_TE = open_TE
@@ -667,7 +674,7 @@ class NACA(AirfoilGeometry):
             self.p = 0.05 * P
             self.tcr = TT / 100
 
-        N = 200
+        N = 300
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu = self._xyu(x)[::-1]  # Move counter-clockwise
         xyl = self._xyl(x[1:])  # Skip `x = 0`
@@ -770,12 +777,13 @@ class NACA(AirfoilGeometry):
         """
         Compute the x- and y-coordinates of points on the upper surface.
 
-        Returns both `x` and `y` because the "American" convention computes the
-        surface curve coordinates orthogonal to the camber curve instead of the
-        chord, so the `x` coordinate for the surface curve will not be the same
-        as the `x` coordinate for the chord (unless the airfoil is symmetric,
-        in which case the camber curve lines directly on the chord). For the
-        British convention, the input and output `x` will always be the same.
+        Returns both `x` and `y` because the "perpendicular" convention
+        computes the surface curve coordinates orthogonal to the camber curve
+        instead of the chord, so the `x` coordinate for the surface curve will
+        not be the same as the `x` coordinate that parametrizes the chord
+        (unless the airfoil is symmetric, in which case the camber curve lines
+        directly on the chord). For the "vertical" convention, the input and
+        output `x` will always be the same.
 
         Parameters
         ----------
@@ -797,10 +805,10 @@ class NACA(AirfoilGeometry):
             curve = np.array([x, t]).T
         else:  # Cambered airfoil
             yc = self._yc(x)
-            if self.convention == "american":  # Standard NACA definition
+            if self.convention == "perpendicular":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
+            elif self.convention == "vertical":  # XFOIL style
                 curve = np.array([x, yc + t]).T
             else:
                 raise RuntimeError(f"Invalid convention '{self.convention}'")
@@ -810,12 +818,13 @@ class NACA(AirfoilGeometry):
         """
         Compute the x- and y-coordinates of points on the lower surface.
 
-        Returns both `x` and `y` because the "American" convention computes the
-        surface curve coordinates orthogonal to the camber curve instead of the
-        chord, so the `x` coordinate for the surface curve will not be the same
-        as the `x` coordinate for the chord (unless the airfoil is symmetric,
-        in which case the camber curve lines directly on the chord). For the
-        British convention, the input and output `x` will always be the same.
+        Returns both `x` and `y` because the "perpendicular" convention
+        computes the surface curve coordinates orthogonal to the camber curve
+        instead of the chord, so the `x` coordinate for the surface curve will
+        not be the same as the `x` coordinate that parametrizes the chord
+        (unless the airfoil is symmetric, in which case the camber curve lines
+        directly on the chord). For the "vertical" convention, the input and
+        output `x` will always be the same.
 
         Parameters
         ----------
@@ -836,10 +845,10 @@ class NACA(AirfoilGeometry):
             curve = np.array([x, -t]).T
         else:  # Cambered airfoil
             yc = self._yc(x)
-            if self.convention == "american":  # Standard NACA definition
+            if self.convention == "perpendicular":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
+            elif self.convention == "vertical":  # XFOIL style
                 curve = np.array([x, yc - t]).T
             else:
                 raise RuntimeError(f"Invalid convention '{self.convention}'")

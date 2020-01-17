@@ -10,8 +10,8 @@ import pfh.glidersim as gsim
 
 airfoil1 = gsim.airfoil.NACA(24018)
 # airfoil2 = gsim.airfoil.NACA(22010)
-# airfoil1 = gsim.airfoil.NACA(7111, convention='American')
-airfoil2 = gsim.airfoil.NACA(7911, convention='American')
+# airfoil1 = gsim.airfoil.NACA(7111, convention='perpendicular')
+airfoil2 = gsim.airfoil.NACA(7911, convention='perpendicular')
 
 gsim.plots.plot_airfoil_geo(airfoil1)
 gsim.plots.plot_airfoil_geo(airfoil2)
