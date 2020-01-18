@@ -209,34 +209,169 @@ class GridCoefficients(AirfoilCoefficients):
 # ---------------------------------------------------------------------------
 
 
+def find_leading_edge(curve, definition):
+    """
+    Find the parametric coordinate defining the leading edge of an airfoil.
+
+    Parameters
+    ----------
+    curve : PchipInterpolator
+        The airfoil curve parametrized by absolute arc-length `d`
+    definition : {"smallest-radius", "chord", "vertical-face"}
+        The criteria for selecting a point as the leading edge.
+
+        smallest-radius: defines the leading edge as the point near the middle
+        of the curve with the smallest curvature. This should be used when an
+        airfoil will be characterized by a thickness distribution measured
+        perpendicular to the camber line. It produces the same value whether
+        the airfoil will be rotated or not.
+
+        chord: defines the leading edge as the point that produces a chord that
+        is perpendicular to the surface at that point. This should be used when
+        an airfoil will be characterized by a thickness distribution measured
+        vertically, and the airfoil will need to be derotated. If the airfoil
+        will not be derotated, use the "x-axis" method.
+
+        vertical-face: defines the leading edge as the point near the middle of
+        the curve where the slope is vertical. This definition is suitable for
+        airfoils that will be characterized by a vertical thickness
+        distribution and will not be derotated. For airfoils that will be
+        derotated, use the "chord" method.
+    """
+    def _target(d, curve, derivative, TE=None):
+        """Optimization target for the "chord" and "x-axis" methods."""
+        dydx = derivative(d)  # Tangent line at the proposal
+        chord = curve(d) - TE if TE is not None else [1, 0]
+        dydx /= np.linalg.norm(dydx)
+        chord /= np.linalg.norm(chord)
+        return dydx @ chord
+
+    definitions = {"smallest-radius", "chord", "vertical-face"}
+    if definition not in definitions:
+        raise ValueError(f"`definition` must be one of `{definitions}`")
+
+    # For all methods, assume the LE is between 40-60% of the total length
+    bracket = [0.4 * curve.x[-1], 0.6 * curve.x[-1]]
+
+    if definition == "smallest-radius":
+        # The second derivative of the PchipInterpolator is very noisy, so its
+        # a bad idea to rely on optimization algorithms. A brute force sampling
+        # method is simple and works well enough.
+        d_resolution = 50000  # The number of points to sample
+        ds = np.linspace(*bracket, d_resolution)
+        kappa = np.sqrt(np.sum(curve.derivative().derivative()(ds) ** 2, axis=1))
+        d_LE = ds[np.argmax(kappa)]  # The point of smallest curvature
+    else:
+        if definition == "chord":
+            TE = (curve(curve.x[0]) + curve(curve.x[-1])) / 2
+        else:  # definition == "vertical-face"
+            TE = None
+        result = scipy.optimize.root_scalar(
+            _target,
+            args=(curve, curve.derivative(), TE),
+            bracket=bracket,
+        )
+        d_LE = result.root
+
+    return d_LE
+
+
+def points_to_curve(points, convention, center=True, derotate=False, normalize=False):
+    """
+    Construct an airfoil curve parametrized by normalized arc-lengths.
+
+    Parameters
+    ----------
+    points : array of float, shape (N,2)
+        The xy-coordinates of the airfoil in counter-clockwise order.
+    convention : {"perpendicular", "vertical"}
+        Whether the airfoil thickness is measured perpendicular to the mean
+        camber line or vertically (the y-axis distance).
+    center : bool
+        Translate the curve leading edge to the origin. Default: True
+    derotate : bool
+        Rotate the curve so the chord is parallel to the x-axis. Default: False
+    normalize : bool
+        Scale the curve so the chord is unit length. Default: False
+
+    Returns
+    -------
+    curve : PchipInterpolator
+        The surface curve parametrized by the normalized arc-lengths of the
+        upper and lower surface, so that `0` is the leading edge, `+1` is the
+        trailing edge of the upper surface, and `-1` is the trailing edge of
+        the lower surface.
+    theta : float [radians]
+        The angle between the chord and the x-axis that was removed during
+        derotation. Useful for converting `alpha` of the derotated airfoil into
+        `alpha` of the original foil. Defaults to `0` if `derotate == False`.
+    scale : float [unitless]
+        The rescaling factor due to normalization. Useful for adjusting an
+        existing set of coefficients for the original foil to account for the
+        normalization. Defaults to `1` if `normalize == False`.
+    """
+    conventions = {"perpendicular", "vertical"}
+    if convention not in conventions:
+        raise ValueError(f"`convention` must be one of `{conventions}`")
+
+    points = points[np.r_[True, np.diff(points.T).any(axis=0)]]  # Deduplicate
+    points = points[::-1]  # I find clockwise orientations more natural
+    d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
+    curve = PchipInterpolator(d, points)
+    if convention == "perpendicular":
+        definition = "smallest-radius"
+    else:
+        definition = "chord" if derotate else "vertical-face"
+    d_LE = find_leading_edge(curve, definition)
+    LE = curve(d_LE)
+    TE = (curve(d[0]) + curve(d[-1])) / 2
+    chord = TE - LE
+
+    if derotate:
+        theta = -np.arctan2(chord[1], chord[0])
+        st, ct = np.sin(theta), np.cos(theta)
+        R = np.array([[ct, -st], [st, ct]])
+        points = (R @ (points - LE).T).T + LE
+    else:
+        theta = 0
+
+    if center:
+        points -= LE
+
+    if normalize:
+        scale = 1 / np.linalg.norm(chord)
+        points *= scale
+    else:
+        scale = 1
+
+    # Parametrize by the normalized arc-length for each surface:
+    #   d <= d_LE  ->  -1 <= sa <= 0
+    #   d >= d_LE  ->   0 <= sa <= 1
+    sa = np.empty(d.shape)
+    f = d <= d_LE
+    sa[f] = -1 + d[f] / d_LE
+    sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
+    return PchipInterpolator(sa, points), theta, scale
+
+
 class AirfoilGeometry:
     """
-    A class that describes the shapes and mass properties of an airfoil.
+    A class that describes the shape and mass properties of an airfoil.
 
-    The most general description of an airfoil is a set of points that define
-    the upper and lower surfaces. This class divides that set of points into
-    top and bottom regions, separated by the leading edge, and provides access
-    to those curves as a parametric function.
+    Encodes the airfoil surface as a curve parametrized by the normalized
+    arc-length `-1 <= sa <= 1`, where `sa = 0` is the leading edge, `sa = 1` is
+    the tip of the upper surface, and `sa = -1` is the tip of the lower
+    surface. Midpoints of the upper and lower surface curves are given by `sa =
+    0.5` and `sa = -0.5`.
 
-    Unlike standard airfoil definitions, this class converts the set of
-    counter-clockwise points to a parametric curve parametrized by a clockwise
-    normalized position `-1 <= sa <= 1`, where `sa = 0` is the leading edge,
-    `sa = 1` is the tip of the upper surface, and `sa = -1` is the tip of the
-    lower surface. Midpoints of the upper and lower surface curves are given by
-    `sa = 0.5` and `sa = -0.5`.
-
-    This class defines the airfoil thickness as the distance between the upper
-    and lower surfaces as measured perpendicular to the chord (sometimes known
-    as the "British" convention). This does disagree with the other "American"
-    convention, which measures thickness perpendicular to the camber line (see
-    the NACA geometry for an example), but this definition makes finding the
-    camber lines much more straightforward.
-
-    This class provides the unitless magnitudes, centroids, and inertia
-    matrices of the upper curve, lower curve, and planar area, which can be
-    scaled by the physical units of the target application. These properties
-    are useful for calculating the upper and lower surface areas, internal
-    volume, and inertia matrix of a 3D wing.
+    By default, the raw airfoil coordinates will be centered, normalized, and
+    derotated so the leading edge is at the origin and the chord lies on the
+    x-axis between 0 and 1. If the raw coordinates are modified, the `theta`
+    and `scale` properties allow coefficients computed for the original airfoil
+    to be used with the derotated and/or normalized airfoil. For example, if
+    the raw lift coefficient was given by `Cl(alpha)`, then the coefficient for
+    the normalized airfoil can be computed as `scale * Cl(alpha + theta)`.
+    (Centering has no effect on the coefficients.)
 
     Parameters
     ----------
@@ -245,86 +380,63 @@ class AirfoilGeometry:
         XFOIL convention: the x-coordinate of the leading edge is less than the
         x-coordinate of the trailing edge, and the points are given in
         counter-clockwise order, starting with the tip of the upper surface.
-    normalize : bool, default: True
-        Ensures the leading edge is at (0, 0) and the trailing edge is at
-        (1, 0). This ensures the chord is aligned with the x-axis, and is
-        unit length.
+    convention : {"perpendicular", "vertical"}
+        Whether the airfoil thickness is measured perpendicular to the mean
+        camber line or vertically (perpendicular to the chord).
+    center : bool
+        Translate the curve leading edge to the origin. Default: True
+    derotate : bool
+        Rotate the curve so the chord is parallel to the x-axis. Default: True
+    normalize : bool
+        Scale the curve so the chord is unit length. Default: True
+
+    Attributes
+    ----------
+    theta : float [radians]
+        The angle between the chord and the x-axis that was removed during
+        derotation. Useful for converting `alpha` of the derotated airfoil into
+        `alpha` of the original foil. Defaults to `0` if `derotate == False`.
+    scale : float [unitless]
+        The rescaling factor due to normalization. Useful for adjusting an
+        existing set of coefficients for the original foil to account for the
+        normalization. Defaults to `1` if `normalize == False`.
     """
 
-    def __init__(self, points, *, normalize=True):
-        def _target(d, curve, derivative, TE):
-            # Optimization target for finding the leading edge. The position
-            # `0 < d < L` is a leading edge proposal, where L is the total
-            # length of the curve. The leading edge is the point where
-            # the chord is perpendicular to the curve at the leading edge.
-            dydx = derivative(d)  # Tangent line at the proposal
-            chord = curve(d) - TE  # Chord line to the proposal
-            dydx /= np.linalg.norm(dydx)
-            chord /= np.linalg.norm(chord)
-            return dydx @ chord
-
-        self._raw_points = points.copy()  # FIXME: for debugging
-        points = points[::-1]  # Clockwise order is more convenient for `sa`
-
-        # Find the chord, align it to the x-axis, and scale it to unit length
-        if normalize:
-            d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
-            curve = PchipInterpolator(d, points)
-            TE = (curve(0) + curve(d[-1])) / 2
-            result = scipy.optimize.root_scalar(
-                _target,
-                args=(curve, curve.derivative(), TE),
-                bracket=(d[-1] * 0.4, d[-1] * 0.6),
-            )
-            d_LE = result.root
-            chord = curve(d_LE) - TE
-            delta = np.arctan2(chord[1], -chord[0])  # rotated angle
-            points -= TE  # Temporarily shift the origin to the TE
-            R = np.array([[cos(delta), -sin(delta)], [sin(delta), cos(delta)]])
-            points = (R @ points.T).T  # Derotate
-            points /= np.linalg.norm(chord)  # Normalize the lengths
-            points += [1, 0]  # Restore the normalized trailing edge
-
-        self.points = points
-
-        # Parametrize the curve with the normalized distance `sa`.
-        d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
-        curve = PchipInterpolator(d, points)
-        TE = (curve(0) + curve(d[-1])) / 2
-        result = scipy.optimize.root_scalar(
-            _target,
-            args=(curve, curve.derivative(), TE),
-            bracket=(d[-1] * 0.4, d[-1] * 0.6),
+    def __init__(self, points, convention, center=True, derotate=True, normalize=True):
+        curve, theta, scale = points_to_curve(
+            points, convention, center, derotate, normalize,
         )
-        d_LE = result.root
-        sa = np.empty(d.shape)
-        f = d <= d_LE  # Mask: points on the lower surface
-        sa[f] = -1 + d[f] / d_LE  # d <= d_LE -> `-1 <= sa <= 0`
-        sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)  # `0 <= sa <= 1`
-        self._curve = PchipInterpolator(sa, points)
 
-        # Build a camber curve function. Assumes a normalized airfoil.
-        # FIXME: Crude, and assumes the upper and lower surface trailing edges
-        #        end at the same `x` coordinate.
-        N = 200
-        pc = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= pc <= 1`
-        y_upper = PchipInterpolator(*self.surface_curve(pc).T)  # y = f(x)
-        y_lower = PchipInterpolator(*self.surface_curve(-pc).T)  # y = f(x)
-        LEx, TEx = self.surface_curve([0, 1]).T[0]
-        x_c = LEx + pc * (TEx - LEx)  # The range of `x` from the LE to the TE
-        y_c = (y_upper(x_c) + y_lower(x_c)) / 2
-        self._camber_curve = PchipInterpolator(pc, np.c_[x_c, y_c])
+        self._surface_curve = curve
+        self.theta = theta
+        self.scale = scale
+        self.convention = convention
 
-        # Build a thickness function. Assumes a normalized airfoil.
-        # FIXME: Assumes both trailing edges end at `x = 1`
-        self._thickness = PchipInterpolator(pc, y_upper(pc) - y_lower(pc))
+        # Estimate the mean camber curve and thickness distribution as
+        # functions of the normalized arc-length of the mean camber line.
+        # FIXME: Crude, ignores convention
+        N = 300
+        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
+        xyu = curve(sa)
+        xyl = curve(-sa)
+        xyc = (xyu + xyl) / 2
+        t = np.linalg.norm(xyu - xyl, axis=1)
+        pc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
+        pc /= pc[-1]
+        self._camber_curve = PchipInterpolator(pc, (xyu + xyl) / 2)
+        self._thickness = PchipInterpolator(pc, t)
 
     def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
-        Calculate the inertia matrices for the the planar area and curves.
+        Calculate the inertial properties for the curves and planar area.
 
-        This procedure treats the 2D geometry as infinitely flat 3D objects,
-        with the new `z` axis added according to the right-hand rule. See
+        These unitless magnitudes, centroids, and inertia matrices can be
+        scaled by the physical units of the target application in order to
+        calculate the upper and lower surface areas, internal volume, and
+        inertia matrix of a 3D wing.
+
+        This procedure treats the 2D geometry as perfectly flat 3D objects,
+        with a new `z` axis added according to the right-hand rule. See
         "Notes" for more details.
 
         Parameters
@@ -498,7 +610,7 @@ class AirfoilGeometry:
         points : array of float, shape (N, 2)
             The (x, y) coordinates of points on the airfoil at `sa`.
         """
-        return self._curve(sa)
+        return self._surface_curve(sa)
 
     def surface_curve_tangent(self, sa):
         """
@@ -516,7 +628,7 @@ class AirfoilGeometry:
             increasing `sa`, so the tangents trace from the lower surface to
             the upper surface.
         """
-        dxdy = self._curve.derivative()(sa).T
+        dxdy = self._surface_curve.derivative()(sa).T
         dxdy /= np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
@@ -535,7 +647,7 @@ class AirfoilGeometry:
             The unit normal vectors at the specified points, oriented with
             increasing `sa`, so the normals point "out" of the airfoil.
         """
-        dxdy = (self._curve.derivative()(sa) * [1, -1]).T
+        dxdy = (self._surface_curve.derivative()(sa) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
@@ -543,13 +655,10 @@ class AirfoilGeometry:
         """
         Compute points on the camber curve.
 
-        In this class, the camber curve is defined as the midpoint between the
-        upper and lower surfaces, as measured perpendicular to the chord.
-
         Parameters
         ----------
         pc : array_like of float [percentage]
-            Fractional position on the chord line, where `0 <= pc <= 1`
+            Fractional position on the camber line, where `0 <= pc <= 1`
 
         Returns
         -------
@@ -562,13 +671,10 @@ class AirfoilGeometry:
         """
         Compute airfoil thickness.
 
-        In this class, thickness is defined as the distance between the upper
-        and lower surfaces as measured perpendicular to the chord.
-
         Parameters
         ----------
         pc : array_like of float [percentage]
-            Fractional position on the chord line, where `0 <= pc <= 1`
+            Fractional position on the camber line, where `0 <= pc <= 1`
 
         Returns
         -------
@@ -676,8 +782,7 @@ class NACA(AirfoilGeometry):
         x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
         xyu = self._xyu(x)[::-1]  # Move counter-clockwise
         xyl = self._xyl(x[1:])  # Skip `x = 0`
-
-        super().__init__(np.r_[xyu, xyl], **kwargs)
+        super().__init__(np.r_[xyu, xyl], convention, **kwargs)
 
     def _yt(self, x):
         """
