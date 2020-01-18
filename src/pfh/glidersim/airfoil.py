@@ -12,8 +12,6 @@ and pitching moment.
 import abc
 
 import numpy as np
-from numpy import arctan, cos, cumsum, sin
-from numpy.polynomial import Polynomial
 
 import pandas as pd
 
@@ -137,7 +135,7 @@ class LinearCoefficients(AirfoilCoefficients):
 
     def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
-        delta_angle = arctan(delta)  # tan(delta_angle) = delta/chord
+        delta_angle = np.arctan(delta)  # tan(delta_angle) = delta/chord
         return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta):
@@ -187,7 +185,7 @@ class GridCoefficients(AirfoilCoefficients):
             CLs = self._Cl(alphas, deltas)
             notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
             alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
-            poly = Polynomial.fit(alphas, CLs, 7)
+            poly = np.polynomial.Polynomial.fit(alphas, CLs, 7)
             Cl_alphas = poly.deriv()(alphas)
             deltas -= 1e-9   # FIXME: HACK! Keep delta=0 inside the convex hull
             points.append(np.array((alphas, deltas, Cl_alphas)).T)
@@ -732,7 +730,7 @@ class NACA(AirfoilGeometry):
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")
 
-        return arctan(dyc)
+        return np.arctan(dyc)
 
     def _yc(self, x):
         """
