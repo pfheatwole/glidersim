@@ -399,7 +399,7 @@ class AirfoilGeometry:
         f = d <= d_LE
         sa[f] = -1 + d[f] / d_LE
         sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
-        surface = PchipInterpolator(sa, points)
+        surface = PchipInterpolator(sa, points, extrapolate=False)
 
         # Estimate the mean camber curve and thickness distribution as
         # functions of the normalized arc-length of the mean camber line.
@@ -412,8 +412,8 @@ class AirfoilGeometry:
         t = np.linalg.norm(xyu - xyl, axis=1)
         pc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
         pc /= pc[-1]
-        camber = PchipInterpolator(pc, (xyu + xyl) / 2)
-        thickness = PchipInterpolator(pc, t)
+        camber = PchipInterpolator(pc, (xyu + xyl) / 2, extrapolate=False)
+        thickness = PchipInterpolator(pc, t, extrapolate=False)
 
         return cls(surface, camber, thickness, convention, theta, scale)
 
@@ -775,11 +775,12 @@ class NACA(AirfoilGeometry):
         du = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyu.T), axis=0))]
         dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyl.T), axis=0))]
         dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
+        pc = dc / dc[-1]
         surface_points = np.r_[xyl[::-1], xyu[1:]]
         sa = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
-        surface_curve = PchipInterpolator(sa, surface_points)
-        camber_curve = PchipInterpolator(dc / dc[-1], xyc)
-        thickness = PchipInterpolator(dc / dc[-1], 2 * self._yt(x))
+        surface_curve = PchipInterpolator(sa, surface_points, extrapolate=False)
+        camber_curve = PchipInterpolator(pc, xyc, extrapolate=False)
+        thickness = PchipInterpolator(pc, 2 * self._yt(x), extrapolate=False)
         super().__init__(surface_curve, camber_curve, thickness, convention)
 
     def _yt(self, x):
