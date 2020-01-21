@@ -222,7 +222,7 @@ def build_hook3():
         torsion=torsion,
     )
 
-    parafoil = gsim.foil.FoilGeometry(
+    parafoil = gsim.foil.SimpleFoil(
         airfoil=_airfoil,
         chord_surface=chord_surface,
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess

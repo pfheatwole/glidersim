@@ -13,7 +13,7 @@ import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import Airfoil, NACA  # noqa: F401
 from pfh.glidersim.foil import (  # noqa: F401
     FlatYZ,
-    FoilGeometry,
+    SimpleFoil,
     PolynomialTorsion as PT,
     elliptical_chord,
     elliptical_lobe,
@@ -367,7 +367,7 @@ def foil_generator(base_config, sequences, fps=60):
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
             chord_surface = gsim.foil.ChordSurface(**params)
-            yield config, gsim.foil.FoilGeometry(
+            yield config, gsim.foil.SimpleFoil(
                 airfoil=Airfoil(None, NACA(24018)),
                 chord_surface=chord_surface,
                 b_flat=10,
@@ -398,7 +398,7 @@ from pfh.glidersim.airfoil import Airfoil, NACA
 from pfh.glidersim.foil import (
     elliptical_lobe,
     elliptical_chord,
-    FoilGeometry,
+    SimpleFoil,
     FlatYZ,
     PolynomialTorsion as PT,
 )
@@ -411,7 +411,7 @@ chord_surface = ChordSurface(
     code += """
 )
 
-foil = gsim.foil.FoilGeometry(
+foil = gsim.foil.SimpleFoil(
     airfoil=Airfoil(None, NACA(24018),
     chord_surface=chord_surface,
     b_flat=10
@@ -470,7 +470,7 @@ if __name__ == "__main__":
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=frames,  # Each frame is a (config, FoilGeometry)
+        frames=frames,  # Each frame is a (config, SimpleFoil)
         fargs=(axes,),
         repeat=False,
         interval=20,

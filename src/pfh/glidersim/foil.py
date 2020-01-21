@@ -607,9 +607,9 @@ class ChordSurface:
         return xyz
 
 
-class FoilGeometry:
+class SimpleFoil:
     """
-    A foil geometry definition using a set of parametric functions.
+    A foil geometry that applies a constant section profile to a chord surface.
 
     In fluid mechanics, a "foil" is simply a 3D object in a moving fluid.
     Because this project is currently focused on parafoils, some of the

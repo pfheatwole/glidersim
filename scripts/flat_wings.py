@@ -74,7 +74,7 @@ if __name__ == "__main__":
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
     )
-    wing1 = gsim.foil.FoilGeometry(
+    wing1 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chord_surface=chord_surface1,
         b_flat=8,
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
     )
-    wing2 = gsim.foil.FoilGeometry(
+    wing2 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chord_surface=chord_surface2,
         b_flat=8,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
     )
-    wing3 = gsim.foil.FoilGeometry(
+    wing3 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chord_surface=chord_surface3,
         b_flat=1,
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
     )
-    wing4 = gsim.foil.FoilGeometry(
+    wing4 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chord_surface=chord_surface4,
         b_flat=1,
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
     )
-    wing5 = gsim.foil.FoilGeometry(
+    wing5 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chord_surface=chord_surface5,
         b_flat=1,

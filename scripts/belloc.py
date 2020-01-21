@@ -190,7 +190,7 @@ chord_surface = gsim.foil.ChordSurface(
     chord_length=fc,
 )
 
-parafoil = gsim.foil.FoilGeometry(
+parafoil = gsim.foil.SimpleFoil(
     airfoil=airfoil,
     chord_surface=chord_surface,
     b_flat=b_flat,
