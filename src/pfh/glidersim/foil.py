@@ -1022,8 +1022,8 @@ class FoilGeometry:
            >>> import Mesh
            >>> triangles = np.load('/path/to/triangles.npz')
            >>> # As of FreeCAD v0.18, `Mesh` doesn't support numpy arrays
-           >>> mesh_upper = Mesh.Mesh(triangles['upper_triangles'].tolist())
-           >>> mesh_lower = Mesh.Mesh(triangles['lower_triangles'].tolist())
+           >>> mesh_upper = Mesh.Mesh(triangles['triangles_upper'].tolist())
+           >>> mesh_lower = Mesh.Mesh(triangles['triangles_lower'].tolist())
            >>> Mesh.show(mesh_upper)
            >>> Mesh.show(mesh_lower)
         """
