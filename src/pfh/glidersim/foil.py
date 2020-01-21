@@ -248,6 +248,12 @@ def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
     A = v1 / np.sqrt(v2)
     B = np.tan(mean_anhedral) * v1 / v2
     t_min = np.arccos(1 / A)
+
+    # FIXME: hack to avoid sign-flip issues at `np.sin(pi)`, which makes the
+    #        normalized dyds explode (sign flip +1 to -1)
+    if t_min < 1e-10:
+        t_min = 1e-10
+
     lobe = EllipticalArc(
         A / B, length=2, t_domain=[np.pi + t_min, 2 * np.pi - t_min], p_domain=[-1, 1],
     )
