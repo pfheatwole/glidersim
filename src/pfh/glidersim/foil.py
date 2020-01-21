@@ -659,12 +659,12 @@ class SimpleFoil:
 
     @property
     def AR(self):
-        """Compute the aspect ratio of the inflated wing."""
+        """Compute the projected aspect ratio of the foil."""
         return self.b ** 2 / self.S
 
     @property
     def AR_flat(self):
-        """Compute the aspect ratio of the flattened wing."""
+        """Compute the flattened aspect ratio of the foil."""
         return self.b_flat ** 2 / self.S_flat
 
     @property
