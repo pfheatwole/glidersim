@@ -1,3 +1,7 @@
+* Move `InterpolatedLobe` from `belloc` and into `foil`. (Make it
+  a generally-available method.) Modify it to use intelligent resampling (near
+  the points, not just a blind resample).
+
 * I claim that FoilGeometry is defined as having the central chord leading
   edge at `x = 0` and that the central chord lies in the xy-plane, **by
   definition**, but I never enforce that. I do shift the leading edge to the
@@ -27,6 +31,9 @@ Packaging
 
 General
 =======
+
+* I'm using `breakpoint()` a few places, which wasn't added until Python 3.7.
+  Should I set that as a hard dependency?
 
 * Define an `njit` wrapper that replaces `njit` with a noop
 
@@ -76,6 +83,27 @@ Low priority
 Airfoil
 =======
 
+Geometry
+--------
+
+* Write an `AirfoilGeometry` interpolator. Takes two geometries, and returns
+  the interpolated surface points.
+
+  **Does this make sense as a standalone thing? It's so simple, it almost
+  seems like overkill to make it it's own class. Might be preferable to have
+  a single class that interpolates both the geometry and the coefficients?**
+
+* Implement accurate `camber_curve` and `thickness` estimators.
+
+  If I'm going to scale airfoils by changing their thickness, then I need the
+  correct camber and thickness functions. If I don't, then there will be weird
+  disjoint surfaces at small thickness changes (since you'll move from the true
+  surface to the version of that surface produced by estimates of its thickness
+  and camber).
+
+* Write a basic "trailing edge deflection" routine for airfoils. Doesn't have
+  to be physically accurate for now, just need to establish the API.
+
 * Add some literature references. For NACA airfoils, there are:
 
   * Abbott, "Theory of Wing Sections, Sec. 6
@@ -84,55 +112,53 @@ Airfoil
 
   * The XFOIL source code?
 
-* Should `AirfoilGeometry` be a regular base class? You give it a set of
-  points, it provides default machinery from there? Functions like "thickness"
-  seem like general enough concepts that a set of general equations should be
-  sufficient; subclasses (like NACA) can override those general versions with
-  custom versions if they want.
+* Verify the polar curves, especially for curved airfoils.
 
-  More to the point, should `NACA` be a separate class? Or is it really
-  just a generator of the `points` being passed to `AirfoilGeometry`?
-
-* **HIGH PRIORITY**: Figure out why the polar curve look so terrible for small
-  applications of brakes!!
-
-  I really REALLY don't trust the XFOIL output (user error seems very likely).
-  It is extremely sensitive to tiny changes to the number of points, the point
-  distribution, and *super* sensitve to trailing edge gaps. Just creating
-  a nominal 23015 with the builtin generator then removing the tiny TE gap
-  causes the pitching moment in particular to change dramatically. For now I'm
-  focusing on the getting the wing calculations correct given the airfoil
-  data, but the sample airfoil data I'm using seems totally untrustworthy.
-  (#NEXT)
-
-* The NACA airfoils have the `convention` parameter, but the `AirfoilGeometry`
-  superclass does not, yet the `AirfoilGeometry.thickness` docstring
-  references the convention.
-
-* Implement generalized `camber_curve` and `thickness` thickness functions in
-  `AirfoilGeometry`. Their definitions depend on the `convention`: "American"
-  defines "thickness is perpendicular to the camber line", British defines
-  "thickness is perpendicular to the chord". (This is the same issue as in the
-  definitions of the NACA equations.)
+  The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
+  output (at least not my use of it). It is extremely sensitive to tiny
+  changes in the number of points, the point distribution, and especially the
+  trailing edge gaps (which look like they should produce negligible
+  changes?). Just creating a nominal 23015 with the builtin generator then
+  removing the tiny TE gap causes the pitching moment in particular to change
+  dramatically.
 
 * Should `AirfoilGeometry` provide an `acs2frd` conversion method? Or include
   that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar?
 
-* Add a note somewhere about the "American" convention having stability issues
-  with some codes (I forget now which! Check the NACA5 range.)
 
-* NACA code `7199` really throws my "derotate and normalize" code for a loop.
-  **Needs more testing.**
+Coefficients
+------------
+
+* The `AirfoilCoefficients` should **NOT** have a value for `delta`. An
+  airfoil is a fixed shaped, and the coefficients should reflect that. The
+  `delta` is the result of an entire **range** of shapes, which is the purview
+  of an `AirfoilInterpolator` class of some kind.
 
 
 Low priority
 ------------
 
+* Let NACA use it's actual explicit curve definitions. I'll have to compute `x`
+  as a function of arc-lengths, but beyond that use the actual functions
+  instead of relying on interpolated estimates. The annoying part will be
+  calculating the `surface_curve_normal` and `surface_curve_tangent` functions.
+
+* Rewrite `AirfoilGeometry.mass_properties` to handle airfoils that aren't
+  simply `y_upper - y_lower` type surfaces. Not a high priority for now since
+  I'm simple shapes with derotation. (Then again, I'm not sure this function
+  will continue making sense later on (probably better ways compute the area
+  and volume inertias, but beware this issue for now.)
+
+* Rename airfoil's `surface` to `profile`? "Surface" suggests 2D.
+
+* Consider Gaussian quadratures or other more efficient arc-length methods?
+
 * `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
   `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
 
 * Why does `s` go clockwise? Why not just keep the counter-clockwise
-  convention? After all, the z-axis of the parafoil is positive down anyway...
+  convention? I do like that there is a sort of right-hand rule that points in
+  the +y direction though.
 
 * AirfoilGeometry is for a single airfoil, but AirfoilCoefficients support
   `delta` for braking (ie, multiple airfoils). Among other things, this
@@ -147,6 +173,16 @@ Low priority
 * If I'm using a UnivariateSpline for the airfoil coefficients, I need to
   handle "out of bounds" better. Catch `ValueError` and return `nan`?
 
+* Add Joukowski airfoil builders? Those are typically defined in terms of
+  their surface coordinates, not mean camber and thickness curves. Neat
+  airfoils though, conceptually. Very elegant.
+
+
+Chord Surface
+=============
+
+* Would some users prefer to specify `mean_anhedral` as a height?
+
 
 Parafoil
 ========
@@ -154,10 +190,23 @@ Parafoil
 Geometry
 --------
 
-* The `FoilGeometry` docstrings are really hard to follow. The parameter names
-  (`x`, `r_yz`, etc) are not very helpful.
+* Should `chord_xyz` be changed to `chord_points`, or should `surface_points`
+  be changed to `surface_xyz`?
+
+* Determine how the `FoilSection` implementation for parafoils will utilize
+  the chord surface definitions. If you assume the chord surface is for the
+  inflated parafoil, then I think the only issue is how to deflate and flatten
+  the wing (for construction purposes).
+
+* Factor out the `ChordSurface` from the `FoilGeometry`, unless there's some
+  good reason not to. The `r_x` et al really clutter the class, and it's
+  a general enough idea I'd kinda like it to exist separate from the full
+  `FoilGeometry` definition. This should also help clarify the `FoilGeometry`
+  docstrings, which are really hard to follow right now.
 
 * Should the `FoilGeometry.r_x` etc be private members (`_r_x`)?
+
+* Should the foil geometry be proportional to `b_flat / 2` or just `b_flat`?
 
 * `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
@@ -169,36 +218,87 @@ Geometry
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
 
+* Is *wetted area* same thing as total surface area? Also see *wetted aspect
+  ratio*. (I suspect these aren't terribly useful for paragliders due to the
+  high curvature.)
+
 * Add an example for exporting the triangle mesh to `vtkPolyData` (or whatever
   the correct data structure would be). Would make it easier to interface with
   OpenFOAM (you can import the mesh into Blender and export an STL, but I'm
   sure there are easier ways to go about it).
 
 
+Meshes
+^^^^^^
+
+* Refactor the "mesh" functions to take the vertices as inputs.
+  
+  This would allow the user to generate a mesh over a subset of the foil, and
+  (more importantly) allow me to generate a mesh over a single cell (which you
+  can then use to compute the surface area.
+
+* Rewrite the vertex generator functions to take `s` and `sa` as parameters.
+  
+  This would enable generating a mesh over the surfaces of individual cells
+  (should work with inflated or deflated cells) and compute their surface area.
+  (The surface area of a cell could be useful for estimating the inflated cell
+  surfaces.)
+
+* Write a function to compute the surface area of a mesh
+
+  Not hard: `.5 * cross(AB, AC)` or some such, right?
+
+  Would allow me to compute the `thickness_ratio` distribution (for the
+  inflated cells) that would maintain a constant surface area.
+
+
 ParafoilSections
 ^^^^^^^^^^^^^^^^
 
-Low priority, long term goal: a new class to encapsulate spanwise variation in
-wing sections (airfoil geometry, airfoil coefficients, intakes, etc)
+* Write a function that can return inflated profiles between two ribs.
 
-In theory, a designer may want a spanwise variation in the airfoil. This
-requires varying both the coefficients (for performance) and the geometry (for
-inertia calculations).
+  Use the logic from `ribs.py` and assume some `thickness_ratio`; don't worry
+  about getting the areas correct for now. After that's working, estimate the
+  `thickness_ratio` using meshes?
 
-A `ParafoilSections` class should generate those Airfoils, and provide the
-Airfoil interface.
+* Use the "mesh to cell surface area" function to compute the `thickness_ratio`
+  that would maintain a constant surface area for the inflated and deflated
+  cell surfaces.
 
-* eg, you can do `sections(s).Cl(alpha, delta)` and it will return an array of
-  the coefficients for each section in `s`
+  Verify: if the upper surfaces have the same area, do the lower surfaces also
+  have the same area? Multiplying the thickness by a constant seems like it
+  should be a linear function, so I *think* the lower and upper surfaces
+  should both be correct, but it's worth checking.
 
-* This is complicated for several reasons:
 
-  1. How do you generate realistic coefficients?
+* Write functions that compute points on the chords and surfaces of sections
+  from inflated or deflated cells.
 
-  2. How do you generate realistic geometries?
+  Right now, you just flatten the chord surface and that the "flattened"
+  position, but you don't just flatten an airfoil, you deflate it, which means
+  the cells become wider. I think the `x` and `z` coordinates remain
+  unchanged, but the `y` coordinates must increase (since the cell widths
+  increase).
 
-  3. How does `sections` provide access to the Airfoil API? (it's a smart
-     container, essentially)
+* Plot an inflated cell.
+
+* Review options for adding section-wise adjustments to coefficients.
+
+  Example: air intake drag.
+  
+  I'd prefer to keep adjustments independent of the foil geometry, but that
+  doesn't mean the foil geometry can't *provide* the adjustments. You'll have
+  to call `ParafoilSections` or whatever to get the coefficients; it can add
+  the extra terms when it returns the values.
+
+  My current thinking is that you'll specify ribs, and `InterpolatedAirfoil`
+  for each rib (that provide the geometries+coefficients over the range of
+  deltas), then a `SectionInterpolator` or something will interpolate the
+  values of the two `InterpolatedAirfoils` at each rib. The
+  `SectionInterpolator` will need to provide the coefficients for any given
+  section index, so you can give it extra functions (also as functions of the
+  section indices) that it can layer on top. For example, for air intakes, you
+  could have a function that converts the intake size into extra drag.
 
 
 Coefficient Estimation
@@ -226,6 +326,11 @@ Coefficient Estimation
 Phillips
 ^^^^^^^^
 
+* **Can I mitigate poor behavior near `Cl_alpha = 0`?** Consider pre-computing
+  a function `stall_point(alpha, delta)` that checks where `Cl_alpha` goes to
+  zero. The `delta` are fixed during iterations, but if proposals are pushing
+  `alpha` beyond that stall point, bad things **will** be happening.
+
 * In `Phillips` I have a fixme about using the "characteristic chord", but
   right now I'm using the section area (`dA`). If I switch it to `c_avg`, the
   `CL vs CD` curve looks MUCH more like what's in the Belloc paper, but
@@ -249,8 +354,6 @@ Phillips
 * Refactor Phillips outside `foil.py`?
 
 * Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
-
-* Review the Gamma proposals.
 
 * I compute the complete Jacobian, but MINPACK's documentation for `hybrj`
   says it should be the `Q` from a `QR` factorization? I can't say
@@ -277,9 +380,7 @@ Phillips
 BrakeGeometry
 =============
 
-* Need a proper BrakeGeometry; the `Cubic` seems weird. (This will probably
-  have to wait until I create a more realistic brake distribution based on
-  line angles.)
+* Need a proper `BrakeGeometry` based on the line geometry.
 
 * Nice to have: automatically compute an upper bound for
   `BrakeGeometry.delta_max` based on the maximum supported by the Airfoils.
@@ -294,8 +395,8 @@ ParagliderWing
 * `d_riser` and `z_riser` are different units, which is odd. Almost everything
   is proportional to `b_flat`, but `z_riser` is a concrete unit?
 
-* ParagliderWing owns the force estimator for the Parafoil, but not for the
-  harness...
+* `ParagliderWing` owns the force estimator for the `Parafoil`, but not for
+  the harness...
 
 * *Design* the "query control points, compute wind vectors, query dynamics"
   sequence and API
@@ -358,13 +459,13 @@ Simulator
 =========
 
 * The simulator needs to understand that Phillips can fail, and
-  degrade/terminate gracefully. (Depends on how the ForceEstimators signal
+  degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
   failures; that design is a WIP.)
 
 * Design review support for early terminations (`Ctrl-C`) of fixed-length
   simulations (eg, "run for 120sec").
 
-* Review the GliderSim state definitions (a dictionary? a structured array?)
+* Review the `GliderSim` state definitions (a dictionary? a structured array?)
 
 
 Scenario Design
