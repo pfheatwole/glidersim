@@ -243,6 +243,9 @@ def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
     mean_anhedral = np.deg2rad(mean_anhedral)
     max_anhedral_rate = np.deg2rad(max_anhedral_rate)
 
+    # FIXME: handle `mean_anhedral == 0` gracefully (maybe suggest the user
+    #        uses `FlatYZ`)
+
     v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
     v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
     A = v1 / np.sqrt(v2)
