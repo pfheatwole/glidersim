@@ -197,7 +197,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = foil.chord_xyz(s, foil.r_x(s))
+    xyz = foil.chord_xyz(s, foil.chord_surface.r_x(s))
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -207,12 +207,11 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = foil.chord_xyz(s, foil.r_yz(s))
+    xyz = foil.chord_xyz(s, foil.chord_surface.r_yz(s))
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
     ax.legend()
-
 
     if independent_plot:
         fig.tight_layout()

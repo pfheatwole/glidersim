@@ -213,14 +213,18 @@ def build_hook3():
     # torsion = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
     torsion = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    parafoil = gsim.foil.FoilGeometry(
-        airfoil=_airfoil,
-        chord_length=gsim.foil.elliptical_chord(root=c_root, tip=c_tip),
+    chord_surface = gsim.foil.ChordSurface(
         r_x=0.75,
         x=0,
         r_yz=1.00,
         yz=gsim.foil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
+        chord_length=gsim.foil.elliptical_chord(root=c_root, tip=c_tip),
         torsion=torsion,
+    )
+
+    parafoil = gsim.foil.FoilGeometry(
+        airfoil=_airfoil,
+        chord_surface=chord_surface,
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
         b_flat=b_flat,  # Option 1: Determine the scale using the planform
         # b=b,  # Option 2: Determine the scale using the lobe

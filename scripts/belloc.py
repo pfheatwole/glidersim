@@ -175,18 +175,25 @@ class InterpolatedLobe:
         return self._fd(s)
 
 
+# FIXME: move the resampling logic into `InterpolatedLobe`, and make that an
+#        official helper class in `foil.py`. It should also use more intelligent
+#        resampling (only needs two extra samples on either side of each point)
 s = np.linspace(-1, 1, 1000)  # Resample so the cubic-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
-parafoil = gsim.foil.FoilGeometry(
-    x=0,
+chord_surface = gsim.foil.ChordSurface(
+    x=0,  # or `fx`
     r_x=0.6,
     yz=lobe,
     r_yz=0.6,
     torsion=ftheta,
     chord_length=fc,
-    b_flat=b_flat,
+)
+
+parafoil = gsim.foil.FoilGeometry(
     airfoil=airfoil,
+    chord_surface=chord_surface,
+    b_flat=b_flat,
 )
 
 wing = gsim.paraglider_wing.ParagliderWing(

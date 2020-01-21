@@ -401,83 +401,65 @@ class FlatYZ:
 
 # ---------------------------------------------------------------------------
 
-class FoilGeometry:
+class ChordSurface:
     """
-    A foil geometry definition using a set of parametric functions.
+    FIXME: docstring. Describe the geometry. Note how its definition depends
+    on relationship between the normalized flattened span and section indices.
 
-    In fluid mechanics, a "foil" is simply a 3D object in a moving fluid.
-    Because this project is currently focused on parafoils, some of the
-    terminology will tend towards that application. For example, "flattened"
-    versus "inflated" span and area.
+    Input geometry must be normalized by the semispan of the flattened wing.
+    Outputs are similarly proportional to `b_flat / 2`.
+
+    Parameters
+    ----------
+    chord_length : float or callable
+        The section chord lengths as a function of section index.
+    r_x : float or callable
+        A ratio from 0 to 1 that defines what location on each chord is located
+        at the x-coordinate defined by `x`. This can be a constant or a
+        function of the section index. For example, `xy_r = 1` says that `x` is
+        specifying the x-coordinate of the trailing edge.
+    x : float or callable
+        The x-coordinates of each section as a function of the section index.
+        Each chord is shifted forward until the x-coordinate of its leading
+        edge is at `chord_length * r_x`.
+    r_yz : float or callable
+        A ratio from 0 to 1 that defines the chord position of the `yz` curve.
+        This can be a constant or a function of the section index. For example,
+        `yz_r = 0.25` says that the `yz` curve is specifying the yz-coordinates
+        of the quarter-chord.
+    yz : callable
+        The yz-coordinates of each section as a function of the section index.
+        This curve shapes the yz-plane view of the inflated wing.
+    torsion : float or callable
+        Geometric torsion as a function of the section index. These angles
+        specify a positive rotation about the local (section) y-axis. Values
+        must be in radians.
+    center : bool, optional
+        Whether to center the surface such that the leading edge of the central
+        section defines the origin.
+
+    Attributes
+    ----------
+    span_ratio : float
+        The ratio between the flattened and the projected spans. This value is
+        useful for foils that can be defined by their flattened shape, such as
+        parafoils.
     """
 
     def __init__(
         self,
-        airfoil,
         chord_length,
         r_x,
         x,
         r_yz,
         yz,
-        b_flat=None,
-        b=None,
         torsion=0,
-        intakes=None,
         center=True,
     ):
-        """
-        Add a docstring.
-
-        Parameters
-        ----------
-        airfoil : Airfoil
-            The airfoil.
-        chord_length : function
-            The length of each section chord as a function of section index,
-            normalized by `b_flat / 2`.
-        r_x : float or callable
-            A ratio from 0 to 1 that defines what location on each chord is
-            located at the x-coordinate defined by `x`. This can be a constant
-            or a function of the section index. For example, `xy_r = 1` says
-            that `x` is specifying the x-coordinate of the trailing edge.
-        x : float or callable
-            The x-coordinates of each section as a function of the section
-            index. Each chord is shifted forward until the x-coordinate of its
-            leading edge is at `chord_length * r_x`.
-        r_yz : float or callable
-            A ratio from 0 to 1 that defines the chord position of the `yz`
-            curve. This can be a constant or a function of the section index.
-            For example, `yz_r = 0.25` says that the `yz` curve is specifying
-            the yz-coordinates of the quarter-chord.
-        yz : callable
-            A function that returns the (y, z) coordinate pair of each section
-            as a function of the section index. This curve shapes the yz-plane
-            view of the inflated wing.
-        torsion : function
-            Geometric torsion as a function of the section index. These angles
-            specify a positive rotation about the `y-axis`, relative to the
-            central section. Function range must be in radians.
-        intakes : function, optional
-            A function that defines the upper and lower intake positions in
-            airfoil surface coordinates as a function of the section index.
-        b, b_flat : float
-            The projected or the flattened wing span. Specify only one.
-        center : bool, optional
-            Whether to center the foil such that the leading edge of the
-            central section defines the origin of the FoilGeometry coordinate
-            system.
-        """
-        if b_flat is None and b is None:
-            raise ValueError("Specify one of `b` or `b_flat`")
-        elif b_flat is not None and b is not None:
-            raise ValueError("Specify only one of `b` or `b_flat`")
-
-        self.airfoil = airfoil
-
         if callable(chord_length):
-            self._chord_length = chord_length
+            self.chord_length = chord_length
         else:
-            self._chord_length = lambda s: np.full(np.shape(s), float(chord_length))
+            self.chord_length = lambda s: np.full(np.shape(s), float(chord_length))
 
         if callable(r_x):
             self.r_x = r_x
@@ -506,17 +488,14 @@ class FoilGeometry:
         else:
             self.torsion = lambda s: np.full(np.shape(s), float(torsion))
 
-        if intakes:
-            self.intakes = intakes
-        else:
-            self.intakes = lambda s, sa, surface: sa if surface == "upper" else -sa
-
-        # The lobe semi-span is defined by its maximum y-coordinate. Because
-        # the section index is equivalent to the length of the curve to that
-        # point, this coordinate also defines the ration between the flattened
-        # span `b_flat` and the projected span `b`.
+        # The lobe semispan is defined by its maximum y-coordinate. Because the
+        # absolute value of the section index is equal to the length of the
+        # normalized curve to that point (starting at the wing root), the
+        # section index that defines the semispan also defines the ratio
+        # between the flattened span `b_flat` and the projected span `b`.
         #
         # TODO: assumes the lobe is symmetric
+        # FIXME: this fails to account for torsion (it only uses `r_yz`)
         # FIXME: this should be the *smallest* section index that produces the
         #        maximum lobe y-coordinate. Subtle, but would fail if the lobe
         #        has a vertical segment at the semi-span.
@@ -526,80 +505,11 @@ class FoilGeometry:
         s_lobe_span = res.x
         self.span_ratio = self.yz(s_lobe_span)[0] / s_lobe_span  # The b/b_flat ratio
 
-        # The property setters are now able to convert between `b` and `b_flat`
-        if b_flat is not None:
-            self.b_flat = b_flat
-        else:
-            self.b = b
-
         # Set the origin to the central chord leading edge. A default value of
         # zeros must be set before calling `chord_xyz` to find the real offset.
         self.LE0 = [0, 0, 0]
         if center:
-            self.LE0 = self.chord_xyz(0, 0) / (self.b_flat / 2)
-
-    @property
-    def AR(self):
-        """Compute the aspect ratio of the inflated wing."""
-        return self.b ** 2 / self.S
-
-    @property
-    def AR_flat(self):
-        """Compute the aspect ratio of the flattened wing."""
-        return self.b_flat ** 2 / self.S_flat
-
-    @property
-    def b(self):
-        """The project span of the inflated parafoil."""
-        return self._b
-
-    @b.setter
-    def b(self, new_b):
-        self._b = new_b
-        self.b_flat = new_b / self.span_ratio
-
-    @property
-    def b_flat(self):
-        """The span of the flattened parafoil."""
-        return self._b_flat
-
-    @b_flat.setter
-    def b_flat(self, new_b_flat):
-        self._b_flat = new_b_flat
-        self._b = new_b_flat * self.span_ratio
-
-    @property
-    def S(self):
-        """
-        Approximate the projected surface area of the inflated parafoil.
-
-        This is the conventional definition using the area traced out by the
-        section chords projected onto the xy-plane. It is not the total surface
-        area of the volume.
-        """
-        s = np.linspace(-1, 1, 1000)
-        LEx, LEy = self.chord_xyz(s, 0)[:, :2].T
-        TEx, TEy = self.chord_xyz(s, 1)[:, :2].T
-
-        # Three areas: curved front, trapezoidal mid, and curved rear
-        LE_area = scipy.integrate.simps(LEx - LEx.min(), LEy)
-        mid_area = (LEy.ptp() + TEy.ptp()) / 2 * (LEx.min() - TEx.max())
-        TE_area = -scipy.integrate.simps(TEx - TEx.max(), TEy)
-        return LE_area + mid_area + TE_area
-
-    @property
-    def S_flat(self):
-        """
-        Compute the projected surface area of the flattened parafoil.
-
-        This is the conventional definition using the area traced out by the
-        section chords projected onto the xy-plane. It is not the total surface
-        area of the volume.
-        """
-        s = np.linspace(-1, 1, 1000)
-        c = self.chord_length(s)  # Projected section lengths before torsion
-        lengths = (self._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
-        return scipy.integrate.simps(lengths, s) * self.b_flat / 2
+            self.LE0 = self.chord_xyz(0, 0)
 
     def _planform_torsion(self, s):
         """
@@ -654,9 +564,6 @@ class FoilGeometry:
         dihedral = self._lobe_dihedral(s)
         return dihedral @ torsion
 
-    def chord_length(self, s):
-        return self._chord_length(s) * (self.b_flat / 2)
-
     def chord_xyz(self, s, chord_ratio, flatten=False):
         """
         Compute the coordinates of points on section chords.
@@ -669,9 +576,9 @@ class FoilGeometry:
             Position on the chords, where `chord_ratio = 0` is the leading
             edge, and `chord_ratio = 1` is the trailing edge.
         flatten : boolean
-            Whether to flatten the foil by disregarding dihedral (curvature in
-            the yz-plane). This is useful for inflatable wings, such as
-            parafoils. Default: False.
+            Whether to flatten the chord surface by disregarding dihedral
+            (curvature in the yz-plane). This is useful for inflatable wings,
+            such as parafoils. Default: False.
         """
         s = np.asarray(s)
         chord_ratio = np.asarray(chord_ratio)
@@ -682,7 +589,7 @@ class FoilGeometry:
 
         torsion = self._planform_torsion(s)
         xhat_planform = torsion @ [1, 0, 0]
-        c = self._chord_length(s)  # *Proportional* chords
+        c = self.chord_length(s)  # *Proportional* chords
 
         # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
         if flatten:  # Disregard dihedral (curvature in the yz-plane)
@@ -697,8 +604,128 @@ class FoilGeometry:
                   + (self.r_yz(s) * c)[..., np.newaxis] * xhat_wing)
             xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
 
-        xyz *= self.b_flat / 2
         return xyz
+
+
+class FoilGeometry:
+    """
+    A foil geometry definition using a set of parametric functions.
+
+    In fluid mechanics, a "foil" is simply a 3D object in a moving fluid.
+    Because this project is currently focused on parafoils, some of the
+    terminology will tend towards that application. For example, "flattened"
+    versus "inflated" span and area.
+    """
+
+    def __init__(
+        self,
+        airfoil,
+        chord_surface,
+        b_flat=None,
+        b=None,
+        intakes=None,
+    ):
+        """
+        Add a docstring.
+
+        Parameters
+        ----------
+        airfoil : Airfoil
+            The airfoil that defines the section profiles.
+        chord_surface : ChordSurface
+            FIXME: docstring
+        b, b_flat : float
+            The projected or the flattened wing span. Specify only one.
+        intakes : function, optional
+            A function that defines the upper and lower intake positions in
+            airfoil surface coordinates as a function of the section index.
+        """
+        self.airfoil = airfoil
+        self.chord_surface = chord_surface
+
+        if b_flat is None and b is None:
+            raise ValueError("Specify one of `b` or `b_flat`")
+        elif b_flat is not None and b is not None:
+            raise ValueError("Specify only one of `b` or `b_flat`")
+        elif b_flat is not None:
+            self.b_flat = b_flat
+        else:
+            self.b = b
+
+        if intakes:
+            self.intakes = intakes
+        else:
+            self.intakes = lambda s, sa, surface: sa if surface == "upper" else -sa
+
+    @property
+    def AR(self):
+        """Compute the aspect ratio of the inflated wing."""
+        return self.b ** 2 / self.S
+
+    @property
+    def AR_flat(self):
+        """Compute the aspect ratio of the flattened wing."""
+        return self.b_flat ** 2 / self.S_flat
+
+    @property
+    def b(self):
+        """The projected span of the inflated parafoil."""
+        return self._b
+
+    @b.setter
+    def b(self, new_b):
+        self._b = new_b
+        self.b_flat = new_b / self.chord_surface.span_ratio
+
+    @property
+    def b_flat(self):
+        """The span of the flattened parafoil."""
+        return self._b_flat
+
+    @b_flat.setter
+    def b_flat(self, new_b_flat):
+        self._b_flat = new_b_flat
+        self._b = new_b_flat * self.chord_surface.span_ratio
+
+    @property
+    def S(self):
+        """
+        Approximate the projected surface area of the inflated parafoil.
+
+        This is the conventional definition using the area traced out by the
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
+        """
+        s = np.linspace(-1, 1, 1000)
+        LEx, LEy = self.chord_xyz(s, 0)[:, :2].T
+        TEx, TEy = self.chord_xyz(s, 1)[:, :2].T
+
+        # Three areas: curved front, trapezoidal mid, and curved rear
+        LE_area = scipy.integrate.simps(LEx - LEx.min(), LEy)
+        mid_area = (LEy.ptp() + TEy.ptp()) / 2 * (LEx.min() - TEx.max())
+        TE_area = -scipy.integrate.simps(TEx - TEx.max(), TEy)
+        return LE_area + mid_area + TE_area
+
+    @property
+    def S_flat(self):
+        """
+        Compute the projected surface area of the flattened parafoil.
+
+        This is the conventional definition using the area traced out by the
+        section chords projected onto the xy-plane. It is not the total surface
+        area of the volume.
+        """
+        s = np.linspace(-1, 1, 1000)
+        c = self.chord_length(s)  # Projected section lengths before torsion
+        lengths = (self.chord_surface._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
+        return scipy.integrate.simps(lengths, s) * self.b_flat / 2
+
+    def chord_length(self, s):
+        return self.chord_surface.chord_length(s) * (self.b_flat / 2)
+
+    def chord_xyz(self, s, chord_ratio, flatten=False):
+        xyz = self.chord_surface.chord_xyz(s, chord_ratio, flatten)
+        return xyz * self.b_flat / 2
 
     def surface_points(self, s, sa, surface, flatten=False):
         """Sample points on the upper surface curve of a parafoil section.
@@ -744,9 +771,9 @@ class FoilGeometry:
             (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
         )
         if flatten:
-            orientations = self._planform_torsion(s)
+            orientations = self.chord_surface._planform_torsion(s)
         else:
-            orientations = self.section_orientation(s)
+            orientations = self.chord_surface.section_orientation(s)
         surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
         return surface + self.chord_xyz(s, 0, flatten=flatten)
 
@@ -1144,7 +1171,7 @@ class Phillips(ForceEstimator):
 
         # Wing section orientation unit vectors at each control point
         # Note: Phillip's derivation uses back-left-up coordinates (not `frd`)
-        u = -self.foil.section_orientation(self.s_cps).T
+        u = -self.foil.chord_surface.section_orientation(self.s_cps).T
         self.u_a, self.u_s, self.u_n = u[0].T, u[1].T, u[2].T
 
         # Define the differential areas as parallelograms by assuming a linear
