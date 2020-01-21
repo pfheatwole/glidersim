@@ -56,7 +56,7 @@ class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
 
 if __name__ == "__main__":
 
-    # airfoil_geo = gsim.airfoil.NACA(24018, convention="british")
+    # airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
     # airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018.csv")
 
     airfoil_geo = gsim.airfoil.NACA(23015)

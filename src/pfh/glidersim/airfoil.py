@@ -12,8 +12,6 @@ and pitching moment.
 import abc
 
 import numpy as np
-from numpy import arctan, cos, cumsum, sin
-from numpy.polynomial import Polynomial
 
 import pandas as pd
 
@@ -137,7 +135,7 @@ class LinearCoefficients(AirfoilCoefficients):
 
     def Cl(self, alpha, delta):
         # FIXME: verify the usage of delta
-        delta_angle = arctan(delta)  # tan(delta_angle) = delta/chord
+        delta_angle = np.arctan(delta)  # tan(delta_angle) = delta/chord
         return self.a0 * (alpha + delta_angle - self.i0)
 
     def Cd(self, alpha, delta):
@@ -187,7 +185,7 @@ class GridCoefficients(AirfoilCoefficients):
             CLs = self._Cl(alphas, deltas)
             notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
             alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
-            poly = Polynomial.fit(alphas, CLs, 7)
+            poly = np.polynomial.Polynomial.fit(alphas, CLs, 7)
             Cl_alphas = poly.deriv()(alphas)
             deltas -= 1e-9   # FIXME: HACK! Keep delta=0 inside the convex hull
             points.append(np.array((alphas, deltas, Cl_alphas)).T)
@@ -211,104 +209,225 @@ class GridCoefficients(AirfoilCoefficients):
 # ---------------------------------------------------------------------------
 
 
-class AirfoilGeometry(abc.ABC):
+def find_leading_edge(curve, definition):
     """
-    Classes that describe the shapes and mass properties of an airfoil.
-
-    The most general description of an airfoil is a set of points that define
-    the upper and lower surfaces. This class divides that set of points into
-    top and bottom regions, separated by the leading edge, and provides access
-    to those curves as a parametric function. It also provides the unitless
-    magnitudes, centroids, and inertia matrices of the upper curve, lower
-    curve, and planar area, which can be scaled by the physical units of the
-    target application.
-
-    The curves are also useful for drawing a 3D wing. The mass properties are
-    useful for calculating the upper and lower surface areas, internal volume,
-    and inertia matrix of a 3D wing.
-
-    Unlike standard airfoil definitions, this class converts the set of
-    counter-clockwise points to a parametric curve parametrized by a clockwise
-    normalized position `-1 <= s <= 1`, where `s = 0` is the leading edge,
-    `s = 1` is the tip of the upper surface, and `s = -1` is the tip of the
-    lower surface. Midpoints of the upper and lower surface curves are given by
-    `s = 0.5` and `s = -0.5`.
+    Find the parametric coordinate defining the leading edge of an airfoil.
 
     Parameters
     ----------
-    points : array of float, shape (N,2)
-        A sequence of (x, y) points on the airfoil. The points must follow the
-        XFOIL convention: the x-coordinate of the leading edge is less than the
-        x-coordinate of the trailing edge, and the points are given in
-        counter-clockwise order, starting with the tip of the upper surface.
-    normalize : bool, default: True
-        Ensures the leading edge is at (0, 0) and the trailing edge is at
-        (1, 0). This ensures the chord is aligned with the x-axis, and is
-        unit length.
+    curve : PchipInterpolator
+        An airfoil curve parametrized by absolute arc-length `d`.
+    definition : {"smallest-radius", "chord", "vertical-face"}
+        The criteria for selecting a point as the leading edge.
+
+        smallest-radius: defines the leading edge as the point near the middle
+        of the curve with the smallest curvature. This should be used when an
+        airfoil will be characterized by a thickness distribution measured
+        perpendicular to the camber line. It produces the same value whether
+        the airfoil will be rotated or not.
+
+        chord: defines the leading edge as the point that produces a chord that
+        is perpendicular to the surface at that point. This should be used when
+        an airfoil will be characterized by a thickness distribution measured
+        vertically, and the airfoil will need to be derotated. If the airfoil
+        will not be derotated, use the "x-axis" method.
+
+        vertical-face: defines the leading edge as the point near the middle of
+        the curve where the slope is vertical. This definition is suitable for
+        airfoils that will be characterized by a vertical thickness
+        distribution and will not be derotated. For airfoils that will be
+        derotated, use the "chord" method.
     """
+    def _target(d, curve, derivative, TE=None):
+        """Optimization target for the "chord" and "x-axis" methods."""
+        dydx = derivative(d)  # Tangent line at the proposal
+        chord = curve(d) - TE if TE is not None else [1, 0]
+        dydx /= np.linalg.norm(dydx)
+        chord /= np.linalg.norm(chord)
+        return dydx @ chord
 
-    def __init__(self, points, *, normalize=True):
-        def _target(d, curve, derivative, TE):
-            # Optimization target for finding the leading edge. The position
-            # `0 < d < L` is a leading edge proposal, where L is the total
-            # length of the curve. The leading edge is the point where
-            # the chord is perpendicular to the curve at the leading edge.
-            dydx = derivative(d)  # Tangent line at the proposal
-            chord = curve(d) - TE  # Chord line to the proposal
-            dydx /= np.linalg.norm(dydx)
-            chord /= np.linalg.norm(chord)
-            return dydx @ chord
+    definitions = {"smallest-radius", "chord", "vertical-face"}
+    if definition not in definitions:
+        raise ValueError(f"`definition` must be one of `{definitions}`")
 
-        self._raw_points = points.copy()  # FIXME: for debugging
-        points = points[::-1]  # Clockwise order is more convenient for `s`
+    # For all methods, assume the LE is between 40-60% of the total length
+    bracket = [0.4 * curve.x[-1], 0.6 * curve.x[-1]]
 
-        # Find the chord, align it to the x-axis, and scale it to unit length
-        if normalize:
-            d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
-            curve = PchipInterpolator(d, points)
-            TE = (curve(0) + curve(d[-1])) / 2
-            result = scipy.optimize.root_scalar(
-                _target,
-                args=(curve, curve.derivative(), TE),
-                bracket=(d[-1] * 0.4, d[-1] * 0.6),
-            )
-            d_LE = result.root
-            chord = curve(d_LE) - TE
-            delta = np.arctan2(chord[1], -chord[0])  # rotated angle
-            points -= TE  # Temporarily shift the origin to the TE
-            R = np.array([[cos(delta), -sin(delta)], [sin(delta), cos(delta)]])
-            points = (R @ points.T).T  # Derotate
-            points /= np.linalg.norm(chord)  # Normalize the lengths
-            points += [1, 0]  # Restore the normalized trailing edge
-
-        self.points = points
-
-        # Parametrize the curve with the normalized distance `s`. Assumes the
-        # airfoil chord lies on the x-axis, in which case the leading edge is
-        # simply where the curve crosses the x-axis.
-        d = np.r_[0, cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
-        curve = PchipInterpolator(d, points)
-        TE = (curve(0) + curve(d[-1])) / 2
+    if definition == "smallest-radius":
+        # The second derivative of a PchipInterpolator is very noisy, so it's a
+        # bad idea to rely on optimization algorithms. A brute force sampling
+        # method is simple and works well enough.
+        d_resolution = 50000  # The number of points to sample
+        ds = np.linspace(*bracket, d_resolution)
+        kappa = np.sqrt(np.sum(curve.derivative().derivative()(ds) ** 2, axis=1))
+        d_LE = ds[np.argmax(kappa)]  # The point of smallest curvature
+    else:
+        if definition == "chord":
+            TE = (curve(curve.x[0]) + curve(curve.x[-1])) / 2
+        else:  # definition == "vertical-face"
+            TE = None
         result = scipy.optimize.root_scalar(
             _target,
             args=(curve, curve.derivative(), TE),
-            bracket=(d[-1] * 0.4, d[-1] * 0.6),
+            bracket=bracket,
         )
         d_LE = result.root
-        idx_u = np.arange(len(d))[d >= d_LE]
-        idx_l = np.arange(len(d))[d < d_LE]
-        du = d[idx_u]
-        dl = d[idx_l]
-        su = (du - du[0]) / (du[-1] - du[0])  # d >= d_LE -> `0 <= s <= 1`
-        sl = dl / du[0] - 1  # d < d_LE -> `0 < s <= -1`
-        self._curve = PchipInterpolator(np.r_[sl, su], points)
+
+    return d_LE
+
+
+class AirfoilGeometry:
+    """
+    A class for describing wing section profiles.
+
+    Provides the surface curve, mean camber curve, thickness, and dimensionless
+    mass properties of the airfoil.
+
+    Parameters
+    ----------
+    surface_curve : PchipInterpolator
+        Profile xy-coordinates as a curve parametrized by the normalized
+        arc-length `-1 <= sa <= 1`, where `sa = 0` is the leading edge, `sa =
+        1` is the tip of the upper surface, and `sa = -1` is the tip of the
+        lower surface. Midpoints by length of the upper and lower surface
+        curves are given by `sa = 0.5` and `sa = -0.5`.
+    camber_curve : PchipInterpolator
+        Mean camber curve xy-coordinates as a function of normalized arc-length
+        `0 <= pc <= 1`, where `pc = 0` is the leading edge, `pc = 1` is
+        the trailing edge, and `pc = 0.5` is the midpoint by length.
+    convention : {"perpendicular", "vertical"}
+        Whether the airfoil thickness is measured perpendicular to the mean
+        camber line or vertically (perpendicular to the chord).
+    theta : float [radians]
+        The angle between the chord and the x-axis that was removed during
+        derotation. Useful for converting `alpha` of the derotated airfoil into
+        `alpha` of the reference foil.
+    scale : float [unitless]
+        The rescaling factor due to normalization. Useful for adjusting an
+        existing set of coefficients for the original foil to account for the
+        normalization.
+    """
+
+    def __init__(
+        self, surface_curve, camber_curve, thickness, convention, theta=0, scale=1,
+    ):
+        self._surface_curve = surface_curve
+        self._camber_curve = camber_curve
+        self._thickness = thickness
+        self.convention = convention
+        self.theta = theta
+        self.scale = scale
+
+    @classmethod
+    def from_points(
+        cls, points, convention, center=True, derotate=True, normalize=True,
+    ):
+        """
+        Construct an AirfoilGeometry from a set of airfoil xy-coordinates.
+
+        By default, the input coordinates will be centered, normalized, and
+        derotated so the leading edge is at the origin and the chord lies on
+        the x-axis between 0 and 1.
+
+        The input coordinates are treated as the "reference" airfoil. If the
+        user provides coefficient data to the `Airfoil` class, then it will be
+        assumed that those coefficients were computed for the reference
+        airfoil. If the reference coordinates are rotated and/or normalized by
+        this function, the `theta` and `scale` properties allow those reference
+        coefficients to be used with the modified airfoil. For example, if the
+        lift coefficient for the reference airfoil was given by `Cl(alpha)`,
+        then the lift coefficient for the modified airfoil can be computed as
+        `scale * Cl(alpha + theta)`. (Centering has no effect on the
+        coefficients.)
+
+        Parameters
+        ----------
+        points : array of float, shape (N,2)
+            The xy-coordinates of the airfoil in counter-clockwise order.
+        convention : {"perpendicular", "vertical"}
+            Whether the airfoil thickness is measured perpendicular to the mean
+            camber line or vertically (the y-axis distance).
+        center : bool
+            Translate the curve leading edge to the origin. Default: True
+        derotate : bool
+            Rotate the the chord parallel to the x-axis. Default: True
+        normalize : bool
+            Scale the curve so the chord is unit length. Default: True
+
+        Returns
+        -------
+        AirfoilGeometry
+        """
+        conventions = {"perpendicular", "vertical"}
+        if convention not in conventions:
+            raise ValueError(f"`convention` must be one of `{conventions}`")
+
+        points = points[np.r_[True, np.diff(points.T).any(axis=0)]]  # Deduplicate
+        points = points[::-1]  # I find clockwise orientations more natural
+        d = np.r_[0, np.cumsum(np.linalg.norm(np.diff(points.T), axis=0))]
+        raw_curve = PchipInterpolator(d, points)
+        if convention == "perpendicular":
+            definition = "smallest-radius"
+        else:
+            definition = "chord" if derotate else "vertical-face"
+        d_LE = find_leading_edge(raw_curve, definition)
+        LE = raw_curve(d_LE)
+        TE = (raw_curve(d[0]) + raw_curve(d[-1])) / 2
+        chord = TE - LE
+
+        if derotate:
+            theta = -np.arctan2(chord[1], chord[0])
+            st, ct = np.sin(theta), np.cos(theta)
+            R = np.array([[ct, -st], [st, ct]])
+            points = (R @ (points - LE).T).T + LE
+        else:
+            theta = 0
+
+        if center:
+            points -= LE
+
+        if normalize:
+            scale = 1 / np.linalg.norm(chord)
+            points *= scale
+        else:
+            scale = 1
+
+        # Parametrize by the normalized arc-length for each surface:
+        #   d <= d_LE  ->  -1 <= sa <= 0  <-  lower surface
+        #   d >= d_LE  ->   0 <= sa <= 1  <-  upper surface
+        sa = np.empty(d.shape)
+        f = d <= d_LE
+        sa[f] = -1 + d[f] / d_LE
+        sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
+        surface = PchipInterpolator(sa, points, extrapolate=False)
+
+        # Estimate the mean camber curve and thickness distribution as
+        # functions of the normalized arc-length of the mean camber line.
+        # FIXME: Crude, ignores convention
+        N = 300
+        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
+        xyu = surface(sa)
+        xyl = surface(-sa)
+        xyc = (xyu + xyl) / 2
+        t = np.linalg.norm(xyu - xyl, axis=1)
+        pc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
+        pc /= pc[-1]
+        camber = PchipInterpolator(pc, (xyu + xyl) / 2, extrapolate=False)
+        thickness = PchipInterpolator(pc, t, extrapolate=False)
+
+        return cls(surface, camber, thickness, convention, theta, scale)
 
     def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
-        Calculate the inertia matrices for the the planar area and curves.
+        Calculate the inertial properties for the curves and planar area.
 
-        This procedure treats the 2D geometry as infinitely flat 3D objects,
-        with the new `z` axis added according to the right-hand rule. See
+        These unitless magnitudes, centroids, and inertia matrices can be
+        scaled by the physical units of the target application in order to
+        calculate the upper and lower surface areas, internal volume, and
+        inertia matrix of a 3D wing.
+
+        This procedure treats the 2D geometry as perfectly flat 3D objects,
+        with a new `z` axis added according to the right-hand rule. See
         "Notes" for more details.
 
         Parameters
@@ -482,7 +601,7 @@ class AirfoilGeometry(abc.ABC):
         points : array of float, shape (N, 2)
             The (x, y) coordinates of points on the airfoil at `sa`.
         """
-        return self._curve(sa)
+        return self._surface_curve(sa)
 
     def surface_curve_tangent(self, sa):
         """
@@ -500,7 +619,7 @@ class AirfoilGeometry(abc.ABC):
             increasing `sa`, so the tangents trace from the lower surface to
             the upper surface.
         """
-        dxdy = self._curve.derivative()(sa).T
+        dxdy = self._surface_curve.derivative()(sa).T
         dxdy /= np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
@@ -519,35 +638,44 @@ class AirfoilGeometry(abc.ABC):
             The unit normal vectors at the specified points, oriented with
             increasing `sa`, so the normals point "out" of the airfoil.
         """
-        dxdy = (self._curve.derivative()(sa) * [1, -1]).T
+        dxdy = (self._surface_curve.derivative()(sa) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
-    def camber_curve(self, x):
-        raise NotImplementedError
-
-    def thickness(self, x):
+    def camber_curve(self, pc):
         """
-        Compute airfoil thickness perpendicular to a reference line.
-
-        This measurement is perpendicular to either the camber line ('American'
-        convention) or the chord ('British' convention). Refer to the specific
-        AirfoilGeometry class documentation to determine which is being used.
+        Compute points on the camber curve.
 
         Parameters
         ----------
-        x : float
-            Position on the chord line, where `0 <= x <= 1`
+        pc : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= pc <= 1`
 
         Returns
         -------
-        FIXME: describe
+        array of float, shape (N, 2)
+            The xy coordinate pairs of the camber line.
         """
-        raise NotImplementedError
+        return self._camber_curve(pc)
+
+    def thickness(self, pc):
+        """
+        Compute airfoil thickness.
+
+        Parameters
+        ----------
+        pc : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= pc <= 1`
+
+        Returns
+        -------
+        thickness : array_like of float
+        """
+        return self._thickness(pc)
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, *, open_TE=True, convention="British", **kwargs):
+    def __init__(self, code, *, open_TE=False, convention="perpendicular", N_points=300):
         """
         Generate an airfoil using a NACA4 or NACA5 parameterization.
 
@@ -562,23 +690,30 @@ class NACA(AirfoilGeometry):
             expressed as LPSTT; valid codes for this implementation are
             restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
         open_TE : bool, optional
-            Generate airfoils with an open trailing edge. Default: True.
-        convention : {"American", "British"}, optional
-            The convention to use for calculating the airfoil thickness. The
-            default is 'British'.
+            Generate airfoils with an open trailing edge. Default: False.
+        convention : {"perpendicular", "vertical"}, optional
+            The convention to use for defining the airfoil thickness.
+            Default: "perpendicular".
 
-            The American convention measures airfoil thickness perpendicular to
-            the camber line. The British convention measures airfoil thickness
-            perpendicular to the chord. Many texts use the American definition
-            to define the NACA geometry, but the popular tool "XFOIL" uses the
-            British convention.
+            The "perpendicular" convention (sometimes called the "American"
+            convention) measures airfoil thickness perpendicular to the mean
+            camber line. The "vertical" convention (sometimes called the
+            "British" convention) measures airfoil thickness in vertical strips
+            (the y-axis distance between points on the upper and lower
+            surfaces).
 
-            Beware that because the NACA equations use the thickness to define
-            the upper and lower surface curves, this option changes the shape
-            of the resulting airfoil.
+            The "American" convention is used here since it was the original
+            definition (see [0]_), but the "British" convention is available
+            in case the output needs to match the popular tool "XFOIL".
+        N_points : integer
+            The number of sample points from each surface. Default: 300
 
-        Any additional keyword parameters will be forwarded to the parent class
-        initializer, `AirfoilGeometry.__init__`.
+        References
+        ----------
+
+        .. [0] Jacobs, Eastman N., Ward, Kenneth E., Pinkerton, Robert M. "The
+           characteristics of 78 related airfoil sections from tests in the
+           variable-density wind tunnel". NACA Technical Report 460. 1933.
         """
         if not isinstance(code, int):
             try:
@@ -591,10 +726,9 @@ class NACA(AirfoilGeometry):
         elif code > 99999:
             raise ValueError(f"Unsupported NACA code '{code}': more than 5 digits")
 
-        convention = convention.lower()
-        valid_conventions = {"american", "british"}
+        valid_conventions = {"perpendicular", "vertical"}
         if convention not in valid_conventions:
-            raise ValueError("The convention must be 'American' or 'British'")
+            raise ValueError("The convention must be 'perpendicular' or 'vertical'")
 
         self.code = code
         self.open_TE = open_TE
@@ -634,14 +768,28 @@ class NACA(AirfoilGeometry):
             self.p = 0.05 * P
             self.tcr = TT / 100
 
-        N = 200
-        x = (1 - np.cos(np.linspace(0, np.pi, N))) / 2
-        xyu = self._xyu(x)[::-1]  # Move counter-clockwise
-        xyl = self._xyl(x[1:])  # Skip `x = 0`
+        x = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
+        xyu = self._xyu(x)
+        xyl = self._xyl(x)
+        xyc = np.c_[x, self._yc(x)]
+        du = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyu.T), axis=0))]
+        dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyl.T), axis=0))]
+        dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
+        pc = dc / dc[-1]
+        surface_points = np.r_[xyl[::-1], xyu[1:]]
+        sa = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
+        surface_curve = PchipInterpolator(sa, surface_points, extrapolate=False)
+        camber_curve = PchipInterpolator(pc, xyc, extrapolate=False)
+        thickness = PchipInterpolator(pc, 2 * self._yt(x), extrapolate=False)
+        super().__init__(surface_curve, camber_curve, thickness, convention)
 
-        super().__init__(np.r_[xyu, xyl], **kwargs)
+    def _yt(self, x):
+        """
+        Compute the thickness of the airfoil.
 
-    def thickness(self, x):
+        Whether the thickness is measured orthogonal to the camber curve or the
+        chord depends on the convention. See the docstring for this class.
+        """
         x = np.asarray(x, dtype=float)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
@@ -686,7 +834,7 @@ class NACA(AirfoilGeometry):
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")
 
-        return arctan(dyc)
+        return np.arctan(dyc)
 
     def _yc(self, x):
         """
@@ -731,12 +879,13 @@ class NACA(AirfoilGeometry):
         """
         Compute the x- and y-coordinates of points on the upper surface.
 
-        Returns both `x` and `y` because the "American" convention computes the
-        surface curve coordinates orthogonal to the camber curve instead of the
-        chord, so the `x` coordinate for the surface curve will not be the same
-        as the `x` coordinate for the chord (unless the airfoil is symmetric,
-        in which case the camber curve lines directly on the chord). For the
-        British convention, the input and output `x` will always be the same.
+        Returns both `x` and `y` because the "perpendicular" convention
+        computes the surface curve coordinates orthogonal to the camber curve
+        instead of the chord, so the `x` coordinate for the surface curve will
+        not be the same as the `x` coordinate that parametrizes the chord
+        (unless the airfoil is symmetric, in which case the camber curve lines
+        directly on the chord). For the "vertical" convention, the input and
+        output `x` will always be the same.
 
         Parameters
         ----------
@@ -752,16 +901,16 @@ class NACA(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        t = self.thickness(x)
+        t = self._yt(x)
 
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, t]).T
         else:  # Cambered airfoil
             yc = self._yc(x)
-            if self.convention == "american":  # Standard NACA definition
+            if self.convention == "perpendicular":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x - t * np.sin(theta), yc + t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
+            elif self.convention == "vertical":  # XFOIL style
                 curve = np.array([x, yc + t]).T
             else:
                 raise RuntimeError(f"Invalid convention '{self.convention}'")
@@ -771,12 +920,13 @@ class NACA(AirfoilGeometry):
         """
         Compute the x- and y-coordinates of points on the lower surface.
 
-        Returns both `x` and `y` because the "American" convention computes the
-        surface curve coordinates orthogonal to the camber curve instead of the
-        chord, so the `x` coordinate for the surface curve will not be the same
-        as the `x` coordinate for the chord (unless the airfoil is symmetric,
-        in which case the camber curve lines directly on the chord). For the
-        British convention, the input and output `x` will always be the same.
+        Returns both `x` and `y` because the "perpendicular" convention
+        computes the surface curve coordinates orthogonal to the camber curve
+        instead of the chord, so the `x` coordinate for the surface curve will
+        not be the same as the `x` coordinate that parametrizes the chord
+        (unless the airfoil is symmetric, in which case the camber curve lines
+        directly on the chord). For the "vertical" convention, the input and
+        output `x` will always be the same.
 
         Parameters
         ----------
@@ -792,15 +942,15 @@ class NACA(AirfoilGeometry):
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
-        t = self.thickness(x)
+        t = self._yt(x)
         if self.m == 0:  # Symmetric airfoil
             curve = np.array([x, -t]).T
         else:  # Cambered airfoil
             yc = self._yc(x)
-            if self.convention == "american":  # Standard NACA definition
+            if self.convention == "perpendicular":  # Standard NACA definition
                 theta = self._theta(x)
                 curve = np.array([x + t * np.sin(theta), yc - t * np.cos(theta)]).T
-            elif self.convention == "british":  # XFOIL style
+            elif self.convention == "vertical":  # XFOIL style
                 curve = np.array([x, yc - t]).T
             else:
                 raise RuntimeError(f"Invalid convention '{self.convention}'")

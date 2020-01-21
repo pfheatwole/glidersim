@@ -150,7 +150,7 @@ print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
 # ---------------------------------------------------------------------------
 # Build the parafoil and wing
 
-airfoil_geo = gsim.airfoil.NACA(23015, convention='british')
+airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
 airfoil_coefs = FlaplessAirfoilCoefficients(
     'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
 airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
@@ -175,7 +175,7 @@ class InterpolatedLobe:
         return self._fd(s)
 
 
-s = np.linspace(-1, 1, 1000)  # Resample so the cubit-fit stays linear
+s = np.linspace(-1, 1, 1000)  # Resample so the cubic-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
 parafoil = gsim.foil.FoilGeometry(
