@@ -650,7 +650,7 @@ class ChordSurface:
         """
         return self._chord_length(s) * self._scale
 
-    def xyz(self, s, chord_ratio, flatten=False):
+    def xyz(self, s, pc, flatten=False):
         """
         Compute the `xyz` coordinates of points on section chords.
 
@@ -658,19 +658,19 @@ class ChordSurface:
         ----------
         s : array_like of float, shape (N,)
             Section index
-        chord_ratio : float
-            Position on the chords, where `chord_ratio = 0` is the leading
-            edge, and `chord_ratio = 1` is the trailing edge.
+        pc : float
+            Position on the chords, where `pc = 0` is the leading
+            edge, and `pc = 1` is the trailing edge.
         flatten : boolean
             Whether to flatten the chord surface by disregarding dihedral
             (curvature in the yz-plane). This is useful for inflatable wings,
             such as parafoils. Default: False.
         """
         s = np.asarray(s)
-        chord_ratio = np.asarray(chord_ratio)
+        pc = np.asarray(pc)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if chord_ratio.min() < 0 or chord_ratio.max() > 1:
+        if pc.min() < 0 or pc.max() > 1:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
         r_x = self.r_x(s)
@@ -683,18 +683,18 @@ class ChordSurface:
         xhat_planform = torsion @ [1, 0, 0]
         xhat_wing = dihedral @ torsion @ [1, 0, 0]
 
-        # Ugly, but supports all broadcastable shapes for `s` and `chord_ratio`
+        # Ugly, but supports all broadcastable shapes for `s` and `pc`
         if flatten:  # Disregard dihedral (curvature in the yz-plane)
             y = s * self._scale
             z = np.zeros(s.shape)
             LE = (np.stack((x, y, z), axis=-1)
                   + ((r_x * c)[..., np.newaxis] * xhat_planform))
-            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_planform - self.LE0
+            xyz = LE - (pc * c)[..., np.newaxis] * xhat_planform - self.LE0
         else:  # The fully specified wing
             LE = (np.concatenate((x[..., np.newaxis], yz), axis=-1)
                   + ((r_x - r_yz) * c)[..., np.newaxis] * xhat_planform
                   + (r_yz * c)[..., np.newaxis] * xhat_wing)
-            xyz = LE - (chord_ratio * c)[..., np.newaxis] * xhat_wing - self.LE0
+            xyz = LE - (pc * c)[..., np.newaxis] * xhat_wing - self.LE0
 
         return xyz
 
