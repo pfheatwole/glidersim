@@ -47,8 +47,8 @@ class EllipticalArc:
         B=None,
         length=None,
         origin=None,
-        t_domain=None,
         p_domain=None,
+        t_domain=None,
         kind="parametric",
     ):
         """
@@ -63,15 +63,15 @@ class EllipticalArc:
         origin : array of float, shape (2,), optional
             The (x, y) offset of the ellipse origin. (For example, shifting the
             curve up or down to produce a constant offset.)
-        t_domain : array of float, shape (2,), optional
-            The domain of the internal parameter. Values from 0 to pi/2 are the
-            first quadrant, pi/2 to pi are the second, etc.
         p_domain : array of float, shape (2,), optional
             The domain of the input parameter. This encodes "what values in the
             input domain maps to `t_domain`?". For example, if you wanted to a
             parametric function where -1 and +1 are the start and end of the
             curve then `p_domain = [1, -1]` would map `t_min` to `p = 1` and
             `t_max` to `p = -1`.
+        t_domain : array of float, shape (2,), optional
+            The domain of the internal parameter. Values from 0 to pi/2 are the
+            first quadrant, pi/2 to pi are the second, etc.
         kind : {'implicit', 'parametric'}, default: 'parametric'
             Specifies whether the class return `y = f(x)` or `<x, y> = f(p)`.
             The implicit version returns coordinates of the second axis given
@@ -91,8 +91,8 @@ class EllipticalArc:
         self.A = 1
         self.B = 1 / AB_ratio
         self.origin = origin
-        self.t_domain = t_domain
         self.p_domain = p_domain
+        self.t_domain = t_domain
         self.kind = kind
 
         # Apply constraints, if any
@@ -221,7 +221,7 @@ def elliptical_chord(root, tip):
     t_min = np.arcsin(taper)
 
     return EllipticalArc(
-        A / B, B=B, t_domain=[t_min, np.pi - t_min], p_domain=[1, -1], kind="implicit",
+        A / B, B=B, p_domain=[1, -1], t_domain=[t_min, np.pi - t_min], kind="implicit",
     )
 
 
@@ -258,7 +258,7 @@ def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
         t_min = 1e-10
 
     lobe = EllipticalArc(
-        A / B, length=2, t_domain=[np.pi + t_min, 2 * np.pi - t_min], p_domain=[-1, 1],
+        A / B, length=2, p_domain=[-1, 1], t_domain=[np.pi + t_min, 2 * np.pi - t_min],
     )
     lobe.origin = -lobe(0)  # The middle of the curve is the origin
     return lobe
