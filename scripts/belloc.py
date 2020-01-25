@@ -134,10 +134,10 @@ L_segments = np.linalg.norm(np.diff(xyz[..., 1:], axis=0), axis=1)
 s_xyz = np.cumsum(np.r_[0, L_segments]) / L_segments.sum() * 2 - 1
 
 # Coordinates and chords are in meters, and must be normalized
-fx = scipy.interpolate.interp1d(s_xyz, xyz.T[0] / (b_flat / 2))
-fy = scipy.interpolate.interp1d(s_xyz, xyz.T[1] / (b_flat / 2))
-fz = scipy.interpolate.interp1d(s_xyz, (xyz.T[2] - xyz[6, 2]) / (b_flat / 2))
-fc = scipy.interpolate.interp1d(s_xyz, c / (b_flat / 2))
+fx = scipy.interpolate.interp1d(s_xyz, xyz.T[0])
+fy = scipy.interpolate.interp1d(s_xyz, xyz.T[1])
+fz = scipy.interpolate.interp1d(s_xyz, xyz.T[2] - xyz[6, 2])
+fc = scipy.interpolate.interp1d(s_xyz, c)
 ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
 # Check: what is the area of each panel, treating them as trapezoids? (Does not
@@ -186,14 +186,13 @@ chord_surface = gsim.foil.ChordSurface(
     r_x=0.6,
     yz=lobe,
     r_yz=0.6,
-    torsion=ftheta,
     chord_length=fc,
+    torsion=ftheta,
 )
 
 parafoil = gsim.foil.SimpleFoil(
     airfoil=airfoil,
     chord_surface=chord_surface,
-    b_flat=b_flat,
 )
 
 wing = gsim.paraglider_wing.ParagliderWing(
@@ -219,6 +218,12 @@ gsim.plots.plot_foil(parafoil, N_sections=121)
 embed()
 # 1/0
 
+# FIXME: add some comparisons of the different measurements. Call attention to
+#        the discrepancy between the specified versus calculated projected
+#        semispans `b`: they don't quite match since the paper used the 0.6c
+#        reference curve while the `ChordSurface` used the true maximum
+#        projected y-coordinates, which are greater due to the torsion. Not
+#        sure why `b_flat` doesn't match; those should be exact?
 
 # ---------------------------------------------------------------------------
 # Testing

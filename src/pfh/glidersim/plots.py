@@ -174,9 +174,9 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
 
     s = np.linspace(-1, 1, N_sections)
-    LE = foil.chord_xyz(s, 0, flatten=flatten).T
-    c4 = foil.chord_xyz(s, 0.25, flatten=flatten).T
-    TE = foil.chord_xyz(s, 1, flatten=flatten).T
+    LE = foil.chords.xyz(s, 0, flatten=flatten).T
+    c4 = foil.chords.xyz(s, 0.25, flatten=flatten).T
+    TE = foil.chords.xyz(s, 1, flatten=flatten).T
     ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
@@ -197,7 +197,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = foil.chord_xyz(s, foil.chord_surface.r_x(s))
+    xyz = foil.chords.xyz(s, foil.chords.r_x(s))
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -207,7 +207,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = foil.chord_xyz(s, foil.chord_surface.r_yz(s))
+    xyz = foil.chords.xyz(s, foil.chords.r_yz(s))
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
@@ -229,14 +229,14 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, ax=None):
         independent_plot = False
 
     for s in np.linspace(-1, 1, N_sections):
-        LE_xy = foil.chord_xyz(s, 0, flatten=flatten)[:2]
-        TE_xy = foil.chord_xyz(s, 1, flatten=flatten)[:2]
+        LE_xy = foil.chords.xyz(s, 0, flatten=flatten)[:2]
+        TE_xy = foil.chords.xyz(s, 1, flatten=flatten)[:2]
         coords = np.stack((LE_xy, TE_xy))
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     s = np.linspace(-1, 1, N_sections)
-    LE = foil.chord_xyz(s, 0, flatten=flatten)
-    TE = foil.chord_xyz(s, 1, flatten=flatten)
+    LE = foil.chords.xyz(s, 0, flatten=flatten)
+    TE = foil.chords.xyz(s, 1, flatten=flatten)
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
@@ -272,11 +272,11 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None
     s = np.linspace(-1, 1, N_sections)
     delta = wing.brake_geo(s, delta_Bl, delta_Br)
     flap = delta / 0.2
-    c = wing.parafoil.chord_length(s)
-    orientations = wing.parafoil.section_orientation(s)
+    c = wing.parafoil.chords.length(s)
+    orientations = wing.parafoil.chords.orientation(s)
     p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
          + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
-    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.chord_xyz(s, 0)
+    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.chords.xyz(s, 0)
     ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
 
     if independent_plot:

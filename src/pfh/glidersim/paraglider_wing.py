@@ -56,7 +56,7 @@ class ParagliderWing:
         # one defined by the Parafoil. The axes of both systems are parallel,
         # but the origin moves from the central leading edge to the midpoint
         # of the risers.
-        self.c0 = parafoil.chord_length(0)
+        self.c0 = parafoil.chords.length(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
 
@@ -176,8 +176,8 @@ class ParagliderWing:
         """
         N = 501
         s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
-        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_a)).T
-        c = self.parafoil.chord_length(s)
+        x, y, z = (self.parafoil.chords.xyz(s, 0.25) + self.foil_origin(delta_a)).T
+        c = self.parafoil.chords.length(s)
 
         Sxx = simps((y ** 2 + z ** 2) * c, y)
         Syy = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * z ** 2) * c, y) / 6

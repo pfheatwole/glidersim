@@ -289,7 +289,7 @@ def main():
         print(f"DEBUG> s: {s:.3f}, delta: {delta:.3f}, d: {d:.3f}")
         points_u, points_l = build_deformed_curves(
             airfoil_geo, theta, epsilon, Ku, Kl, d=d)
-        orientation = wing.parafoil.section_orientation(s)
+        orientation = wing.parafoil.chords.orientation(s)
         points_u = points_u.T
         points_l = points_l.T
 

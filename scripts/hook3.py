@@ -128,7 +128,7 @@ def plot_CL_curve(glider, delta_B=0, delta_a=0, rho_air=1.2):
         CM = (
             2
             * Ms[n][1]
-            / (rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chord_length(0))
+            / (rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chords.length(0))
         )
         CLs.append(CL)
         CDs.append(CD)
@@ -195,15 +195,16 @@ def build_hook3():
     # Parafoil: an approximate Niviuk Hook 3, size 23
 
     # True technical specs
-    chord_min, chord_max, chord_mean = 0.52, 2.58, 2.06
+    chord_tip, chord_root, chord_mean = 0.52, 2.58, 2.06
     S_flat, b_flat, AR_flat = 23, 11.15, 5.40
     SMC_flat = b_flat / AR_flat
     S, b, AR = 19.55, 8.84, 4.00
 
-    # Build an approximate version. Anything not directly from the technical
-    # specs is a guess to make the projected values match up.
-    c_root = chord_max / (b_flat / 2)  # Proportional values
-    c_tip = chord_min / (b_flat / 2)
+    # We're specifying `b_flat`, so the geometry is treated as proportional
+    chord_length = gsim.foil.elliptical_chord(
+        root=chord_root / (b_flat / 2),
+        tip=chord_tip / (b_flat / 2),
+    )
 
     # The geometric torsion distribution is uncertain. In Sec. 11.4, pg 17 of
     # the manual ("Line Plan") it appears to have a roughly square-root
@@ -218,35 +219,37 @@ def build_hook3():
         x=0,
         r_yz=1.00,
         yz=gsim.foil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
-        chord_length=gsim.foil.elliptical_chord(root=c_root, tip=c_tip),
+        chord_length=chord_length,
+        b_flat=b_flat,  # Scale the curves using the flattened semispan
         torsion=torsion,
     )
 
     parafoil = gsim.foil.SimpleFoil(
         airfoil=_airfoil,
-        chord_surface=chord_surface,
+        chords=chord_surface,
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
-        b_flat=b_flat,  # Option 1: Determine the scale using the planform
-        # b=b,  # Option 2: Determine the scale using the lobe
     )
 
     print("Parafoil geometry:")
-    print(f"  planform flat span: {parafoil.b_flat:>6.3f}")
-    print(f"  planform flat area: {parafoil.S_flat:>6.3f}")
-    print(f"  planform flat AR:   {parafoil.AR_flat:>6.3f}")
+    print(f"  flattened span: {parafoil.b_flat:>6.3f}")
+    print(f"  flattened area: {parafoil.S_flat:>6.3f}")
+    print(f"  flattened AR:   {parafoil.AR_flat:>6.3f}")
     # print(f"  planform flat SMC   {parafoil.SMC:>6.3f}")
     # print(f"  planform flat MAC:  {parafoil.MAC:>6.3f}")
 
-    print(f"  projected span:     {parafoil.b:>6.3f}")
-    print(f"  projected area:     {parafoil.S:>6.3f}")
-    print(f"  projected AR:       {parafoil.AR:>6.3f}")
+    print(f"  projected span: {parafoil.b:>6.3f}")
+    print(f"  projected area: {parafoil.S:>6.3f}")
+    print(f"  projected AR:   {parafoil.AR:>6.3f}")
     print()
 
-    # print("Drawing the parafoil")
+    print("Drawing the parafoil")
     gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
-    # gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
+    gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
+    gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
+    gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
+
+    print("\nPausing...")
+    embed()
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
     # plots.plot_foil_topdown(parafoil, N_sections=77)
