@@ -66,16 +66,16 @@ def update(frame):
 
 
     # First method: interpolate the camber and thickness
-    xyc = xyc1 + p * (xyc2 - xyc1)  # The interpolated camber curve
+    xyc = (1 - p) * xyc1 + p * xyc2  # The interpolated camber curve
     cx, cy = xyc.T
-    t = t1 + p * (t2 - t1)
+    t = (1 - p) * t1 + p * t2
     ul1.set_data(cx, cy + t / 2)
     cl1.set_data(cx, cy)
     ll1.set_data(cx, cy - t / 2)
 
     # Second method: interpolate points on the surfaces
-    xyu = xyu1 + p * (xyu2 - xyu1)
-    xyl = xyl1 + p * (xyl2 - xyl1)
+    xyu = (1 - p) * xyu1 + p * xyu2
+    xyl = (1 - p) * xyl1 + p * xyl2
     ul2.set_data(xyu.T[0], xyu.T[1])
     ll2.set_data(xyl.T[0], xyl.T[1])
 
