@@ -73,13 +73,13 @@ if __name__ == "__main__":
         x=0,
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
-        b_flat=8,
     )
     wing1 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface1,
+        b_flat=8,
     )
-    M_ref1 = wing1.chords.xyz(0, 0)
+    M_ref1 = wing1.chord_xyz(0, 0)
 
     # Elliptical
     chord_surface2 = gsim.foil.ChordSurface(
@@ -88,13 +88,13 @@ if __name__ == "__main__":
         x=0,
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
-        b_flat=8,
     )
     wing2 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface2,
+        b_flat=8,
     )
-    M_ref2 = wing2.chords.xyz(0, 0.5)
+    M_ref2 = wing2.chord_xyz(0, 0.5)
 
     # Diagonal
     chord_surface3 = gsim.foil.ChordSurface(
@@ -103,13 +103,13 @@ if __name__ == "__main__":
         x=lambda s: -np.abs(s),
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
-        b_flat=1,
     )
     wing3 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface3,
+        b_flat=1,
     )
-    M_ref3 = wing3.chords.xyz(0, 0.0)
+    M_ref3 = wing3.chord_xyz(0, 0.0)
 
     # Triangle
     chord_surface4 = gsim.foil.ChordSurface(
@@ -118,13 +118,13 @@ if __name__ == "__main__":
         x=0,
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
-        b_flat=1,
     )
     wing4 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface4,
+        b_flat=1,
     )
-    M_ref4 = wing4.chords.xyz(0, 0.0)
+    M_ref4 = wing4.chord_xyz(0, 0.0)
 
     # Diamond
     chord_surface5 = gsim.foil.ChordSurface(
@@ -133,19 +133,19 @@ if __name__ == "__main__":
         x=0,
         r_yz=0,
         yz=gsim.foil.FlatYZ(),
-        b_flat=1,
     )
     wing5 = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface5,
+        b_flat=1,
     )
-    M_ref5 = wing5.chords.xyz(0, 0.0)
+    M_ref5 = wing5.chord_xyz(0, 0.0)
 
     # wing, M_ref = wing1, M_ref1
-    # wing, M_ref = wing2, M_ref2
+    wing, M_ref = wing2, M_ref2
     # wing, M_ref = wing3, M_ref3
     # wing, M_ref = wing4, M_ref4
-    wing, M_ref = wing5, M_ref5
+    # wing, M_ref = wing5, M_ref5
 
     gsim.plots.plot_foil(wing, N_sections=51)
 
@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     CX, CY, CZ = F / (0.5 * rho_air * V_total ** 2 * S)
     CN = -CZ
-    CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * wing.chords.length(0))
+    CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     CD = (
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     print(f"Force coefficients: CL={CL:.3f}, CD={CD:.3f}")
     print(
         "Moment coefficients:",
-        (M / (0.5 * rho_air * V_total ** 2 * S * wing.chords.length(0))).round(3),
+        (M / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))).round(3),
     )
     print()
 

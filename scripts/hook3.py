@@ -128,7 +128,7 @@ def plot_CL_curve(glider, delta_B=0, delta_a=0, rho_air=1.2):
         CM = (
             2
             * Ms[n][1]
-            / (rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chords.length(0))
+            / (rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chord_length(0))
         )
         CLs.append(CL)
         CDs.append(CD)
@@ -220,13 +220,14 @@ def build_hook3():
         r_yz=1.00,
         yz=gsim.foil.elliptical_lobe(mean_anhedral=33, max_anhedral_rate=67),
         chord_length=chord_length,
-        b_flat=b_flat,  # Scale the curves using the flattened semispan
         torsion=torsion,
     )
 
     parafoil = gsim.foil.SimpleFoil(
         airfoil=_airfoil,
         chords=chord_surface,
+        # b=b,  # Option 1: Scale the using the projected span
+        b_flat=b_flat,  # Option 2: Scale the using the flattened span
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 

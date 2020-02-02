@@ -370,6 +370,7 @@ def foil_generator(base_config, sequences, fps=60):
             yield config, gsim.foil.SimpleFoil(
                 airfoil=Airfoil(None, NACA(24018)),
                 chords=chord_surface,
+                b_flat=10,
             )
             n += 1
     print()
@@ -413,6 +414,7 @@ chord_surface = ChordSurface(
 foil = gsim.foil.SimpleFoil(
     airfoil=Airfoil(None, NACA(24018),
     chords=chord_surface,
+    b_flat=10,
 )
 
 pfh.glidersim.plots.plot_foil(foil)
@@ -446,7 +448,6 @@ if __name__ == "__main__":
         "r_yz": "1.00",
         "yz": "FlatYZ()",
         "chord_length": "0.3",
-        "b_flat": "10",
         "torsion": "0",
         "center": "False",
     }
