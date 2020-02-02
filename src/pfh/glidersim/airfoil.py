@@ -776,9 +776,9 @@ class NACA(AirfoilGeometry):
         dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyl.T), axis=0))]
         dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
         pc = dc / dc[-1]
-        surface_points = np.r_[xyl[::-1], xyu[1:]]
+        surface_xyz = np.r_[xyl[::-1], xyu[1:]]
         sa = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
-        surface_curve = PchipInterpolator(sa, surface_points, extrapolate=False)
+        surface_curve = PchipInterpolator(sa, surface_xyz, extrapolate=False)
         camber_curve = PchipInterpolator(pc, xyc, extrapolate=False)
         thickness = PchipInterpolator(pc, 2 * self._yt(x), extrapolate=False)
         super().__init__(surface_curve, camber_curve, thickness, convention)

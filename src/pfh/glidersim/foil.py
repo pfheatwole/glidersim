@@ -835,7 +835,7 @@ class SimpleFoil:
         """
         return self._chords.orientation(s, flatten)
 
-    def surface_points(self, s, sa, surface, flatten=False):
+    def surface_xyz(self, s, sa, surface, flatten=False):
         """
         Sample points on section surfaces in foil FRD.
 
@@ -1089,8 +1089,8 @@ class SimpleFoil:
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
         sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
-        vu = self.surface_points(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
-        vl = self.surface_points(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
+        vu = self.surface_xyz(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles). The
         # input grid is conceptually a set of rectangles, and each rectangle
