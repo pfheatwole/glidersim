@@ -213,7 +213,22 @@ class EllipticalArc:
 
 
 def elliptical_chord(root, tip):
-    """Build an elliptical chord distribution as a function of the section index."""
+    """
+    Build an elliptical chord distribution as a function of the section index.
+
+    Parameters
+    ----------
+    root : float [length]
+        The length of the central chord
+    tip : float [length]
+        The length of the wing tips
+
+    Returns
+    -------
+    EllipticalArc
+        A function `chord_length(s)` where `-1 <= s <= 1`, (suitable for use
+        with `ChordSurface`).
+    """
 
     taper = tip / root
     A = 1 / np.sqrt(1 - taper ** 2)
