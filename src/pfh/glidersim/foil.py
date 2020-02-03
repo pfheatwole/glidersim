@@ -240,29 +240,39 @@ def elliptical_chord(root, tip):
     )
 
 
-def elliptical_lobe(mean_anhedral, max_anhedral_rate=None):
+def elliptical_lobe(mean_anhedral, max_anhedral=None):
     """
     Build an elliptical lobe curve as a function of the section index.
 
-    FIXME: accept the alternative pair: {b/b_flat, max_anhedral_rate}, since
-    you typically know b/b_flat from wing specs, and max_anhedral is pretty
-    easy to approximate from pictures.
+    Parameters
+    ----------
+    mean_anhedral : float [degrees]
+        The angle between the xy-plane and the line from the central section
+        to the wing tip.
+    max_anhedral : float [degrees]
+        The angle between the xy-plane and the section y-axis at the wing tip.
+
+    Returns
+    -------
+    EllipticalArc
+        A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
+        arc length `2` (suitable for use with `ChordSurface`).
     """
-    if max_anhedral_rate is None:
-        max_anhedral_rate = 2 * mean_anhedral + 1e-6
+    if max_anhedral is None:
+        max_anhedral = 2 * mean_anhedral + 1e-6
 
     # For a paraglider, dihedral should be negative (anhedral)
-    if max_anhedral_rate <= 2 * mean_anhedral:
-        raise ValueError("max_anhedral_rate <= 2 * mean_anhedral")
+    if max_anhedral <= 2 * mean_anhedral:
+        raise ValueError("max_anhedral <= 2 * mean_anhedral")
 
     mean_anhedral = np.deg2rad(mean_anhedral)
-    max_anhedral_rate = np.deg2rad(max_anhedral_rate)
+    max_anhedral = np.deg2rad(max_anhedral)
 
     # FIXME: handle `mean_anhedral == 0` gracefully (maybe suggest the user
     #        uses `FlatYZ`)
 
-    v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
-    v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral_rate)
+    v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral)
+    v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral)
     A = v1 / np.sqrt(v2)
     B = np.tan(mean_anhedral) * v1 / v2
     t_min = np.arccos(1 / A)
