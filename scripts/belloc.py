@@ -136,7 +136,7 @@ s_xyz = np.cumsum(np.r_[0, L_segments]) / L_segments.sum() * 2 - 1
 # Coordinates and chords are in meters, and must be normalized
 fx = scipy.interpolate.interp1d(s_xyz, xyz.T[0] / (b_flat / 2))
 fy = scipy.interpolate.interp1d(s_xyz, xyz.T[1] / (b_flat / 2))
-fz = scipy.interpolate.interp1d(s_xyz, xyz.T[2] - xyz[6, 2] / (b_flat / 2))
+fz = scipy.interpolate.interp1d(s_xyz, (xyz.T[2] - xyz[6, 2]) / (b_flat / 2))
 fc = scipy.interpolate.interp1d(s_xyz, c / (b_flat / 2))
 ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
