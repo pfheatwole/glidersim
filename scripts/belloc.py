@@ -175,6 +175,11 @@ class InterpolatedLobe:
 s = np.linspace(-1, 1, 1000)  # Resample so the cubic-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
+# Try overriding the sampled foil with smooth curves
+# print("\n\nWARNING: Replacing the sampled curves with perfect functions\n")
+# fc = gsim.foil.elliptical_chord(.350, .107)
+# lobe = gsim.foil.elliptical_lobe(28.6, 85)
+
 chord_surface = gsim.foil.ChordSurface(
     x=0,  # or `fx`
     r_x=0.6,
