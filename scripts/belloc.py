@@ -140,12 +140,6 @@ fz = scipy.interpolate.interp1d(s_xyz, (xyz.T[2] - xyz[6, 2]) / (b_flat / 2))
 fc = scipy.interpolate.interp1d(s_xyz, c / (b_flat / 2))
 ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
-# Check: what is the area of each panel, treating them as trapezoids? (Does not
-# account for the 3 degree washout at the tips.)
-# FIXME: verify
-dA = (c[:-1] + c[1:]) / 2 * (xyz.T[1, 1:] - xyz.T[1, :-1])
-print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
-
 
 # ---------------------------------------------------------------------------
 # Build the parafoil and wing
@@ -195,6 +189,12 @@ parafoil = gsim.foil.SimpleFoil(
     chords=chord_surface,
     b_flat=b_flat,
 )
+
+print("Finished building the parafoil. Checking fit...")
+print(f"Projected area> Expected: {S}, Actual: {parafoil.S}")
+print(f"Flattened area> Expected: {S_flat}, Actual: {parafoil.S_flat}")
+print(f"Projected AR> Expected: {AR}, Actual: {parafoil.AR}")
+print(f"Flattened AR> Expected: {AR_flat}, Actual: {parafoil.AR_flat}")
 
 wing = gsim.paraglider_wing.ParagliderWing(
     parafoil=parafoil,
@@ -345,7 +345,7 @@ embed()
 #
 # Uses the flattened wing area as the reference, as per the Belloc paper.
 
-S = wing.force_estimator.dA.sum()
+S = parafoil.S_flat
 
 coefficients = {}
 for beta in betas:
