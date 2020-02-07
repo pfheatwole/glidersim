@@ -10,8 +10,11 @@ and pitching moment.
 """
 
 import abc
+import pathlib
+import re
 
 import numpy as np
+from numpy.lib import recfunctions as rfn
 
 import pandas as pd
 
@@ -19,6 +22,7 @@ import scipy.optimize
 from scipy.integrate import simps
 from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
 from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import LinearNDInterpolator
 
 
 class Airfoil:
@@ -204,6 +208,76 @@ class GridCoefficients(AirfoilCoefficients):
 
     def Cl_alpha(self, alpha, delta):
         return self._Cl_alpha(alpha, delta)
+
+
+class XFLR5Coefficients:
+    """
+    Loads a set of XFLR5 polars (.txt) from a directory.
+
+    Requirements:
+
+    1. All `.txt` files in the directory are valid XFLR5 polar files, generated
+       using a single test configuration over a range of Reynolds numbers.
+
+    2. Filenames must use `<...>_ReN.NNN_<...>` to encode the Reynolds number
+       in units of millions (so `920,000` is encoded as `0.920`).
+
+    3. All polars will be included.
+    """
+    def __init__(self, dirname):
+        polars = self._load_xflr5_polar_set(dirname)
+        points = rfn.structured_to_unstructured(polars[["alpha", "Re"]])
+        self.Cl = LinearNDInterpolator(points, polars["Cl"])
+        self.Cd = LinearNDInterpolator(points, polars["Cd"])
+        self.Cm = LinearNDInterpolator(points, polars["Cm"])
+        self.Cl_alpha = LinearNDInterpolator(points, polars["Cl_alpha"])
+
+    @staticmethod
+    def _load_xflr5_polar_set(dirname):
+        d = pathlib.Path(dirname)
+
+        if not (d.exists() and d.is_dir()):
+            raise ValueError(f"'{dirname}' is not a valid directory")
+
+        polar_files = d.glob("*.txt")
+
+        # Standard XFLR5 polar column names (changes CL/CD to Cl/Cd)
+        names = [
+            "alpha",
+            "Cl",
+            "Cd",
+            "CDp",
+            "Cm",
+            "Top Xtr",
+            "Bot Xtr",
+            "Cpmin",
+            "Chinge",
+            "XCp",
+        ]
+
+        # FIXME: handle cases with <= 1 polar files
+
+        polars = []
+        for polar_file in polar_files:
+            Re = re.search("_Re(\d\.\d\d\d)_", polar_file.name).group(1)
+            Re = float(Re) * 1e6
+            data = np.genfromtxt(polar_file, skip_header=11, names=names)
+            data['alpha'] = np.deg2rad(data['alpha'])
+
+            # Smooth `CL` and compute a smoothed `CL_alpha` (improves convergence)
+            poly = np.polynomial.Polynomial.fit(data['alpha'], data['Cl'], 10)
+            data['Cl'] = poly(data['alpha'])
+            Cl_alphas = poly.deriv()(data['alpha'])
+            data = rfn.append_fields(data, "Cl_alpha", Cl_alphas)
+
+            # Append the Reynolds number for the polar
+            data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
+
+            polars.append((Re, data))
+
+        polars = sorted(polars, key=lambda p: p[0])
+
+        return np.concatenate([p[1] for p in polars])
 
 
 # ---------------------------------------------------------------------------
