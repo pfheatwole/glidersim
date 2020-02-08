@@ -38,54 +38,9 @@ import matplotlib.pyplot as plt  # noqa: F401
 
 import numpy as np
 
-import pandas as pd
-
-import scipy.interpolate
-
 import pfh.glidersim as gsim
 
-
-class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
-    """
-    Use airfoil coefficients from a CSV file.
-
-    The CSV must contain the following columns: [alpha, delta, CL, CD, Cm]
-
-    This is similar to `Airfoil.GridCoefficients`, but it assumes that delta
-    is always zero. This is convenient, since no assuptions need to be made
-    for the non-existent flaps on the wind tunnel model.
-    """
-
-    def __init__(self, filename, convert_degrees=True):
-        data = pd.read_csv(filename)
-        self.data = data
-
-        if convert_degrees:
-            data['alpha'] = np.deg2rad(data.alpha)
-
-        self._Cl = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CL, s=0.001)
-        self._Cd = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
-        self._Cm = scipy.interpolate.UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
-        self._Cl_alpha = self._Cl.derivative()
-
-    def _clean(self, alpha, val):
-        # The UnivariateSpline doesn't fill `nan` outside the boundaries
-        min_alpha, max_alpha = np.deg2rad(-9.9), np.deg2rad(24.9)
-        mask = (alpha < min_alpha) | (alpha > max_alpha)
-        val[mask] = np.nan
-        return val
-
-    def Cl(self, alpha, delta):
-        return self._clean(alpha, self._Cl(alpha))
-
-    def Cd(self, alpha, delta):
-        return self._clean(alpha, self._Cd(alpha))
-
-    def Cm(self, alpha, delta):
-        return self._clean(alpha, self._Cm(alpha))
-
-    def Cl_alpha(self, alpha, delta):
-        return self._clean(alpha, self._Cl_alpha(alpha))
+import scipy.interpolate
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +100,10 @@ ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 # Build the parafoil and wing
 
 airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
-airfoil_coefs = FlaplessAirfoilCoefficients(
-    'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
+
+polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N7.0"
+airfoil_coefs = gsim.airfoil.XFLR5Coefficients(polardir, flapped=False)
+
 airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
 
