@@ -224,16 +224,24 @@ class XFLR5Coefficients:
 
     3. All polars will be included.
     """
-    def __init__(self, dirname):
-        polars = self._load_xflr5_polar_set(dirname)
-        points = rfn.structured_to_unstructured(polars[["alpha", "Re"]])
-        self.Cl = LinearNDInterpolator(points, polars["Cl"])
-        self.Cd = LinearNDInterpolator(points, polars["Cd"])
-        self.Cm = LinearNDInterpolator(points, polars["Cm"])
-        self.Cl_alpha = LinearNDInterpolator(points, polars["Cl_alpha"])
+    def __init__(self, dirname, flapped):
+        self.flapped = flapped
+        polars = self._load_xflr5_polar_set(dirname, flapped)
+        self.polars = polars
+
+        if flapped:
+            columns = ["delta", "alpha", "Re"]
+        else:
+            columns = ["alpha", "Re"]
+
+        points = rfn.structured_to_unstructured(polars[columns])
+        self._Cl = LinearNDInterpolator(points, polars["Cl"])
+        self._Cd = LinearNDInterpolator(points, polars["Cd"])
+        self._Cm = LinearNDInterpolator(points, polars["Cm"])
+        self._Cl_alpha = LinearNDInterpolator(points, polars["Cl_alpha"])
 
     @staticmethod
-    def _load_xflr5_polar_set(dirname):
+    def _load_xflr5_polar_set(dirname, flapped):
         d = pathlib.Path(dirname)
 
         if not (d.exists() and d.is_dir()):
@@ -241,7 +249,7 @@ class XFLR5Coefficients:
 
         polar_files = d.glob("*.txt")
 
-        # Standard XFLR5 polar column names (changes CL/CD to Cl/Cd)
+        # Standard XFLR5 polar column names (renames CL/CD to Cl/Cd)
         names = [
             "alpha",
             "Cl",
@@ -255,12 +263,12 @@ class XFLR5Coefficients:
             "XCp",
         ]
 
-        # FIXME: handle cases with <= 1 polar files
+        # FIXME: handle cases with <= 1 polar files?
 
         polars = []
         for polar_file in polar_files:
             Re = re.search("_Re(\d\.\d\d\d)_", polar_file.name).group(1)
-            Re = float(Re) * 1e6
+            Re = float(Re)
             data = np.genfromtxt(polar_file, skip_header=11, names=names)
             data['alpha'] = np.deg2rad(data['alpha'])
 
@@ -273,11 +281,42 @@ class XFLR5Coefficients:
             # Append the Reynolds number for the polar
             data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
 
-            polars.append((Re, data))
+            if flapped:
+                deltastr = re.search("_delta(\d+\.\d+)_", polar_file.name)
+                delta = np.deg2rad(float(deltastr.group(1)))
+                data = rfn.append_fields(data, "delta", np.full(data.shape[0], delta))
 
-        polars = sorted(polars, key=lambda p: p[0])
+            polars.append(data)
 
-        return np.concatenate([p[1] for p in polars])
+        return np.concatenate(polars)
+
+    def Cl(self, delta, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cl(delta, alpha, Re)
+        else:
+            return self._Cl(alpha, Re)
+
+    def Cd(self, delta, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cd(delta, alpha, Re)
+        else:
+            return self._Cd(alpha, Re)
+
+    def Cm(self, delta, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cm(delta, alpha, Re)
+        else:
+            return self._Cm(alpha, Re)
+
+    def Cl_alpha(self, delta, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cl_alpha(delta, alpha, Re)
+        else:
+            return self._Cl_alpha(alpha, Re)
 
 
 # ---------------------------------------------------------------------------
