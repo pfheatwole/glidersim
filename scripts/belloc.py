@@ -274,8 +274,8 @@ g = [0, 0, 0]
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
 
-    alphas_up = np.deg2rad(np.linspace(2, 25, 150))
-    alphas_down = np.deg2rad(np.linspace(-8, 2, 40, endpoint=False))[::-1]
+    alphas_up = np.deg2rad(np.linspace(2, 22, 75))
+    alphas_down = np.deg2rad(np.linspace(-5, 2, 30, endpoint=False))[::-1]
 
     # First, going down
     ref = None
