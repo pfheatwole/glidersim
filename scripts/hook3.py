@@ -200,7 +200,6 @@ def build_hook3():
     SMC_flat = b_flat / AR_flat
     S, b, AR = 19.55, 8.84, 4.00
 
-    # We're specifying `b_flat`, so the geometry is treated as proportional
     chord_length = gsim.foil.elliptical_chord(
         root=chord_root / (b_flat / 2),
         tip=chord_tip / (b_flat / 2),
