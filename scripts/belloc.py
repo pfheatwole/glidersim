@@ -2,33 +2,18 @@
 Recreates the paraglider analysis in "Wind Tunnel Investigation of a Rigid
 Paraglider Reference Wing", H. Belloc, 2015
 
-
-Some Questions:
-    1. Should `V` be greater than or less than `V_rel`?
-    2. Why am I still significantly overestimating CL?
-        * If I divide by `rho_air` then it matches closely. Coincidence?
-    3. In `Phillips`, why are J2 and J4 so tiny? Is that correct?
-    4. In `Phillips`, where did J4 come from in Hunsaker's derivation?
-        * It wasn't in the original Phillips derivation
-    5. How should I modify `Phillips` to handle non-uniform `u_inf`?
-        * eg, during a turn
-        * Need to modify the `v_ij` at least
-    6. Why don't my `CM` curve like the Belloc paper?
-        * For starters, his `Cm25%` are positive? How? The airfoil produces a
-          negative Cm, as does my model
-        * The shape is wrong too
-        * Fig:6 shows it positve, decrease, then increase, then drop negative
-          post-stall; mine just gradually slopes down until negative!
-    7. How many segments are needed for an accurate Phillips method?
-        * Using K=31 gives noisy results for beta=15
-
-Some TODOs:
- * Review the force and moment calculations, given V+Gamma
- * I need to add Picard iterations to Phillips to deal with stalled sections
- * I need to fix how I calculate L and D when beta>0
-    * Observe in my `CL vs CD`: CD decreases with beta? Nope, wrong
-    * Also, in `CL vs alpha`, why does alpha_L0 increase with beta?
-
+TODO:
+* Why am I still significantly overestimating CL? Wrong airfoil data?
+* The CM25% in the paper are positive? How? The section Cm are almost entirely
+  negative until `alpha > 10`.
+* Review my CM_G calculation; both it and CM25% look wrong (which make sense,
+  since CM25% is computed directly from CM_G, while CM_CL and CM_CD look great.
+* Review the force and moment calculations.
+* Phillips needs "Picard iterations" to deal with stalled sections
+* I need to fix how I calculate L and D when beta>0
+   * Observe in my `CL vs CD`: CD decreases with beta? Nope, wrong
+   * Also, in `CL vs alpha`, why does alpha_L0 increase with beta?
+* Review the "effective AR" equation in Eq:6
 """
 
 
@@ -252,7 +237,7 @@ for kb, beta_deg in enumerate(betas):
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
-            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+            #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -284,7 +269,7 @@ for kb, beta_deg in enumerate(betas):
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
-            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+            #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
