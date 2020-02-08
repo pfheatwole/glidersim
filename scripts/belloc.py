@@ -239,10 +239,10 @@ embed()
 # but if the dynamic viscosity of the air is standard, then we can compute the
 # density of the air.
 Re = 0.92e6
-u = 40  # airspeed [m/s]
+V_mag = 40  # Wind tunnel airspeed [m/s]
 L = 0.350  # central chord [m]
 mu = 1.81e-5  # Standard dynamic viscosity of air
-rho_air = Re * mu / (u * L)
+rho_air = Re * mu / (V_mag * L)
 print("rho_air:", rho_air)
 
 # One-off test cases
@@ -285,6 +285,7 @@ for kb, beta_deg in enumerate(betas):
         UVW = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
+        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
             F, M, ref = glider.forces_and_moments(
@@ -316,6 +317,7 @@ for kb, beta_deg in enumerate(betas):
         UVW = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
+        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
             F, M, ref = glider.forces_and_moments(
@@ -357,9 +359,9 @@ for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    CX, CY, CZ = Fs[beta].T / (.5 * rho_air * S)
+    CX, CY, CZ = Fs[beta].T / (0.5 * rho_air * V_mag**2 * S)
     CN = -CZ
-    CM = Ms[beta].T[1] / (0.5 * rho_air * S * cc)  # Belloc uses the central chord
+    CM = Ms[beta].T[1] / (0.5 * rho_air * V_mag**2 * S * cc)  # The paper uses the central chord
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
@@ -468,22 +470,22 @@ for beta in betas:
     ix_a15 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 15))
 
     # Lateral force
-    Cy_a0.append(Fs[beta].T[1][ix_a0] / (.5 * rho_air * S))
-    Cy_a5.append(Fs[beta].T[1][ix_a5] / (.5 * rho_air * S))
-    Cy_a10.append(Fs[beta].T[1][ix_a10] / (.5 * rho_air * S))
-    Cy_a15.append(Fs[beta].T[1][ix_a15] / (.5 * rho_air * S))
+    Cy_a0.append(Fs[beta].T[1][ix_a0] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a5.append(Fs[beta].T[1][ix_a5] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a10.append(Fs[beta].T[1][ix_a10] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a15.append(Fs[beta].T[1][ix_a15] / (0.5 * rho_air * V_mag**2 * S))
 
     # Rolling moment coefficients
-    Cl_a0.append(Ms[beta].T[0][ix_a0] / (.5 * rho_air * S * cc))
-    Cl_a5.append(Ms[beta].T[0][ix_a5] / (.5 * rho_air * S * cc))
-    Cl_a10.append(Ms[beta].T[0][ix_a10] / (.5 * rho_air * S * cc))
-    Cl_a15.append(Ms[beta].T[0][ix_a15] / (.5 * rho_air * S * cc))
+    Cl_a0.append(Ms[beta].T[0][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a5.append(Ms[beta].T[0][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a10.append(Ms[beta].T[0][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a15.append(Ms[beta].T[0][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
 
     # Yawing moment coeficients
-    Cn_a0.append(Ms[beta].T[2][ix_a0] / (.5 * rho_air * S * cc))
-    Cn_a5.append(Ms[beta].T[2][ix_a5] / (.5 * rho_air * S * cc))
-    Cn_a10.append(Ms[beta].T[2][ix_a10] / (.5 * rho_air * S * cc))
-    Cn_a15.append(Ms[beta].T[2][ix_a15] / (.5 * rho_air * S * cc))
+    Cn_a0.append(Ms[beta].T[2][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a5.append(Ms[beta].T[2][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a10.append(Ms[beta].T[2][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a15.append(Ms[beta].T[2][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
 
 fig9, ax9 = plt.subplots()
 ax9.plot(betas, Cy_a0, label=r'$\alpha$=0°')
