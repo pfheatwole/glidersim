@@ -183,7 +183,8 @@ def build_hook3():
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
 
     print("Loading polars...")
-    airfoil_coefs = gsim.airfoil.XFLR5Coefficients("polars/exp_curving_24018", flapped=True)
+    # airfoil_coefs = gsim.airfoil.XFLR5Coefficients("polars/exp_curving_24018", flapped=True)
+    airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018/gridded.csv")
     delta_max = np.deg2rad(13.37)
 
     # print("\nAirfoil: NACA 23015, curving flap")
@@ -191,7 +192,7 @@ def build_hook3():
     # airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_23015.csv')
     # delta_max = np.deg2rad(12.00)  # True value: 13.38
 
-    _airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
+    airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil: an approximate Niviuk Hook 3, size 23
@@ -225,7 +226,7 @@ def build_hook3():
     )
 
     parafoil = gsim.foil.SimpleFoil(
-        airfoil=_airfoil,
+        airfoil=airfoil,
         chords=chord_surface,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span

@@ -16,13 +16,11 @@ import re
 import numpy as np
 from numpy.lib import recfunctions as rfn
 
-import pandas as pd
-
 import scipy.optimize
 from scipy.integrate import simps
-from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
-from scipy.interpolate import PchipInterpolator
 from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import RegularGridInterpolator
 
 
 class Airfoil:
@@ -156,58 +154,59 @@ class GridCoefficients(AirfoilCoefficients):
     """
     Uses the airfoil coefficients from a CSV file.
 
+    All values must lie on a regular grid over `delta`, `alpha`, and `Re`. This
+    works like `XFLR5Coefficients`, but using a regular grid is much faster.
+    Assumes the `Cl` and `Cl_alpha` have already been smoothed.
+
     The CSV must contain the following columns
-     * alpha
-     * delta
-     * CL
-     * CD
+     * delta [degrees]
+     * alpha [degrees]
+     * Re
+     * Cl
+     * Cd
      * Cm
+     * Cl_alpha
+
     """
 
-    def __init__(self, filename, convert_degrees=True):
+    def __init__(self, filename):
         # FIXME: docstring
 
-        data = pd.read_csv(filename)
-        self.data = data
+        names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
+        data = np.genfromtxt(filename, skip_header=1, names=list(names), delimiter=',')
 
-        if convert_degrees:
-            data["alpha"] = np.deg2rad(data.alpha)
-            data["delta"] = np.deg2rad(data.delta)
+        # FIXME: Requires that all points are present (even if `nan`).
+        # FIXME: Assumes that the points are correctly ordered.
+        delta = np.deg2rad(np.unique(data["delta"]))
+        alpha = np.deg2rad(np.unique(data["alpha"]))
+        Re = np.unique(data["Re"])
+        points = (delta, alpha, Re)
+        shape = (len(delta), len(alpha), len(Re))
 
-        self._Cl = Clough2D(data[["alpha", "delta"]], data.CL)
-        self._Cd = Clough2D(data[["alpha", "delta"]], data.CD)
-        self._Cm = Clough2D(data[["alpha", "delta"]], data.Cm)
+        self._Cl = RegularGridInterpolator(
+            points, data["Cl"].reshape(shape), bounds_error=False,
+        )
+        self._Cd = RegularGridInterpolator(
+            points, data["Cd"].reshape(shape), bounds_error=False,
+        )
+        self._Cm = RegularGridInterpolator(
+            points, data["Cm"].reshape(shape), bounds_error=False,
+        )
+        self._Cl_alpha = RegularGridInterpolator(
+            points, data["Cl_alpha"].reshape(shape), bounds_error=False,
+        )
 
-        # Construct another grid with smoothed derivatives of Cl vs alpha
-        # FIXME: needs a design review
-        alpha_min, delta_min = self._Cl.tri.min_bound
-        alpha_max, delta_max = self._Cl.tri.max_bound
-        points = []
-        for delta in np.linspace(delta_min, delta_max, 25):
-            alphas = np.linspace(alpha_min, alpha_max, 150)
-            deltas = np.full_like(alphas, delta)
-            CLs = self._Cl(alphas, deltas)
-            notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
-            alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
-            poly = np.polynomial.Polynomial.fit(alphas, CLs, 7)
-            Cl_alphas = poly.deriv()(alphas)
-            deltas -= 1e-9   # FIXME: HACK! Keep delta=0 inside the convex hull
-            points.append(np.array((alphas, deltas, Cl_alphas)).T)
+    def Cl(self, delta, alpha, Re):
+        return self._Cl((delta, alpha, Re / 1e6))
 
-        points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
-        self._Cl_alpha = Clough2D(points[:, :2], points[:, 2])
+    def Cd(self, delta, alpha, Re):
+        return self._Cd((delta, alpha, Re / 1e6))
 
-    def Cl(self, alpha, delta):
-        return self._Cl(alpha, delta)
+    def Cm(self, delta, alpha, Re):
+        return self._Cm((delta, alpha, Re / 1e6))
 
-    def Cd(self, alpha, delta):
-        return self._Cd(alpha, delta)
-
-    def Cm(self, alpha, delta):
-        return self._Cm(alpha, delta)
-
-    def Cl_alpha(self, alpha, delta):
-        return self._Cl_alpha(alpha, delta)
+    def Cl_alpha(self, delta, alpha, Re):
+        return self._Cl_alpha((delta, alpha, Re / 1e6))
 
 
 class XFLR5Coefficients:
