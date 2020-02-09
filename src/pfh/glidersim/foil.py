@@ -1466,8 +1466,9 @@ class Phillips(ForceEstimator):
 
         return JT.T
 
-    def _fixed_point_circulation(self, Gamma, V_w2cp, v, delta,
-                                 maxiter=500, xtol=1e-8):
+    def _fixed_point_circulation(
+        self, Gamma, delta, V_w2cp, v, Re, maxiter=500, xtol=1e-5
+    ):
         """Improve a proposal via fixed-point iterations.
 
         Warning: This method needs a lot of work and validation!
@@ -1495,7 +1496,7 @@ class Phillips(ForceEstimator):
             # FIXME: Should `G` use `V*V` or `(V_n**2 + V_a**2)`?
             V, V_n, V_a, alpha = self._local_velocities(V_w2cp, G, v)
             W_norm = np.linalg.norm(np.cross(V, self.dl), axis=1)
-            Cl = self.foil.airfoil.coefficients.Cl(alpha, delta)
+            Cl = self.foil.airfoil.coefficients.Cl(delta, alpha, Re)
             G = (.5 * (V_n ** 2 + V_a ** 2) * self.dA * Cl) / W_norm
 
             # --------------------------------------------------------------
