@@ -120,13 +120,15 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def equilibrium_alpha(self, deltaB, delta_a, V_mag, rho_air, reference_solution=None):
+    def equilibrium_alpha(
+        self, delta_B, delta_a, V_mag, rho_air, reference_solution=None
+    ):
         """FIXME: add docstring."""
-        def target(alpha, deltaB, delta_a, reference_solution):
+        def target(alpha, delta_B, delta_a, reference_solution):
             cp_wing = self.control_points(delta_a)
             v_wing = V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(
-                 deltaB, deltaB, v_wing, rho_air, reference_solution,
+                 delta_B, delta_B, v_wing, rho_air, reference_solution,
             )
             M = dM_w.sum(axis=0)
             M += cross3(cp_wing, dF_w).sum(axis=0)
@@ -134,7 +136,7 @@ class ParagliderWing:
 
         x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
         res = root_scalar(
-            target, args=(deltaB, delta_a, reference_solution), x0=x0, x1=x1,
+            target, args=(delta_B, delta_a, reference_solution), x0=x0, x1=x1,
         )  # FIXME: add `rtol`?
         if not res.converged:
             raise foil.ForceEstimator.ConvergenceError
