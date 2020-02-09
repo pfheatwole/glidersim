@@ -13,10 +13,11 @@ def plot_polar_curve(glider, N=51):
     delta_as = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
     ref = None  # Reference solution; speeds convergence
+    V_eq = 10  # Initial guess
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
         alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            0, da, V_initial_mag=10, rho_air=1.2, reference_solution=ref,
+            0, da, V_initial_mag=V_eq, rho_air=1.2, reference_solution=ref,
         )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1 / np.tan(gamma_eq)
@@ -27,11 +28,12 @@ def plot_polar_curve(glider, N=51):
     delta_Bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
     ref = None
+    V_eq = 10  # Initial guess
     for n, db in enumerate(delta_Bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-                db, 0, V_initial_mag=10, rho_air=1.2, reference_solution=ref,
+                db, 0, V_initial_mag=V_eq, rho_air=1.2, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
