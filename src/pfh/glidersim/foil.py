@@ -1345,11 +1345,14 @@ class Phillips(ForceEstimator):
 
     def _compute_Reynolds(self, V_cp2w, rho_air):
         """Compute the Reynolds number at each control point."""
+
+        # FIXME: verify that using the total airspeed (including spanwise flow)
+        #        is okay. A few tests show minimal differences, so for now I'm
+        #        not wasting time computing the normal and chordwise flows.
         u = np.linalg.norm(V_cp2w, axis=-1)  # airspeed [m/s]
         mu = 1.81e-5  # Standard dynamic viscosity of air
         Re = rho_air * u * self.c_avg / mu
-        # print("\nDEBUG> Re:", Re)
-        # print()
+        # print("\nDEBUG> Re:", Re, "\n")
         return Re
 
     @property
