@@ -1637,8 +1637,8 @@ class Phillips(ForceEstimator):
 
     def __call__(self, delta, V_cp2w, rho_air, reference_solution=None, max_iterations=50):
         # FIXME: this doesn't match the ForceEstimator.__call__ signature
-        V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
         delta = np.broadcast_to(delta, (self.K))
+        V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
 
         # Compute the Reynolds number at each control point
         u = np.linalg.norm(V_cp2w, axis=1)  # airspeed [m/s]
@@ -1650,8 +1650,8 @@ class Phillips(ForceEstimator):
         if reference_solution is None:
             reference_solution = self._reference_solution
 
-        V_w2cp_ref = reference_solution['V_w2cp']
         delta_ref = reference_solution['delta']
+        V_w2cp_ref = reference_solution['V_w2cp']
         Gamma_ref = reference_solution['Gamma']
         if Gamma_ref is not None:
             assert not np.any(np.isnan(Gamma_ref))
@@ -1667,18 +1667,18 @@ class Phillips(ForceEstimator):
             try:
                 Gamma, v = self._solve_circulation(delta, V_w2cp, Re, Gamma_ref)
             except ForceEstimator.ConvergenceError:
-                target_backlog.append((V_w2cp, delta))
+                target_backlog.append((delta, V_w2cp))
                 P = 0.5  # Ratio, a point between the reference and the target
-                V_w2cp = V_w2cp_ref + P * (V_w2cp - V_w2cp_ref)
-                delta = delta_ref + P * (delta - delta_ref)
+                delta = (1 - P) * delta_ref + P * delta
+                V_w2cp = (1 - P) * V_w2cp_ref + P * V_w2cp
                 continue
 
-            V_w2cp_ref = V_w2cp
             delta_ref = delta
+            V_w2cp_ref = V_w2cp
             Gamma_ref = Gamma
 
             if target_backlog:
-                V_w2cp, delta = target_backlog.pop()
+                delta, V_w2cp= target_backlog.pop()
             else:
                 break
         else:
@@ -1731,8 +1731,8 @@ class Phillips(ForceEstimator):
         dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
-            'V_w2cp': V_w2cp_ref,
             'delta': delta_ref,
+            'V_w2cp': V_w2cp_ref,
             'Gamma': Gamma_ref,
         }
 
