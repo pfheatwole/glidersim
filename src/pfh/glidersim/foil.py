@@ -1327,20 +1327,19 @@ class Phillips(ForceEstimator):
             self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
 
-        # Precompute a reference solution from an easy base case
-        delta_ref = 0
+        # Precompute a reference solution from a (hopefully easy) base case.
+        # Sets an initial "solution" (which isn't actually a solution) just to
+        # bootstrap the `__call__` method with an initial `Gamma` value.
         alpha_ref = np.deg2rad(alpha_ref)
-        V_cp2w_ref = np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
-        V_cp2w_ref = np.broadcast_to(V_ref_mag, (self.K, 3)) * V_cp2w_ref
-        Re = self._compute_Reynolds(V_cp2w_ref, rho_air=1.2)
+        V_mag = np.broadcast_to(V_ref_mag, (self.K, 3))
+        V_cp2w_ref = V_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
         self._reference_solution = {
-            'delta': delta_ref,
+            'delta': 0,
             'V_w2cp': -V_cp2w_ref,
-            'Gamma': self._proposal1(delta_ref, -V_cp2w_ref, Re),
+            'Gamma': np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
         }
-
         try:
-            _, _, self._reference_solution = self.__call__(delta_ref, V_cp2w_ref, 1.2)
+            _, _, self._reference_solution = self.__call__(0, V_cp2w_ref, 1.2)
         except ForceEstimator.ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
 
@@ -1374,22 +1373,6 @@ class Phillips(ForceEstimator):
         )
 
         return v / (4 * np.pi)
-
-    def _proposal1(self, delta, V_w2cp, Re):
-        """
-        Generate a naive elliptical Gamma distribution.
-
-        Uses the wing root velocity as a scaling factor, and ignores the rest
-        of `V_w2cp`. Doesn't care about the wing shape either, since it uses
-        the section index to generate the values (and ignores the actual
-        positions/orientations of those sections).
-        """
-        mid = self.K // 2
-        alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
-        CL_2d = self.foil.airfoil.coefficients.Cl(delta, alpha_2d, Re)
-        Gamma0 = np.linalg.norm(V_w2cp[mid]) * self.dA[mid] * CL_2d
-        Gamma = Gamma0 * np.sqrt(1 - self.s_cps ** 2)
-        return Gamma
 
     def _local_velocities(self, V_w2cp, Gamma, v):
         # Compute the local fluid velocities
