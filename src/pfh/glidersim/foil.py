@@ -1328,21 +1328,30 @@ class Phillips(ForceEstimator):
                 (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
 
         # Precompute a reference solution from an easy base case
+        delta_ref = 0
         alpha_ref = np.deg2rad(alpha_ref)
-        V_ref = V_ref_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
-        delta_ref = np.zeros(self.K)
+        V_cp2w_ref = np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
+        V_cp2w_ref = np.broadcast_to(V_ref_mag, (self.K, 3)) * V_cp2w_ref
+        Re = self._compute_Reynolds(V_cp2w_ref, rho_air=1.2)
         self._reference_solution = {
-            'V_w2cp': -V_ref,
             'delta': delta_ref,
-            'Gamma': None,
+            'V_w2cp': -V_cp2w_ref,
+            'Gamma': self._proposal1(delta_ref, -V_cp2w_ref, Re),
         }
 
         try:
-            _, _, self._reference_solution = self.__call__(
-                delta_ref, V_ref, rho_air=1.2,
-            )
+            _, _, self._reference_solution = self.__call__(delta_ref, V_cp2w_ref, 1.2)
         except ForceEstimator.ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
+
+    def _compute_Reynolds(self, V_cp2w, rho_air):
+        """Compute the Reynolds number at each control point."""
+        u = np.linalg.norm(V_cp2w, axis=-1)  # airspeed [m/s]
+        mu = 1.81e-5  # Standard dynamic viscosity of air
+        Re = rho_air * u * self.c_avg / mu
+        # print("\nDEBUG> Re:", Re)
+        # print()
+        return Re
 
     @property
     def control_points(self):
@@ -1373,7 +1382,7 @@ class Phillips(ForceEstimator):
         Uses the wing root velocity as a scaling factor, and ignores the rest
         of `V_w2cp`. Doesn't care about the wing shape either, since it uses
         the section index to generate the values (and ignores the actual
-        coordinates of those sections).
+        positions/orientations of those sections).
         """
         mid = self.K // 2
         alpha_2d = np.arctan(V_w2cp[mid, 2] / V_w2cp[mid, 0])
@@ -1608,10 +1617,7 @@ class Phillips(ForceEstimator):
 
         return {"x": Gamma, "success": success}
 
-    def _solve_circulation(self, delta, V_w2cp, Re, Gamma0=None):
-        if Gamma0 is None:  # Assume a simple elliptical distribution
-            Gamma0 = self._proposal1(delta, V_w2cp, Re)
-
+    def _solve_circulation(self, delta, V_w2cp, Re, Gamma0):
         # FIXME: is using the freestream velocity at the central chord okay?
         V_mid = V_w2cp[self.K // 2]
         u_inf = V_mid / np.linalg.norm(V_mid)
@@ -1639,13 +1645,7 @@ class Phillips(ForceEstimator):
         # FIXME: this doesn't match the ForceEstimator.__call__ signature
         delta = np.broadcast_to(delta, (self.K))
         V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
-
-        # Compute the Reynolds number at each control point
-        u = np.linalg.norm(V_cp2w, axis=1)  # airspeed [m/s]
-        mu = 1.81e-5  # Standard dynamic viscosity of air
-        Re = rho_air * u * self.c_avg / mu
-        # print("\nDEBUG> Re:", Re)
-        # print()
+        Re = self._compute_Reynolds(V_cp2w, rho_air)
 
         if reference_solution is None:
             reference_solution = self._reference_solution
@@ -1653,8 +1653,6 @@ class Phillips(ForceEstimator):
         delta_ref = reference_solution['delta']
         V_w2cp_ref = reference_solution['V_w2cp']
         Gamma_ref = reference_solution['Gamma']
-        if Gamma_ref is not None:
-            assert not np.any(np.isnan(Gamma_ref))
 
         # Try to solve for the target (`Gamma` as a function of `V_cp2w` and
         # `delta`) directly using the `reference_solution`. If that fails, pick
