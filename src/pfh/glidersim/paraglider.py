@@ -141,20 +141,15 @@ class Paraglider:
 
         # Compute the resultant force and moment about the cg
         dF_w, dM_w, ref = self.wing.forces_and_moments(
-            v_wing, delta_Bl, delta_Br, reference_solution,
+            delta_Bl, delta_Br, v_wing, rho_air, reference_solution,
         )
-        dF_h, dM_h = self.harness.forces_and_moments(v_harness)
+        dF_h, dM_h = self.harness.forces_and_moments(v_harness, rho_air)
         F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
         M += cross3(cp_wing, dF_w).sum(axis=0)
-
-        # Scale the aerodynamic forces to account for the air density before
-        # adding the weight of the harness
-        F *= rho_air
-        M *= rho_air
 
         # The harness also contributes a gravitational force, but since this
         # model places the cg at the harness, that force does not generate a
@@ -164,7 +159,7 @@ class Paraglider:
         return F, M, ref
 
     def equilibrium_glide(
-        self, delta_B, delta_a, rho_air, alpha_eq=None, reference_solution=None,
+        self, delta_B, delta_a, V_initial_mag, rho_air, alpha_eq=None, reference_solution=None,
     ):
         r"""
         Steady-state angle of attack, pitch angle, and airspeed.
@@ -207,13 +202,19 @@ class Paraglider:
         where `m` is the mass of the harness + pilot.
         """
         if alpha_eq is None:
-            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_a, reference_solution)
+            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_a, V_initial_mag, rho_air, reference_solution)
 
         g = np.zeros(3)  # Don't include the weight of the harness
-        V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+        V = V_initial_mag * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
         F, M, solution = self.forces_and_moments(
             V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_a,
         )
+
+
+        # This equation assumes `V == 1`, but since I'm scaling up by
+        # `V_initial_mag` (to calculate the correct Reynolds numbers) I now
+        # need to rescale the forces.
+        F /= V_initial_mag**2
 
         # FIXME: neglects the weight of the wing
         Theta_eq = np.arctan2(F[0], -F[2])

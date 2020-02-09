@@ -15,7 +15,7 @@ class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
-    def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
+    def __init__(self, parafoil, force_estimator, V_ref_mag, brake_geo, d_riser, z_riser,
                  pA, pC, kappa_a, rho_upper, rho_lower):
         """
         FIXME: add docstring.
@@ -26,6 +26,8 @@ class ParagliderWing:
             The geometric shape of the lifting surface.
         force_estimator : foil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
+        V_ref_mag : float [m/s]
+            Airspeed for the force_estimator base case.
         brake_geo : BrakeGeometry
             Section trailing edge deflections as a function of delta_Bl/Br
         d_riser : float [percentage]
@@ -44,7 +46,7 @@ class ParagliderWing:
             Surface area densities of the upper and lower foil surfaces.
         """
         self.parafoil = parafoil
-        self.force_estimator = force_estimator(parafoil)
+        self.force_estimator = force_estimator(parafoil, V_ref_mag=V_ref_mag)
         self.brake_geo = brake_geo
         self.pA = pA
         self.pC = pC
@@ -65,18 +67,20 @@ class ParagliderWing:
         self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
         self.AC = (self.pC - self.pA) * self.c0
 
-    def forces_and_moments(self, V_cp2w, delta_Bl, delta_Br, reference_solution=None):
+    def forces_and_moments(self, delta_Bl, delta_Br, V_cp2w, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
 
         Parameters
         ----------
-        V_cp2w : array of float, shape (K,3) [m/s]
-            The relative velocity of each control point vs the fluid
         delta_Bl : float [percentage]
             The amount of left brake
         delta_Br : float [percentage]
             The amount of right brake
+        V_cp2w : array of float, shape (K,3) [m/s]
+            The relative velocity of each control point vs the fluid
+        rho_air : float [kg/m^3]
+            The ambient air density
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -89,7 +93,7 @@ class ParagliderWing:
             FIXME: docstring. See `Phillips.__call__`
         """
         delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(V_cp2w, delta, reference_solution)
+        dF, dM, solution = self.force_estimator(delta, V_cp2w, rho_air, reference_solution)
         return dF, dM, solution
 
     def foil_origin(self, delta_a=0):
@@ -116,13 +120,13 @@ class ParagliderWing:
 
         return np.array([foil_x, foil_y, foil_z])
 
-    def equilibrium_alpha(self, deltaB, delta_a, reference_solution=None):
+    def equilibrium_alpha(self, deltaB, delta_a, V_mag, rho_air, reference_solution=None):
         """FIXME: add docstring."""
         def target(alpha, deltaB, delta_a, reference_solution):
             cp_wing = self.control_points(delta_a)
-            v_wing = np.array([np.cos(alpha), 0, np.sin(alpha)])
+            v_wing = V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(
-                v_wing, deltaB, deltaB, reference_solution,
+                 deltaB, deltaB, v_wing, rho_air, reference_solution,
             )
             M = dM_w.sum(axis=0)
             M += cross3(cp_wing, dF_w).sum(axis=0)

@@ -146,6 +146,7 @@ print(f"Flattened AR> Expected: {AR_flat}, Actual: {parafoil.AR_flat}")
 wing = gsim.paraglider_wing.ParagliderWing(
     parafoil=parafoil,
     force_estimator=gsim.foil.Phillips,
+    V_ref_mag=40,  # For Phillips reference solution
     brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord

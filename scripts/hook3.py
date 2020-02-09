@@ -16,7 +16,7 @@ def plot_polar_curve(glider, N=51):
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
         alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            0, da, rho_air=1.2, reference_solution=ref,
+            0, da, V_initial_mag=10, rho_air=1.2, reference_solution=ref,
         )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1 / np.tan(gamma_eq)
@@ -31,7 +31,7 @@ def plot_polar_curve(glider, N=51):
         print("\rdb: {:.2f}".format(db), end="")
         try:
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-                db, 0, rho_air=1.2, reference_solution=ref,
+                db, 0, V_initial_mag=10, rho_air=1.2, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
@@ -181,8 +181,10 @@ def build_hook3():
 
     print("Airfoil: NACA 24018, curving flap\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
-    airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018.csv")
-    delta_max = np.deg2rad(10.00)  # True value: 13.28
+
+    print("Loading polars...")
+    airfoil_coefs = gsim.airfoil.XFLR5Coefficients("polars/exp_curving_24018", flapped=True)
+    delta_max = np.deg2rad(13.37)
 
     # print("\nAirfoil: NACA 23015, curving flap")
     # airfoil_geo = airfoil.NACA(23015, convention='vertical')
@@ -242,11 +244,11 @@ def build_hook3():
     print(f"  projected AR:   {parafoil.AR:>6.3f}")
     print()
 
-    print("Drawing the parafoil")
-    gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
-    gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
-    gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
-    gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
+    # print("Drawing the parafoil")
+    # gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
+    # gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
+    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
 
     print("\nPausing...")
     embed()
@@ -269,9 +271,10 @@ def build_hook3():
     # Wing and glider
 
     wing = gsim.paraglider_wing.ParagliderWing(
-        parafoil,
-        gsim.foil.Phillips,
-        brakes,
+        parafoil=parafoil,
+        force_estimator=gsim.foil.Phillips,
+        V_ref_mag=10,  # For Phillips reference solution
+        brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `Theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
         pA=0.11,  # Approximated from a picture in the manual
@@ -307,7 +310,7 @@ if __name__ == "__main__":
     glider = build_hook3()
 
     print("\nComputing the wing equilibrium...")
-    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, rho_air=1.2)
+    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, V_initial_mag=10, rho_air=1.2)
 
     print(f"  alpha: {np.rad2deg(alpha):>6.3f} [deg]")
     print(f"  Theta: {np.rad2deg(Theta):>6.3f} [deg]")
@@ -321,7 +324,7 @@ if __name__ == "__main__":
     F, M, _, = glider.forces_and_moments(
         UVW, PQR, g=g, rho_air=1.2, delta_Bl=0, delta_Br=0,
     )
-    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, rho_air=1.2)
+    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, V_initial_mag=10, rho_air=1.2)
     gamma_eq = alpha_eq - Theta_eq
 
     print(f"  UVW:   {UVW.round(4)}")
