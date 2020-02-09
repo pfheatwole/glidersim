@@ -116,40 +116,6 @@ class AirfoilCoefficients(abc.ABC):
         """
 
 
-class LinearCoefficients(AirfoilCoefficients):
-    """
-    An airfoil model that assumes a strictly linear lift coefficient, constant
-    form drag, and constant pitching moment.
-
-    The effect of brakes is to shift the coefficient curves to the left; brake
-    deflections do not change the shape of the curves. This is equivalent to
-    an airfoil with a fixed flap hinge located at the leading edge.
-
-    FIXME: the name is misleading: should be "FixedCoefficients" or similar
-    FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
-    """
-
-    def __init__(self, a0, i0, D0, Cm):
-        self.a0 = a0  # [1/rad]
-        self.i0 = np.deg2rad(i0)
-        self.D0 = D0
-        self._Cm = Cm  # FIXME: seems clunky; change the naming?
-
-    def Cl(self, alpha, delta):
-        # FIXME: verify the usage of delta
-        delta_angle = np.arctan(delta)  # tan(delta_angle) = delta/chord
-        return self.a0 * (alpha + delta_angle - self.i0)
-
-    def Cd(self, alpha, delta):
-        return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
-
-    def Cm(self, alpha, delta):
-        return np.full_like(alpha, self._Cm, dtype=self._Cm.dtype)
-
-    def Cl_alpha(self, alpha, delta):
-        return self.a0
-
-
 class GridCoefficients(AirfoilCoefficients):
     """
     Uses the airfoil coefficients from a CSV file.
