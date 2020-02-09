@@ -37,24 +37,22 @@ class Airfoil:
 
 
 class AirfoilCoefficients(abc.ABC):
-    """
-    Provides the aerodynamic coefficients of a wing section.
-
-    FIXME: needs a better description
-    """
+    """Defines the API for classes that provide airfoil coefficients."""
 
     @abc.abstractmethod
-    def Cl(self, alpha, delta):
+    def Cl(self, delta, alpha, Re):
         """
         Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
-        alpha : float [radians]
-            The angle of attack
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -62,17 +60,19 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, alpha, delta):
+    def Cd(self, delta, alpha, Re):
         """
         Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
-        alpha : float [radians]
-            The angle of attack
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -80,35 +80,39 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, alpha, delta):
+    def Cm(self, delta, alpha, Re):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        alpha : float [radians]
-            The angle of attack
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
         Cm : float
         """
 
-    # FIXME: make this an abstractmethod? Must all subclasses implement it?
-    def Cl_alpha(self, alpha, delta):
+    @abc.abstractmethod
+    def Cl_alpha(self, delta, alpha, Re):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
-        alpha : float [radians]
-            The angle of attack
         delta : float [unitless distance]
             The deflection distance of the trailing edge due to braking,
             measured as a fraction of the chord length.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -118,7 +122,7 @@ class AirfoilCoefficients(abc.ABC):
 
 class GridCoefficients(AirfoilCoefficients):
     """
-    Uses the airfoil coefficients from a CSV file.
+    Loads a set of polars from a CSV file.
 
     All values must lie on a regular grid over `delta`, `alpha`, and `Re`. This
     works like `XFLR5Coefficients`, but using a regular grid is much faster.
@@ -175,7 +179,7 @@ class GridCoefficients(AirfoilCoefficients):
         return self._Cl_alpha((delta, alpha, Re / 1e6))
 
 
-class XFLR5Coefficients:
+class XFLR5Coefficients(AirfoilCoefficients):
     """
     Loads a set of XFLR5 polars (.txt) from a directory.
 
