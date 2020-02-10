@@ -1432,15 +1432,15 @@ class Phillips(ForceEstimator):
 
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
-            J_true = self._J_finite(Gamma, V_w2cp, v, delta)
+            J_true = self._J_finite(Gamma, delta, V_w2cp, v, Re)
             mask = ~np.isnan(J_true) | ~np.isnan(J)
             if not np.allclose(J[mask], J_true[mask]):
                 print("\n !!! The analytical Jacobian is wrong. Halting. !!!")
-                breakpoint()
+                embed()
 
         return J
 
-    def _J_finite(self, Gamma, V_w2cp, v, delta):
+    def _J_finite(self, Gamma, delta, V_w2cp, v, Re):
         """Compute the Jacobian using a centered finite distance.
 
         Useful for checking the analytical gradient.
@@ -1459,8 +1459,8 @@ class Phillips(ForceEstimator):
         Gp, Gm = Gamma.copy(), Gamma.copy()
         for k in range(self.K):
             Gp[k], Gm[k] = Gamma[k] + eps, Gamma[k] - eps
-            fp = self._f(Gp, V_w2cp, v, delta)
-            fm = self._f(Gm, V_w2cp, v, delta)
+            fp = self._f(Gp, delta, V_w2cp, v, Re)
+            fm = self._f(Gm, delta, V_w2cp, v, Re)
             JT[k] = (fp - fm) / (2 * eps)
             Gp[k], Gm[k] = Gamma[k], Gamma[k]
 
