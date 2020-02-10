@@ -1,3 +1,4 @@
+from IPython import embed
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
@@ -220,23 +221,49 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, ax=None):
-    """Plot a 3D foil in topdown projection."""
+def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0, ax=None):
+    """
+    Plot a 3D foil in topdown projection.
+
+    Parameters
+    ----------
+    foil : FoilGeometry
+    N_sections : integer
+        The number of spanwise sections to plot.
+    N_points : integer
+        The number of points per surface curve.
+    flatten : bool
+        Whether to flatten the arch (ignore dihedral).
+    rotate : float [degrees]
+        Rotation angle about the y-axis. Possibly useful if some manufacturers
+        use `Theta_eq` for the specs?
+    ax : matplotlib.axes
+        An existing subplot. Useful for layering or animation.
+    """
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 12))
         independent_plot = True
     else:
         independent_plot = False
 
+    theta = np.deg2rad(rotate)
+    ct, st = np.cos(theta), np.sin(theta)
+    R = np.array(
+        [[ ct, 0, st],  # noqa: E201
+         [  0, 1,  0],  # noqa: E201
+         [-st, 0, ct]],
+    )
+
     for s in np.linspace(-1, 1, N_sections):
-        LE_xy = foil.chord_xyz(s, 0, flatten=flatten)[:2]
-        TE_xy = foil.chord_xyz(s, 1, flatten=flatten)[:2]
-        coords = np.stack((LE_xy, TE_xy))
+        LE = foil.chord_xyz(s, 0, flatten=flatten)
+        TE = foil.chord_xyz(s, 1, flatten=flatten)
+        coords = np.stack((LE, TE))
+        coords = (R @ coords.T).T
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     s = np.linspace(-1, 1, N_sections)
-    LE = foil.chord_xyz(s, 0, flatten=flatten)
-    TE = foil.chord_xyz(s, 1, flatten=flatten)
+    LE = (R @ foil.chord_xyz(s, 0, flatten=flatten).T).T
+    TE = (R @ foil.chord_xyz(s, 1, flatten=flatten).T).T
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
