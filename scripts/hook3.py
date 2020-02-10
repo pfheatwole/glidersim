@@ -17,7 +17,7 @@ def plot_polar_curve(glider, N=51):
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
         alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            0, da, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+            da, 0, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
         )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1 / np.tan(gamma_eq)
@@ -33,7 +33,7 @@ def plot_polar_curve(glider, N=51):
         print("\rdb: {:.2f}".format(db), end="")
         try:
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-                db, 0, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+                0, db, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
