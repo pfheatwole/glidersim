@@ -25,11 +25,11 @@ def plot_polar_curve(glider, N=51):
     print()
 
     brake_equilibriums = np.empty((N, 5))
-    delta_Bs = np.linspace(0, 1, N)
+    delta_bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
     ref = None
     V_eq = 10  # Initial guess
-    for n, db in enumerate(delta_Bs):
+    for n, db in enumerate(delta_bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
@@ -44,7 +44,7 @@ def plot_polar_curve(glider, N=51):
     print()
 
     # Truncate everything after convergence failed
-    delta_Bs = delta_Bs[:n]
+    delta_bs = delta_bs[:n]
     brake_equilibriums = brake_equilibriums[:n]
 
     # Build the polar curves
@@ -55,7 +55,7 @@ def plot_polar_curve(glider, N=51):
     fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
 
     # alpha_eq
-    ax[0, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[0]), "r")
+    ax[0, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[0]), "r")
     ax[0, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[0]), "g")
     ax[0, 0].set_ylabel("alpha_eq [deg]")
 
@@ -78,7 +78,7 @@ def plot_polar_curve(glider, N=51):
     ax[0, 1].minorticks_on()
 
     # Theta_eq
-    ax[1, 0].plot(-delta_Bs, np.rad2deg(brake_equilibriums.T[1]), "r")
+    ax[1, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[1]), "r")
     ax[1, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[1]), "g")
     ax[1, 0].set_xlabel("control input [percentage]")
     ax[1, 0].set_ylabel("Theta_eq [deg]")
@@ -136,7 +136,7 @@ def plot_CL_curve(glider, delta_B=0, delta_a=0, rho_air=1.2):
         CDs.append(CD)
         CMs.append(CM)
 
-    deltas = np.full_like(alphas, delta_B)
+    deltas = np.full_like(alphas, delta_b)
     Cls = glider.wing.parafoil.airfoil.coefficients.Cl(alphas, deltas)
     Cds = glider.wing.parafoil.airfoil.coefficients.Cd(alphas, deltas)
     Cms = glider.wing.parafoil.airfoil.coefficients.Cm(alphas, deltas)
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
     F, M, _, = glider.forces_and_moments(
-        UVW, PQR, g=g, rho_air=1.2, delta_Bl=0, delta_Br=0,
+        UVW, PQR, g=g, rho_air=1.2, delta_bl=0, delta_br=0,
     )
     alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, V_eq_proposal=10, rho_air=1.2)
     gamma_eq = alpha_eq - Theta_eq

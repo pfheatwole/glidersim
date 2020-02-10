@@ -48,7 +48,7 @@ class Paraglider:
         return np.vstack((wing_cps, harness_cps))
 
     def forces_and_moments(self, UVW, PQR, g, rho_air,
-                           delta_Bl=0, delta_Br=0, delta_a=0,
+                           delta_bl=0, delta_br=0, delta_a=0,
                            v_w2e=None, xyz=None, reference_solution=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
@@ -68,9 +68,9 @@ class Paraglider:
             The gravity unit vector
         rho_air : float [kg/m^3]
             The ambient air density
-        delta_Bl : float [percentage]
+        delta_bl : float [percentage]
             The fraction of maximum left brake
-        delta_Br : float [percentage]
+        delta_br : float [percentage]
             The fraction of maximum right brake
         delta_a : float [percentage]
             The fraction of maximum accelerator
@@ -141,7 +141,7 @@ class Paraglider:
 
         # Compute the resultant force and moment about the cg
         dF_w, dM_w, ref = self.wing.forces_and_moments(
-            delta_Bl, delta_Br, v_wing, rho_air, reference_solution,
+            delta_bl, delta_br, v_wing, rho_air, reference_solution,
         )
         dF_h, dM_h = self.harness.forces_and_moments(v_harness, rho_air)
         F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
@@ -160,7 +160,7 @@ class Paraglider:
 
     def equilibrium_glide(
         self,
-        delta_B,
+        delta_b,
         delta_a,
         V_eq_proposal,
         rho_air,
@@ -172,7 +172,7 @@ class Paraglider:
 
         Parameters
         ----------
-        delta_B : float [percentage]
+        delta_b : float [percentage]
             Percentage of symmetric brake application
         delta_a : float [percentage]
             Percentage of accelerator application
@@ -218,7 +218,7 @@ class Paraglider:
         solution = reference_solution  # Approximate solution, if available
         for n in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
-                delta_B, delta_a, V_eq, rho_air, solution
+                delta_b, delta_a, V_eq, rho_air, solution
             )
             UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             F, M, solution = self.forces_and_moments(
@@ -226,8 +226,8 @@ class Paraglider:
                 [0, 0, 0],  # PQR
                 [0, 0, 0],  # g (don't include the weight of the harness)
                 rho_air,
-                delta_B,
-                delta_B,
+                delta_b,
+                delta_b,
                 delta_a,
                 reference_solution=solution,
             )

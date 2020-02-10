@@ -275,7 +275,7 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0,
         return ax.lines
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None):
+def plot_wing(wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None):
     """
     Plot a ParagliderWing using 3D cross-sections.
 
@@ -297,7 +297,7 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None
 
     # Add a dashed brake deflection line
     s = np.linspace(-1, 1, N_sections)
-    delta = wing.brake_geo(s, delta_Bl, delta_Br)
+    delta = wing.brake_geo(s, delta_bl, delta_br)
     flap = delta / 0.2
     c = wing.parafoil.chord_length(s)
     orientations = wing.parafoil.section_orientation(s)

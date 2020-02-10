@@ -29,7 +29,7 @@ class ParagliderWing:
         V_ref_mag : float [m/s]
             Airspeed for the force_estimator base case.
         brake_geo : BrakeGeometry
-            Section trailing edge deflections as a function of delta_Bl/Br
+            Section trailing edge deflections as a function of delta_bl/br
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
@@ -67,15 +67,15 @@ class ParagliderWing:
         self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
         self.AC = (self.pC - self.pA) * self.c0
 
-    def forces_and_moments(self, delta_Bl, delta_Br, V_cp2w, rho_air, reference_solution=None):
+    def forces_and_moments(self, delta_bl, delta_br, V_cp2w, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
 
         Parameters
         ----------
-        delta_Bl : float [percentage]
+        delta_bl : float [percentage]
             The amount of left brake
-        delta_Br : float [percentage]
+        delta_br : float [percentage]
             The amount of right brake
         V_cp2w : array of float, shape (K,3) [m/s]
             The relative velocity of each control point vs the fluid
@@ -92,7 +92,7 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
-        delta_f = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
+        delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
         dF, dM, solution = self.force_estimator(delta_f, V_cp2w, rho_air, reference_solution)
         return dF, dM, solution
 
@@ -121,14 +121,14 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(
-        self, delta_B, delta_a, V_mag, rho_air, reference_solution=None
+        self, delta_b, delta_a, V_mag, rho_air, reference_solution=None
     ):
         """FIXME: add docstring."""
-        def target(alpha, delta_B, delta_a, reference_solution):
+        def target(alpha, delta_b, delta_a, reference_solution):
             cp_wing = self.control_points(delta_a)
             v_wing = V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(
-                 delta_B, delta_B, v_wing, rho_air, reference_solution,
+                 delta_b, delta_b, v_wing, rho_air, reference_solution,
             )
             M = dM_w.sum(axis=0)
             M += cross3(cp_wing, dF_w).sum(axis=0)
@@ -136,7 +136,7 @@ class ParagliderWing:
 
         x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
         res = root_scalar(
-            target, args=(delta_B, delta_a, reference_solution), x0=x0, x1=x1,
+            target, args=(delta_b, delta_a, reference_solution), x0=x0, x1=x1,
         )  # FIXME: add `rtol`?
         if not res.converged:
             raise foil.ForceEstimator.ConvergenceError

@@ -60,7 +60,7 @@ class GliderSim:
         # rho_air = self.rho_air(t, x["p"])
         rho_air = self.rho_air  # FIXME: support air density functions
 
-        delta_a, delta_Br, delta_Bl = 0, 0, 0  # FIXME: time-varying input
+        delta_a, delta_br, delta_bl = 0, 0, 0  # FIXME: time-varying input
 
         q_inv = x["q"] * [1, -1, -1, -1]  # for frd->ned
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
@@ -80,8 +80,8 @@ class GliderSim:
             g,
             rho_air=rho_air,
             delta_a=delta_a,
-            delta_Bl=delta_Bl,
-            delta_Br=delta_Br,
+            delta_bl=delta_bl,
+            delta_br=delta_br,
             reference_solution=params["solution"],
         )
 
