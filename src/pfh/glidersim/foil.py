@@ -976,7 +976,7 @@ class SimpleFoil:
 
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.xyz(s_nodes, 0.25)  # Segment endpoints
+        nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
         section = self.airfoil.geometry.mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
@@ -989,7 +989,7 @@ class SimpleFoil:
             [*section["upper_centroid"], 0],
             [*section["area_centroid"], 0],
             [*section["lower_centroid"], 0]])
-        segment_origins = self.xyz(s_mid_nodes, 0)
+        segment_origins = self.chord_xyz(s_mid_nodes, 0)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + segment_origins[None, ...])
