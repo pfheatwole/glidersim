@@ -1,15 +1,11 @@
-* Move `InterpolatedLobe` from `belloc` and into `foil`. (Make it
-  a generally-available method.) Modify it to use intelligent resampling (near
-  the points, not just a blind resample).
+* I hate that I'm using `delta`, `delta_B`, `delta_a`, etc. I need to
+  standardize them. They're not even consistent: some places using `delta_B`,
+  some use `deltaB`, etc.
 
-* I claim that FoilGeometry is defined as having the central chord leading
-  edge at `x = 0` and that the central chord lies in the xy-plane, **by
-  definition**, but I never enforce that. I do shift the leading edge to the
-  origin, but I don't derotate the global wing.
+  Should I rename "brakes" to "controls"?
 
-  I guess it'd be good enough to just require that `torsion(s=0) = 0`, but
-  I guess I could also just compute `torsion(s=0)` and subtract that from all
-  torsions, thus "centering" the twist in the same manner as the origin.
+
+* Standardize the wind vector names (`V_cp2w`, `v_wing`, `V`, etc)
 
 
 Packaging
@@ -37,7 +33,7 @@ General
 
 * Define an `njit` wrapper that replaces `njit` with a noop
 
-* Lots of missing/incomplete docstrings, and particularly for modules. (#NEXT)
+* Lots of missing/incomplete docstrings, and particularly for modules.
 
 * Verify function docstrings match the signatures
 
@@ -93,7 +89,7 @@ Geometry
   seems like overkill to make it it's own class. Might be preferable to have
   a single class that interpolates both the geometry and the coefficients?**
 
-* Implement accurate `camber_curve` and `thickness` estimators.
+* Implement **accurate** `camber_curve` and `thickness` estimators.
 
   If I'm going to scale airfoils by changing their thickness, then I need the
   correct camber and thickness functions. If I don't, then there will be weird
@@ -129,10 +125,18 @@ Geometry
 Coefficients
 ------------
 
-* The `AirfoilCoefficients` should **NOT** have a value for `delta`. An
-  airfoil is a fixed shaped, and the coefficients should reflect that. The
-  `delta` is the result of an entire **range** of shapes, which is the purview
-  of an `AirfoilInterpolator` class of some kind.
+* It might be interesting if `GridCoefficients` supported CSV that lack `Re`.
+  Wouldn't make for good analysis, but would be interesting for demonstrating
+  the effect of ignoring Reynolds numbers.
+
+* In `XFLR5Coefficients`, the `LinearNDInterpolator` could use `scale=True`
+  instead of the `Re = Re / 1e6` in the coefficients functions, but for some
+  reason it doesn't work. Worth investigating?
+
+* In `XFLR5Coefficients`, I could support XFOIL polars as well, but I'd need to
+  read the columns differently. Easy way to read the headers is with `names
+  = np.loadtxt(<filename>, skiprows=10, max_rows=1, dtype=str)`. I haven't
+  tested it with XFOIL polars though, might be missing some nuance.
 
 
 Low priority
@@ -181,7 +185,9 @@ Low priority
 Chord Surface
 =============
 
-* Would some users prefer to specify `mean_anhedral` as a height?
+* Should `elliptical_lobe`: accept the alternative pair `{b/b_flat,
+  max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
+  easy to approximate from pictures.
 
 
 Parafoil
@@ -190,23 +196,75 @@ Parafoil
 Geometry
 --------
 
-* Should `chord_xyz` be changed to `chord_points`, or should `surface_points`
-  be changed to `surface_xyz`?
+* Review the API: accept any of `{b, b_flat, S, S_flat}` as scaling factors
 
-* Determine how the `FoilSection` implementation for parafoils will utilize
-  the chord surface definitions. If you assume the chord surface is for the
-  inflated parafoil, then I think the only issue is how to deflate and flatten
-  the wing (for construction purposes).
+* Review the air `intakes` design
 
-* Factor out the `ChordSurface` from the `FoilGeometry`, unless there's some
-  good reason not to. The `r_x` et al really clutter the class, and it's
-  a general enough idea I'd kinda like it to exist separate from the full
-  `FoilGeometry` definition. This should also help clarify the `FoilGeometry`
-  docstrings, which are really hard to follow right now.
+  Should they be removed from `SimpleFoil`? If `surface_xyz` accepts the
+  `surface` parameter, then you'll need *some* mapping between surface and
+  airfoil coordinates.
+  
+  Also, reconsider the name "intakes": this concept doesn't *require* that
+  `s_upper != s_lower`; maybe a user has other reasons to shifting the
+  upper/lower surface boundary away from the leading edge. Might even be
+  useful for **single surface designs**, that discard the lower portion of the
+  majority of the section profiles.
 
-* Should the `FoilGeometry.r_x` etc be private members (`_r_x`)?
+* The `ChordSurface` requires the values to be proportional to `b_flat == 2`?
+  **What if you don't know `b_flat`? Do you need to compute the total length
+  of `yz` and re-normalize to that?** (I think I'm missing something here...
+  As long as everything is proportional, who cares? I'll need to look for
+  anywhere that uses `s` to stand in for `y`, but other than that, who cares?
+  May want to introduce an scaling value as a convenience for the user
+  though.)
 
-* Should the foil geometry be proportional to `b_flat / 2` or just `b_flat`?
+* Should the "projected surface area" methods take pitch angle as a parameter?
+
+  I'm not sure what most paraglider wing manufacturers use for the projected
+  area. My definitions requires that the central chord is parallel to the
+  xy-plane, but I imagine some manufacturers would use the equilibrium angle
+  of the wing. It's more in-line with what you'd use for classical aerodynamic
+  analysis, and it's essential constant regardless of load.
+
+* Define the fundamental `FoilGeometry` spec
+
+  What are the essential needs of users like `SimpleFoil`, `Parafoil`, etc? At
+  least: `section_orientation, chord_length, chord_xyz, surface_xyz`. Anything
+  else? I think the least constraining view is "profiles as a function of
+  section index positioned along some line". 
+
+* I claim that `FoilGeometry` is defined as having the central chord leading
+  edge at `x = 0` and that the central chord lies in the xy-plane, **by
+  definition**, but I never enforce that. I do shift the leading edge to the
+  origin, but I don't derotate the global wing.
+
+  I guess it'd be good enough to just require that `torsion(s=0) = 0`, but
+  I guess I could also just compute `torsion(s=0)` and subtract that from all
+  torsions, thus "centering" the twist in the same manner as the origin.
+
+* Move `InterpolatedLobe` from `belloc.py` into `foil.py` and modify it to use
+  intelligent resampling (near the given points, not just a blind resample).
+
+
+Low Priority
+^^^^^^^^^^^^
+
+* Use a library like `https://github.com/orbingol/NURBS-Python` to export STL,
+  NURBS, etc?
+
+* Add an example for exporting the triangle mesh to `vtkPolyData` (or whatever
+  the correct data structure would be). Would make it easier to interface with
+  OpenFOAM (you can import the mesh into Blender and export an STL, but I'm
+  sure there are easier ways to go about it, like `NURBS-Python`).
+
+* Is *wetted area* same thing as total surface area? Also see *wetted aspect
+  ratio*.
+
+* Is the "mean aerodynamic chord" a useful concept for arched wings?
+
+
+Inertia
+^^^^^^^
 
 * `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
@@ -218,14 +276,10 @@ Geometry
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
 
-* Is *wetted area* same thing as total surface area? Also see *wetted aspect
-  ratio*. (I suspect these aren't terribly useful for paragliders due to the
-  high curvature.)
-
-* Add an example for exporting the triangle mesh to `vtkPolyData` (or whatever
-  the correct data structure would be). Would make it easier to interface with
-  OpenFOAM (you can import the mesh into Blender and export an STL, but I'm
-  sure there are easier ways to go about it).
+* Should I rewrite the `mass_properties` to use the triangle mesh? It would
+  make computing the surface areas more straightforward, but I'm not sure
+  about the internal volumes. I suspect voxels may provide the solution, but
+  I haven't researched it yet.
 
 
 Meshes
@@ -301,6 +355,21 @@ ParafoilSections
   could have a function that converts the intake size into extra drag.
 
 
+Deformations
+^^^^^^^^^^^^
+
+* To warp the trailing edge, could you warp the mean camber line instead of
+  the surfaces themselves, then constrain to maintain constant curve length?
+
+* Starting with the `ChordSurface`, how hard would it be to warp the central
+  sections to produce a "weight shift" effect?
+
+* Is it a fools errand to support lifting-line methods in the presence of
+  deformations? Cell billowing, weight shift, trailing edge braking: they all
+  produce deformed profiles, adding many dimensions to the coefficients table.
+
+
+
 Coefficient Estimation
 ----------------------
 
@@ -325,6 +394,27 @@ Coefficient Estimation
 
 Phillips
 ^^^^^^^^
+
+* Review the conditions for non-convergence. What are the primary causes, and
+  can they be mitigated? Right now, convergence via iteration is uncommon:
+  cases either succeed, or they don't.
+
+  At a glance, if `beta = 0`, you don't really need an input reference
+  solution; the base case works fine. The reference does improve convergence
+  when you get to abnormal situations, like in `belloc` when `beta = 15`.
+
+* **Review the iteration design**: should I be interpolating `Gamma`?
+
+* What are the average number of iterations for convergence? It'd be nice to
+  recognize "non-convergence" ASAP.
+
+* Should `V` be greater or smaller than `V_rel`?
+
+* Where did J4 come from in Hunsaker's derivation? It wasn't in Phillip's
+  derivation.
+
+* How should I handle a turning wing? (Non-uniform `u_inf`) Right now I just
+  use the central `V_rel` for `u_inf` and assume it's the same everywhere.
 
 * **Can I mitigate poor behavior near `Cl_alpha = 0`?** Consider pre-computing
   a function `stall_point(alpha, delta)` that checks where `Cl_alpha` goes to
@@ -380,11 +470,16 @@ Phillips
 BrakeGeometry
 =============
 
-* Need a proper `BrakeGeometry` based on the line geometry.
-
 * Nice to have: automatically compute an upper bound for
   `BrakeGeometry.delta_max` based on the maximum supported by the Airfoils.
   (Setting ``delta_max`` to a magic number is *awful*.)
+
+* Add support for proper line geometries.
+
+  The `BrakeGeometry` are nothing more than quick-and-dirty hacks that produce
+  deflection distributions that you're *assuming* can be produced by a line
+  geometry. Checkout `altmann2015FluidStructureInteractionAnalysis` for
+  a discussion on "identifying optimal line cascading"
 
 
 ParagliderWing
