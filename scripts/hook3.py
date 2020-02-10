@@ -177,17 +177,8 @@ def build_hook3():
 
     print("Airfoil: NACA 24018, curving flap\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
-
-    print("Loading polars...")
-    # airfoil_coefs = gsim.airfoil.XFLR5Coefficients("polars/exp_curving_24018", flapped=True)
     airfoil_coefs = gsim.airfoil.GridCoefficients("polars/exp_curving_24018/gridded.csv")
-    delta_max = np.deg2rad(13.37)
-
-    # print("\nAirfoil: NACA 23015, curving flap")
-    # airfoil_geo = airfoil.NACA(23015, convention='vertical')
-    # airfoil_coefs = airfoil.GridCoefficients('polars/exp_curving_23015.csv')
-    # delta_max = np.deg2rad(12.00)  # True value: 13.38
-
+    delta_max = np.deg2rad(13.37)  # FIXME: magic number
     airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
     # -----------------------------------------------------------------------
@@ -260,7 +251,7 @@ def build_hook3():
     #        implement a proper line geometry and can calculate the deflection
     #        distributions from that.
 
-    p_start = 0.00
+    p_start = 0.10
     p_peak = gsim.brake_geometry.Cubic.p_peak_min(p_start) + 1e-9
     brakes = gsim.brake_geometry.Cubic(p_start, p_peak, delta_max)
 
@@ -274,7 +265,7 @@ def build_hook3():
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `Theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
-        pA=0.11,  # Approximated from a picture in the manual
+        pA=0.11,  # Approximated from the line plan in the manual PDF, page 17
         pC=0.59,
         kappa_a=0.15,  # From the Hook 3 manual
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
@@ -286,12 +277,12 @@ def build_hook3():
     # wing materials I'm accounting for total to 1.83kg, so there's a lot left
     # in the lines, risers, ribs, etc.
 
-    _harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
 
-    glider = gsim.paraglider.Paraglider(wing, _harness)
+    glider = gsim.paraglider.Paraglider(wing, harness)
 
     # print("Plotting the basic glider performance curves")
-    # plot_CL_curve(glider)
+    # plot_foil_coefficients(glider)
 
     # print("\nFinished building the glider.\n")
     # embed()
@@ -306,23 +297,17 @@ if __name__ == "__main__":
 
     glider = build_hook3()
 
-    print("\nComputing the wing equilibrium...")
-    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, V_eq_proposal=10, rho_air=1.2)
-
-    print(f"  alpha: {np.rad2deg(alpha):>6.3f} [deg]")
-    print(f"  Theta: {np.rad2deg(Theta):>6.3f} [deg]")
-    print(f"  Speed: {V:>6.3f} [m/s]")
-
-    print()
-    print("Computing the glider equilibrium...")
-    UVW = V * np.array([np.cos(alpha), 0, np.sin(alpha)])
+    print("\nComputing the glider equilibrium...")
+    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(
+        0, 0, V_eq_proposal=10, rho_air=1.2,
+    )
+    gamma_eq = alpha_eq - Theta_eq
+    UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
     PQR = np.array([0, 0, 0])
-    g = 9.8 * np.array([-np.sin(Theta), 0, np.cos(Theta)])
+    g = 9.8 * np.array([-np.sin(Theta_eq), 0, np.cos(Theta_eq)])
     F, M, _, = glider.forces_and_moments(
         UVW, PQR, g=g, rho_air=1.2, delta_bl=0, delta_br=0,
     )
-    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, V_eq_proposal=10, rho_air=1.2)
-    gamma_eq = alpha_eq - Theta_eq
 
     print(f"  UVW:   {UVW.round(4)}")
     print(f"  F:     {F.round(4)}")
@@ -335,9 +320,9 @@ if __name__ == "__main__":
     print(f"  Glide speed: {V_eq:>6.3f}")
 
     # Sanity check the dynamics
-    # J_wing = wing.inertia(rho_air=1.2, N=5000)
+    # J_wing = glider.wing.inertia(rho_air=1.2, N=5000)
     # alpha_rad = np.linalg.inv(J_wing) @ M
-    # print("Angular acceleration at equilibrium:", np.rad2deg(alpha_rad))
+    # print("\nAngular acceleration at equilibrium:", np.rad2deg(alpha_rad))
 
     print("\n<pausing before polar curves>\n")
     embed()
