@@ -1550,7 +1550,7 @@ class Phillips(ForceEstimator):
         Cd += 0.004
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
-        dF_viscous = 1 / 2 * V2 * self.dA * Cd * u_drag
+        dF_viscous = 0.5 * V2 * self.dA * Cd * u_drag
 
         # The total forces applied at each control point
         dF = dF_inviscid + dF_viscous
@@ -1565,7 +1565,7 @@ class Phillips(ForceEstimator):
         # calculated by the wing.
         #  * ref: Hunsaker-Snyder Eq:20
         Cm = self.foil.airfoil.coefficients.Cm(delta, alpha, Re)
-        dM = -1 / 2 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
+        dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
             'delta': delta_ref,
