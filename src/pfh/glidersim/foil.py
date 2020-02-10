@@ -1222,7 +1222,7 @@ class ForceEstimator(abc.ABC):
             The velocity of the control points relative to the wind in FRD
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
-        delta : array_like of float [m/s]
+        delta : array_like of float [radians]
             The deflection angle of each section. The shape must be able to
             broadcast to (K,), where `K` is the number of control points being
             used by the estimator.
