@@ -17,7 +17,7 @@ def plot_polar_curve(glider, N=51):
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
         alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            0, da, V_initial_mag=V_eq, rho_air=1.2, reference_solution=ref,
+            0, da, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
         )
         gamma_eq = alpha_eq - Theta_eq
         GR = 1 / np.tan(gamma_eq)
@@ -33,7 +33,7 @@ def plot_polar_curve(glider, N=51):
         print("\rdb: {:.2f}".format(db), end="")
         try:
             alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-                db, 0, V_initial_mag=V_eq, rho_air=1.2, reference_solution=ref,
+                db, 0, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
@@ -313,7 +313,7 @@ if __name__ == "__main__":
     glider = build_hook3()
 
     print("\nComputing the wing equilibrium...")
-    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, V_initial_mag=10, rho_air=1.2)
+    alpha, Theta, V, _ = glider.equilibrium_glide(0, 0, V_eq_proposal=10, rho_air=1.2)
 
     print(f"  alpha: {np.rad2deg(alpha):>6.3f} [deg]")
     print(f"  Theta: {np.rad2deg(Theta):>6.3f} [deg]")
@@ -327,7 +327,7 @@ if __name__ == "__main__":
     F, M, _, = glider.forces_and_moments(
         UVW, PQR, g=g, rho_air=1.2, delta_Bl=0, delta_Br=0,
     )
-    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, V_initial_mag=10, rho_air=1.2)
+    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(0, 0, V_eq_proposal=10, rho_air=1.2)
     gamma_eq = alpha_eq - Theta_eq
 
     print(f"  UVW:   {UVW.round(4)}")
