@@ -92,8 +92,8 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
-        delta = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta, V_cp2w, rho_air, reference_solution)
+        delta_f = self.brake_geo(self.force_estimator.s_cps, delta_Bl, delta_Br)  # FIXME: leaky, don't grab s_cps directly
+        dF, dM, solution = self.force_estimator(delta_f, V_cp2w, rho_air, reference_solution)
         return dF, dM, solution
 
     def foil_origin(self, delta_a=0):

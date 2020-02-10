@@ -40,13 +40,13 @@ class AirfoilCoefficients(abc.ABC):
     """Defines the API for classes that provide airfoil coefficients."""
 
     @abc.abstractmethod
-    def Cl(self, delta, alpha, Re):
+    def Cl(self, delta_f, alpha, Re):
         """
         Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
-        delta : float [radians]
+        delta_f : float [radians]
             The deflection angle of the trailing edge due to control inputs,
             as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
@@ -60,13 +60,13 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, delta, alpha, Re):
+    def Cd(self, delta_f, alpha, Re):
         """
         Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
-        delta : float [radians]
+        delta_f : float [radians]
             The deflection angle of the trailing edge due to control inputs,
             as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
@@ -80,13 +80,13 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, delta, alpha, Re):
+    def Cm(self, delta_f, alpha, Re):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta : float [radians]
+        delta_f : float [radians]
             The deflection angle of the trailing edge due to control inputs,
             as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
@@ -100,13 +100,13 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cl_alpha(self, delta, alpha, Re):
+    def Cl_alpha(self, delta_f, alpha, Re):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
-        delta : float [radians]
+        delta_f : float [radians]
             The deflection angle of the trailing edge due to control inputs,
             as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
@@ -166,17 +166,17 @@ class GridCoefficients(AirfoilCoefficients):
             points, data["Cl_alpha"].reshape(shape), bounds_error=False,
         )
 
-    def Cl(self, delta, alpha, Re):
-        return self._Cl((delta, alpha, Re / 1e6))
+    def Cl(self, delta_f, alpha, Re):
+        return self._Cl((delta_f, alpha, Re / 1e6))
 
-    def Cd(self, delta, alpha, Re):
-        return self._Cd((delta, alpha, Re / 1e6))
+    def Cd(self, delta_f, alpha, Re):
+        return self._Cd((delta_f, alpha, Re / 1e6))
 
-    def Cm(self, delta, alpha, Re):
-        return self._Cm((delta, alpha, Re / 1e6))
+    def Cm(self, delta_f, alpha, Re):
+        return self._Cm((delta_f, alpha, Re / 1e6))
 
-    def Cl_alpha(self, delta, alpha, Re):
-        return self._Cl_alpha((delta, alpha, Re / 1e6))
+    def Cl_alpha(self, delta_f, alpha, Re):
+        return self._Cl_alpha((delta_f, alpha, Re / 1e6))
 
 
 class XFLR5Coefficients(AirfoilCoefficients):
@@ -252,38 +252,38 @@ class XFLR5Coefficients(AirfoilCoefficients):
 
             if flapped:
                 deltastr = re.search("_delta(\d+\.\d+)_", polar_file.name)
-                delta = np.deg2rad(float(deltastr.group(1)))
-                data = rfn.append_fields(data, "delta", np.full(data.shape[0], delta))
+                deltas = np.deg2rad(float(deltastr.group(1)))
+                data = rfn.append_fields(data, "delta", np.full(data.shape[0], deltas))
 
             polars.append(data)
 
         return np.concatenate(polars)
 
-    def Cl(self, delta, alpha, Re):
+    def Cl(self, delta_f, alpha, Re):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cl(delta, alpha, Re)
+            return self._Cl(delta_f, alpha, Re)
         else:
             return self._Cl(alpha, Re)
 
-    def Cd(self, delta, alpha, Re):
+    def Cd(self, delta_f, alpha, Re):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cd(delta, alpha, Re)
+            return self._Cd(delta_f, alpha, Re)
         else:
             return self._Cd(alpha, Re)
 
-    def Cm(self, delta, alpha, Re):
+    def Cm(self, delta_f, alpha, Re):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cm(delta, alpha, Re)
+            return self._Cm(delta_f, alpha, Re)
         else:
             return self._Cm(alpha, Re)
 
-    def Cl_alpha(self, delta, alpha, Re):
+    def Cl_alpha(self, delta_f, alpha, Re):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cl_alpha(delta, alpha, Re)
+            return self._Cl_alpha(delta_f, alpha, Re)
         else:
             return self._Cl_alpha(alpha, Re)
 

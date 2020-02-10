@@ -23,7 +23,7 @@ class BrakeGeometry(abc.ABC):
 
         Returns
         -------
-        delta : float [radians]
+        delta_f : float [radians]
             The deflection angle of the trailing edge, as measured between the
             deflected edge and the undeflected chord.
 
