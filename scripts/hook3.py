@@ -102,75 +102,69 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_CL_curve(glider, delta_B=0, delta_a=0, rho_air=1.2):
-    alphas = np.deg2rad(np.linspace(-8, 20, 50))
+def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
+    alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None
     for alpha in alphas:
-        F, M, reference_solution, = glider.forces_and_moments(
-            UVW=[np.cos(alpha), 0, np.sin(alpha)],
-            PQR=[0, 0, 0],
-            g=[0, 0, 0],
-            rho_air=rho_air,
-            delta_Bl=delta_B,
-            delta_Br=delta_B,
-            reference_solution=reference_solution,
-        )
-        Fs.append(F)
-        Ms.append(M)
+        print(f"\ralpha: {np.rad2deg(alpha):6.2f}", end="")
+        try:
+            F, M, reference_solution, = glider.forces_and_moments(
+                UVW=V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
+                PQR=[0, 0, 0],
+                g=[0, 0, 0],
+                rho_air=rho_air,
+                delta_a=delta_a,
+                delta_bl=delta_b,
+                delta_br=delta_b,
+                reference_solution=reference_solution,
+            )
+            Fs.append(F)
+            Ms.append(M)
+        except gsim.foil.ForceEstimator.ConvergenceError:
+            continue
 
-    CLs = []
-    CDs = []
-    CMs = []
+    CLs, CDs, CMs = [], [], []
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = 2 * L / (rho_air * glider.wing.parafoil.S)
-        CD = 2 * D / (rho_air * glider.wing.parafoil.S)
-        CM = (
-            2
-            * Ms[n][1]
-            / (rho_air * glider.wing.parafoil.S * glider.wing.parafoil.chord_length(0))
+        CL = L / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
+        CD = D / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
+        CM = Ms[n][1] / (
+            0.5
+            * rho_air
+            * V_mag ** 2
+            * glider.wing.parafoil.S
+            * glider.wing.parafoil.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)
         CMs.append(CM)
 
-    deltas = np.full_like(alphas, delta_b)
-    Cls = glider.wing.parafoil.airfoil.coefficients.Cl(alphas, deltas)
-    Cds = glider.wing.parafoil.airfoil.coefficients.Cd(alphas, deltas)
-    Cms = glider.wing.parafoil.airfoil.coefficients.Cm(alphas, deltas)
-
+    style = {"c": "k", "lw": 0.75, "ls": "-", "marker": "o", "markersize": "1.5"}
     fig, ax = plt.subplots(3, 2, figsize=(9, 8))
-    ax[0, 0].plot(np.rad2deg(alphas), CLs, label="CL")
-    ax[0, 0].plot(np.rad2deg(alphas), Cls, "k--", linewidth=0.75, label="Cl")
-    ax[1, 0].plot(np.rad2deg(alphas), CDs, label="CD")
-    ax[1, 0].plot(np.rad2deg(alphas), Cds, "k--", linewidth=0.75, label="Cd")
-    ax[2, 0].plot(np.rad2deg(alphas), CMs, label="CM")
-    ax[2, 0].plot(np.rad2deg(alphas), Cms, "k--", linewidth=0.75, label="Cm")
+    ax[0, 0].plot(np.rad2deg(alphas), CLs, **style)
+    ax[1, 0].plot(np.rad2deg(alphas), CDs, **style)
+    ax[2, 0].plot(np.rad2deg(alphas), CMs, **style)
     plt.setp(ax[:, 0], xlabel="alpha [deg]")
     ax[0, 0].set_ylabel("Lift Coefficient")
     ax[1, 0].set_ylabel("Drag Coefficient")
     ax[2, 0].set_ylabel("Pitching Coefficient")
 
-    ax[0, 1].plot(np.rad2deg(alphas), np.array(CLs) / np.array(CDs))
+    ax[0, 1].plot(np.rad2deg(alphas), np.array(CLs) / np.array(CDs), **style)
     ax[0, 1].set_xlabel("alpha [deg]")
     ax[0, 1].set_ylabel("CL/CD")
 
-    ax[1, 1].plot(CDs, CLs)
+    ax[1, 1].plot(CDs, CLs, **style)
     ax[1, 1].set_xlabel("CD")
     ax[1, 1].set_ylabel("CL")
 
     for ax in fig.axes:
         if len(ax.lines) > 0:
             ax.grid()
-        if len(ax.lines) > 1:
-            ax.legend()
 
     fig.tight_layout()  # Prevent axes overlapping titles
-
     plt.show()
-
     embed()
 
 
