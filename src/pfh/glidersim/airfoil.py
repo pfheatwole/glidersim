@@ -46,9 +46,9 @@ class AirfoilCoefficients(abc.ABC):
 
         Parameters
         ----------
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        delta : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -66,9 +66,9 @@ class AirfoilCoefficients(abc.ABC):
 
         Parameters
         ----------
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        delta : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -86,9 +86,9 @@ class AirfoilCoefficients(abc.ABC):
 
         Parameters
         ----------
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        delta : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -106,9 +106,9 @@ class AirfoilCoefficients(abc.ABC):
 
         Parameters
         ----------
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        delta : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
