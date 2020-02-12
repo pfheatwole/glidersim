@@ -41,16 +41,16 @@ class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
         val[mask] = np.nan
         return val
 
-    def Cl(self, alpha, delta):
+    def Cl(self, delta, alpha, Re):
         return self._clean(alpha, self._Cl(alpha))
 
-    def Cd(self, alpha, delta):
+    def Cd(self, delta, alpha, Re):
         return self._clean(alpha, self._Cd(alpha))
 
-    def Cm(self, alpha, delta):
+    def Cm(self, delta, alpha, Re):
         return self._clean(alpha, self._Cm(alpha))
 
-    def Cl_alpha(self, alpha, delta):
+    def Cl_alpha(self, delta, alpha, Re):
         return self._clean(alpha, self._Cl_alpha(alpha))
 
 
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     )
     M_ref5 = wing5.chord_xyz(0, 0.0)
 
-    # wing, M_ref = wing1, M_ref1
-    wing, M_ref = wing2, M_ref2
+    wing, M_ref = wing1, M_ref1
+    # wing, M_ref = wing2, M_ref2
     # wing, M_ref = wing3, M_ref3
     # wing, M_ref = wing4, M_ref4
     # wing, M_ref = wing5, M_ref5
@@ -163,8 +163,8 @@ if __name__ == "__main__":
     )
     rho_air = 1.225
 
-    fe = gsim.foil.Phillips(wing, alpha_ref=5)
-    dF, dM, solution = fe(UVW, 0)
+    fe = gsim.foil.Phillips(wing, V_ref_mag=10, alpha_ref=5)
+    dF, dM, solution = fe(0, UVW, 1.2)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)
 
