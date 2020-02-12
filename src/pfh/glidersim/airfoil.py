@@ -10,15 +10,17 @@ and pitching moment.
 """
 
 import abc
+import pathlib
+import re
 
 import numpy as np
-
-import pandas as pd
+from numpy.lib import recfunctions as rfn
 
 import scipy.optimize
 from scipy.integrate import simps
-from scipy.interpolate import CloughTocher2DInterpolator as Clough2D
+from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import RegularGridInterpolator
 
 
 class Airfoil:
@@ -35,24 +37,22 @@ class Airfoil:
 
 
 class AirfoilCoefficients(abc.ABC):
-    """
-    Provides the aerodynamic coefficients of a wing section.
-
-    FIXME: needs a better description
-    """
+    """Defines the API for classes that provide airfoil coefficients."""
 
     @abc.abstractmethod
-    def Cl(self, alpha, delta):
+    def Cl(self, delta_f, alpha, Re):
         """
         Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -60,17 +60,19 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, alpha, delta):
+    def Cd(self, delta_f, alpha, Re):
         """
         Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -78,35 +80,39 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, alpha, delta):
+    def Cm(self, delta_f, alpha, Re):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
         Cm : float
         """
 
-    # FIXME: make this an abstractmethod? Must all subclasses implement it?
-    def Cl_alpha(self, alpha, delta):
+    @abc.abstractmethod
+    def Cl_alpha(self, delta_f, alpha, Re):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
         alpha : float [radians]
             The angle of attack
-        delta : float [unitless distance]
-            The deflection distance of the trailing edge due to braking,
-            measured as a fraction of the chord length.
+        Re : float [unitless]
+            The Reynolds number
 
         Returns
         -------
@@ -114,96 +120,172 @@ class AirfoilCoefficients(abc.ABC):
         """
 
 
-class LinearCoefficients(AirfoilCoefficients):
-    """
-    An airfoil model that assumes a strictly linear lift coefficient, constant
-    form drag, and constant pitching moment.
-
-    The effect of brakes is to shift the coefficient curves to the left; brake
-    deflections do not change the shape of the curves. This is equivalent to
-    an airfoil with a fixed flap hinge located at the leading edge.
-
-    FIXME: the name is misleading: should be "FixedCoefficients" or similar
-    FIXME: constrain the AoA, like `-i0 < alpha < alpha_max` ?
-    """
-
-    def __init__(self, a0, i0, D0, Cm):
-        self.a0 = a0  # [1/rad]
-        self.i0 = np.deg2rad(i0)
-        self.D0 = D0
-        self._Cm = Cm  # FIXME: seems clunky; change the naming?
-
-    def Cl(self, alpha, delta):
-        # FIXME: verify the usage of delta
-        delta_angle = np.arctan(delta)  # tan(delta_angle) = delta/chord
-        return self.a0 * (alpha + delta_angle - self.i0)
-
-    def Cd(self, alpha, delta):
-        return np.full_like(alpha, self.D0, dtype=self.D0.dtype)
-
-    def Cm(self, alpha, delta):
-        return np.full_like(alpha, self._Cm, dtype=self._Cm.dtype)
-
-    def Cl_alpha(self, alpha, delta):
-        return self.a0
-
-
 class GridCoefficients(AirfoilCoefficients):
     """
-    Uses the airfoil coefficients from a CSV file.
+    Loads a set of polars from a CSV file.
+
+    All values must lie on a regular grid over `delta`, `alpha`, and `Re`. This
+    works like `XFLR5Coefficients`, but using a regular grid is much faster.
+    Assumes the `Cl` and `Cl_alpha` have already been smoothed.
 
     The CSV must contain the following columns
-     * alpha
-     * delta
-     * CL
-     * CD
+     * delta [degrees]
+     * alpha [degrees]
+     * Re
+     * Cl
+     * Cd
      * Cm
+     * Cl_alpha
+
     """
 
-    def __init__(self, filename, convert_degrees=True):
+    def __init__(self, filename):
         # FIXME: docstring
 
-        data = pd.read_csv(filename)
-        self.data = data
+        names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
+        data = np.genfromtxt(filename, skip_header=1, names=list(names), delimiter=',')
 
-        if convert_degrees:
-            data["alpha"] = np.deg2rad(data.alpha)
-            data["delta"] = np.deg2rad(data.delta)
+        # FIXME: Requires that all points are present (even if `nan`).
+        # FIXME: Assumes that the points are correctly ordered.
+        delta = np.deg2rad(np.unique(data["delta"]))
+        alpha = np.deg2rad(np.unique(data["alpha"]))
+        Re = np.unique(data["Re"])
+        points = (delta, alpha, Re)
+        shape = (len(delta), len(alpha), len(Re))
 
-        self._Cl = Clough2D(data[["alpha", "delta"]], data.CL)
-        self._Cd = Clough2D(data[["alpha", "delta"]], data.CD)
-        self._Cm = Clough2D(data[["alpha", "delta"]], data.Cm)
+        self._Cl = RegularGridInterpolator(
+            points, data["Cl"].reshape(shape), bounds_error=False,
+        )
+        self._Cd = RegularGridInterpolator(
+            points, data["Cd"].reshape(shape), bounds_error=False,
+        )
+        self._Cm = RegularGridInterpolator(
+            points, data["Cm"].reshape(shape), bounds_error=False,
+        )
+        self._Cl_alpha = RegularGridInterpolator(
+            points, data["Cl_alpha"].reshape(shape), bounds_error=False,
+        )
 
-        # Construct another grid with smoothed derivatives of Cl vs alpha
-        # FIXME: needs a design review
-        alpha_min, delta_min = self._Cl.tri.min_bound
-        alpha_max, delta_max = self._Cl.tri.max_bound
-        points = []
-        for delta in np.linspace(delta_min, delta_max, 25):
-            alphas = np.linspace(alpha_min, alpha_max, 150)
-            deltas = np.full_like(alphas, delta)
-            CLs = self._Cl(alphas, deltas)
-            notnan = ~np.isnan(CLs)  # Some curves are truncated at high alpha
-            alphas, deltas, CLs = alphas[notnan], deltas[notnan], CLs[notnan]
-            poly = np.polynomial.Polynomial.fit(alphas, CLs, 7)
-            Cl_alphas = poly.deriv()(alphas)
-            deltas -= 1e-9   # FIXME: HACK! Keep delta=0 inside the convex hull
-            points.append(np.array((alphas, deltas, Cl_alphas)).T)
+    def Cl(self, delta_f, alpha, Re):
+        return self._Cl((delta_f, alpha, Re / 1e6))
 
-        points = np.vstack(points)  # Columns: [alpha, delta, Cl_alpha]
-        self._Cl_alpha = Clough2D(points[:, :2], points[:, 2])
+    def Cd(self, delta_f, alpha, Re):
+        return self._Cd((delta_f, alpha, Re / 1e6))
 
-    def Cl(self, alpha, delta):
-        return self._Cl(alpha, delta)
+    def Cm(self, delta_f, alpha, Re):
+        return self._Cm((delta_f, alpha, Re / 1e6))
 
-    def Cd(self, alpha, delta):
-        return self._Cd(alpha, delta)
+    def Cl_alpha(self, delta_f, alpha, Re):
+        return self._Cl_alpha((delta_f, alpha, Re / 1e6))
 
-    def Cm(self, alpha, delta):
-        return self._Cm(alpha, delta)
 
-    def Cl_alpha(self, alpha, delta):
-        return self._Cl_alpha(alpha, delta)
+class XFLR5Coefficients(AirfoilCoefficients):
+    """
+    Loads a set of XFLR5 polars (.txt) from a directory.
+
+    Requirements:
+
+    1. All `.txt` files in the directory are valid XFLR5 polar files, generated
+       using a single test configuration over a range of Reynolds numbers.
+
+    2. Filenames must use `<...>_ReN.NNN_<...>` to encode the Reynolds number
+       in units of millions (so `920,000` is encoded as `0.920`).
+
+    3. All polars will be included.
+    """
+    def __init__(self, dirname, flapped):
+        self.flapped = flapped
+        polars = self._load_xflr5_polar_set(dirname, flapped)
+        self.polars = polars
+
+        if flapped:
+            columns = ["delta", "alpha", "Re"]
+        else:
+            columns = ["alpha", "Re"]
+
+        points = rfn.structured_to_unstructured(polars[columns])
+        self._Cl = LinearNDInterpolator(points, polars["Cl"])
+        self._Cd = LinearNDInterpolator(points, polars["Cd"])
+        self._Cm = LinearNDInterpolator(points, polars["Cm"])
+        self._Cl_alpha = LinearNDInterpolator(points, polars["Cl_alpha"])
+
+    @staticmethod
+    def _load_xflr5_polar_set(dirname, flapped):
+        d = pathlib.Path(dirname)
+
+        if not (d.exists() and d.is_dir()):
+            raise ValueError(f"'{dirname}' is not a valid directory")
+
+        polar_files = d.glob("*.txt")
+
+        # Standard XFLR5 polar column names (renames CL/CD to Cl/Cd)
+        names = [
+            "alpha",
+            "Cl",
+            "Cd",
+            "CDp",
+            "Cm",
+            "Top Xtr",
+            "Bot Xtr",
+            "Cpmin",
+            "Chinge",
+            "XCp",
+        ]
+
+        # FIXME: handle cases with <= 1 polar files?
+
+        polars = []
+        for polar_file in polar_files:
+            Re = re.search("_Re(\d\.\d\d\d)_", polar_file.name).group(1)
+            Re = float(Re)
+            data = np.genfromtxt(polar_file, skip_header=11, names=names)
+            data['alpha'] = np.deg2rad(data['alpha'])
+
+            # Smooth `CL` and compute a smoothed `CL_alpha` (improves convergence)
+            poly = np.polynomial.Polynomial.fit(data['alpha'], data['Cl'], 10)
+            data['Cl'] = poly(data['alpha'])
+            Cl_alphas = poly.deriv()(data['alpha'])
+            data = rfn.append_fields(data, "Cl_alpha", Cl_alphas)
+
+            # Append the Reynolds number for the polar
+            data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
+
+            if flapped:
+                deltastr = re.search("_delta(\d+\.\d+)_", polar_file.name)
+                deltas = np.deg2rad(float(deltastr.group(1)))
+                data = rfn.append_fields(data, "delta", np.full(data.shape[0], deltas))
+
+            polars.append(data)
+
+        return np.concatenate(polars)
+
+    def Cl(self, delta_f, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cl(delta_f, alpha, Re)
+        else:
+            return self._Cl(alpha, Re)
+
+    def Cd(self, delta_f, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cd(delta_f, alpha, Re)
+        else:
+            return self._Cd(alpha, Re)
+
+    def Cm(self, delta_f, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cm(delta_f, alpha, Re)
+        else:
+            return self._Cm(alpha, Re)
+
+    def Cl_alpha(self, delta_f, alpha, Re):
+        Re = Re / 1e6
+        if self.flapped:
+            return self._Cl_alpha(delta_f, alpha, Re)
+        else:
+            return self._Cl_alpha(alpha, Re)
 
 
 # ---------------------------------------------------------------------------
@@ -776,9 +858,9 @@ class NACA(AirfoilGeometry):
         dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyl.T), axis=0))]
         dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
         pc = dc / dc[-1]
-        surface_points = np.r_[xyl[::-1], xyu[1:]]
+        surface_xyz = np.r_[xyl[::-1], xyu[1:]]
         sa = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
-        surface_curve = PchipInterpolator(sa, surface_points, extrapolate=False)
+        surface_curve = PchipInterpolator(sa, surface_xyz, extrapolate=False)
         camber_curve = PchipInterpolator(pc, xyc, extrapolate=False)
         thickness = PchipInterpolator(pc, 2 * self._yt(x), extrapolate=False)
         super().__init__(surface_curve, camber_curve, thickness, convention)

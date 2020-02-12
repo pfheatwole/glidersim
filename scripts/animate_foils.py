@@ -13,9 +13,8 @@ import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import Airfoil, NACA  # noqa: F401
 from pfh.glidersim.foil import (  # noqa: F401
     FlatYZ,
-    FoilGeometry,
+    SimpleFoil,
     PolynomialTorsion as PT,
-    SimpleIntakes as SI,
     elliptical_chord,
     elliptical_lobe,
 )
@@ -367,7 +366,12 @@ def foil_generator(base_config, sequences, fps=60):
             params = {}  # The `exec`uted result
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
-            yield config, gsim.foil.FoilGeometry(**params)
+            chord_surface = gsim.foil.ChordSurface(**params)
+            yield config, gsim.foil.SimpleFoil(
+                airfoil=Airfoil(None, NACA(24018)),
+                chords=chord_surface,
+                b_flat=10,
+            )
             n += 1
     print()
 
@@ -394,18 +398,27 @@ from pfh.glidersim.airfoil import Airfoil, NACA
 from pfh.glidersim.foil import (
     elliptical_lobe,
     elliptical_chord,
-    FoilGeometry,
+    SimpleFoil,
     FlatYZ,
     PolynomialTorsion as PT,
-    SimpleIntakes as SI,
 )
 
-foil = FoilGeometry(
+chord_surface = ChordSurface(
   """
 
     maxlen = max(len(k) for k in config.keys())  # For aligning the "="
     code += "\n  ".join(f"{k:>{maxlen}} = {v}" for k, v in config.items())
-    code += "\n)\n\npfh.glidersim.plots.plot_foil(foil)"
+    code += """
+)
+
+foil = gsim.foil.SimpleFoil(
+    airfoil=Airfoil(None, NACA(24018),
+    chords=chord_surface,
+    b_flat=10,
+)
+
+pfh.glidersim.plots.plot_foil(foil)
+"""
     code_text = axes[0].text(
         0,
         0.5,
@@ -430,15 +443,12 @@ if __name__ == "__main__":
 
     # Each sequence modifies this baseline configuration
     base_config = {
-        "airfoil": "Airfoil(None, NACA(24018))",
-        "b_flat": "10",
-        "chord_length": "0.3",
         "r_x": "0.5",
         "x": "0",
         "r_yz": "1.00",
         "yz": "FlatYZ()",
+        "chord_length": "0.3",
         "torsion": "0",
-        "intakes": "None",
         "center": "False",
     }
 
@@ -460,7 +470,7 @@ if __name__ == "__main__":
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=frames,  # Each frame is a (config, FoilGeometry)
+        frames=frames,  # Each frame is a (config, SimpleFoil)
         fargs=(axes,),
         repeat=False,
         interval=20,

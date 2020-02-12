@@ -48,7 +48,7 @@ class Paraglider:
         return np.vstack((wing_cps, harness_cps))
 
     def forces_and_moments(self, UVW, PQR, g, rho_air,
-                           delta_Bl=0, delta_Br=0, delta_a=0,
+                           delta_a=0, delta_bl=0, delta_br=0,
                            v_w2e=None, xyz=None, reference_solution=None):
         """
         Compute the aerodynamic force and moment about the center of gravity.
@@ -68,12 +68,12 @@ class Paraglider:
             The gravity unit vector
         rho_air : float [kg/m^3]
             The ambient air density
-        delta_Bl : float [percentage]
-            The fraction of maximum left brake
-        delta_Br : float [percentage]
-            The fraction of maximum right brake
         delta_a : float [percentage]
             The fraction of maximum accelerator
+        delta_bl : float [percentage]
+            The fraction of maximum left brake
+        delta_br : float [percentage]
+            The fraction of maximum right brake
         v_w2e : ndarray of float, shape (3,) or (K,3)
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -141,20 +141,15 @@ class Paraglider:
 
         # Compute the resultant force and moment about the cg
         dF_w, dM_w, ref = self.wing.forces_and_moments(
-            v_wing, delta_Bl, delta_Br, reference_solution,
+            delta_bl, delta_br, v_wing, rho_air, reference_solution,
         )
-        dF_h, dM_h = self.harness.forces_and_moments(v_harness)
+        dF_h, dM_h = self.harness.forces_and_moments(v_harness, rho_air)
         F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
         M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
         M += cross3(cp_wing, dF_w).sum(axis=0)
-
-        # Scale the aerodynamic forces to account for the air density before
-        # adding the weight of the harness
-        F *= rho_air
-        M *= rho_air
 
         # The harness also contributes a gravitational force, but since this
         # model places the cg at the harness, that force does not generate a
@@ -164,21 +159,33 @@ class Paraglider:
         return F, M, ref
 
     def equilibrium_glide(
-        self, delta_B, delta_a, rho_air, alpha_eq=None, reference_solution=None,
+        self,
+        delta_a,
+        delta_b,
+        V_eq_proposal,
+        rho_air,
+        N_iter=2,
+        reference_solution=None,
     ):
         r"""
         Steady-state angle of attack, pitch angle, and airspeed.
 
         Parameters
         ----------
-        delta_B : float [percentage]
-            Percentage of symmetric brake application
         delta_a : float [percentage]
             Percentage of accelerator application
+        delta_b : float [percentage]
+            Percentage of symmetric brake application
+        V_eq_proposal : float [m/s]
+            A rough guess for the equilibrium airspeed. This is required to put
+            the Reynolds numbers into the proper range.
         rho_air : float [kg/m^3]
-            Air density. Default value is 1.
-        alpha_eq : float [radians] (optional)
-            Steady-state angle of attack
+            Air density.
+        N_iter : integer, optional
+            Number of iterations to account for the fact that the Reynolds
+            numbers (and thus the coefficients) vary with the solution for
+            `V_eq`. If `V_eq_proposal` is anywhere close to accurate, then one
+            or two iterations are usually sufficient. Default: 2
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -188,7 +195,7 @@ class Paraglider:
             Steady-state angle of attack
         Theta_eq : float [radians]
             Steady-state pitch angle
-        V_eq : float [meters/second]
+        V_eq : float [m/s]
             Steady-state airspeed
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
@@ -197,8 +204,8 @@ class Paraglider:
         -----
         Calculating :math:`V_eq` takes advantage of the fact that all the
         aerodynamic forces are proportional to :math:`V^2`. Thus, by
-        calculating the forces for :math:`V = 1`, the following equation can be
-        solved for :math:`V_eq` directly:
+        normalizing the forces to :math:`V = 1`, the following equation can be
+        solved for :math:`V_eq` directly using:
 
         .. math::
 
@@ -206,17 +213,29 @@ class Paraglider:
 
         where `m` is the mass of the harness + pilot.
         """
-        if alpha_eq is None:
-            alpha_eq = self.wing.equilibrium_alpha(delta_B, delta_a, reference_solution)
 
-        g = np.zeros(3)  # Don't include the weight of the harness
-        V = np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-        F, M, solution = self.forces_and_moments(
-            V, [0, 0, 0], g, rho_air, delta_B, delta_B, delta_a,
-        )
+        V_eq = V_eq_proposal  # The initial guess
+        solution = reference_solution  # Approximate solution, if available
+        for n in range(N_iter):
+            alpha_eq = self.wing.equilibrium_alpha(
+                delta_a, delta_b, V_eq, rho_air, solution
+            )
+            UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            F, M, solution = self.forces_and_moments(
+                UVW,
+                [0, 0, 0],  # PQR
+                [0, 0, 0],  # g (don't include the weight of the harness)
+                rho_air,
+                delta_a,
+                delta_b,
+                delta_b,
+                reference_solution=solution,
+            )
+            F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
+            Theta_eq = np.arctan2(F[0], -F[2])
 
-        # FIXME: neglects the weight of the wing
-        Theta_eq = np.arctan2(F[0], -F[2])
-        V_eq = np.sqrt(-(9.8*self.harness.mass*np.cos(Theta_eq))/F[2])
+            # FIXME: neglects the weight of the wing
+            weight_z = 9.8 * self.harness.mass * np.cos(Theta_eq)
+            V_eq = np.sqrt(-weight_z / F[2])
 
         return alpha_eq, Theta_eq, V_eq, solution

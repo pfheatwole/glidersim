@@ -6,7 +6,7 @@ import numpy as np
 
 
 class BrakeGeometry(abc.ABC):
-    def __call__(self, s, delta_Bl, delta_Br):
+    def __call__(self, s, delta_bl, delta_br):
         """
         Computes the trailing edge deflection due to the application of brakes.
 
@@ -16,15 +16,16 @@ class BrakeGeometry(abc.ABC):
         ----------
         s : float, or array_like of float, shape (N,)
             Normalized span position, where `-1 <= s <= 1`
-        delta_Bl : float [percentage]
+        delta_bl : float [percentage]
             Left brake application as a fraction of maximum braking
-        delta_Br : float [percentage]
+        delta_br : float [percentage]
             Right brake application as a fraction of maximum braking
 
         Returns
         -------
-        delta : float [radians]
-            The angle of the deflected chord to the nominal chord
+        delta_f : float [radians]
+            The deflection angle of the trailing edge, as measured between the
+            deflected edge and the undeflected chord.
 
         Notes
         -----
@@ -91,8 +92,8 @@ class Cubic(BrakeGeometry):
         self.K1 = -2*delta_max/((p_peak - p_start)**3)
         self.K2 = 3*delta_max/(p_peak - p_start)**2
 
-    def __call__(self, s, delta_Bl, delta_Br):
-        fraction = np.where(s < 0, delta_Bl, delta_Br)
+    def __call__(self, s, delta_bl, delta_br):
+        fraction = np.where(s < 0, delta_bl, delta_br)
         s = np.abs(s)  # left and right side are symmetric
         fraction = fraction * (s > self.p_start)
         p = s - self.p_start  # The cubic uses a shifted origin, `p_start`

@@ -2,33 +2,18 @@
 Recreates the paraglider analysis in "Wind Tunnel Investigation of a Rigid
 Paraglider Reference Wing", H. Belloc, 2015
 
-
-Some Questions:
-    1. Should `V` be greater than or less than `V_rel`?
-    2. Why am I still significantly overestimating CL?
-        * If I divide by `rho_air` then it matches closely. Coincidence?
-    3. In `Phillips`, why are J2 and J4 so tiny? Is that correct?
-    4. In `Phillips`, where did J4 come from in Hunsaker's derivation?
-        * It wasn't in the original Phillips derivation
-    5. How should I modify `Phillips` to handle non-uniform `u_inf`?
-        * eg, during a turn
-        * Need to modify the `v_ij` at least
-    6. Why don't my `CM` curve like the Belloc paper?
-        * For starters, his `Cm25%` are positive? How? The airfoil produces a
-          negative Cm, as does my model
-        * The shape is wrong too
-        * Fig:6 shows it positve, decrease, then increase, then drop negative
-          post-stall; mine just gradually slopes down until negative!
-    7. How many segments are needed for an accurate Phillips method?
-        * Using K=31 gives noisy results for beta=15
-
-Some TODOs:
- * Review the force and moment calculations, given V+Gamma
- * I need to add Picard iterations to Phillips to deal with stalled sections
- * I need to fix how I calculate L and D when beta>0
-    * Observe in my `CL vs CD`: CD decreases with beta? Nope, wrong
-    * Also, in `CL vs alpha`, why does alpha_L0 increase with beta?
-
+TODO:
+* Why am I still significantly overestimating CL? Wrong airfoil data?
+* The CM25% in the paper are positive? How? The section Cm are almost entirely
+  negative until `alpha > 10`.
+* Review my CM_G calculation; both it and CM25% look wrong (which make sense,
+  since CM25% is computed directly from CM_G, while CM_CL and CM_CD look great.
+* Review the force and moment calculations.
+* Phillips needs "Picard iterations" to deal with stalled sections
+* I need to fix how I calculate L and D when beta>0
+   * Observe in my `CL vs CD`: CD decreases with beta? Nope, wrong
+   * Also, in `CL vs alpha`, why does alpha_L0 increase with beta?
+* Review the "effective AR" equation in Eq:6
 """
 
 
@@ -38,54 +23,9 @@ import matplotlib.pyplot as plt  # noqa: F401
 
 import numpy as np
 
-import pandas as pd
-
-import scipy.interpolate
-
 import pfh.glidersim as gsim
 
-
-class FlaplessAirfoilCoefficients(gsim.airfoil.AirfoilCoefficients):
-    """
-    Use airfoil coefficients from a CSV file.
-
-    The CSV must contain the following columns: [alpha, delta, CL, CD, Cm]
-
-    This is similar to `Airfoil.GridCoefficients`, but it assumes that delta
-    is always zero. This is convenient, since no assuptions need to be made
-    for the non-existent flaps on the wind tunnel model.
-    """
-
-    def __init__(self, filename, convert_degrees=True):
-        data = pd.read_csv(filename)
-        self.data = data
-
-        if convert_degrees:
-            data['alpha'] = np.deg2rad(data.alpha)
-
-        self._Cl = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CL, s=0.001)
-        self._Cd = scipy.interpolate.UnivariateSpline(data[['alpha']], data.CD, s=0.0001)
-        self._Cm = scipy.interpolate.UnivariateSpline(data[['alpha']], data.Cm, s=0.0001)
-        self._Cl_alpha = self._Cl.derivative()
-
-    def _clean(self, alpha, val):
-        # The UnivariateSpline doesn't fill `nan` outside the boundaries
-        min_alpha, max_alpha = np.deg2rad(-9.9), np.deg2rad(24.9)
-        mask = (alpha < min_alpha) | (alpha > max_alpha)
-        val[mask] = np.nan
-        return val
-
-    def Cl(self, alpha, delta):
-        return self._clean(alpha, self._Cl(alpha))
-
-    def Cd(self, alpha, delta):
-        return self._clean(alpha, self._Cd(alpha))
-
-    def Cm(self, alpha, delta):
-        return self._clean(alpha, self._Cm(alpha))
-
-    def Cl_alpha(self, alpha, delta):
-        return self._clean(alpha, self._Cl_alpha(alpha))
+import scipy.interpolate
 
 
 # ---------------------------------------------------------------------------
@@ -140,19 +80,15 @@ fz = scipy.interpolate.interp1d(s_xyz, (xyz.T[2] - xyz[6, 2]) / (b_flat / 2))
 fc = scipy.interpolate.interp1d(s_xyz, c / (b_flat / 2))
 ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
-# Check: what is the area of each panel, treating them as trapezoids? (Does not
-# account for the 3 degree washout at the tips.)
-# FIXME: verify
-dA = (c[:-1] + c[1:]) / 2 * (xyz.T[1, 1:] - xyz.T[1, :-1])
-print(f"Projected area> Expected: {S}, Actual: {dA.sum()}")
-
 
 # ---------------------------------------------------------------------------
 # Build the parafoil and wing
 
 airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
-airfoil_coefs = FlaplessAirfoilCoefficients(
-    'polars/NACA 23015_T1_Re0.920_M0.03_N7.0_XtrTop 5%_XtrBot 5%.csv')
+
+polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N7.0"
+airfoil_coefs = gsim.airfoil.XFLR5Coefficients(polardir, flapped=False)
+
 airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
 
@@ -175,23 +111,41 @@ class InterpolatedLobe:
         return self._fd(s)
 
 
+# FIXME: move the resampling logic into `InterpolatedLobe`, and make that an
+#        official helper class in `foil.py`. It should also use more intelligent
+#        resampling (only needs two extra samples on either side of each point)
 s = np.linspace(-1, 1, 1000)  # Resample so the cubic-fit stays linear
 lobe = InterpolatedLobe(s, fy(s), fz(s))
 
-parafoil = gsim.foil.FoilGeometry(
-    x=0,
+# Try overriding the sampled foil with smooth curves
+# print("\n\nWARNING: Replacing the sampled curves with perfect functions\n")
+# fc = gsim.foil.elliptical_chord(.350, .107)
+# lobe = gsim.foil.elliptical_lobe(28.6, 85)
+
+chord_surface = gsim.foil.ChordSurface(
+    x=0,  # or `fx`
     r_x=0.6,
     yz=lobe,
     r_yz=0.6,
-    torsion=ftheta,
     chord_length=fc,
-    b_flat=b_flat,
-    airfoil=airfoil,
+    torsion=ftheta,
 )
+
+parafoil = gsim.foil.SimpleFoil(
+    airfoil=airfoil,
+    chords=chord_surface,
+    b_flat=b_flat,
+)
+
+print("Finished building the parafoil. Checking fit...")
+print(f"Projected area> Expected: {S}, Actual: {parafoil.S}")
+print(f"Flattened area> Expected: {S_flat}, Actual: {parafoil.S_flat}")
+print(f"Projected AR> Expected: {AR}, Actual: {parafoil.AR}")
+print(f"Flattened AR> Expected: {AR_flat}, Actual: {parafoil.AR_flat}")
 
 wing = gsim.paraglider_wing.ParagliderWing(
     parafoil=parafoil,
-    force_estimator=gsim.foil.Phillips,
+    force_estimator=gsim.foil.Phillips(parafoil, 40),
     brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
@@ -212,6 +166,12 @@ gsim.plots.plot_foil(parafoil, N_sections=121)
 embed()
 # 1/0
 
+# FIXME: add some comparisons of the different measurements. Call attention to
+#        the discrepancy between the specified versus calculated projected
+#        semispans `b`: they don't quite match since the paper used the 0.6c
+#        reference curve while the `ChordSurface` used the true maximum
+#        projected y-coordinates, which are greater due to the torsion. Not
+#        sure why `b_flat` doesn't match; those should be exact?
 
 # ---------------------------------------------------------------------------
 # Testing
@@ -221,10 +181,10 @@ embed()
 # but if the dynamic viscosity of the air is standard, then we can compute the
 # density of the air.
 Re = 0.92e6
-u = 40  # airspeed [m/s]
+V_mag = 40  # Wind tunnel airspeed [m/s]
 L = 0.350  # central chord [m]
 mu = 1.81e-5  # Standard dynamic viscosity of air
-rho_air = Re * mu / (u * L)
+rho_air = Re * mu / (V_mag * L)
 print("rho_air:", rho_air)
 
 # One-off test cases
@@ -256,8 +216,8 @@ g = [0, 0, 0]
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
 
-    alphas_up = np.deg2rad(np.linspace(2, 25, 150))
-    alphas_down = np.deg2rad(np.linspace(-8, 2, 40, endpoint=False))[::-1]
+    alphas_up = np.deg2rad(np.linspace(2, 22, 75))
+    alphas_down = np.deg2rad(np.linspace(2, -5, 30))[1:]
 
     # First, going down
     ref = None
@@ -267,6 +227,7 @@ for kb, beta_deg in enumerate(betas):
         UVW = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
+        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
             F, M, ref = glider.forces_and_moments(
@@ -276,7 +237,7 @@ for kb, beta_deg in enumerate(betas):
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
-            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+            #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -298,6 +259,7 @@ for kb, beta_deg in enumerate(betas):
         UVW = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
+        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
             F, M, ref = glider.forces_and_moments(
@@ -307,7 +269,7 @@ for kb, beta_deg in enumerate(betas):
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
-            # `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+            #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -332,16 +294,16 @@ embed()
 #
 # Uses the flattened wing area as the reference, as per the Belloc paper.
 
-S = wing.force_estimator.dA.sum()
+S = parafoil.S_flat
 
 coefficients = {}
 for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    CX, CY, CZ = Fs[beta].T / (.5 * rho_air * S)
+    CX, CY, CZ = Fs[beta].T / (0.5 * rho_air * V_mag**2 * S)
     CN = -CZ
-    CM = Ms[beta].T[1] / (0.5 * rho_air * S * cc)  # Belloc uses the central chord
+    CM = Ms[beta].T[1] / (0.5 * rho_air * V_mag**2 * S * cc)  # The paper uses the central chord
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
@@ -450,22 +412,22 @@ for beta in betas:
     ix_a15 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 15))
 
     # Lateral force
-    Cy_a0.append(Fs[beta].T[1][ix_a0] / (.5 * rho_air * S))
-    Cy_a5.append(Fs[beta].T[1][ix_a5] / (.5 * rho_air * S))
-    Cy_a10.append(Fs[beta].T[1][ix_a10] / (.5 * rho_air * S))
-    Cy_a15.append(Fs[beta].T[1][ix_a15] / (.5 * rho_air * S))
+    Cy_a0.append(Fs[beta].T[1][ix_a0] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a5.append(Fs[beta].T[1][ix_a5] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a10.append(Fs[beta].T[1][ix_a10] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a15.append(Fs[beta].T[1][ix_a15] / (0.5 * rho_air * V_mag**2 * S))
 
     # Rolling moment coefficients
-    Cl_a0.append(Ms[beta].T[0][ix_a0] / (.5 * rho_air * S * cc))
-    Cl_a5.append(Ms[beta].T[0][ix_a5] / (.5 * rho_air * S * cc))
-    Cl_a10.append(Ms[beta].T[0][ix_a10] / (.5 * rho_air * S * cc))
-    Cl_a15.append(Ms[beta].T[0][ix_a15] / (.5 * rho_air * S * cc))
+    Cl_a0.append(Ms[beta].T[0][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a5.append(Ms[beta].T[0][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a10.append(Ms[beta].T[0][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a15.append(Ms[beta].T[0][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
 
     # Yawing moment coeficients
-    Cn_a0.append(Ms[beta].T[2][ix_a0] / (.5 * rho_air * S * cc))
-    Cn_a5.append(Ms[beta].T[2][ix_a5] / (.5 * rho_air * S * cc))
-    Cn_a10.append(Ms[beta].T[2][ix_a10] / (.5 * rho_air * S * cc))
-    Cn_a15.append(Ms[beta].T[2][ix_a15] / (.5 * rho_air * S * cc))
+    Cn_a0.append(Ms[beta].T[2][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a5.append(Ms[beta].T[2][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a10.append(Ms[beta].T[2][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a15.append(Ms[beta].T[2][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
 
 fig9, ax9 = plt.subplots()
 ax9.plot(betas, Cy_a0, label=r'$\alpha$=0°')

@@ -2,4 +2,3 @@ _autosummary/
 _build/
 __pycache__/
 pfh_glidersim.egg-info/
-polars/

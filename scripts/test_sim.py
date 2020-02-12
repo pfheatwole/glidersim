@@ -60,7 +60,7 @@ class GliderSim:
         # rho_air = self.rho_air(t, x["p"])
         rho_air = self.rho_air  # FIXME: support air density functions
 
-        delta_a, delta_Br, delta_Bl = 0, 0, 0  # FIXME: time-varying input
+        delta_a, delta_br, delta_bl = 0, 0, 0  # FIXME: time-varying input
 
         q_inv = x["q"] * [1, -1, -1, -1]  # for frd->ned
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
@@ -80,8 +80,8 @@ class GliderSim:
             g,
             rho_air=rho_air,
             delta_a=delta_a,
-            delta_Bl=delta_Bl,
-            delta_Br=delta_Br,
+            delta_bl=delta_bl,
+            delta_br=delta_br,
             reference_solution=params["solution"],
         )
 
@@ -159,14 +159,14 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     solver.set_initial_value(state0.view(float))
     solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
 
-    t_start = time.time()
+    t_start = time.perf_counter()
     msg = ""
     k = 1  # Number of completed states (including the initial state)
     print("\nRunning the simulation.")
     try:
         while solver.successful() and k < num_steps:
             if k % 25 == 0:  # Update every 25 iterations
-                avg_rate = (k - 1) / (time.time() - t_start)  # k=0 was free
+                avg_rate = (k - 1) / (time.perf_counter() - t_start)  # k=0 was free
                 rem = (num_steps - k) / avg_rate  # Time remaining in seconds
                 msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
             print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
@@ -191,7 +191,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
             times = times[:k]
             path = path[:k]
 
-    print(f"\nTotal simulation time: {time.time() - t_start}\n")
+    print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
 
     # For debugging
     eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))

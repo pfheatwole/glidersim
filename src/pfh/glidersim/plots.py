@@ -1,3 +1,4 @@
+from IPython import embed
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
@@ -168,9 +169,9 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
 
     sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
-        coords = foil.surface_points(s, sa, "lower", flatten=flatten).T
+        coords = foil.surface_xyz(s, sa, "lower", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
-        coords = foil.surface_points(s, sa, "upper", flatten=flatten).T
+        coords = foil.surface_xyz(s, sa, "upper", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
 
     s = np.linspace(-1, 1, N_sections)
@@ -197,7 +198,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = foil.chord_xyz(s, foil.r_x(s))
+    xyz = foil.chord_xyz(s, foil._chords.r_x(s))
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -207,12 +208,11 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = foil.chord_xyz(s, foil.r_yz(s))
+    xyz = foil.chord_xyz(s, foil._chords.r_yz(s))
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
     ax.legend()
-
 
     if independent_plot:
         fig.tight_layout()
@@ -221,23 +221,49 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, ax=None):
-    """Plot a 3D foil in topdown projection."""
+def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0, ax=None):
+    """
+    Plot a 3D foil in topdown projection.
+
+    Parameters
+    ----------
+    foil : FoilGeometry
+    N_sections : integer
+        The number of spanwise sections to plot.
+    N_points : integer
+        The number of points per surface curve.
+    flatten : bool
+        Whether to flatten the arch (ignore dihedral).
+    rotate : float [degrees]
+        Rotation angle about the y-axis. Possibly useful if some manufacturers
+        use `Theta_eq` for the specs?
+    ax : matplotlib.axes
+        An existing subplot. Useful for layering or animation.
+    """
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 12))
         independent_plot = True
     else:
         independent_plot = False
 
+    theta = np.deg2rad(rotate)
+    ct, st = np.cos(theta), np.sin(theta)
+    R = np.array(
+        [[ ct, 0, st],  # noqa: E201
+         [  0, 1,  0],  # noqa: E201
+         [-st, 0, ct]],
+    )
+
     for s in np.linspace(-1, 1, N_sections):
-        LE_xy = foil.chord_xyz(s, 0, flatten=flatten)[:2]
-        TE_xy = foil.chord_xyz(s, 1, flatten=flatten)[:2]
-        coords = np.stack((LE_xy, TE_xy))
+        LE = foil.chord_xyz(s, 0, flatten=flatten)
+        TE = foil.chord_xyz(s, 1, flatten=flatten)
+        coords = np.stack((LE, TE))
+        coords = (R @ coords.T).T
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     s = np.linspace(-1, 1, N_sections)
-    LE = foil.chord_xyz(s, 0, flatten=flatten)
-    TE = foil.chord_xyz(s, 1, flatten=flatten)
+    LE = (R @ foil.chord_xyz(s, 0, flatten=flatten).T).T
+    TE = (R @ foil.chord_xyz(s, 1, flatten=flatten).T).T
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
@@ -249,7 +275,7 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, ax=None):
         return ax.lines
 
 
-def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None):
+def plot_wing(wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None):
     """
     Plot a ParagliderWing using 3D cross-sections.
 
@@ -271,7 +297,7 @@ def plot_wing(wing, delta_Bl=0, delta_Br=0, N_sections=131, N_points=50, ax=None
 
     # Add a dashed brake deflection line
     s = np.linspace(-1, 1, N_sections)
-    delta = wing.brake_geo(s, delta_Bl, delta_Br)
+    delta = wing.brake_geo(s, delta_bl, delta_br)
     flap = delta / 0.2
     c = wing.parafoil.chord_length(s)
     orientations = wing.parafoil.section_orientation(s)
