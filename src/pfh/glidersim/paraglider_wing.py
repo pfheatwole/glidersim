@@ -15,7 +15,7 @@ class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
-    def __init__(self, parafoil, force_estimator, V_ref_mag, brake_geo, d_riser, z_riser,
+    def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
                  pA, pC, kappa_a, rho_upper, rho_lower):
         """
         FIXME: add docstring.
@@ -26,8 +26,6 @@ class ParagliderWing:
             The geometric shape of the lifting surface.
         force_estimator : foil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
-        V_ref_mag : float [m/s]
-            Airspeed for the force_estimator base case.
         brake_geo : BrakeGeometry
             Section trailing edge deflections as a function of delta_bl/br
         d_riser : float [percentage]
@@ -46,7 +44,7 @@ class ParagliderWing:
             Surface area densities of the upper and lower foil surfaces.
         """
         self.parafoil = parafoil
-        self.force_estimator = force_estimator(parafoil, V_ref_mag=V_ref_mag)
+        self.force_estimator = force_estimator
         self.brake_geo = brake_geo
         self.pA = pA
         self.pC = pC

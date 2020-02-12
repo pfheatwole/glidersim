@@ -260,8 +260,7 @@ def build_hook3():
 
     wing = gsim.paraglider_wing.ParagliderWing(
         parafoil=parafoil,
-        force_estimator=gsim.foil.Phillips,
-        V_ref_mag=10,  # For Phillips reference solution
+        force_estimator=gsim.foil.Phillips(parafoil, V_ref_mag=10, K=31),
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `Theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1

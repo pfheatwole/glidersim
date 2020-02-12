@@ -1243,6 +1243,17 @@ class Phillips(ForceEstimator):
     line. Unlike the Prandtl's classic lifting-line theory, this method allows
     for wing sweep and dihedral.
 
+    Parameters
+    ----------
+    foil : FoilGeometry
+        Defines the lifting-line and section coefficients.
+    V_ref_mag : float [m/s]
+        The reference solution airspeed
+    alpha_ref : float [degrees]
+        The reference solution angle of attack
+    K : integer
+        The number of bound vortex segments. Default: 51
+
     References
     ----------
     .. [1] Phillips and Snyder, "Modern Adaptation of Prandtl’s Classic
@@ -1267,28 +1278,16 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, foil, V_ref_mag, alpha_ref=8.5):
-        """
-        Initialize the estimator.
-
-        Parameters
-        ----------
-        foil : FoilGeometry
-        V_ref_mag : float [m/s]
-            The base case (reference solution) airspeed
-        alpha_ref : float [degrees]
-            The base case (reference solution) angle of attack
-        """
+    def __init__(self, foil, V_ref_mag, alpha_ref=5, K=51):
         self.foil = foil
+        self.K = K
 
         # Define the spanwise and nodal and control points
 
         # Option 1: linear distribution
-        self.K = 91  # The number of bound vortex segments
         self.s_nodes = np.linspace(-1, 1, self.K + 1)
 
         # Option 2: cosine distribution
-        # self.K = 21  # The number of bound vortex segments
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
