@@ -291,33 +291,29 @@ def elliptical_lobe(mean_anhedral, max_anhedral=None):
 
 class PolynomialTorsion:
     """
-    A functor that for producing polynomial curves at the wing tips.
+    A functor that encodes geometric torsion as a polynomial.
 
-    The curve is symmetric about the origin. Points between `[-start, start]`
-    are zero; points between [start, 1] grow from `0` to `peak` a rate
-    controlled by `exponent`.
+    The domain is `[-1, 1]`, and the range is symmetric about the origin.
+    Inputs `0 <= abs(s) <= start` are zero; inputs `start < abs(s) <= 1` grow
+    from `0` to `peak` at a rate controlled by `exponent`.
+
+    For example, if `start = 0.5`, and `exponent = 2`, then inputs `s` between
+    `[-0.5, 0.5]` are zero, and `0.5 < abs(s) <= 1` grow quadratically to the
+    peak value `peak` at `abs(s) == 1`.
+
+    Parameters
+    ----------
+    start: float
+        Absolute value section index where the curve begins.
+
+    exponent : float
+        The growth rate. Controls the steepness of the curve.
+
+    peak : float
+        The peak value of the curve at `s = 1`.
     """
 
-    def __init__(self, start, exponent, peak, symmetric=True):
-        """
-        Construct the curve.
-
-        Parameters
-        ----------
-        start: float
-            Where the exponential curve begins, where `0 <= start <= 1`. The
-            region between +/- `start` is zero.
-
-        exponent : float
-            The exponential growth rate. Controls the steepness of the curve.
-            For example, `2` produces a quadratic curve between `start` and 1.
-
-        peak : float
-            The peak value of the curve at `s = 1`.
-        """
-        if exponent < 1:
-            print("\nWarning: exponent is less than 1?\n")
-
+    def __init__(self, start, exponent, peak):
         self.start = start
         self.exponent = exponent
         self.peak = np.deg2rad(peak)
