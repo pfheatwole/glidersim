@@ -1,10 +1,3 @@
-* I hate that I'm using `delta`, `delta_B`, `delta_a`, etc. I need to
-  standardize them. They're not even consistent: some places using `delta_B`,
-  some use `deltaB`, etc.
-
-  Should I rename "brakes" to "controls"?
-
-
 * Standardize the wind vector names (`V_cp2w`, `v_wing`, `V`, etc)
 
 
@@ -38,7 +31,7 @@ General
 * Verify function docstrings match the signatures
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
-  Numba to warn me about it, at least. (see `test_sim.py` using `quaternion`)
+  Numba to warn me about it, at least. (see `quaternion`)
 
 * Should docstring types be "array of" or "ndarray of"? I lean towards
   "array", but would it be better to use the canonical name so sphinx can link
@@ -85,9 +78,9 @@ Geometry
 * Write an `AirfoilGeometry` interpolator. Takes two geometries, and returns
   the interpolated surface points.
 
-  **Does this make sense as a standalone thing? It's so simple, it almost
+  **Does this make sense as a standalone thing?** It's so simple, it almost
   seems like overkill to make it it's own class. Might be preferable to have
-  a single class that interpolates both the geometry and the coefficients?**
+  a single class that interpolates both the geometry and the coefficients?
 
 * Implement **accurate** `camber_curve` and `thickness` estimators.
 
@@ -129,9 +122,9 @@ Coefficients
   Wouldn't make for good analysis, but would be interesting for demonstrating
   the effect of ignoring Reynolds numbers.
 
-* In `XFLR5Coefficients`, the `LinearNDInterpolator` could use `scale=True`
-  instead of the `Re = Re / 1e6` in the coefficients functions, but for some
-  reason it doesn't work. Worth investigating?
+* In `XFLR5Coefficients`, the `LinearNDInterpolator` should be able to use
+  `scale=True` instead of the `Re = Re / 1e6` in the coefficients functions,
+  but for some reason it doesn't work. Worth investigating?
 
 * In `XFLR5Coefficients`, I could support XFOIL polars as well, but I'd need to
   read the columns differently. Easy way to read the headers is with `names
@@ -196,8 +189,6 @@ Parafoil
 Geometry
 --------
 
-* Review the API: accept any of `{b, b_flat, S, S_flat}` as scaling factors
-
 * Review the air `intakes` design
 
   Should they be removed from `SimpleFoil`? If `surface_xyz` accepts the
@@ -218,20 +209,17 @@ Geometry
   May want to introduce an scaling value as a convenience for the user
   though.)
 
-* Should the "projected surface area" methods take pitch angle as a parameter?
-
-  I'm not sure what most paraglider wing manufacturers use for the projected
-  area. My definitions requires that the central chord is parallel to the
-  xy-plane, but I imagine some manufacturers would use the equilibrium angle
-  of the wing. It's more in-line with what you'd use for classical aerodynamic
-  analysis, and it's essential constant regardless of load.
-
 * Define the fundamental `FoilGeometry` spec
 
   What are the essential needs of users like `SimpleFoil`, `Parafoil`, etc? At
   least: `section_orientation, chord_length, chord_xyz, surface_xyz`. Anything
   else? I think the least constraining view is "profiles as a function of
   section index positioned along some line". 
+
+
+
+Lower priority
+^^^^^^^^^^^^^^
 
 * I claim that `FoilGeometry` is defined as having the central chord leading
   edge at `x = 0` and that the central chord lies in the xy-plane, **by
@@ -241,9 +229,11 @@ Geometry
   I guess it'd be good enough to just require that `torsion(s=0) = 0`, but
   I guess I could also just compute `torsion(s=0)` and subtract that from all
   torsions, thus "centering" the twist in the same manner as the origin.
-
+  
 * Move `InterpolatedLobe` from `belloc.py` into `foil.py` and modify it to use
   intelligent resampling (near the given points, not just a blind resample).
+
+* Review the API: accept any of `{b, b_flat, S, S_flat}` as scaling factors
 
 
 Low Priority
@@ -262,24 +252,36 @@ Low Priority
 
 * Is the "mean aerodynamic chord" a useful concept for arched wings?
 
+* Should the "projected surface area" methods take pitch angle as a parameter?
+
+  I'm not sure what most paraglider wing manufacturers use for the projected
+  area. My definitions requires that the central chord is parallel to the
+  xy-plane, but I imagine some manufacturers would use the equilibrium angle
+  of the wing. It's more in-line with what you'd use for classical aerodynamic
+  analysis, and it's essential constant regardless of load.
+
+  For my hook3 approximation, `Theta_eq = 3`. Rotating the foil before
+  projecting changed `S` by `0.15%`, so it's not a big deal.
+
 
 Inertia
 ^^^^^^^
 
+* Should I rewrite the `mass_properties` to use the triangle mesh? It would
+  make computing the surface areas more straightforward, but I'm not sure
+  about the internal volumes. I suspect voxels may provide the solution, but
+  I haven't researched it yet.
+
 * `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
-  overestimated/underestimated (a little bit).
+  overestimated/underestimated (a little bit). (Using a mesh for the areas
+  would fix this nicely.)
 
 * Fix the inertia calculations: right now it places all the segment mass on the
   airfoil bisecting the center of the segment. The code doesn't spread the mass
   out along the segment span, so it underestimates `I_xx` and `I_zz` by
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
-
-* Should I rewrite the `mass_properties` to use the triangle mesh? It would
-  make computing the surface areas more straightforward, but I'm not sure
-  about the internal volumes. I suspect voxels may provide the solution, but
-  I haven't researched it yet.
 
 
 Meshes
@@ -490,9 +492,6 @@ ParagliderWing
 * `d_riser` and `z_riser` are different units, which is odd. Almost everything
   is proportional to `b_flat`, but `z_riser` is a concrete unit?
 
-* `ParagliderWing` owns the force estimator for the `Parafoil`, but not for
-  the harness...
-
 * *Design* the "query control points, compute wind vectors, query dynamics"
   sequence and API
 
@@ -560,7 +559,7 @@ Simulator
 * Design review support for early terminations (`Ctrl-C`) of fixed-length
   simulations (eg, "run for 120sec").
 
-* Review the `GliderSim` state definitions (a dictionary? a structured array?)
+* Review the `GliderSim` state definitions (Dictionary? Structured array?)
 
 
 Scenario Design
@@ -587,17 +586,6 @@ Documentation
 
 Testing
 =======
-
-* Still issues with the Hook 3 polar curves
-
-  * Min-sink is much too low; should be 1.1m/s (I should start by including
-    the weight of the wing)
-
-  * Max speed is too low (should be 54kmh)
-
-  * Is `alpha_eq` accurate when brakes are applied? It'd be fascinating if
-    alpha and Theta do actually decrease; I'd have expected Theta to
-    *increase*.
 
 * Does my model demonstrate "control reversal" for small brake deflections?
 
