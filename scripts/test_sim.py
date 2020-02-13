@@ -2,6 +2,9 @@ import time
 
 from IPython import embed
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 import numpy as np
 
 import scipy.integrate
@@ -9,6 +12,7 @@ import scipy.integrate
 import hook3
 from pfh.glidersim import quaternion
 from pfh.glidersim.util import cross3
+from pfh.glidersim.plots import _set_axes_equal
 
 
 class GliderSim:
@@ -201,6 +205,31 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + cross3(path["omega"], cp0)
+
+    ax = plt.gca(projection='3d')
+    ax.invert_yaxis()
+    ax.invert_zaxis()
+    ax.plot(path["p"].T[0], path["p"].T[1], path["p"].T[2], label="p_risers")
+    ax.plot(p_cp0.T[0], p_cp0.T[1], p_cp0.T[2], label="p_cp0")
+    for t in range(0, k, 5):
+        p1, p2 = path["p"][t], p_cp0[t]
+        ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
+    ax.legend()
+    _set_axes_equal(ax)
+    plt.show()
+
+    # ax = plt.gca()
+    # mag_v_cp0 = np.linalg.norm(v_cp0, axis=1)
+    # mag_v_frd = np.linalg.norm(v_frd, axis=1)
+    # ax.plot(times, mag_v_cp0, marker='.', lw=0.75, label="v_cp0")
+    # ax.plot(times, mag_v_frd, marker='.', lw=0.75, label="v_frd")
+    # ax.set_ylim(0, max(mag_v_cp0.max(), mag_v_frd.max()) * 1.1)
+    # ax.legend()
+    # plt.show()
+
+    # plt.plot(times, np.rad2deg(path["omega"]))
+    # plt.ylabel("omega [deg]")
+
 
     embed()
 
