@@ -211,7 +211,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     ax.invert_zaxis()
     ax.plot(path["p"].T[0], path["p"].T[1], path["p"].T[2], label="p_risers")
     ax.plot(p_cp0.T[0], p_cp0.T[1], p_cp0.T[2], label="p_cp0")
-    for t in range(0, k, 5):
+    for t in range(0, k, int(1/dt)):  # Draw connecting lines once per second
         p1, p2 = path["p"][t], p_cp0[t]
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
     ax.legend()
