@@ -270,7 +270,12 @@ def main():
     state0["omega"] = PQR
 
     print("Preparing the simulation.")
-    print("Initial state:", state0)
+    print("Initial state:")
+    print("      q: ", state0["q"].round(4))
+    print("  euler: ", np.rad2deg(euler).round(4))
+    print("      p: ", state0["p"].round(4))
+    print("      v: ", state0["v"].round(4))
+    print("  omega: ", state0["omega"].round(4))
 
     # times05, path05 = simulate(model, state0_raw, dt=0.05, T=120)
     # times10, path10 = simulate(model, state0_raw, dt=0.10, T=120)
