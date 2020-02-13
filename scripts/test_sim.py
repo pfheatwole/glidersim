@@ -255,11 +255,10 @@ def main():
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
     )
     PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
-    Phi = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # attitude [rad]
-    # FIXME: make attitude a function of Theta
+    euler = [np.deg2rad(0), Theta, np.deg2rad(0)]  # [phi, theta, gamma]
 
     # q = np.array([1, 0, 0, 0])  # The identity quaternion (zero attitude)
-    q = quaternion.euler_to_quaternion(Phi)  # Encodes C_frd/ned
+    q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
     q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
 
     # Define the initial state
