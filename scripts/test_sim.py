@@ -277,10 +277,10 @@ def main():
     print("      v: ", state0["v"].round(4))
     print("  omega: ", state0["omega"].round(4))
 
-    # times05, path05 = simulate(model, state0_raw, dt=0.05, T=120)
-    # times10, path10 = simulate(model, state0_raw, dt=0.10, T=120)
-    times25, path25 = simulate(model, state0, dt=0.25, T=120)
-    # times50, path50 = simulate(model, state0_raw, dt=0.50, T=120)
+    # times05, path05 = simulate(model, state0, dt=0.05, T=300)
+    # times10, path10 = simulate(model, state0, dt=0.10, T=300)
+    times25, path25 = simulate(model, state0, dt=0.25, T=300)
+    # times50, path50 = simulate(model, state0, dt=0.50, T=300)
 
     # For verification purposes
     # delta_PE = 9.8 * 75 * -path["p"].T[2]  # PE = mgh
