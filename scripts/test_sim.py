@@ -194,12 +194,13 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
 
     # For debugging
-    eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))
+    q_inv = path["q"] * [1, -1, -1, -1]  # Applies C_ned/frd
+    eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))  # [role, pitch, yaw] == [phi, theta, gamma]
     cps = model.glider.control_points(0)  # Control points in FRD (wing+harness)
     cp0 = cps[(cps.shape[0] - 1) // 2]  # The central control point in frd
-    p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(path["q"], cp0)
+    v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
+    p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + cross3(path["omega"], cp0)
-    Phi = quaternion.quaternion_to_euler(path["q"])  # FIXME: correct?
 
     embed()
 
