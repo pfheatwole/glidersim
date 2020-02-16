@@ -266,14 +266,23 @@ def main():
     rho_air = 1.2
     model = GliderSim(glider, rho_air=rho_air)
 
-    # Start the wing in an equilibrium state (assuming zero wind)
-    # alpha, Theta, V = glider.equilibrium_glide(0, 0, rho_air=rho_air)
-
     # Start the wing in a random state (non-equilibrium)
     alpha = np.deg2rad(8.5)
     beta = np.deg2rad(0)
     Theta = np.deg2rad(3)
     V = 10.5
+
+    # Start the wing in an equilibrium state (assuming zero wind)
+    alpha, Theta, V, _ = glider.equilibrium_glide(
+        delta_a=0.0,
+        delta_b=0,
+        V_eq_proposal=10,
+        rho_air=rho_air
+    )
+
+    # HACK: the Paraglider doesn't take into account the harness moment
+    # Theta -= np.deg2rad(5)
+    # alpha += np.deg2rad(1.5)
 
     # Build some data
     UVW = V * np.asarray(
