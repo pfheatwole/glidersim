@@ -91,7 +91,7 @@ class GliderSim:
         delta_br = braketest(t)
         # delta_bl = braketest(t)
 
-        q_inv = x["q"] * [1, -1, -1, -1]  # for frd->ned
+        q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
         # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
