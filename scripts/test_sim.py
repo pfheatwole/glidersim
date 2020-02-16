@@ -64,7 +64,32 @@ class GliderSim:
         # rho_air = self.rho_air(t, x["p"])
         rho_air = self.rho_air  # FIXME: support air density functions
 
-        delta_a, delta_br, delta_bl = 0, 0, 0  # FIXME: time-varying input
+        def braketest(t):
+            t_start = 15
+            t_rise = 5
+            t_hold = 60
+            t_fall = 3
+            delta_max = 0.75
+
+            t0 = 0
+            t1 = t0 + t_start
+            t2 = t1 + t_rise
+            t3 = t2 + t_hold
+            t4 = t3 + t_fall
+
+            if t < t1 or t > t4:
+                return 0
+            elif t < t2:  # t_start < t < t_rise: linear growth to delta_max
+                return delta_max * (t - t_start) / t_rise
+            elif t < t3:  # Hold for `t_hold`
+                return delta_max
+            else:  # Linear decrease over t_fall
+                # Linear decrease from delta_max to zero
+                return delta_max * (t - t3) / t_fall
+
+        delta_a, delta_br, delta_bl = 0.0, 0.0, 0.0  # FIXME: time-varying input
+        delta_br = braketest(t)
+        # delta_bl = braketest(t)
 
         q_inv = x["q"] * [1, -1, -1, -1]  # for frd->ned
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
