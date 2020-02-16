@@ -106,7 +106,7 @@ def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None
-    for alpha in alphas:
+    for k, alpha in enumerate(alphas):
         print(f"\ralpha: {np.rad2deg(alpha):6.2f}", end="")
         try:
             F, M, reference_solution, = glider.forces_and_moments(
@@ -122,7 +122,10 @@ def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
             Fs.append(F)
             Ms.append(M)
         except gsim.foil.ForceEstimator.ConvergenceError:
-            continue
+            break
+    alphas = alphas[:k]
+    Fs = Fs[:k]
+    Ms = Ms[:k]
 
     CLs, CDs, CMs = [], [], []
     for n, F in enumerate(Fs):
