@@ -301,7 +301,10 @@ if __name__ == "__main__":
 
     print("\nComputing the glider equilibrium...")
     alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(
-        0, 0, V_eq_proposal=10, rho_air=1.2,
+        delta_a=0.0,
+        delta_b=0.0,
+        V_eq_proposal=10,
+        rho_air=1.2,
     )
     gamma_eq = alpha_eq - Theta_eq
     UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
