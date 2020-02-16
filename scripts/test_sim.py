@@ -227,9 +227,21 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))  # [role, pitch, yaw] == [phi, theta, gamma]
     cps = model.glider.control_points(0)  # Control points in FRD (wing+harness)
     cp0 = cps[(cps.shape[0] - 1) // 2]  # The central control point in frd
-    v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
+    v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
+
+    # Compute the Euler derivatives (Stevens Eq:1.4-4)
+    phi, theta, gamma = np.deg2rad(eulers.T)
+    T = np.array(
+        [
+            [np.ones(k), np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)],
+            [np.zeros(k), np.cos(phi), -np.sin(phi)],
+            [np.zeros(k), np.sin(phi)/np.cos(theta), np.cos(phi)/np.cos(theta)]
+        ]
+    )
+    T = np.moveaxis(T, -1, 0)
+    euler_dot = np.einsum("kij,kj->ki", T, path["omega"])
 
     ax = plt.gca(projection='3d')
     ax.invert_yaxis()
