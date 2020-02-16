@@ -241,8 +241,8 @@ def build_hook3():
     # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
     # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
 
-    print("\nPausing...")
-    embed()
+    # print("\nPausing...")
+    # embed()
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
     # plots.plot_foil_topdown(parafoil, N_sections=77)
@@ -286,7 +286,7 @@ def build_hook3():
     # print("Plotting the basic glider performance curves")
     # plot_foil_coefficients(glider)
 
-    # print("\nFinished building the glider.\n")
+    print("\nFinished building the glider.\n")
     # embed()
     # 1/0
 
