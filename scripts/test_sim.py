@@ -229,7 +229,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     cp0 = cps[(cps.shape[0] - 1) // 2]  # The central control point in frd
     v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
-    v_cp0 = path["v"] + cross3(path["omega"], cp0)
+    v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
 
     ax = plt.gca(projection='3d')
     ax.invert_yaxis()
