@@ -222,27 +222,104 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
 
-    # For debugging
+    return times, path
+
+
+def main():
+    # -----------------------------------------------------------------------
+    # Build the glider and state model
+
+    glider = hook3.build_hook3()
+    rho_air = 1.2
+    model = GliderSim(glider, rho_air=rho_air)
+
+
+    # -----------------------------------------------------------------------
+    # Define the initial state
+
+    # Option 1: Explicit state
+    alpha = np.deg2rad(8.5)
+    beta = np.deg2rad(0)
+    Theta = np.deg2rad(3)
+    V = 10.5
+
+    # Option 2: Equilibrium state (assuming zero wind)
+    alpha, Theta, V, _ = glider.equilibrium_glide(
+        delta_a=0.0,
+        delta_b=0,
+        V_eq_proposal=10,
+        rho_air=rho_air
+    )
+    # HACK: the Paraglider equilibrium doesn't account for the harness moment
+    # Theta -= np.deg2rad(5)
+    # alpha += np.deg2rad(1.5)
+
+    UVW = V * np.asarray(
+        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
+    )
+    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
+    euler = [np.deg2rad(0), Theta, np.deg2rad(0)]  # [phi, theta, gamma]
+    q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
+    q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
+
+    # Define the initial state
+    state0 = np.empty(1, dtype=GliderSim.state_dtype)
+    state0["q"] = q
+    state0["p"] = [0, 0, 0]
+    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
+    state0["omega"] = PQR
+
+
+    # -----------------------------------------------------------------------
+    # Run the simulation
+
+    print("Preparing the simulation.")
+    print("Initial state:")
+    print("      q: ", state0["q"].round(4))
+    print("  euler: ", np.rad2deg(euler).round(4))
+    print("      p: ", state0["p"].round(4))
+    print("      v: ", state0["v"].round(4))
+    print("  omega: ", state0["omega"].round(4))
+
+    # Run the simulation
+    dt, T = 0.1, 300
+    times, path = simulate(model, state0, dt=dt, T=T)
+
+
+    # -----------------------------------------------------------------------
+    # Extra values for verification/debugging
+
+    k = len(times)
     q_inv = path["q"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))  # [role, pitch, yaw] == [phi, theta, gamma]
-    cps = model.glider.control_points(0)  # Control points in FRD (wing+harness)
-    cp0 = cps[(cps.shape[0] - 1) // 2]  # The central control point in frd
+    eulers = quaternion.quaternion_to_euler(path["q"])  # [phi, theta, gamma]
+    cps = model.glider.wing.control_points(0)  # Wing control points in frd
+    cp0 = cps[len(cps) // 2]  # The central control point in frd
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
     v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
 
-    # Compute the Euler derivatives (Stevens Eq:1.4-4)
-    phi, theta, gamma = np.deg2rad(eulers.T)
-    T = np.array(
-        [
-            [np.ones(k), np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)],
-            [np.zeros(k), np.cos(phi), -np.sin(phi)],
-            [np.zeros(k), np.sin(phi)/np.cos(theta), np.cos(phi)/np.cos(theta)]
-        ]
-    )
+    # Euler derivatives (Stevens Eq:1.4-4)
+    _0, _1 = np.zeros(k), np.ones(k)
+    sp, st, sg = np.sin(eulers.T)
+    cp, ct, cg = np.cos(eulers.T)
+    tp, tt, tg = np.tan(eulers.T)
+    T = np.array([[_1, sp*tt, cp*tt], [_0, cp, -sp], [_0, sp/ct, cp/ct]])
     T = np.moveaxis(T, -1, 0)
     euler_dot = np.einsum("kij,kj->ki", T, path["omega"])
 
+    # FIXME: these energy terms need review. Some are only for the harness,
+    #        some are only for the wing. Not sure how useful they are anyway,
+    #        since lots of energy is lost to the air mass.
+    # delta_PE = 9.8 * 75 * -path["p"].T[2]
+    # KE_trans = 0.5 * 75 * np.linalg.norm(path["v"], axis=1)**2
+    # KE_rot = 0.5 * np.einsum("ij,kj->k", model.J, path["omega"]**2)
+    # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
+
+
+    # -----------------------------------------------------------------------
+    # Plots
+
+    # 3D Plot: Position over time
     ax = plt.gca(projection='3d')
     ax.invert_yaxis()
     ax.invert_zaxis()
@@ -255,85 +332,22 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     _set_axes_equal(ax)
     plt.show()
 
-    # ax = plt.gca()
+    # Plot: velocity vs Time
     # mag_v_cp0 = np.linalg.norm(v_cp0, axis=1)
     # mag_v_frd = np.linalg.norm(v_frd, axis=1)
+    # ax = plt.gca()
     # ax.plot(times, mag_v_cp0, marker='.', lw=0.75, label="v_cp0")
     # ax.plot(times, mag_v_frd, marker='.', lw=0.75, label="v_frd")
     # ax.set_ylim(0, max(mag_v_cp0.max(), mag_v_frd.max()) * 1.1)
     # ax.legend()
     # plt.show()
 
+    # Plot: omega vs Time
     # plt.plot(times, np.rad2deg(path["omega"]))
     # plt.ylabel("omega [deg]")
-
+    # plt.show()
 
     embed()
-
-    return times, path
-
-
-def main():
-    glider = hook3.build_hook3()
-    rho_air = 1.2
-    model = GliderSim(glider, rho_air=rho_air)
-
-    # Start the wing in a random state (non-equilibrium)
-    alpha = np.deg2rad(8.5)
-    beta = np.deg2rad(0)
-    Theta = np.deg2rad(3)
-    V = 10.5
-
-    # Start the wing in an equilibrium state (assuming zero wind)
-    alpha, Theta, V, _ = glider.equilibrium_glide(
-        delta_a=0.0,
-        delta_b=0,
-        V_eq_proposal=10,
-        rho_air=rho_air
-    )
-
-    # HACK: the Paraglider doesn't take into account the harness moment
-    # Theta -= np.deg2rad(5)
-    # alpha += np.deg2rad(1.5)
-
-    # Build some data
-    UVW = V * np.asarray(
-        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
-    )
-    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
-    euler = [np.deg2rad(0), Theta, np.deg2rad(0)]  # [phi, theta, gamma]
-
-    # q = np.array([1, 0, 0, 0])  # The identity quaternion (zero attitude)
-    q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
-    q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
-
-    # Define the initial state
-    state0 = np.empty(1, dtype=GliderSim.state_dtype)
-    state0["q"] = q
-    state0["p"] = [0, 0, 0]
-    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
-    state0["omega"] = PQR
-
-    print("Preparing the simulation.")
-    print("Initial state:")
-    print("      q: ", state0["q"].round(4))
-    print("  euler: ", np.rad2deg(euler).round(4))
-    print("      p: ", state0["p"].round(4))
-    print("      v: ", state0["v"].round(4))
-    print("  omega: ", state0["omega"].round(4))
-
-    # times05, path05 = simulate(model, state0, dt=0.05, T=300)
-    times10, path10 = simulate(model, state0, dt=0.10, T=300)
-    # times25, path25 = simulate(model, state0, dt=0.25, T=300)
-    # times50, path50 = simulate(model, state0, dt=0.50, T=300)
-
-    # For verification purposes
-    # delta_PE = 9.8 * 75 * -path["p"].T[2]  # PE = mgh
-    # KE_trans = 1/2 * 75 * np.linalg.norm(path["v"], axis=1)**2  # translational KE
-    # KE_rot = 1/2 * np.einsum("ij,kj->k", J, path["omega"]**2)
-    # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
-
-    # embed()
 
 
 if __name__ == "__main__":
