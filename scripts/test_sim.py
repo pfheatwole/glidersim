@@ -8,11 +8,41 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 import scipy.integrate
+from scipy.interpolate import interp1d
 
 import hook3
 from pfh.glidersim import quaternion
 from pfh.glidersim.util import cross3
 from pfh.glidersim.plots import _set_axes_equal
+
+
+def linear_control(pairs):
+    """
+    Helper funtion to build linear interpolators for control inputs.
+
+    The input is a sequence of tuples encoding  `(duration, value)`. An initial
+    value can be set with a leading `(0, initial_value)` tuple. To "hold" a
+    value, use `None` to repeat the previous value.
+
+    For example, to ramp from 0 to 0.5 over the initial 15 seconds, then
+    transition to 0.75 over a period of 2 seconds, hold for 10 seconds, then
+    decrease to 0 over 10 seconds:
+
+        pairs = [(15, 0.5), (2, 0.75), (10, None), (10, 0)]
+
+    Parameters
+    ----------
+    pairs : list of 2-tuples of float
+        Each tuple is (duration, value).
+    """
+    durations = np.array([t[0] for t in pairs])
+    values = [t[1] for t in pairs]
+    assert all(durations >= 0)
+    for n, v in enumerate(values):  # Use `None` for "hold previous value"
+        values[n] = v if v is not None else values[n-1]
+    times = np.cumsum(durations)
+    c = interp1d(times, values, fill_value=(values[0], values[-1]), bounds_error=False)
+    return c
 
 
 class GliderSim:
@@ -23,18 +53,39 @@ class GliderSim:
         ("omega", float, (3,)),
     ]
 
-    def __init__(self, glider, rho_air):
+    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
         self.glider = glider
-
-        # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_a is zero (no weight shift deformations)
-        self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
-        self.J_inv = np.linalg.inv(self.J)
 
         if np.isscalar(rho_air):
             self.rho_air = rho_air
         else:
             raise ValueError("Non-scalar rho_air is not yet supported")
+
+        if callable(delta_a):
+            self.delta_a = delta_a
+        elif np.isscalar(delta_a):
+            self.delta_a = lambda t: delta_a
+        else:
+            raise ValueError("`delta_a` must be a scalar or callable")
+
+        if callable(delta_bl):
+            self.delta_bl = delta_bl
+        elif np.isscalar(delta_bl):
+            self.delta_bl = lambda t: delta_bl
+        else:
+            raise ValueError("`delta_bl` must be a scalar or callable")
+
+        if callable(delta_br):
+            self.delta_br = delta_br
+        elif np.isscalar(delta_br):
+            self.delta_br = lambda t: delta_br
+        else:
+            raise ValueError("`delta_br` must be a scalar or callable")
+
+        # FIXME: assumes J is constant. This is okay if rho_air is constant,
+        #        and delta_a is zero (no weight shift deformations)
+        self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
+        self.J_inv = np.linalg.inv(self.J)
 
     def dynamics(self, t, y, params):
         """The state dynamics for the model
@@ -64,32 +115,9 @@ class GliderSim:
         # rho_air = self.rho_air(t, x["p"])
         rho_air = self.rho_air  # FIXME: support air density functions
 
-        def braketest(t):
-            t_start = 15
-            t_rise = 5
-            t_hold = 60
-            t_fall = 3
-            delta_max = 0.75
-
-            t0 = 0
-            t1 = t0 + t_start
-            t2 = t1 + t_rise
-            t3 = t2 + t_hold
-            t4 = t3 + t_fall
-
-            if t < t1 or t > t4:
-                return 0
-            elif t < t2:  # t_start < t < t_rise: linear growth to delta_max
-                return delta_max * (t - t_start) / t_rise
-            elif t < t3:  # Hold for `t_hold`
-                return delta_max
-            else:  # Linear decrease over t_fall
-                # Linear decrease from delta_max to zero
-                return delta_max * (t - t3) / t_fall
-
-        delta_a, delta_br, delta_bl = 0.0, 0.0, 0.0  # FIXME: time-varying input
-        delta_br = braketest(t)
-        # delta_bl = braketest(t)
+        delta_a = self.delta_a(t)
+        delta_bl = self.delta_bl(t)
+        delta_br = self.delta_br(t)
 
         q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
@@ -231,7 +259,13 @@ def main():
 
     glider = hook3.build_hook3()
     rho_air = 1.2
-    model = GliderSim(glider, rho_air=rho_air)
+
+    # FIXME: move these into "scenario" functions
+    delta_a = 0.0
+    delta_bl = 0.0
+    delta_br = linear_control([(15, 0), (5, 0.75), (10, None), (3, 0)])
+
+    model = GliderSim(glider, rho_air=rho_air, delta_br=delta_br)
 
 
     # -----------------------------------------------------------------------
