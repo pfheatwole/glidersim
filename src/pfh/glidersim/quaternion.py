@@ -8,7 +8,7 @@ from pfh.glidersim.util import _cross3
 
 
 def skew(v):
-    """Compute the skew operator for a vector."""
+    """Compute the skew operator (cross-product matrix) for a vector."""
     assert v.shape in ((3,), (3, 1))
     vx, vy, vz = v.flatten()
     sv = [[0, -vz, vy],
@@ -23,9 +23,8 @@ def euler_to_dcm(euler):
 
     Parameters
     ----------
-    euler : array of float, shape (3,)
-        The [phi, theta, gamma] in radians, specifying the rotation as a
-        yaw-pitch-roll sequence.
+    euler : array of float, shape (3,) [radians]
+        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
 
     Returns
     -------
@@ -42,7 +41,19 @@ def euler_to_dcm(euler):
 
 
 def dcm_to_euler(dcm):
-    """Convert a DCM to a set of yaw-pitch-role Euler angles."""
+    """
+    Convert a DCM to a set of yaw-pitch-role Euler angles.
+
+    Parameters
+    ----------
+    dcm : ndarray of float, shape (3,3)
+        A direction cosine matrix.
+
+    Returns
+    -------
+    euler : array of float, shape (3,) [radians]
+        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
+    """
     phi = np.arctan2(dcm[1, 2], dcm[2, 2])
     theta = -np.arcsin(dcm[0, 2])
     gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
@@ -55,9 +66,8 @@ def euler_to_quaternion(euler):
 
     Parameters
     ----------
-    euler : array of float, shape (3,)
-        The [phi, theta, gamma] in radians, specifying the rotation as a
-        yaw-pitch-roll sequence.
+    euler : array of float, shape (3,) [radians]
+        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
 
     Returns
     -------
