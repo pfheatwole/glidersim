@@ -230,6 +230,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
             # WARNING: `solver.integrate` returns a *reference* to `_y`
             #          Modifying `state` modifies `solver.y` directly.
+            # FIXME: normalizing `q` is a leaky abstraction
             # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
             #        Using `solver.set_initial_value` would reset the
             #        integrator, but that's not what we want here.
