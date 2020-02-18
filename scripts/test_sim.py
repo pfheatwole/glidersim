@@ -119,7 +119,6 @@ class GliderSim:
         delta_bl = self.delta_bl(t)
         delta_br = self.delta_br(t)
 
-        q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
         # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
@@ -145,11 +144,30 @@ class GliderSim:
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
         # Translational acceleration of the cm
-        a_frd = F / self.glider.harness.mass  # FIXME: crude, incomplete
+        #
+        # FIXME: review Stevens Eq:1.7-18. The `F` here includes gravity, but
+        #        what about the `cross(omega, v)` term? And how does that
+        #        compare to Eq:1.7-21? (It's an "alternative"? How so?)
+        #
+        #        Also be careful with Eq:1.7-16: `cross(omega, v)` is for the
+        #        velocity of the cm, not the origin!
+        #
+        # a_frd = F / self.glider.harness.mass  # FIXME: Crude. Incomplete. Wrong.
+        a_frd = F / (self.glider.harness.mass + 4) - np.cross(x["omega"], v_frd)  # Also wrong? Uses the origin, not the cm.
+        q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
+
+        # `v_frd` (aka `UVW`) is the velocity of the reference point, which for
+        # the Paraglider I've defined to be the origin (the midpoint between
+        # the risers). Because the Paraglider rotates about it's center of
+        # mass, not the origin, you need to include the angular velocity of the
+        # paraglider when computing UVW.
+
 
         # Angular acceleration of the body relative to the ned frame
         #  * ref: Stevens, Eq:1.7-5, p36 (50)
+        #
+        # FIXME: doesn't account for the moment from the harness to the glider cm
         alpha = self.J_inv @ (M - cross3(x["omega"], self.J @ x["omega"]))
 
         # Quaternion derivative
