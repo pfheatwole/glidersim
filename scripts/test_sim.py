@@ -56,10 +56,12 @@ class GliderSim:
     def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
         self.glider = glider
 
-        if np.isscalar(rho_air):
+        if callable(rho_air):
             self.rho_air = rho_air
+        elif np.isscalar(rho_air):
+            self.rho_air = lambda t: rho_air
         else:
-            raise ValueError("Non-scalar rho_air is not yet supported")
+            raise ValueError("`rho_air` must be a scalar or callable")
 
         if callable(delta_a):
             self.delta_a = delta_a
@@ -111,14 +113,6 @@ class GliderSim:
         """
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
 
-        # Determine the environmental conditions
-        # rho_air = self.rho_air(t, x["p"])
-        rho_air = self.rho_air  # FIXME: support air density functions
-
-        delta_a = self.delta_a(t)
-        delta_bl = self.delta_bl(t)
-        delta_br = self.delta_br(t)
-
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
         # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
         # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
@@ -134,10 +128,10 @@ class GliderSim:
             v_frd,
             x["omega"],
             g,
-            rho_air=rho_air,
-            delta_a=delta_a,
-            delta_bl=delta_bl,
-            delta_br=delta_br,
+            rho_air=self.rho_air(t),
+            delta_a=self.delta_a(t),
+            delta_bl=self.delta_bl(t),
+            delta_br=self.delta_br(t),
             reference_solution=params["solution"],
         )
 
