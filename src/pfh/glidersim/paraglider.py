@@ -1,5 +1,7 @@
 """FIXME: add module docstring."""
 
+from IPython import embed
+
 import numpy as np
 
 from pfh.glidersim.util import cross3
@@ -34,6 +36,11 @@ class Paraglider:
         self.wing = wing
         self.harness = harness
 
+        # FIXME: assumes J is constant. This is okay if rho_air is constant,
+        #        and delta_a is zero (no weight shift deformations)
+        self.J = wing.inertia(rho_air=1.2, N=5000)
+        self.J_inv = np.linalg.inv(self.J)
+
     def control_points(self, delta_a=0):
         """
         Compute the reference points for the composite Paraglider system.
@@ -47,11 +54,21 @@ class Paraglider:
         harness_cps = self.harness.control_points()
         return np.vstack((wing_cps, harness_cps))
 
-    def forces_and_moments(self, UVW, PQR, g, rho_air,
-                           delta_a=0, delta_bl=0, delta_br=0,
-                           v_w2e=None, xyz=None, reference_solution=None):
+    def accelerations(
+        self,
+        UVW,
+        PQR,
+        g,
+        rho_air,
+        delta_a=0,
+        delta_bl=0,
+        delta_br=0,
+        v_w2e=None,
+        xyz=None,
+        reference_solution=None,
+    ):
         """
-        Compute the aerodynamic force and moment about the center of gravity.
+        Compute the translational and angular accelerations about the center of mass.
 
         FIXME: should this function compute ALL forces, including gravity?
         FIXME: needs a design review; the `xyz` parameter name in particular
@@ -149,14 +166,59 @@ class Paraglider:
 
         # Add the torque produced by the wing forces; the harness drag is
         # applied at the center of mass, and so produces no additional torque.
-        M += cross3(cp_wing, dF_w).sum(axis=0)
+        cg_glider = np.array([0.01, 0, -0.25])
+        M += cross3(cp_wing - cg_glider, dF_w).sum(axis=0)
+
+
+        # FIXME: centroid of the harness and wing real mass
+        # FIXME: moment for the wing solid mass
+        wing_m_solid = 1.7751
+        wing_cg_solid = self.wing.foil_origin() + [-1.3567, 0, 0.751]
+        F += wing_m_solid * np.asarray(g)
+        M += np.cross(wing_cg_solid, wing_m_solid * np.asarray(g))
+
+
+        # FIXME: moment for the harness mass
+        cg_glider = np.array([0.01, 0, -0.75])
+        M_h_aero = np.cross(-cg_glider, dF_h)
+        M_h_g = np.cross(-cg_glider, 75 * np.asarray(g))
+        M += M_h_aero
+        M += M_h_g
+
 
         # The harness also contributes a gravitational force, but since this
         # model places the cg at the harness, that force does not generate a
         # moment.
         F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
 
-        return F, M, ref
+        # return F, M, ref
+
+        # ------------------------------------------------------------------
+        # Compute the accelerations
+
+        J = self.J  # WRONG: `J` changes with rho_air
+        J_inv = self.J_inv
+
+        # Translational acceleration of the cm
+        #
+        # FIXME: review Stevens Eq:1.7-18. The `F` here includes gravity, but
+        #        what about the `cross(omega, v)` term? And how does that
+        #        compare to Eq:1.7-21? (It's an "alternative"? How so?)
+        #
+        #        Also be careful with Eq:1.7-16: `cross(omega, v)` is for the
+        #        velocity of the cm, not the origin!
+        #
+        # a_frd = F / self.glider.harness.mass  # FIXME: Crude. Incomplete. Wrong.
+        a_frd = F / (self.harness.mass + 4) - np.cross(PQR, UVW)  # Also wrong? Uses the origin, not the cm.
+
+        # Angular acceleration of the body relative to the ned frame
+        #  * ref: Stevens, Eq:1.7-5, p36 (50)
+        #
+        # FIXME: doesn't account for the moment from the harness to the glider cm
+        alpha = J_inv @ (M - cross3(PQR, J @ PQR))
+
+        return a_frd, alpha, ref
+
 
     def equilibrium_glide(
         self,
@@ -216,22 +278,19 @@ class Paraglider:
 
         V_eq = V_eq_proposal  # The initial guess
         solution = reference_solution  # Approximate solution, if available
+
         for n in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
                 delta_a, delta_b, V_eq, rho_air, solution
             )
             UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-            F, M, solution = self.forces_and_moments(
-                UVW,
-                [0, 0, 0],  # PQR
-                [0, 0, 0],  # g (don't include the weight of the harness)
-                rho_air,
-                delta_a,
-                delta_b,
-                delta_b,
-                reference_solution=solution,
+            dF_w, dM_w, solution = self.wing.forces_and_moments(
+                 delta_b, delta_b, UVW, rho_air, solution,
             )
+            dF_h, dM_h = self.harness.forces_and_moments(UVW, rho_air)
+            F = dF_w.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
             F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
+
             Theta_eq = np.arctan2(F[0], -F[2])
 
             # FIXME: neglects the weight of the wing

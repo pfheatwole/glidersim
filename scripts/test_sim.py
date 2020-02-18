@@ -84,11 +84,6 @@ class GliderSim:
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
 
-        # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_a is zero (no weight shift deformations)
-        self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
-        self.J_inv = np.linalg.inv(self.J)
-
     def dynamics(self, t, y, params):
         """The state dynamics for the model
 
@@ -124,7 +119,7 @@ class GliderSim:
         # FIXME: Paraglider should return accelerations directly, not forces.
         #        The Glider might want to utilize appparent inertia, etc.
         v_frd = quaternion.apply_quaternion_rotation(x["q"], x["v"])
-        F, M, solution = self.glider.forces_and_moments(
+        a_frd, alpha_frd, solution = self.glider.accelerations(
             v_frd,
             x["omega"],
             g,
@@ -137,17 +132,6 @@ class GliderSim:
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
-        # Translational acceleration of the cm
-        #
-        # FIXME: review Stevens Eq:1.7-18. The `F` here includes gravity, but
-        #        what about the `cross(omega, v)` term? And how does that
-        #        compare to Eq:1.7-21? (It's an "alternative"? How so?)
-        #
-        #        Also be careful with Eq:1.7-16: `cross(omega, v)` is for the
-        #        velocity of the cm, not the origin!
-        #
-        # a_frd = F / self.glider.harness.mass  # FIXME: Crude. Incomplete. Wrong.
-        a_frd = F / (self.glider.harness.mass + 4) - np.cross(x["omega"], v_frd)  # Also wrong? Uses the origin, not the cm.
         q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
 
@@ -156,13 +140,6 @@ class GliderSim:
         # the risers). Because the Paraglider rotates about it's center of
         # mass, not the origin, you need to include the angular velocity of the
         # paraglider when computing UVW.
-
-
-        # Angular acceleration of the body relative to the ned frame
-        #  * ref: Stevens, Eq:1.7-5, p36 (50)
-        #
-        # FIXME: doesn't account for the moment from the harness to the glider cm
-        alpha = self.J_inv @ (M - cross3(x["omega"], self.J @ x["omega"]))
 
         # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
@@ -180,7 +157,7 @@ class GliderSim:
         x_dot["q"] = q_dot
         x_dot["p"] = x["v"]
         x_dot["v"] = a_ned
-        x_dot["omega"] = alpha
+        x_dot["omega"] = alpha_frd
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review

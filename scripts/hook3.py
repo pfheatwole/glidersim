@@ -103,6 +103,7 @@ def plot_polar_curve(glider, N=51):
 
 
 def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
+    raise RuntimeError("Broken: needs design review around new API")
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None
@@ -310,24 +311,19 @@ if __name__ == "__main__":
     UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(Theta_eq), 0, np.cos(Theta_eq)])
-    F, M, _, = glider.forces_and_moments(
+    a_frd, alpha, _, = glider.accelerations(
         UVW, PQR, g=g, rho_air=1.2, delta_bl=0, delta_br=0,
     )
 
-    print(f"  UVW:   {UVW.round(4)}")
-    print(f"  F:     {F.round(4)}")
-    print(f"  M:     {M.round(4)}")
+    print(f"  UVW:       {UVW.round(4)}")
+    print(f"  a_frd:     {a_frd.round(4)}")
+    print(f"  omega_dot: {np.rad2deg(alpha).round(4)}")
     print()
     print(f"  alpha:       {np.rad2deg(np.arctan2(UVW[2], UVW[0])):>6.3f} [deg]")
     print(f"  Theta:       {np.rad2deg(Theta_eq):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(gamma_eq):>6.3f} [deg]")
     print(f"  Glide ratio: {1 / np.tan(gamma_eq):>6.3f}")
     print(f"  Glide speed: {V_eq:>6.3f}")
-
-    # Sanity check the dynamics
-    # J_wing = glider.wing.inertia(rho_air=1.2, N=5000)
-    # alpha_rad = np.linalg.inv(J_wing) @ M
-    # print("\nAngular acceleration at equilibrium:", np.rad2deg(alpha_rad))
 
     print("\n<pausing before polar curves>\n")
     embed()

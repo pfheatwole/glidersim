@@ -182,17 +182,6 @@ mu = 1.81e-5  # Standard dynamic viscosity of air
 rho_air = Re * mu / (V_mag * L)
 print("rho_air:", rho_air)
 
-# One-off test cases
-# alpha, beta = np.deg2rad(7), np.deg2rad(0)
-# alpha, beta = np.deg2rad(25), np.deg2rad(0)
-# alpha, beta = np.deg2rad(24), np.deg2rad(5)
-# alpha, beta = np.deg2rad(-5), np.deg2rad(10)
-# UVW = np.asarray([np.cos(alpha)*np.cos(beta), np.sin(beta), np.sin(alpha)*np.cos(beta)])
-# PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
-# F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho_air=1)
-# embed()
-# 1/0
-
 # Full-range tests
 Fs, Ms, solutions = {}, {}, {}
 alphas = {}
