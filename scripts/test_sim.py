@@ -185,8 +185,8 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     Parameters
     ----------
     model
-        The model that provides `dynamics`
-    state0
+        The model that provides `dynamics` and `state_dtype`
+    state0 : model.state_dtype
         The initial state
     T : float [seconds]
         The total simulation time
@@ -200,10 +200,10 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     Returns
     -------
-    times : ndarray, shape (K+1, N)
-    path : ndarray, shape (K+1, N)
-        K : the number of discrete time values
-        N : the number of state variables
+    times : array of float, shape (K+1,) [seconds]
+        The timestamp of each solution
+    path : array of `model.state_dtype`, shape (K+1,)
+        The state trajectory.
     """
 
     num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
