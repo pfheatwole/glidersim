@@ -152,14 +152,9 @@ wing = gsim.paraglider_wing.ParagliderWing(
     pA=0.08,  # unused
     pC=0.80,  # unused
     kappa_a=0,  # unused
-    rho_upper=0,  # unused
-    rho_lower=0,  # unused
+    rho_upper=0,  # Neglect gravitational forces
+    rho_lower=0,
 )
-
-# A `Harness` is required to instantiate the `Paraglider`, but should not
-# produce any forces (so zero weight and drag).
-harness = gsim.harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
-glider = gsim.paraglider.Paraglider(wing, harness)
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
 gsim.plots.plot_foil(parafoil, N_sections=121)
@@ -215,6 +210,7 @@ g = [0, 0, 0]
 
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
+    cp_wing = wing.control_points(0)  # Section control points
 
     alphas_up = np.deg2rad(np.linspace(2, 22, 75))
     alphas_down = np.deg2rad(np.linspace(2, -5, 30))[1:]
@@ -230,14 +226,18 @@ for kb, beta_deg in enumerate(betas):
         UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
-            F, M, ref = glider.forces_and_moments(
-                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
+            dF, dM, ref = wing.forces_and_moments(
+                0, 0, UVW, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
             #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+
+        F = dF.sum(axis=0)
+        M = dM.sum(axis=0)  # Moment due to section `Cm`
+        M += np.cross(cp_wing, dF).sum(axis=0)  # Add the moment due to forces
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -262,14 +262,18 @@ for kb, beta_deg in enumerate(betas):
         UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
 
         try:
-            F, M, ref = glider.forces_and_moments(
-                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
+            dF, dM, ref = wing.forces_and_moments(
+                0, 0, UVW, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
             #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+
+        F = dF.sum(axis=0)
+        M = dM.sum(axis=0)  # Moment due to section `Cm`
+        M += np.cross(cp_wing, dF).sum(axis=0)  # Add the moment due to forces
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
