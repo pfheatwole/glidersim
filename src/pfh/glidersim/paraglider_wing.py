@@ -246,10 +246,10 @@ class ParagliderWing:
         #                air_mass * p['volume_centroid'] +
         #                lower_mass * p['lower_centroid']) / total_mass
 
-        o = -self.foil_origin(delta_a)  # Origin is `risers->origin`
-        Ru = o - p["upper_centroid"]
-        Rv = o - p["volume_centroid"]
-        Rl = o - p["lower_centroid"]
+        o = self.foil_origin(delta_a)  # wing origin -> foil origin
+        Ru = o + p["upper_centroid"]
+        Rv = o + p["volume_centroid"]
+        Rl = o + p["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
