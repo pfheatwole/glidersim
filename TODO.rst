@@ -1,3 +1,61 @@
+* Verify standardized names like `theta` for the pitch angle of the body
+  system (attached to the wing), `theta_h` for the relative pitch angle of the
+  harness, etc.
+
+* Review Stevens Eq:1.8-21b. Ignore these for tangent-plane approximations?
+
+* Should I rename `V_cp2w`? The `w` is too much like "wing". Maybe `V_cp2air`?
+
+* I'm not crazy about `frd` versus `FRD`, but I'm doing it because that's what
+  Stevens does. Should I continue?
+
+* In `quaternion` I mention "yaw-pitch-role" Euler angles, but all parameters
+  with independent inputs are `[phi, theta, gamma]` (roll-pitch-yaw). Is this
+  usage inconsistent? I'm still not comfortable with the terminology, but
+  I think it's okay? I suspect that the actual phi-theta-gamma values will
+  depend on the order of their application, so the *values* phi-theta-gamma
+  are the roll-pitch-yaw angles that would produce the desired rotation when
+  applied in a yaw-pitch-role sequence. Probably just need a better docstring.
+
+* Why speedbar reverse the control direction? Why does `delta_a = 0.75` cause
+  `belta_br = 0.5` to produce a strong turn to the left? Consider if/how the
+  speedbar moves the center of mass in frd coordinates. Also, it's interesting
+  that `wing.inertia(delta_a=1)` introduces negative roll-yaw coupling...
+
+* If the center of mass moves (speedbar, relative harness pitch, etc) the
+  angular velocity must change in order to conserve angular momentum. Same
+  thing for changes to any inertia matrices; consider the angular momentum of
+  all components and verify they are being maintained. (Non-rigid-body motion
+  is a pain!)
+
+  This may prove tricky. If you know the cm moved a particular way, you can
+  compute the angular velocity that would satisfy conservation of angular
+  momentum. **But, the `Paraglider` returns accelerations, not net changes
+  in velocity; if the speedbar moved the cm over `dt`, who computes that net
+  change in angular momentum?** Does rate change of controls need to be part
+  of the state? How else do you determine the *change per time* of angular
+  momentum in response to control inputs?
+
+  First thing to do is probably to check how much the cm moves in response to
+  speedbar and relative harness pitch. Hopefully the cm doesn't change too
+  much. Or does conserving the angular momentums of the harness and parafoil
+  independently successfully conserve angular momentum of the total system?
+  **Is angular momentum of the system the sum of the components?**
+
+  Reminder: Stevens Eq:1.7-3 gives the equation for angular momentum:
+  `h_{cm/i}^{b}f = J^{bf} @ omega_{b/i}^{bf}`. So, if the wing had some
+  rotation rate `omega0` and you go from 0 to 100% accelerator, `omega1
+  = inv(J_delta1) @ J_delta0 @ omega0`
+
+  Crazy: for the Hook3, a +5deg/s roll rate would turn int +5.77deg/s roll and
+  +4.3deg/s yaw. That's a surprisingly big yaw effect.
+
+
+* Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,
+  `first_step`, `max_step`, etc. Remember the simulation depends on the system
+  dynamics (the vehicle) as well as the input dynamics (frequency content of
+  the brake, speedbar, and wind values).
+
 * Standardize the wind vector names (`V_cp2w`, `v_wing`, `V`, etc)
 
 
