@@ -39,7 +39,7 @@ def linear_control(pairs):
     values = [t[1] for t in pairs]
     assert all(durations >= 0)
     for n, v in enumerate(values):  # Use `None` for "hold previous value"
-        values[n] = v if v is not None else values[n-1]
+        values[n] = v if v is not None else values[n - 1]
     times = np.cumsum(durations)
     c = interp1d(times, values, fill_value=(values[0], values[-1]), bounds_error=False)
     return c
@@ -253,10 +253,11 @@ def main():
     # FIXME: move these into "scenario" functions
     delta_a = 0.0
     delta_bl = 0.0
+    # delta_br = 0.0
     delta_br = linear_control([(15, 0), (5, 0.75), (10, None), (3, 0)])
+    # delta_br = linear_control([(5, 0), (5, 0.5),])
 
     model = GliderSim(glider, rho_air=rho_air, delta_br=delta_br)
-
 
     # -----------------------------------------------------------------------
     # Define the initial state
@@ -288,7 +289,7 @@ def main():
     # beta = 0
 
     UVW = V * np.asarray(
-        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
+        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
     PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
     euler = [np.deg2rad(0), Theta, np.deg2rad(0)]  # [phi, theta, gamma]
@@ -301,7 +302,6 @@ def main():
     state0["p"] = [0, 0, 0]
     state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
     state0["omega"] = PQR
-
 
     # -----------------------------------------------------------------------
     # Run the simulation
@@ -317,7 +317,6 @@ def main():
     # Run the simulation
     dt, T = 0.1, 300
     times, path = simulate(model, state0, dt=dt, T=T)
-
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
@@ -336,7 +335,7 @@ def main():
     sp, st, sg = np.sin(eulers.T)
     cp, ct, cg = np.cos(eulers.T)
     tp, tt, tg = np.tan(eulers.T)
-    T = np.array([[_1, sp*tt, cp*tt], [_0, cp, -sp], [_0, sp/ct, cp/ct]])
+    T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
     T = np.moveaxis(T, -1, 0)
     euler_dot = np.einsum("kij,kj->ki", T, path["omega"])
 
@@ -348,7 +347,6 @@ def main():
     # KE_rot = 0.5 * np.einsum("ij,kj->k", model.J, path["omega"]**2)
     # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
 
-
     # -----------------------------------------------------------------------
     # Plots
 
@@ -358,7 +356,7 @@ def main():
     ax.invert_zaxis()
     ax.plot(path["p"].T[0], path["p"].T[1], path["p"].T[2], label="p_risers")
     ax.plot(p_cp0.T[0], p_cp0.T[1], p_cp0.T[2], label="p_cp0")
-    for t in range(0, k, int(1/dt)):  # Draw connecting lines once per second
+    for t in range(0, k, int(1 / dt)):  # Draw connecting lines once per second
         p1, p2 = path["p"][t], p_cp0[t]
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
     ax.legend()
