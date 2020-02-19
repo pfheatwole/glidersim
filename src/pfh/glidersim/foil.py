@@ -1449,8 +1449,10 @@ class Phillips(ForceEstimator):
         >>> np.allclose(J1, J2)  # FIXME: tune the tolerances?
         True
         """
+        # This uses the same method as `scipy.optimize.approx_fprime`, but that
+        # function only works for scalar functions.
         JT = np.empty((self.K, self.K))  # Jacobian transpose  (J_ji)
-        eps = np.sqrt(np.finfo(float).eps)  # ref: `approx_prime` docstring
+        eps = np.sqrt(np.finfo(float).eps)
 
         # Build the Jacobian column-wise (row-wise of the tranpose)
         Gp, Gm = Gamma.copy(), Gamma.copy()
