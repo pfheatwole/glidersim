@@ -4,7 +4,10 @@ from IPython import embed
 
 import numpy as np
 
+from pfh.glidersim import quaternion
 from pfh.glidersim.util import cross3
+
+import scipy.integrate
 
 
 class Paraglider:
@@ -219,7 +222,6 @@ class Paraglider:
 
         return a_frd, alpha, ref
 
-
     def equilibrium_glide(
         self,
         delta_a,
@@ -298,3 +300,117 @@ class Paraglider:
             V_eq = np.sqrt(-weight_z / F[2])
 
         return alpha_eq, Theta_eq, V_eq, solution
+
+    def equilibrium_glide2(
+        self,
+        delta_a,
+        delta_b,
+        alpha_0,
+        theta_0,
+        V_0,
+        rho_air,
+        reference_solution=None,
+    ):
+        """
+        Compute the equilibrium state through simulation.
+
+        Unlike `equilibrium_glide`, this uses the full model dynamics. The
+        other method is very fast, but ignores things like the weight of the
+        wing.
+
+        Parameters
+        ----------
+        delta_a : float [percentage]
+            The percentage of accelerator.
+        delta_b : float [percentage]
+            The percentage of symmetric brake.
+        alpha_0 : float [rad], optional
+            The initial proposal for angle of attack.
+        theta_0 : float [rad], optional
+            The initial proposal for glider pitch angle.
+        V_0 : float [m/s], optional
+            The initial proposal for glider airspeed.
+
+        Returns
+        -------
+        alpha_eq : float [radians]
+            Steady-state angle of attack
+        theta_eq : float [radians]
+            Steady-state pitch angle
+        V_eq : float [m/s]
+            Steady-state airspeed
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+        """
+        state_dtype = [
+            ("q", float, (4,)),  # Orientation quaternion, body/earth
+            ("v", float, (3,)),  # Translational velocity in frd
+            ("omega", float, (3,)),  # Angular velocity in frd
+        ]
+
+        def dynamics(t, state, kwargs):
+            x = state.view(state_dtype)[0]
+            x["q"] /= np.sqrt((x["q"] ** 2).sum())
+            g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
+            a_frd, alpha_frd, ref = self.accelerations(x["v"], x["omega"], g, **kwargs)
+            P, Q, R = x["omega"]
+            # fmt: off
+            Omega = np.array([
+                [0, -P, -Q, -R],
+                [P,  0,  R, -Q],
+                [Q, -R,  0,  P],
+                [R,  Q, -P,  0]])
+            # fmt: on
+            q_dot = 0.5 * Omega @ x["q"]
+            x_dot = np.empty(1, state_dtype)
+            x_dot["q"] = q_dot
+            x_dot["v"] = a_frd
+            x_dot["omega"] = alpha_frd
+            kwargs["reference_solution"] = ref
+            return x_dot.view(float)  # The integrator expects a flat array
+
+        state = np.empty(1, state_dtype)
+        state["q"] = quaternion.euler_to_quaternion([0, theta_0, 0])
+        state["v"] = V_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
+        state["omega"] = [0, 0, 0]
+
+        dynamics_kwargs = {
+            "delta_a": delta_a,
+            "delta_bl": delta_b,
+            "delta_br": delta_b,
+            "rho_air": rho_air,
+            "reference_solution": reference_solution,
+        }
+
+        solver = scipy.integrate.ode(dynamics)
+        solver.set_integrator("dopri5", rtol=1e-5, max_step=0.1)
+        solver.set_f_params(dynamics_kwargs)
+
+        while True:
+            solver.set_initial_value(state.view(float))
+            state = solver.integrate(1).view(state_dtype)
+            state["omega"] = [0, 0, 0]   # Zero every step to avoid oscillations
+            g = 9.8 * quaternion.apply_quaternion_rotation(state["q"][0], [0, 0, 1])
+            a_frd, alpha_frd, _ = self.accelerations(
+                UVW=state["v"][0],
+                PQR=state["omega"][0],
+                g=g,
+                rho_air=rho_air,
+                delta_a=delta_a,
+                delta_bl=delta_b,
+                delta_br=delta_b,
+                reference_solution=dynamics_kwargs["reference_solution"],
+            )
+
+            # FIXME: this test doesn't guarantee equilibria
+            if any(abs(a_frd) > 0.001) or any(abs(alpha_frd) > 0.001):
+                continue
+            else:
+                state = state[0]
+                break
+
+        alpha_eq = np.arctan2(*state["v"][[2, 0]])
+        theta_eq = quaternion.quaternion_to_euler(state["q"])[1]
+        V_eq = np.linalg.norm(state["v"])
+
+        return alpha_eq, theta_eq, V_eq, dynamics_kwargs["reference_solution"]

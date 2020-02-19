@@ -261,22 +261,31 @@ def main():
     # -----------------------------------------------------------------------
     # Define the initial state
 
-    # Option 1: Explicit state
-    alpha = np.deg2rad(8.5)
+    # Option 1: Arbitrary state (this should be equilibrium Hook 3)
+    alpha = np.deg2rad(8.86313992)
     beta = np.deg2rad(0)
-    Theta = np.deg2rad(3)
-    V = 10.5
+    Theta = np.deg2rad(2.06783323)
+    V = 10.32649163
 
-    # Option 2: Equilibrium state (assuming zero wind)
-    alpha, Theta, V, _ = glider.equilibrium_glide(
-        delta_a=0.0,
-        delta_b=0,
-        V_eq_proposal=10,
-        rho_air=rho_air
-    )
-    # HACK: the Paraglider equilibrium doesn't account for the harness moment
-    # Theta -= np.deg2rad(5)
-    # alpha += np.deg2rad(1.5)
+    # Option 2: Approximate equilibrium state (neglects harness moment)
+    # alpha, Theta, V, _ = glider.equilibrium_glide(
+    #     delta_a=0.0,
+    #     delta_b=0,
+    #     V_eq_proposal=10,
+    #     rho_air=rho_air
+    # )
+    # beta = 0
+
+    # Option 3: Equilibrium code (slow, but more accurate)
+    # alpha, Theta, V, _ = glider.equilibrium_glide2(
+    #     delta_a=0,
+    #     delta_b=0,
+    #     alpha_0=np.deg2rad(9),
+    #     theta_0=np.deg2rad(3),
+    #     V_0=10,
+    #     rho_air=1.2,
+    # )
+    # beta = 0
 
     UVW = V * np.asarray(
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
