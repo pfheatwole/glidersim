@@ -173,7 +173,7 @@ class Paraglider:
                      ) / m_w_real
         cm_w_real += foil_origin
 
-        m_h = self.harness.mass
+        m_h = self.harness.mass_properties()["mass"]
         cm_h = self.harness.control_points()
 
         m_g = m_w_real + m_h
@@ -212,7 +212,7 @@ class Paraglider:
         dF_h_aero = np.atleast_2d(dF_h_aero)
         dM_h_aero = np.atleast_2d(dM_h_aero)
         F_h_aero = dF_h_aero.sum(axis=0)
-        F_h_weight = self.harness.mass * g
+        F_h_weight = m_h * g
         M_h = dM_h_aero.sum(axis=0)
         M_h += cross3(cp_harness - cm_g, dF_h_aero).sum(axis=0)
         M_h += cross3(cm_h - cm_g, F_h_weight)
@@ -305,6 +305,7 @@ class Paraglider:
 
         V_eq = V_eq_proposal  # The initial guess
         solution = reference_solution  # Approximate solution, if available
+        m_h = self.harness.mass_properties()["mass"]
 
         for n in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
@@ -321,7 +322,7 @@ class Paraglider:
             Theta_eq = np.arctan2(F[0], -F[2])
 
             # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * self.harness.mass * np.cos(Theta_eq)
+            weight_z = 9.8 * m_h * np.cos(Theta_eq)
             V_eq = np.sqrt(-weight_z / F[2])
 
         return alpha_eq, Theta_eq, V_eq, solution
