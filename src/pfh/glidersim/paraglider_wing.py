@@ -105,7 +105,7 @@ class ParagliderWing:
         Returns
         -------
         foil_origin : array of float, shape (3,) [meters]
-            The offset of the origin of the Parafoil coordinate system in
+            The offset of the origin of the FoilGeometry coordinate system in
             ParagliderWing coordinates.
         """
         # Speedbar shortens the A lines, while AC and C remain fixed
