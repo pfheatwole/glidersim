@@ -119,23 +119,20 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(
-        self, delta_a, delta_b, V_mag, rho_air, reference_solution=None
+        self, delta_a, delta_b, V_mag, rho_air, reference_solution=None,
     ):
-        """FIXME: add docstring."""
-        def target(alpha, delta_a, delta_b, reference_solution):
-            cp_wing = self.control_points(delta_a)
+        """Compute the zero aerodynamic pitching moment angle of attack."""
+        cp_wing = self.control_points(delta_a)
+
+        def target(alpha):
             v_wing = V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_w, dM_w, _ = self.forces_and_moments(
-                 delta_b, delta_b, v_wing, rho_air, reference_solution,
+                delta_b, delta_b, v_wing, rho_air, reference_solution,
             )
-            M = dM_w.sum(axis=0)
-            M += cross3(cp_wing, dF_w).sum(axis=0)
+            M = dM_w.sum(axis=0) + cross3(cp_wing, dF_w).sum(axis=0)
             return M[1]  # Wing pitching moment
-
-        x0, x1 = np.deg2rad([8, 9])  # FIXME: review these bounds
-        res = root_scalar(
-            target, args=(delta_a, delta_b, reference_solution), x0=x0, x1=x1,
-        )  # FIXME: add `rtol`?
+        x0, x1 = np.deg2rad([9, 6])  # FIXME: review these bounds
+        res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
             raise foil.ForceEstimator.ConvergenceError
         return res.root
