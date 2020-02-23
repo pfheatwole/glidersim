@@ -51,10 +51,10 @@ class ParagliderWing:
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
 
-        # The ParagliderWing coordinate system is a shifted version of the
-        # one defined by the Parafoil. The axes of both systems are parallel,
-        # but the origin moves from the central leading edge to the midpoint
-        # of the risers.
+        # The ParagliderWing coordinate system is a shifted version of the one
+        # defined by the FoilGeometry. The axes of both systems are parallel,
+        # but the origin moves from the central leading edge to the midpoint of
+        # the risers.
         self.c0 = parafoil.chord_length(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
@@ -95,7 +95,7 @@ class ParagliderWing:
 
     def foil_origin(self, delta_a=0):
         """
-        Compute the origin of the Parafoil coordinate system in FRD.
+        Compute the origin of the FoilGeometry coordinate system in frd.
 
         Parameters
         ----------
@@ -138,7 +138,7 @@ class ParagliderWing:
 
     def control_points(self, delta_a=0):
         """
-        Compute the Parafoil control points in FRD.
+        Compute the FoilGeometry control points in FRD.
 
         FIXME: descibe/define "control points"
 
@@ -152,8 +152,8 @@ class ParagliderWing:
         cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        cps = self.force_estimator.control_points  # In Parafoil coordinates
-        return cps + self.foil_origin(delta_a)  # In Wing coordinates
+        cps = self.force_estimator.control_points  # In foil coordinates
+        return cps + self.foil_origin(delta_a)  # In wing coordinates
 
     def inertia(self, rho_air, delta_a=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
