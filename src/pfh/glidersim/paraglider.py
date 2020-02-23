@@ -43,6 +43,7 @@ class Paraglider:
         #        and delta_a is zero (no weight shift deformations)
         self.J = wing.inertia(rho_air=1.2, N=5000)
         self.J_inv = np.linalg.inv(self.J)
+        self.pmp = self.wing.parafoil.mass_properties(N=5000)
 
     def control_points(self, delta_a=0):
         """
@@ -73,7 +74,6 @@ class Paraglider:
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: should this function compute ALL forces, including gravity?
         FIXME: needs a design review; the `xyz` parameter name in particular
         FIXME: the input sanitation is messy
         FIXME: review the docstring
@@ -81,11 +81,11 @@ class Paraglider:
         Parameters
         ----------
         UVW : array of float, shape (3,) [m/s]
-            Translational velocity of the body, in frd coordinates.
+            Translational velocity of the cm, in frd coordinates.
         PQR : array of float, shape (3,) [rad/s]
-            Angular velocity of the body, in frd coordinates.
-        g : array_like of float, shape (3,)
-            The gravity unit vector
+            Angular velocity of the cm, in frd coordinates.
+        g : array of float, shape (3,) [m/s^s]
+            The gravity vector
         rho_air : float [kg/m^3]
             The ambient air density
         delta_a : float [percentage]
@@ -94,7 +94,7 @@ class Paraglider:
             The fraction of maximum left brake
         delta_br : float [percentage]
             The fraction of maximum right brake
-        v_w2e : ndarray of float, shape (3,) or (K,3)
+        v_w2e : ndarray of float, shape (3,) or (K,3) [m/s]
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -116,10 +116,10 @@ class Paraglider:
 
         Returns
         -------
-        F : array of float, shape (3,) [N]
-            The total aerodynamic force applied at the cg
-        M : array of float, shape (3,) [N*m]
-            The total aerodynamic torque applied at the cg
+        a_frd : array of float, shape (3,) [m/s^2]
+            Translational acceleration of the center of mass
+        alpha_frd : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the center of mass
 
         Notes
         -----
@@ -134,10 +134,16 @@ class Paraglider:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
+        # FIXME: design review names. `w` is overloaded ("wind" and "wing")
         if v_w2e is None:
             v_w2e = np.array([0, 0, 0])
+        else:
+            v_w2e = np.asarray(v_w2e)
         if v_w2e.ndim > 1 and xyz is None:
-            raise ValueError("Control point relative winds require xyz")                # Why? I probably did this to ensure the <v_w2e and xyz are computed using the same delta_a
+            # FIXME: needs a design review. Ensure that if `v_w2e` and `xyz`
+            #        were computed using the same `delta_a`, if `v_w2e` was
+            #        computed for the individual control points.
+            raise ValueError("Control point relative winds require xyz")
         if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
             raise ValueError("Different number of wind and xyz vectors")
         if xyz is None:
@@ -147,80 +153,99 @@ class Paraglider:
         if UVW.shape != (3,):
             raise ValueError("UVW must be a 3-vector velocity of the body cm")
 
+        # -------------------------------------------------------------------
+        # Compute some mass properties of the wing and harness
+        #
+        # FIXME: should be refactored, but depends on `rho_air`
+        m_w_upper = self.pmp['upper_area'] * self.wing.rho_upper
+        m_w_lower = self.pmp['lower_area'] * self.wing.rho_lower
+        m_w_air = self.pmp['volume'] * rho_air
+        m_w_solid = m_w_upper + m_w_lower
+        m_w_real = m_w_solid + m_w_air
+
+        foil_origin = self.wing.foil_origin(0)  # For Foil->Wing coordinates
+        cm_w_solid = (m_w_upper * self.pmp['upper_centroid']
+                      + m_w_lower * self.pmp['lower_centroid']) / m_w_solid
+        cm_w_solid += foil_origin
+        cm_w_real = (m_w_upper * self.pmp['upper_centroid']
+                     + m_w_lower * self.pmp['lower_centroid']
+                     + m_w_air * self.pmp["volume_centroid"]
+                     ) / m_w_real
+        cm_w_real += foil_origin
+
+        m_h = self.harness.mass
+        cm_h = self.harness.control_points()
+
+        m_g = m_w_real + m_h
+        cm_g = (m_w_real * cm_w_real + m_h * cm_h) / m_g
+
+        # -------------------------------------------------------------------
         # Compute the velocity of each control point relative to the air
         v_cm2w = UVW - v_w2e  # ref: ACS Eq:1.4-2, p17 (31)
-        v_cp2w = v_cm2w + cross3(PQR, xyz)  # ref: ACS, Eq:1.7-14, p40 (54)
 
-        # FIXME: how does this Glider know which v_cp2w goes to the wing and
-        #        which to the harness? Those components must declare how many
-        #        control points they're using.
-        # FIXME: design a proper method for separating the v_cp2w
+        # FIXME: review this. Do the velocities and "arms" need to be wrt the
+        # same point? The UVW is for the origin, but rotation happens about
+        # the glider cm. I'm not sure what to do, but I suspect it should either
+        # be `V_o + cross(PQR, xyz - o` or `V_cm + cross(PQR, xyz - cm)`
+        #
+        v_cp2w = v_cm2w + cross3(PQR, xyz - cm_g)  # ACS, Eq:1.7-14, p40 (54)
+
+        # FIXME: "magic" layout of array contents
         cp_wing = xyz[:-1]
+        cp_harness = xyz[-1]
         v_wing = v_cp2w[:-1]
         v_harness = v_cp2w[-1]
 
-        # Compute the resultant force and moment about the cg
-        dF_w, dM_w, ref = self.wing.forces_and_moments(
+        # -------------------------------------------------------------------
+        # Compute the forces and moments of the wing
+        dF_w_aero, dM_w_aero, ref = self.wing.forces_and_moments(
             delta_bl, delta_br, v_wing, rho_air, reference_solution,
         )
-        dF_h, dM_h = self.harness.forces_and_moments(v_harness, rho_air)
-        F = np.atleast_2d(dF_w).sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
-        M = np.atleast_2d(dM_w).sum(axis=0) + np.atleast_2d(dM_h).sum(axis=0)
+        F_w_aero = dF_w_aero.sum(axis=0)
+        F_w_weight = m_w_solid * g
+        M_w = dM_w_aero.sum(axis=0)
+        M_w += cross3(cp_wing - cm_g, dF_w_aero).sum(axis=0)
+        M_w += cross3(cm_w_solid - cm_g, F_w_weight)
 
-        # Add the torque produced by the wing forces; the harness drag is
-        # applied at the center of mass, and so produces no additional torque.
-        cg_glider = np.array([0.01, 0, -0.25])
-        M += cross3(cp_wing - cg_glider, dF_w).sum(axis=0)
-
-
-        # FIXME: centroid of the harness and wing real mass
-        # FIXME: moment for the wing solid mass
-        wing_m_solid = 1.7751
-        wing_cg_solid = self.wing.foil_origin() + [-1.3567, 0, 0.751]
-        F += wing_m_solid * np.asarray(g)
-        M += np.cross(wing_cg_solid, wing_m_solid * np.asarray(g))
-
-
-        # FIXME: moment for the harness mass
-        cg_glider = np.array([0.01, 0, -0.75])
-        M_h_aero = np.cross(-cg_glider, dF_h)
-        M_h_g = np.cross(-cg_glider, 75 * np.asarray(g))
-        M += M_h_aero
-        M += M_h_g
-
-
-        # The harness also contributes a gravitational force, but since this
-        # model places the cg at the harness, that force does not generate a
-        # moment.
-        F += self.harness.mass * np.asarray(g)  # FIXME: leaky abstraction
-
-        # return F, M, ref
+        # Forces and moments of the harness
+        dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_harness, rho_air)
+        dF_h_aero = np.atleast_2d(dF_h_aero)
+        dM_h_aero = np.atleast_2d(dM_h_aero)
+        F_h_aero = dF_h_aero.sum(axis=0)
+        F_h_weight = self.harness.mass * g
+        M_h = dM_h_aero.sum(axis=0)
+        M_h += cross3(cp_harness - cm_g, dF_h_aero).sum(axis=0)
+        M_h += cross3(cm_h - cm_g, F_h_weight)
 
         # ------------------------------------------------------------------
-        # Compute the accelerations
-
-        J = self.J  # WRONG: `J` changes with rho_air
-        J_inv = self.J_inv
-
-        # Translational acceleration of the cm
+        # Compute the accelerations \dot{PQR} and \dot{UVW}
         #
-        # FIXME: review Stevens Eq:1.7-18. The `F` here includes gravity, but
-        #        what about the `cross(omega, v)` term? And how does that
-        #        compare to Eq:1.7-21? (It's an "alternative"? How so?)
-        #
-        #        Also be careful with Eq:1.7-16: `cross(omega, v)` is for the
-        #        velocity of the cm, not the origin!
-        #
-        # a_frd = F / self.glider.harness.mass  # FIXME: Crude. Incomplete. Wrong.
-        a_frd = F / (self.harness.mass + 4) - np.cross(PQR, UVW)  # Also wrong? Uses the origin, not the cm.
+        # Builds a system of equations by equating the derivatives of angular
+        # and translatational momentum against the moments and forces, and
+        # rearranging terms with unknown and known factors.
 
-        # Angular acceleration of the body relative to the ned frame
-        #  * ref: Stevens, Eq:1.7-5, p36 (50)
-        #
-        # FIXME: doesn't account for the moment from the harness to the glider cm
-        alpha = J_inv @ (M - cross3(PQR, J @ PQR))
+        # FIXME: `J_w` was computed about the origin, not the cm
+        J = self.J  # FIXME: negelects the inertia of the harness
 
-        return a_frd, alpha, ref
+        A1 = [np.zeros((3, 3)), m_g * np.eye(3)]
+        A2 = [J, np.zeros((3, 3))]
+        A = np.block([A1, A2])
+
+        B1 = (
+            F_w_aero
+            + F_w_weight
+            + F_h_aero
+            + F_h_weight
+            - m_g * cross3(PQR, UVW)
+            - m_g * cross3(PQR, cross3(PQR, cm_g))
+        )
+        B2 = M_w + M_h - np.cross(PQR, J @ PQR)
+        B = np.r_[B1, B2]
+
+        derivatives = np.linalg.solve(A, B)
+        alpha_frd, a_frd = derivatives[:3], derivatives[3:]
+
+        return a_frd, alpha_frd, ref
 
     def equilibrium_glide(
         self,
