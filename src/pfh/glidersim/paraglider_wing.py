@@ -2,7 +2,6 @@
 
 import numpy as np
 
-from scipy.integrate import simps
 from scipy.optimize import root_scalar
 
 from pfh.glidersim import foil
@@ -155,52 +154,6 @@ class ParagliderWing:
         """
         cps = self.force_estimator.control_points  # In Parafoil coordinates
         return cps + self.foil_origin(delta_a)  # In Wing coordinates
-
-    # FIXME: moved from foil. Verify and test.
-    def surface_distributions(self, delta_a=0):
-        """
-        Compute the surface area distributions that define the inertial moments.
-
-        The moments of inertia for the parafoil are the mass distribution of
-        the air and wing material. That distribution is typically decomposed
-        into the product of volumetric density and volume, but a simplification
-        is to calculate the density per unit area.
-
-        FIXME: this description is mediocre.
-
-        Ref: "Paraglider Flight Dynamics", page 48 (56)
-
-        Returns
-        -------
-        S : 3x3 matrix of float
-            The surface distributions, such that `J = (p_w + p_air)*S`
-        """
-        N = 501
-        s = np.cos(np.linspace(np.pi, 0, N))  # -1 < s < 1
-        x, y, z = (self.parafoil.chord_xyz(s, 0.25) + self.foil_origin(delta_a)).T
-        c = self.parafoil.chord_length(s)
-
-        Sxx = simps((y ** 2 + z ** 2) * c, y)
-        Syy = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * z ** 2) * c, y) / 6
-        Szz = simps((3 * x ** 2 - x * c + (7 / 32) * c ** 2 + 6 * y ** 2) * c, y) / 6
-        Sxy = 0
-        Sxz = simps((2 * x - c / 2) * z * c, y)
-        Syz = 0
-
-        S = np.array([
-            [ Sxx, -Sxy, -Sxz],
-            [-Sxy,  Syy, -Syz],
-            [-Sxz, -Syz,  Szz]])
-
-        return S
-
-    # FIXME: moved from Parafoil. Verify and test.
-    def J(self, rho_air, N=2000):
-        raise NotImplementedError("BROKEN!")
-        S = self.geometry.surface_distributions(N=N)
-        wing_air_density = rho_air * self.density_factor
-        surface_density = self.wing_density + wing_air_density
-        return surface_density * S
 
     def inertia(self, rho_air, delta_a=0, N=200):
         """Compute the 3x3 moment of inertia matrix.
