@@ -187,15 +187,6 @@ class ParagliderWing:
         """
         p = self.parafoil.mass_properties(N=N)
 
-        # Storing this here for now: calculate the total mass and centroid
-        # upper_mass = self.rho_upper * p['upper_area']
-        # air_mass = rho_air * p['volume']
-        # lower_mass = self.rho_lower * p['lower_area']
-        # total_mass = upper_mass + air_mass + lower_mass
-        # parafoil_cm = (upper_mass * p['upper_centroid'] +
-        #                air_mass * p['volume_centroid'] +
-        #                lower_mass * p['lower_centroid']) / total_mass
-
         o = self.foil_origin(delta_a)  # wing origin -> foil origin
         Ru = o + p["upper_centroid"]
         Rv = o + p["volume_centroid"]
