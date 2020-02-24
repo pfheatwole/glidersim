@@ -243,19 +243,10 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
 def main():
     # -----------------------------------------------------------------------
-    # Build the glider and state model
+    # Build the glider
 
     glider = hook3.build_hook3()
     rho_air = 1.2
-
-    # FIXME: move these into "scenario" functions
-    delta_a = 0.0
-    delta_bl = 0.0
-    # delta_br = 0.0
-    delta_br = linear_control([(15, 0), (5, 0.75), (10, None), (3, 0)])
-    # delta_br = linear_control([(5, 0), (5, 0.5),])
-
-    model = GliderSim(glider, rho_air=rho_air, delta_br=delta_br)
 
     # -----------------------------------------------------------------------
     # Define the initial state
@@ -263,11 +254,11 @@ def main():
     # Option 1: Arbitrary state (this should be equilibrium Hook 3)
     alpha = np.deg2rad(8.86313992)
     beta = np.deg2rad(0)
-    Theta = np.deg2rad(2.06783323)
+    theta = np.deg2rad(2.06783323)
     V = 10.32649163
 
     # Option 2: Approximate equilibrium state (neglects harness moment)
-    # alpha, Theta, V, _ = glider.equilibrium_glide(
+    # alpha, theta, V, _ = glider.equilibrium_glide(
     #     delta_a=0.0,
     #     delta_b=0,
     #     V_eq_proposal=10,
@@ -276,7 +267,7 @@ def main():
     # beta = 0
 
     # Option 3: Equilibrium code (slow, but more accurate)
-    # alpha, Theta, V, _ = glider.equilibrium_glide2(
+    # alpha, theta, V, _ = glider.equilibrium_glide2(
     #     delta_a=0,
     #     delta_b=0,
     #     alpha_0=np.deg2rad(9),
@@ -290,7 +281,7 @@ def main():
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
     PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
-    euler = [np.deg2rad(0), Theta, np.deg2rad(0)]  # [phi, theta, gamma]
+    euler = [np.deg2rad(0), theta, np.deg2rad(0)]  # [phi, theta, gamma]
     q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
     q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
 
@@ -300,6 +291,31 @@ def main():
     state0["p"] = [0, 0, 0]
     state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
     state0["omega"] = PQR
+
+    # -----------------------------------------------------------------------
+    # Build a test scenario
+    #
+    # FIXME: move these into "scenario" functions
+
+    # Scenario: continuous right turn
+    delta_a = 0.0
+    delta_bl = 0.0
+    delta_br = linear_control([(5, 0), (5, 0.75)])
+    T = 60
+
+    # Scenario: roll-yaw coupling w/ accelerator
+    # delta_a = 1.0
+    # delta_bl = 0.0
+    # delta_br = linear_control([(20, 0), (2, 0.65)])
+    # T = 60
+
+    # Scenario: roll-yaw coupling with 5s brake pulse
+    # delta_a = 1.0
+    # delta_bl = 0.0
+    # delta_br = linear_control([(20, 0), (2, 0.65), (5, None), (1, 0)])
+    # T = 60
+
+    model = GliderSim(glider, rho_air, delta_a, delta_bl, delta_br)
 
     # -----------------------------------------------------------------------
     # Run the simulation
@@ -313,7 +329,7 @@ def main():
     print("  omega: ", state0["omega"].round(4))
 
     # Run the simulation
-    dt, T = 0.1, 300
+    dt = 0.1
     times, path = simulate(model, state0, dt=dt, T=T)
 
     # -----------------------------------------------------------------------

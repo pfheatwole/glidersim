@@ -273,7 +273,7 @@ class Paraglider:
         -------
         alpha_eq : float [radians]
             Steady-state angle of attack
-        Theta_eq : float [radians]
+        theta_eq : float [radians]
             Steady-state pitch angle
         V_eq : float [m/s]
             Steady-state airspeed
@@ -289,7 +289,7 @@ class Paraglider:
 
         .. math::
 
-            V_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \Theta \right)
+            V_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \theta \right)
 
         where `m` is the mass of the harness + pilot.
         """
@@ -298,25 +298,25 @@ class Paraglider:
         solution = reference_solution  # Approximate solution, if available
         m_h = self.harness.mass_properties()["mass"]
 
-        for n in range(N_iter):
+        for _ in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, V_eq, rho_air, solution
+                delta_a, delta_b, V_eq, rho_air, solution,
             )
             UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_w, dM_w, solution = self.wing.forces_and_moments(
-                 delta_b, delta_b, UVW, rho_air, solution,
+                delta_b, delta_b, UVW, rho_air, solution,
             )
             dF_h, dM_h = self.harness.forces_and_moments(UVW, rho_air)
             F = dF_w.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
             F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
 
-            Theta_eq = np.arctan2(F[0], -F[2])
+            theta_eq = np.arctan2(F[0], -F[2])
 
             # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * m_h * np.cos(Theta_eq)
+            weight_z = 9.8 * m_h * np.cos(theta_eq)
             V_eq = np.sqrt(-weight_z / F[2])
 
-        return alpha_eq, Theta_eq, V_eq, solution
+        return alpha_eq, theta_eq, V_eq, solution
 
     def equilibrium_glide2(
         self,
