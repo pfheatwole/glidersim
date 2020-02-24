@@ -64,6 +64,29 @@ class ParagliderWing:
         self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
         self.AC = (self.pC - self.pA) * self.c0
 
+        # Compute the mass properties in FoilGeometry coordinates
+        pmp = self.parafoil.mass_properties(N=5000)
+        m_upper = pmp["upper_area"] * self.rho_upper
+        m_lower = pmp["lower_area"] * self.rho_lower
+        J_upper = pmp["upper_inertia"] * self.rho_upper
+        J_lower = pmp["lower_inertia"] * self.rho_lower
+        m_solid = m_upper + m_lower
+        cm_solid = (m_upper * pmp['upper_centroid']
+                    + m_lower * pmp['lower_centroid']) / m_solid
+        Ru = cm_solid - pmp["upper_centroid"]
+        Rl = cm_solid - pmp["lower_centroid"]
+        Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
+        Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
+        J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
+        self._mass_properties = {
+            "m_solid": m_solid,
+            "cm_solid": cm_solid,  # In FoilGeometry coordinates
+            "J_solid": J_solid,
+            "m_air": pmp["volume"],  # Normalized by unit air density
+            "cm_air": pmp["volume_centroid"],  # In FoilGeometry coordinates
+            "J_air": pmp["volume_inertia"],  # Normalized by unit air density
+        }
+
     def forces_and_moments(self, delta_bl, delta_br, V_cp2w, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
@@ -155,48 +178,37 @@ class ParagliderWing:
         cps = self.force_estimator.control_points  # In foil coordinates
         return cps + self.foil_origin(delta_a)  # In wing coordinates
 
-    def inertia(self, rho_air, delta_a=0, N=200):
-        """Compute the 3x3 moment of inertia matrix.
-
-        TODO: this function currently only uses `delta_a` to determine the
-              shift of the cg, but in the future `delta_a` may also deform the
-              ParafoilLobe (if `lobe_args` starts getting used)
-
-        TODO: precompute the static components that don't depend on `rho_air`
+    def mass_properties(self, rho_air, delta_a=0):
+        """
+        Compute the mass properties of the solid mass and enclosed air.
 
         Parameters
         ----------
         rho_air : float [kg/m^3]
-            Volumetric air density of the atmosphere
+            Air density
         delta_a : float [percentage], optional
             Percentage of accelerator application
-        N : integer
-            The number of points for integration across the span
 
         Returns
         -------
-        J : array of float, shape (3,3) [kg m^2]
-            The inertia matrix of the wing
-
-            ::
-
-                    [[ Jxx -Jxy -Jxz]
-                J =  [-Jxy  Jyy -Jyz]
-                     [-Jxz -Jyz  Jzz]]
-
+        dictionary
+            m_solid : float [kg]
+                The solid mass of the wing
+            cm_solid : array of float, shape (3,) [m]
+                The solid mass centroid
+            J_solid : array of float, shape (3,3) [kg m^2]
+                The inertia matrix of the solid mass
+            m_air : float [kg m^3]
+                The enclosed air mass.
+            cm_air : array of float, shape (3,) [m]
+                The air mass centroid
+            J_air : array of float, shape (3,3) [m^2]
+                The inertia matrix of the enclosed air mass.
         """
-        p = self.parafoil.mass_properties(N=N)
-
-        o = self.foil_origin(delta_a)  # wing origin -> foil origin
-        Ru = o + p["upper_centroid"]
-        Rv = o + p["volume_centroid"]
-        Rl = o + p["lower_centroid"]
-        Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
-        Dv = (Rv @ Rv) * np.eye(3) - np.outer(Rv, Rv)
-        Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
-
-        J_wing = (self.rho_upper * (p["upper_inertia"] + p["upper_area"] * Du)
-                  + rho_air * (p["volume_inertia"] + p["volume"] * Dv)
-                  + self.rho_lower * (p["lower_inertia"] + p["lower_area"] * Dl))
-
-        return J_wing
+        offset = self.foil_origin(delta_a)  # foil origin <- wing origin
+        mp = self._mass_properties.copy()
+        mp["cm_solid"] = mp["cm_solid"] + offset
+        mp["cm_air"] = mp["cm_air"] + offset
+        mp["m_air"] = mp["m_air"] * rho_air
+        mp["J_air"] = mp["J_air"] * rho_air
+        return mp

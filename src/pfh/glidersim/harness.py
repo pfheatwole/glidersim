@@ -82,7 +82,7 @@ class Spherical(Harness):
     def mass_properties(self):
         return {
             "mass": self._mass,
-            "centroid": np.array([0, 0, self._z_riser]),
+            "cm": np.array([0, 0, self._z_riser]),
             "J": np.zeros((3, 3)),  # FIXME: assumes a point mass
             "J_apparent": np.zeros((3, 3)),
         }

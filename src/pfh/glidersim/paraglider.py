@@ -39,12 +39,6 @@ class Paraglider:
         self.wing = wing
         self.harness = harness
 
-        # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_a is zero (no weight shift deformations)
-        self.J = wing.inertia(rho_air=1.2, N=5000)
-        self.J_inv = np.linalg.inv(self.J)
-        self.pmp = self.wing.parafoil.mass_properties(N=5000)
-
     def control_points(self, delta_a=0):
         """
         Compute the reference points for the composite Paraglider system.
@@ -154,30 +148,28 @@ class Paraglider:
             raise ValueError("UVW must be a 3-vector velocity of the body cm")
 
         # -------------------------------------------------------------------
-        # Compute some mass properties of the wing and harness
-        #
-        # FIXME: should be refactored, but depends on `rho_air`
-        m_w_upper = self.pmp['upper_area'] * self.wing.rho_upper
-        m_w_lower = self.pmp['lower_area'] * self.wing.rho_lower
-        m_w_air = self.pmp['volume'] * rho_air
-        m_w_solid = m_w_upper + m_w_lower
-        m_w_real = m_w_solid + m_w_air
-
-        foil_origin = self.wing.foil_origin(0)  # For Foil->Wing coordinates
-        cm_w_solid = (m_w_upper * self.pmp['upper_centroid']
-                      + m_w_lower * self.pmp['lower_centroid']) / m_w_solid
-        cm_w_solid += foil_origin
-        cm_w_real = (m_w_upper * self.pmp['upper_centroid']
-                     + m_w_lower * self.pmp['lower_centroid']
-                     + m_w_air * self.pmp["volume_centroid"]
-                     ) / m_w_real
-        cm_w_real += foil_origin
-
-        m_h = self.harness.mass_properties()["mass"]
-        cm_h = self.harness.control_points()
-
-        m_g = m_w_real + m_h
-        cm_g = (m_w_real * cm_w_real + m_h * cm_h) / m_g
+        # Compute the inertia matrices about the glider cm
+        wmp = self.wing.mass_properties(rho_air, delta_a)
+        hmp = self.harness.mass_properties()
+        m_g = wmp["m_solid"] + wmp["m_air"] + hmp["mass"]
+        cm_g = (
+            wmp["m_solid"] * wmp["cm_solid"]
+            + wmp["m_air"] * wmp["cm_air"]
+            + hmp["mass"] * hmp["cm"]
+        ) / m_g
+        Rws = wmp["cm_solid"] - cm_g  # Displacement of the wing solid mass
+        Rwa = wmp["cm_air"] - cm_g  # Displacement of the wing enclosed air
+        Rh = hmp["cm"] - cm_g  # Displacement of the harness
+        Dws = (Rws @ Rws) * np.eye(3) - np.outer(Rws, Rws)
+        Dwa = (Rwa @ Rwa) * np.eye(3) - np.outer(Rwa, Rwa)
+        Dh = (Rh @ Rh) * np.eye(3) - np.outer(Rh, Rh)
+        J_w = (
+            wmp["J_solid"]
+            + wmp["m_solid"] * Dws
+            + wmp["J_air"]
+            + wmp["m_air"] * Dwa
+        )
+        J_h = (hmp["J"] + hmp["mass"] * Dh)
 
         # -------------------------------------------------------------------
         # Compute the velocity of each control point relative to the air
@@ -202,20 +194,20 @@ class Paraglider:
             delta_bl, delta_br, v_wing, rho_air, reference_solution,
         )
         F_w_aero = dF_w_aero.sum(axis=0)
-        F_w_weight = m_w_solid * g
+        F_w_weight = wmp["m_solid"] * g
         M_w = dM_w_aero.sum(axis=0)
         M_w += cross3(cp_wing - cm_g, dF_w_aero).sum(axis=0)
-        M_w += cross3(cm_w_solid - cm_g, F_w_weight)
+        M_w += cross3(wmp["cm_solid"] - cm_g, F_w_weight)
 
         # Forces and moments of the harness
         dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_harness, rho_air)
         dF_h_aero = np.atleast_2d(dF_h_aero)
         dM_h_aero = np.atleast_2d(dM_h_aero)
         F_h_aero = dF_h_aero.sum(axis=0)
-        F_h_weight = m_h * g
+        F_h_weight = hmp["mass"] * g
         M_h = dM_h_aero.sum(axis=0)
         M_h += cross3(cp_harness - cm_g, dF_h_aero).sum(axis=0)
-        M_h += cross3(cm_h - cm_g, F_h_weight)
+        M_h += cross3(hmp["cm"] - cm_g, F_h_weight)
 
         # ------------------------------------------------------------------
         # Compute the accelerations \dot{PQR} and \dot{UVW}
@@ -224,8 +216,7 @@ class Paraglider:
         # and translatational momentum against the moments and forces, and
         # rearranging terms with unknown and known factors.
 
-        # FIXME: `J_w` was computed about the origin, not the cm
-        J = self.J  # FIXME: negelects the inertia of the harness
+        J = J_w + J_h  # Total moment of inertia matrix about the glider cm
 
         A1 = [np.zeros((3, 3)), m_g * np.eye(3)]
         A2 = [J, np.zeros((3, 3))]
