@@ -116,8 +116,6 @@ class GliderSim:
         g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
 
-        # FIXME: Paraglider should return accelerations directly, not forces.
-        #        The Glider might want to utilize appparent inertia, etc.
         v_frd = quaternion.apply_quaternion_rotation(x["q"], x["v"])
         a_frd, alpha_frd, solution = self.glider.accelerations(
             v_frd,
