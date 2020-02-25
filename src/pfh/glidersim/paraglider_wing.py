@@ -87,7 +87,7 @@ class ParagliderWing:
             "J_air": pmp["volume_inertia"],  # Normalized by unit air density
         }
 
-    def forces_and_moments(self, delta_bl, delta_br, V_cp2w, rho_air, reference_solution=None):
+    def forces_and_moments(self, delta_bl, delta_br, V_w2cp, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
 
@@ -97,8 +97,8 @@ class ParagliderWing:
             The amount of left brake
         delta_br : float [percentage]
             The amount of right brake
-        V_cp2w : array of float, shape (K,3) [m/s]
-            The relative velocity of each control point vs the fluid
+        V_w2cp : array of float, shape (K,3) [m/s]
+            The velocity of the fluid relative to each control point
         rho_air : float [kg/m^3]
             The ambient air density
         reference_solution : dictionary, optional
@@ -113,7 +113,7 @@ class ParagliderWing:
             FIXME: docstring. See `Phillips.__call__`
         """
         delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta_f, V_cp2w, rho_air, reference_solution)
+        dF, dM, solution = self.force_estimator(delta_f, V_w2cp, rho_air, reference_solution)
         return dF, dM, solution
 
     def foil_origin(self, delta_a=0):

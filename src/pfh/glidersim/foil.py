@@ -1208,7 +1208,7 @@ class SimpleFoil:
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, delta_f, V_cp2w, rho_air):
+    def __call__(self, delta_f, V_w2cp, rho_air):
         """
         Estimate the forces and moments on a foil.
 
@@ -1218,8 +1218,8 @@ class ForceEstimator(abc.ABC):
             The deflection angle of each section. The shape must be able to
             broadcast to (K,), where `K` is the number of control points being
             used by the estimator.
-        V_cp2w : array_like of float [m/s]
-            The velocity of the control points relative to the wind in FRD
+        V_w2cp : array_like of float [m/s]
+            The velocity of the wind relative to the control points in FRD
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
         rho_air : float [kg/m^3]
@@ -1329,24 +1329,24 @@ class Phillips(ForceEstimator):
         # bootstrap the `__call__` method with an initial `Gamma` value.
         alpha_ref = np.deg2rad(alpha_ref)
         V_mag = np.broadcast_to(V_ref_mag, (self.K, 3))
-        V_cp2w_ref = V_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
+        V_w2cp_ref = -V_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
         self._reference_solution = {
             'delta_f': 0,
-            'V_w2cp': -V_cp2w_ref,
+            'V_w2cp': V_w2cp_ref,
             'Gamma': np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
         }
         try:
-            _, _, self._reference_solution = self.__call__(0, V_cp2w_ref, 1.2)
+            _, _, self._reference_solution = self.__call__(0, V_w2cp_ref, 1.2)
         except ForceEstimator.ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
 
-    def _compute_Reynolds(self, V_cp2w, rho_air):
+    def _compute_Reynolds(self, V_w2cp, rho_air):
         """Compute the Reynolds number at each control point."""
 
         # FIXME: verify that using the total airspeed (including spanwise flow)
         #        is okay. A few tests show minimal differences, so for now I'm
         #        not wasting time computing the normal and chordwise flows.
-        u = np.linalg.norm(V_cp2w, axis=-1)  # airspeed [m/s]
+        u = np.linalg.norm(V_w2cp, axis=-1)  # airspeed [m/s]
         mu = 1.81e-5  # Standard dynamic viscosity of air
         Re = rho_air * u * self.c_avg / mu
         # print("\nDEBUG> Re:", Re, "\n")
@@ -1479,11 +1479,11 @@ class Phillips(ForceEstimator):
 
         return res["x"], v
 
-    def __call__(self, delta_f, V_cp2w, rho_air, reference_solution=None, max_iterations=5):
+    def __call__(self, delta_f, V_w2cp, rho_air, reference_solution=None, max_iterations=5):
         # FIXME: this doesn't match the ForceEstimator.__call__ signature
         delta_f = np.broadcast_to(delta_f, (self.K))
-        V_cp2w = np.broadcast_to(V_cp2w, (self.K, 3))
-        Re = self._compute_Reynolds(V_cp2w, rho_air)
+        V_w2cp = np.broadcast_to(V_w2cp, (self.K, 3))
+        Re = self._compute_Reynolds(V_w2cp, rho_air)
 
         if reference_solution is None:
             reference_solution = self._reference_solution
@@ -1492,12 +1492,11 @@ class Phillips(ForceEstimator):
         V_w2cp_ref = reference_solution['V_w2cp']
         Gamma_ref = reference_solution['Gamma']
 
-        # Try to solve for the target (`Gamma` as a function of `V_cp2w` and
+        # Try to solve for the target (`Gamma` as a function of `V_w2cp` and
         # `delta_f`) directly using the `reference_solution`. If that fails,
         # pick a point between the target and the reference, and solve for that
         # easier case. Repeat for intermediate targets until either solving for
         # the original target, or exceeding `max_iterations`.
-        V_w2cp = -V_cp2w
         target_backlog = []  # Stack of pending targets
         for _m in range(max_iterations):
             try:

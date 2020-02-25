@@ -13,11 +13,11 @@ class Harness(abc.ABC):
         """FIXME: docstring"""
 
     @abc.abstractmethod
-    def forces_and_moments(self, xyz, v_cp2w):
+    def forces_and_moments(self, xyz, v_w2cp):
         """
         Calculate the aerodynamic forces at the control points.
 
-        The xyz and v_cp2w mirror that of the ParagliderWing. The idea is
+        The xyz and v_w2cp mirror that of the ParagliderWing. The idea is
         that this API will support future models with non-isotropic forces
         and non-point mass distributions.
         """
@@ -72,9 +72,9 @@ class Spherical(Harness):
     def control_points(self):
         return np.array([0, 0, self._z_riser])
 
-    def forces_and_moments(self, V_cp2w, rho_air):
-        V2 = (V_cp2w ** 2).sum()
-        u_drag = -V_cp2w / np.sqrt(V2)  # Drag force unit vector
+    def forces_and_moments(self, V_w2cp, rho_air):
+        V2 = (V_w2cp ** 2).sum()
+        u_drag = V_w2cp / np.sqrt(V2)  # Drag force unit vector
         dF = 0.5 * rho_air * V2 * self._S * self._CD * u_drag
         dM = np.zeros(3)
         return dF, dM
