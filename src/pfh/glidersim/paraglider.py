@@ -296,11 +296,11 @@ class Paraglider:
             alpha_eq = self.wing.equilibrium_alpha(
                 delta_a, delta_b, V_eq, rho_air, solution,
             )
-            UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            V_w2cp = -V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, UVW, rho_air, solution,
+                delta_b, delta_b, V_w2cp, rho_air, solution,
             )
-            dF_h, dM_h = self.harness.forces_and_moments(UVW, rho_air)
+            dF_h, dM_h = self.harness.forces_and_moments(V_w2cp, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
             F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
 
