@@ -173,13 +173,7 @@ class Paraglider:
 
         # -------------------------------------------------------------------
         # Compute the velocity of each control point relative to the air
-        v_w2cm = v_w2e - UVW  # ref: ACS Eq:1.4-2, p17 (31)
-
-        # FIXME: review this. Do the velocities and "arms" need to be wrt the
-        # same point? The UVW is for the origin, but rotation happens about
-        # the glider cm. I'm not sure what to do, but I suspect it should either
-        # be `V_o + cross(PQR, xyz - o` or `V_cm + cross(PQR, xyz - cm)`
-        #
+        v_w2cm = v_w2e - UVW
         v_w2cp = v_w2cm - cross3(PQR, xyz - cm_g)  # ACS, Eq:1.7-14, p40 (54)
 
         # FIXME: "magic" layout of array contents
