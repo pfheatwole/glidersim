@@ -163,7 +163,7 @@ class Paraglider:
         Dws = (Rws @ Rws) * np.eye(3) - np.outer(Rws, Rws)
         Dwa = (Rwa @ Rwa) * np.eye(3) - np.outer(Rwa, Rwa)
         Dh = (Rh @ Rh) * np.eye(3) - np.outer(Rh, Rh)
-        J_w = (
+        J_wing = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dws
             + wmp["J_air"]
@@ -184,14 +184,14 @@ class Paraglider:
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
-        dF_w_aero, dM_w_aero, ref = self.wing.forces_and_moments(
+        dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
             delta_bl, delta_br, v_wing, rho_air, reference_solution,
         )
-        F_w_aero = dF_w_aero.sum(axis=0)
-        F_w_weight = wmp["m_solid"] * g
-        M_w = dM_w_aero.sum(axis=0)
-        M_w += cross3(cp_wing - cm_g, dF_w_aero).sum(axis=0)
-        M_w += cross3(wmp["cm_solid"] - cm_g, F_w_weight)
+        F_wing_aero = dF_wing_aero.sum(axis=0)
+        F_wing_weight = wmp["m_solid"] * g
+        M_wing = dM_wing_aero.sum(axis=0)
+        M_wing += cross3(cp_wing - cm_g, dF_wing_aero).sum(axis=0)
+        M_wing += cross3(wmp["cm_solid"] - cm_g, F_wing_weight)
 
         # Forces and moments of the harness
         dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_harness, rho_air)
@@ -210,21 +210,21 @@ class Paraglider:
         # and translatational momentum against the moments and forces, and
         # rearranging terms with unknown and known factors.
 
-        J = J_w + J_h  # Total moment of inertia matrix about the glider cm
+        J = J_wing + J_h  # Total moment of inertia matrix about the glider cm
 
         A1 = [np.zeros((3, 3)), m_g * np.eye(3)]
         A2 = [J, np.zeros((3, 3))]
         A = np.block([A1, A2])
 
         B1 = (
-            F_w_aero
-            + F_w_weight
+            F_wing_aero
+            + F_wing_weight
             + F_h_aero
             + F_h_weight
             - m_g * cross3(PQR, UVW)
             - m_g * cross3(PQR, cross3(PQR, cm_g))
         )
-        B2 = M_w + M_h - np.cross(PQR, J @ PQR)
+        B2 = M_wing + M_h - np.cross(PQR, J @ PQR)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -297,11 +297,11 @@ class Paraglider:
                 delta_a, delta_b, V_eq, rho_air, solution,
             )
             UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-            dF_w, dM_w, solution = self.wing.forces_and_moments(
+            dF_wing, dM_wing, solution = self.wing.forces_and_moments(
                 delta_b, delta_b, UVW, rho_air, solution,
             )
             dF_h, dM_h = self.harness.forces_and_moments(UVW, rho_air)
-            F = dF_w.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
+            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
             F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
 
             theta_eq = np.arctan2(F[0], -F[2])
