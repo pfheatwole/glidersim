@@ -236,7 +236,7 @@ class Paraglider:
         self,
         delta_a,
         delta_b,
-        V_eq_proposal,
+        v_eq_proposal,
         rho_air,
         N_iter=2,
         reference_solution=None,
@@ -250,7 +250,7 @@ class Paraglider:
             Percentage of accelerator application
         delta_b : float [percentage]
             Percentage of symmetric brake application
-        V_eq_proposal : float [m/s]
+        v_eq_proposal : float [m/s]
             A rough guess for the equilibrium airspeed. This is required to put
             the Reynolds numbers into the proper range.
         rho_air : float [kg/m^3]
@@ -258,7 +258,7 @@ class Paraglider:
         N_iter : integer, optional
             Number of iterations to account for the fact that the Reynolds
             numbers (and thus the coefficients) vary with the solution for
-            `V_eq`. If `V_eq_proposal` is anywhere close to accurate, then one
+            `v_eq`. If `v_eq_proposal` is anywhere close to accurate, then one
             or two iterations are usually sufficient. Default: 2
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
@@ -269,48 +269,48 @@ class Paraglider:
             Steady-state angle of attack
         theta_eq : float [radians]
             Steady-state pitch angle
-        V_eq : float [m/s]
+        v_eq : float [m/s]
             Steady-state airspeed
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
         Notes
         -----
-        Calculating :math:`V_eq` takes advantage of the fact that all the
-        aerodynamic forces are proportional to :math:`V^2`. Thus, by
-        normalizing the forces to :math:`V = 1`, the following equation can be
-        solved for :math:`V_eq` directly using:
+        Calculating :math:`v_eq` takes advantage of the fact that all the
+        aerodynamic forces are proportional to :math:`v^2`. Thus, by
+        normalizing the forces to :math:`v = 1`, the following equation can be
+        solved for :math:`v_eq` directly using:
 
         .. math::
 
-            V_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \theta \right)
+            v_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \theta \right)
 
         where `m` is the mass of the harness + pilot.
         """
 
-        V_eq = V_eq_proposal  # The initial guess
+        v_eq = v_eq_proposal  # The initial guess
         solution = reference_solution  # Approximate solution, if available
         m_h = self.harness.mass_properties()["mass"]
 
         for _ in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, V_eq, rho_air, solution,
+                delta_a, delta_b, v_eq, rho_air, solution,
             )
-            V_w2cp = -V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            v_w2cp = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, V_w2cp, rho_air, solution,
+                delta_b, delta_b, v_w2cp, rho_air, solution,
             )
-            dF_h, dM_h = self.harness.forces_and_moments(V_w2cp, rho_air)
+            dF_h, dM_h = self.harness.forces_and_moments(v_w2cp, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
-            F /= V_eq ** 2  # The equation for `V_eq` assumes `V == 1`
+            F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
 
             theta_eq = np.arctan2(F[0], -F[2])
 
             # FIXME: neglects the weight of the wing
             weight_z = 9.8 * m_h * np.cos(theta_eq)
-            V_eq = np.sqrt(-weight_z / F[2])
+            v_eq = np.sqrt(-weight_z / F[2])
 
-        return alpha_eq, theta_eq, V_eq, solution
+        return alpha_eq, theta_eq, v_eq, solution
 
     def equilibrium_glide2(
         self,
@@ -318,7 +318,7 @@ class Paraglider:
         delta_b,
         alpha_0,
         theta_0,
-        V_0,
+        v_0,
         rho_air,
         reference_solution=None,
     ):
@@ -339,7 +339,7 @@ class Paraglider:
             The initial proposal for angle of attack.
         theta_0 : float [rad], optional
             The initial proposal for glider pitch angle.
-        V_0 : float [m/s], optional
+        v_0 : float [m/s], optional
             The initial proposal for glider airspeed.
 
         Returns
@@ -348,7 +348,7 @@ class Paraglider:
             Steady-state angle of attack
         theta_eq : float [radians]
             Steady-state pitch angle
-        V_eq : float [m/s]
+        v_eq : float [m/s]
             Steady-state airspeed
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
@@ -382,7 +382,7 @@ class Paraglider:
 
         state = np.empty(1, state_dtype)
         state["q"] = quaternion.euler_to_quaternion([0, theta_0, 0])
-        state["v"] = V_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
+        state["v"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
         state["omega"] = [0, 0, 0]
 
         dynamics_kwargs = {
@@ -422,6 +422,6 @@ class Paraglider:
 
         alpha_eq = np.arctan2(*state["v"][[2, 0]])
         theta_eq = quaternion.quaternion_to_euler(state["q"])[1]
-        V_eq = np.linalg.norm(state["v"])
+        v_eq = np.linalg.norm(state["v"])
 
-        return alpha_eq, theta_eq, V_eq, dynamics_kwargs["reference_solution"]
+        return alpha_eq, theta_eq, v_eq, dynamics_kwargs["reference_solution"]

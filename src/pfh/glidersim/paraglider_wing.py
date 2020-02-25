@@ -87,7 +87,7 @@ class ParagliderWing:
             "J_air": pmp["volume_inertia"],  # Normalized by unit air density
         }
 
-    def forces_and_moments(self, delta_bl, delta_br, V_w2cp, rho_air, reference_solution=None):
+    def forces_and_moments(self, delta_bl, delta_br, v_w2cp, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
 
@@ -97,7 +97,7 @@ class ParagliderWing:
             The amount of left brake
         delta_br : float [percentage]
             The amount of right brake
-        V_w2cp : array of float, shape (K,3) [m/s]
+        v_w2cp : array of float, shape (K,3) [m/s]
             The velocity of the fluid relative to each control point
         rho_air : float [kg/m^3]
             The ambient air density
@@ -113,7 +113,7 @@ class ParagliderWing:
             FIXME: docstring. See `Phillips.__call__`
         """
         delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta_f, V_w2cp, rho_air, reference_solution)
+        dF, dM, solution = self.force_estimator(delta_f, v_w2cp, rho_air, reference_solution)
         return dF, dM, solution
 
     def foil_origin(self, delta_a=0):
@@ -141,15 +141,15 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(
-        self, delta_a, delta_b, V_mag, rho_air, reference_solution=None,
+        self, delta_a, delta_b, v_mag, rho_air, reference_solution=None,
     ):
         """Compute the zero aerodynamic pitching moment angle of attack."""
         cp_wing = self.control_points(delta_a)
 
         def target(alpha):
-            V_w2cp = -V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
+            v_w2cp = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.forces_and_moments(
-                delta_b, delta_b, V_w2cp, rho_air, reference_solution,
+                delta_b, delta_b, v_w2cp, rho_air, reference_solution,
             )
             M = dM_wing.sum(axis=0) + cross3(cp_wing, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment

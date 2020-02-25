@@ -13,40 +13,40 @@ def plot_polar_curve(glider, N=51):
     delta_as = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
     ref = None  # Reference solution; speeds convergence
-    alpha_eq, theta_eq, V_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
+    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
-        alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide(
-            da, 0, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+        alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+            da, 0, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
         )
-        # alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide2(
-        #     da, 0, alpha_eq, theta_eq, V_eq, rho_air=1.2, reference_solution=ref,
+        # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
+        #     da, 0, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
         # )
         gamma_eq = alpha_eq - theta_eq
         GR = 1 / np.tan(gamma_eq)
-        speedbar_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, V_eq)
+        speedbar_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
     print()
 
     brake_equilibriums = np.empty((N, 5))
     delta_bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
     ref = None
-    alpha_eq, theta_eq, V_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
+    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
     for n, db in enumerate(delta_bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
-            alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide(
-                0, db, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+            alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+                0, db, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
             )
-            # alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide2(
-            #     0, db, alpha_eq, theta_eq, V_eq, rho_air=1.2, reference_solution=ref,
+            # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
+            #     0, db, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
             # )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
             break
         gamma_eq = alpha_eq - theta_eq
         GR = 1 / np.tan(gamma_eq)
-        brake_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, V_eq)
+        brake_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
     print()
 
     # Truncate everything after convergence failed
@@ -108,7 +108,7 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
+def plot_foil_coefficients(glider, delta_a=0, delta_b=0, v_mag=10, rho_air=1.2):
     raise RuntimeError("Broken: needs design review around new API")
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
@@ -117,7 +117,7 @@ def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
         print(f"\ralpha: {np.rad2deg(alpha):6.2f}", end="")
         try:
             F, M, reference_solution, = glider.forces_and_moments(
-                UVW=V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
+                UVW=v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
                 PQR=[0, 0, 0],
                 g=[0, 0, 0],
                 rho_air=rho_air,
@@ -138,12 +138,12 @@ def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = L / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
-        CD = D / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
+        CL = L / (0.5 * rho_air * v_mag ** 2 * glider.wing.parafoil.S)
+        CD = D / (0.5 * rho_air * v_mag ** 2 * glider.wing.parafoil.S)
         CM = Ms[n][1] / (
             0.5
             * rho_air
-            * V_mag ** 2
+            * v_mag ** 2
             * glider.wing.parafoil.S
             * glider.wing.parafoil.chord_length(0)
         )
@@ -270,7 +270,7 @@ def build_hook3():
 
     wing = gsim.paraglider_wing.ParagliderWing(
         parafoil=parafoil,
-        force_estimator=gsim.foil.Phillips(parafoil, V_ref_mag=10, K=31),
+        force_estimator=gsim.foil.Phillips(parafoil, v_ref_mag=10, K=31),
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
@@ -309,24 +309,24 @@ if __name__ == "__main__":
     print("\nComputing the glider equilibrium...")
 
     # Option 1: fast, approximately accurately
-    alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide(
+    alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
         delta_a=0.0,
         delta_b=0.0,
-        V_eq_proposal=10,
+        v_eq_proposal=10,
         rho_air=1.2,
     )
     # Option 2: slow, more accurate
-    # alpha_eq, theta_eq, V_eq, ref = glider.equilibrium_glide2(
+    # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
     #     delta_a=0.0,
     #     delta_b=0.0,
     #     alpha_0=np.deg2rad(9),
     #     theta_0=np.deg2rad(3),
-    #     V_0=10,
+    #     v_0=10,
     #     rho_air=1.2,
     # )
 
     gamma_eq = alpha_eq - theta_eq
-    UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+    UVW = v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
     PQR = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(theta_eq), 0, np.cos(theta_eq)])
     a_frd, alpha, _, = glider.accelerations(
@@ -341,7 +341,7 @@ if __name__ == "__main__":
     print(f"  theta_eq:    {np.rad2deg(theta_eq):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(gamma_eq):>6.3f} [deg]")
     print(f"  Glide ratio: {1 / np.tan(gamma_eq):>6.3f}")
-    print(f"  Glide speed: {V_eq:>6.3f}")
+    print(f"  Glide speed: {v_eq:>6.3f}")
 
     print("\n<pausing before polar curves>\n")
     embed()

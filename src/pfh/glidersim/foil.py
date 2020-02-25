@@ -1208,7 +1208,7 @@ class SimpleFoil:
 class ForceEstimator(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, delta_f, V_w2cp, rho_air):
+    def __call__(self, delta_f, v_w2cp, rho_air):
         """
         Estimate the forces and moments on a foil.
 
@@ -1218,7 +1218,7 @@ class ForceEstimator(abc.ABC):
             The deflection angle of each section. The shape must be able to
             broadcast to (K,), where `K` is the number of control points being
             used by the estimator.
-        V_w2cp : array_like of float [m/s]
+        v_w2cp : array_like of float [m/s]
             The velocity of the wind relative to the control points in frd
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
@@ -1247,7 +1247,7 @@ class Phillips(ForceEstimator):
     ----------
     foil : FoilGeometry
         Defines the lifting-line and section coefficients.
-    V_ref_mag : float [m/s]
+    v_ref_mag : float [m/s]
         The reference solution airspeed
     alpha_ref : float [degrees]
         The reference solution angle of attack
@@ -1278,7 +1278,7 @@ class Phillips(ForceEstimator):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, foil, V_ref_mag, alpha_ref=5, K=51):
+    def __init__(self, foil, v_ref_mag, alpha_ref=5, K=51):
         self.foil = foil
         self.K = K
 
@@ -1328,25 +1328,25 @@ class Phillips(ForceEstimator):
         # Sets an initial "solution" (which isn't actually a solution) just to
         # bootstrap the `__call__` method with an initial `Gamma` value.
         alpha_ref = np.deg2rad(alpha_ref)
-        V_mag = np.broadcast_to(V_ref_mag, (self.K, 3))
-        V_w2cp_ref = -V_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
+        v_mag = np.broadcast_to(v_ref_mag, (self.K, 3))
+        v_w2cp_ref = -v_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
         self._reference_solution = {
             'delta_f': 0,
-            'V_w2cp': V_w2cp_ref,
+            'v_w2cp': v_w2cp_ref,
             'Gamma': np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
         }
         try:
-            _, _, self._reference_solution = self.__call__(0, V_w2cp_ref, 1.2)
+            _, _, self._reference_solution = self.__call__(0, v_w2cp_ref, 1.2)
         except ForceEstimator.ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
 
-    def _compute_Reynolds(self, V_w2cp, rho_air):
+    def _compute_Reynolds(self, v_w2cp, rho_air):
         """Compute the Reynolds number at each control point."""
 
         # FIXME: verify that using the total airspeed (including spanwise flow)
         #        is okay. A few tests show minimal differences, so for now I'm
         #        not wasting time computing the normal and chordwise flows.
-        u = np.linalg.norm(V_w2cp, axis=-1)  # airspeed [m/s]
+        u = np.linalg.norm(v_w2cp, axis=-1)  # airspeed [m/s]
         mu = 1.81e-5  # Standard dynamic viscosity of air
         Re = rho_air * u * self.c_avg / mu
         # print("\nDEBUG> Re:", Re, "\n")
@@ -1374,11 +1374,11 @@ class Phillips(ForceEstimator):
 
         return v / (4 * np.pi)
 
-    def _local_velocities(self, V_w2cp, Gamma, v):
+    def _local_velocities(self, v_w2cp, Gamma, v):
         # Compute the local fluid velocities
         #  * ref: Hunsaker-Snyder Eq:5
         #  * ref: Phillips Eq:5 (nondimensional version)
-        V = V_w2cp + np.einsum("j,jik->ik", Gamma, v)
+        V = v_w2cp + np.einsum("j,jik->ik", Gamma, v)
 
         # Compute the local angle of attack for each section
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
@@ -1388,24 +1388,24 @@ class Phillips(ForceEstimator):
 
         return V, V_n, V_a, alpha
 
-    def _f(self, Gamma, delta_f, V_w2cp, v, Re):
+    def _f(self, Gamma, delta_f, v_w2cp, v, Re):
         # Compute the residual error vector
         #  * ref: Phillips Eq:14
         #  * ref: Hunsaker-Snyder Eq:8
-        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        V, V_n, V_a, alpha = self._local_velocities(v_w2cp, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.airfoil.coefficients.Cl(delta_f, alpha, Re)
 
-        # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `V_w2cp**2`
+        # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `v_w2cp**2`
         f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
 
         return f
 
-    def _J(self, Gamma, delta_f, V_w2cp, v, Re, verify_J=False):
+    def _J(self, Gamma, delta_f, v_w2cp, v, Re, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
         #  * ref: Hunsaker-Snyder Eq:11
-        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        V, V_n, V_a, alpha = self._local_velocities(v_w2cp, Gamma, v)
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
@@ -1429,7 +1429,7 @@ class Phillips(ForceEstimator):
 
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
-            J_true = self._J_finite(Gamma, delta_f, V_w2cp, v, Re)
+            J_true = self._J_finite(Gamma, delta_f, v_w2cp, v, Re)
             mask = ~np.isnan(J_true) | ~np.isnan(J)
             if not np.allclose(J[mask], J_true[mask]):
                 print("\n !!! The analytical Jacobian is wrong. Halting. !!!")
@@ -1437,15 +1437,15 @@ class Phillips(ForceEstimator):
 
         return J
 
-    def _J_finite(self, Gamma, delta_f, V_w2cp, v, Re):
+    def _J_finite(self, Gamma, delta_f, v_w2cp, v, Re):
         """Compute the Jacobian using a centered finite distance.
 
         Useful for checking the analytical gradient.
 
         Examples
         --------
-        >>> J1 = self._J(Gamma, V_w2cp, v, delta_f)
-        >>> J2 = self._J_finite(Gamma, V_w2cp, v, delta_f)
+        >>> J1 = self._J(Gamma, v_w2cp, v, delta_f)
+        >>> J2 = self._J_finite(Gamma, v_w2cp, v, delta_f)
         >>> np.allclose(J1, J2)  # FIXME: tune the tolerances?
         True
         """
@@ -1458,20 +1458,20 @@ class Phillips(ForceEstimator):
         Gp, Gm = Gamma.copy(), Gamma.copy()
         for k in range(self.K):
             Gp[k], Gm[k] = Gamma[k] + eps, Gamma[k] - eps
-            fp = self._f(Gp, delta_f, V_w2cp, v, Re)
-            fm = self._f(Gm, delta_f, V_w2cp, v, Re)
+            fp = self._f(Gp, delta_f, v_w2cp, v, Re)
+            fm = self._f(Gm, delta_f, v_w2cp, v, Re)
             JT[k] = (fp - fm) / (2 * eps)
             Gp[k], Gm[k] = Gamma[k], Gamma[k]
 
         return JT.T
 
-    def _solve_circulation(self, delta_f, V_w2cp, Re, Gamma0):
+    def _solve_circulation(self, delta_f, v_w2cp, Re, Gamma0):
         # Solve for the circulation using a gradient-based method.
         # Fails when wing sections enter stall (Cl_alpha goes to zero).
-        V_mid = V_w2cp[self.K // 2]
-        u_inf = V_mid / np.linalg.norm(V_mid)  # FIXME: what if PQR != 0?
+        v_mid = v_w2cp[self.K // 2]
+        u_inf = v_mid / np.linalg.norm(v_mid)  # FIXME: what if PQR != 0?
         v = self._induced_velocities(u_inf)  # axes = (inducer, inducee)
-        args = (delta_f, V_w2cp, v, Re)
+        args = (delta_f, v_w2cp, v, Re)
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         if not res["success"]:
@@ -1479,20 +1479,20 @@ class Phillips(ForceEstimator):
 
         return res["x"], v
 
-    def __call__(self, delta_f, V_w2cp, rho_air, reference_solution=None, max_iterations=5):
+    def __call__(self, delta_f, v_w2cp, rho_air, reference_solution=None, max_iterations=5):
         # FIXME: this doesn't match the ForceEstimator.__call__ signature
         delta_f = np.broadcast_to(delta_f, (self.K))
-        V_w2cp = np.broadcast_to(V_w2cp, (self.K, 3))
-        Re = self._compute_Reynolds(V_w2cp, rho_air)
+        v_w2cp = np.broadcast_to(v_w2cp, (self.K, 3))
+        Re = self._compute_Reynolds(v_w2cp, rho_air)
 
         if reference_solution is None:
             reference_solution = self._reference_solution
 
         delta_f_ref = reference_solution['delta_f']
-        V_w2cp_ref = reference_solution['V_w2cp']
+        v_w2cp_ref = reference_solution['v_w2cp']
         Gamma_ref = reference_solution['Gamma']
 
-        # Try to solve for the target (`Gamma` as a function of `V_w2cp` and
+        # Try to solve for the target (`Gamma` as a function of `v_w2cp` and
         # `delta_f`) directly using the `reference_solution`. If that fails,
         # pick a point between the target and the reference, and solve for that
         # easier case. Repeat for intermediate targets until either solving for
@@ -1500,26 +1500,26 @@ class Phillips(ForceEstimator):
         target_backlog = []  # Stack of pending targets
         for _m in range(max_iterations):
             try:
-                Gamma, v = self._solve_circulation(delta_f, V_w2cp, Re, Gamma_ref)
+                Gamma, v = self._solve_circulation(delta_f, v_w2cp, Re, Gamma_ref)
             except ForceEstimator.ConvergenceError:
-                target_backlog.append((delta_f, V_w2cp))
+                target_backlog.append((delta_f, v_w2cp))
                 P = 0.5  # Ratio, a point between the reference and the target
                 delta_f = (1 - P) * delta_f_ref + P * delta_f
-                V_w2cp = (1 - P) * V_w2cp_ref + P * V_w2cp
+                v_w2cp = (1 - P) * v_w2cp_ref + P * v_w2cp
                 continue
 
             delta_f_ref = delta_f
-            V_w2cp_ref = V_w2cp
+            v_w2cp_ref = v_w2cp
             Gamma_ref = Gamma
 
             if target_backlog:
-                delta, V_w2cp = target_backlog.pop()
+                delta, v_w2cp = target_backlog.pop()
             else:
                 break
         else:
             raise ForceEstimator.ConvergenceError("max iterations reached")
 
-        V, V_n, V_a, alpha = self._local_velocities(V_w2cp, Gamma, v)
+        V, V_n, V_a, alpha = self._local_velocities(v_w2cp, Gamma, v)
 
         # Compute the inviscid forces using the 3D vortex lifting law
         #  * ref: Hunsaker-Snyder Eq:1
@@ -1567,7 +1567,7 @@ class Phillips(ForceEstimator):
 
         solution = {
             'delta_f': delta_f_ref,
-            'V_w2cp': V_w2cp_ref,
+            'v_w2cp': v_w2cp_ref,
             'Gamma': Gamma_ref,
         }
 

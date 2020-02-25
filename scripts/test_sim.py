@@ -257,29 +257,29 @@ def main():
     alpha = np.deg2rad(8.86313992)
     beta = np.deg2rad(0)
     theta = np.deg2rad(2.06783323)
-    V = 10.32649163
+    v = 10.32649163
 
     # Option 2: Approximate equilibrium state (neglects harness moment)
-    # alpha, theta, V, _ = glider.equilibrium_glide(
+    # alpha, theta, v, _ = glider.equilibrium_glide(
     #     delta_a=0.0,
     #     delta_b=0,
-    #     V_eq_proposal=10,
+    #     v_eq_proposal=10,
     #     rho_air=rho_air
     # )
     # beta = 0
 
     # Option 3: Equilibrium code (slow, but more accurate)
-    # alpha, theta, V, _ = glider.equilibrium_glide2(
+    # alpha, theta, v, _ = glider.equilibrium_glide2(
     #     delta_a=0,
     #     delta_b=0,
     #     alpha_0=np.deg2rad(9),
     #     theta_0=np.deg2rad(3),
-    #     V_0=10,
+    #     v_0=10,
     #     rho_air=1.2,
     # )
     # beta = 0
 
-    UVW = V * np.asarray(
+    UVW = v * np.asarray(
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
     PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
