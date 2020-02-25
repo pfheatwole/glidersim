@@ -821,7 +821,7 @@ class SimpleFoil:
 
     def chord_xyz(self, s, pc, flatten=False):
         """
-        Sample points on section chords in foil FRD.
+        Sample points on section chords in foil frd.
 
         Parameters
         ----------
@@ -858,7 +858,7 @@ class SimpleFoil:
 
     def surface_xyz(self, s, sa, surface, flatten=False):
         """
-        Sample points on section surfaces in foil FRD.
+        Sample points on section surfaces in foil frd.
 
         Parameters
         ----------
@@ -881,7 +881,7 @@ class SimpleFoil:
         Returns
         -------
         array of float
-            A set of points from the surface of the airfoil in foil FRD. The
+            A set of points from the surface of the airfoil in foil frd. The
             shape is determined by standard numpy broadcasting of `s` and `sa`.
         """
         s = np.asarray(s)
@@ -923,19 +923,19 @@ class SimpleFoil:
             upper_area: float [m^2]
                 parafoil upper surface area
             upper_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the upper surface material in parafoil FRD
+                center of mass of the upper surface material in parafoil frd
             upper_inertia: ndarray of float, shape (3, 3) [m^4]
                 The inertia matrix of the upper surface
             volume: float [m^3]
                 internal volume of the inflated parafoil
             volume_centroid: ndarray of float, shape (3,) [m]
-                centroid of the internal air mass in parafoil FRD
+                centroid of the internal air mass in parafoil frd
             volume_inertia: ndarray of float, shape (3, 3) [m^5]
                 The inertia matrix of the internal volume
             lower_area: float [m^2]
                 parafoil lower surface area
             lower_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the lower surface material in parafoil FRD
+                center of mass of the lower surface material in parafoil frd
             lower_inertia: ndarray of float, shape (3, 3) [m^4]
                 The inertia matrix of the upper surface
 
@@ -976,7 +976,7 @@ class SimpleFoil:
         section = self.airfoil.geometry.mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
-        T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # ACS -> FRD
+        T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
         u = self.section_orientation(s_mid_nodes)
         u_inv = np.linalg.inv(u)
 
@@ -1012,7 +1012,7 @@ class SimpleFoil:
         volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
         lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
 
-        # Segment inertia matrices in body FRD coordinates
+        # Segment inertia matrices in body frd coordinates
         Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
         segment_upper_J = u_inv @ T @ (Kl * section["upper_inertia"]) @ T @ u
         segment_volume_J = u_inv @ T @ (Ka * section["area_inertia"]) @ T @ u
@@ -1078,7 +1078,7 @@ class SimpleFoil:
         --------
         _mesh_triangles : Helper function that produces the meshes themselves
                           as two lists of vertex triplets (the triangles in
-                          FRD coordinates).
+                          frd coordinates).
 
         Examples
         --------
@@ -1162,7 +1162,7 @@ class SimpleFoil:
             The shape warrants an explanation: the grid has `N_s * N_sa` points
             for `(N_s - 1) * (N_sa - 1)` rectangles. Each rectangle requires
             2 triangles, each triangle has 3 vertices, and each vertex has
-            3 coordinates (in FRD).
+            3 coordinates (in frd).
 
         See Also
         --------
@@ -1219,7 +1219,7 @@ class ForceEstimator(abc.ABC):
             broadcast to (K,), where `K` is the number of control points being
             used by the estimator.
         V_w2cp : array_like of float [m/s]
-            The velocity of the wind relative to the control points in FRD
+            The velocity of the wind relative to the control points in frd
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
         rho_air : float [kg/m^3]

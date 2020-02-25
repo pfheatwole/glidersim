@@ -161,7 +161,7 @@ class ParagliderWing:
 
     def control_points(self, delta_a=0):
         """
-        Compute the FoilGeometry control points in FRD.
+        Compute the FoilGeometry control points in frd.
 
         FIXME: descibe/define "control points"
 
