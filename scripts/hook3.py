@@ -108,26 +108,22 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_foil_coefficients(glider, delta_a=0, delta_b=0, v_mag=10, rho_air=1.2):
-    raise RuntimeError("Broken: needs design review around new API")
+def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None
     for k, alpha in enumerate(alphas):
         print(f"\ralpha: {np.rad2deg(alpha):6.2f}", end="")
         try:
-            F, M, reference_solution, = glider.forces_and_moments(
-                UVW=v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
-                PQR=[0, 0, 0],
-                g=[0, 0, 0],
-                rho_air=rho_air,
-                delta_a=delta_a,
+            dF, dM, reference_solution, = wing.forces_and_moments(
                 delta_bl=delta_b,
                 delta_br=delta_b,
+                v_w2cp=-v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
+                rho_air=rho_air,
                 reference_solution=reference_solution,
             )
-            Fs.append(F)
-            Ms.append(M)
+            Fs.append(dF.sum(axis=0))
+            Ms.append(dM.sum(axis=0))
         except gsim.foil.ForceEstimator.ConvergenceError:
             break
     alphas = alphas[:k]
@@ -138,14 +134,14 @@ def plot_foil_coefficients(glider, delta_a=0, delta_b=0, v_mag=10, rho_air=1.2):
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = L / (0.5 * rho_air * v_mag ** 2 * glider.wing.parafoil.S)
-        CD = D / (0.5 * rho_air * v_mag ** 2 * glider.wing.parafoil.S)
+        CL = L / (0.5 * rho_air * v_mag ** 2 * wing.parafoil.S)
+        CD = D / (0.5 * rho_air * v_mag ** 2 * wing.parafoil.S)
         CM = Ms[n][1] / (
             0.5
             * rho_air
             * v_mag ** 2
-            * glider.wing.parafoil.S
-            * glider.wing.parafoil.chord_length(0)
+            * wing.parafoil.S
+            * wing.parafoil.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)
