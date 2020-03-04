@@ -54,8 +54,8 @@ class Paraglider:
 
     def accelerations(
         self,
-        UVW,
-        PQR,
+        v_cm2e,
+        omega_b2e,
         g,
         rho_air,
         delta_a=0,
@@ -74,10 +74,10 @@ class Paraglider:
 
         Parameters
         ----------
-        UVW : array of float, shape (3,) [m/s]
-            Translational velocity of the cm, in frd coordinates.
-        PQR : array of float, shape (3,) [rad/s]
-            Angular velocity of the cm, in frd coordinates.
+        v_cm2e : array of float, shape (3,) [m/s]
+            Translational velocity of the mass center, in frd coordinates.
+        omega_b2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector
         rho_air : float [kg/m^3]
@@ -110,10 +110,10 @@ class Paraglider:
 
         Returns
         -------
-        a_frd : array of float, shape (3,) [m/s^2]
-            Translational acceleration of the center of mass
-        alpha_frd : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the center of mass
+        a_cm2e : array of float, shape (3,) [m/s^2]
+            Translational acceleration of the mass center, in frd coordinates.
+        alpha_b2e : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the body, in frd coordinates.
 
         Notes
         -----
@@ -143,9 +143,9 @@ class Paraglider:
         if xyz is None:
             xyz = self.control_points(delta_a)
 
-        UVW = np.asarray(UVW)
-        if UVW.shape != (3,):
-            raise ValueError("UVW must be a 3-vector velocity of the body cm")
+        v_cm2e = np.asarray(v_cm2e)
+        if v_cm2e.shape != (3,):
+            raise ValueError("v_cm2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
@@ -172,9 +172,9 @@ class Paraglider:
         J_h = (hmp["J"] + hmp["mass"] * Dh)
 
         # -------------------------------------------------------------------
-        # Compute the velocity of each control point relative to the air
-        v_w2cm = v_w2e - UVW
-        v_w2cp = v_w2cm - cross3(PQR, xyz - cm_g)  # ACS, Eq:1.7-14, p40 (54)
+        # Compute the relative wind vector at each control point.
+        v_cp2e = v_cm2e + cross3(omega_b2e, xyz - cm_g)
+        v_w2cp = v_w2e - v_cp2e
 
         # FIXME: "magic" layout of array contents
         cp_wing = xyz[:-1]
@@ -204,7 +204,7 @@ class Paraglider:
         M_h += cross3(hmp["cm"] - cm_g, F_h_weight)
 
         # ------------------------------------------------------------------
-        # Compute the accelerations \dot{PQR} and \dot{UVW}
+        # Compute the accelerations \dot{omega_b2e} and \dot{v_cm2e}
         #
         # Builds a system of equations by equating the derivatives of angular
         # and translatational momentum against the moments and forces, and
@@ -221,16 +221,16 @@ class Paraglider:
             + F_wing_weight
             + F_h_aero
             + F_h_weight
-            - m_g * cross3(PQR, UVW)
-            - m_g * cross3(PQR, cross3(PQR, cm_g))
+            - m_g * cross3(omega_b2e, v_cm2e)
+            - m_g * cross3(omega_b2e, cross3(omega_b2e, cm_g))
         )
-        B2 = M_wing + M_h - np.cross(PQR, J @ PQR)
+        B2 = M_wing + M_h - np.cross(omega_b2e, J @ omega_b2e)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        alpha_frd, a_frd = derivatives[:3], derivatives[3:]
+        alpha_b2e, a_cm2e = derivatives[:3], derivatives[3:]
 
-        return a_frd, alpha_frd, ref
+        return a_cm2e, alpha_b2e, ref
 
     def equilibrium_glide(
         self,
@@ -403,8 +403,8 @@ class Paraglider:
             state["omega"] = [0, 0, 0]   # Zero every step to avoid oscillations
             g = 9.8 * quaternion.apply_quaternion_rotation(state["q"][0], [0, 0, 1])
             a_frd, alpha_frd, _ = self.accelerations(
-                UVW=state["v"][0],
-                PQR=state["omega"][0],
+                v_cm2e=state["v"][0],
+                omega_b2e=state["omega"][0],
                 g=g,
                 rho_air=rho_air,
                 delta_a=delta_a,

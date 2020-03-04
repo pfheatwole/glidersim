@@ -322,22 +322,22 @@ if __name__ == "__main__":
     # )
 
     gamma_eq = alpha_eq - theta_eq
-    UVW = v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-    PQR = np.array([0, 0, 0])
+    v_cm2e = v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+    omega_b2e = np.array([0, 0, 0])
     g = 9.8 * np.array([-np.sin(theta_eq), 0, np.cos(theta_eq)])
-    a_frd, alpha, _, = glider.accelerations(
-        UVW, PQR, g=g, rho_air=1.2, reference_solution=ref,
+    a_cm2e, alpha_b2e, _, = glider.accelerations(
+        v_cm2e, omega_b2e, g=g, rho_air=1.2, reference_solution=ref,
     )
 
-    print(f"  UVW:       {UVW.round(4)}")
-    print(f"  a_frd:     {a_frd.round(4)}")
-    print(f"  omega_dot: {np.rad2deg(alpha).round(4)}")
-    print()
-    print(f"  alpha_eq:    {np.rad2deg(np.arctan2(UVW[2], UVW[0])):>6.3f} [deg]")
+    print(f"  alpha_eq:    {np.rad2deg(alpha_eq):>6.3f} [deg]")
     print(f"  theta_eq:    {np.rad2deg(theta_eq):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(gamma_eq):>6.3f} [deg]")
     print(f"  Glide ratio: {1 / np.tan(gamma_eq):>6.3f}")
     print(f"  Glide speed: {v_eq:>6.3f}")
+    print()
+    print(f"  v_cm2e:    {v_cm2e.round(4)}")
+    print(f"  a_cm2e:    {a_cm2e.round(4)}")
+    print(f"  alpha_b2e: {np.rad2deg(alpha_b2e).round(4)}")
 
     print("\n<pausing before polar curves>\n")
     embed()

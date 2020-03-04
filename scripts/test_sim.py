@@ -257,7 +257,7 @@ def main():
     alpha = np.deg2rad(8.86313992)
     beta = np.deg2rad(0)
     theta = np.deg2rad(2.06783323)
-    v = 10.32649163
+    v_mag = 10.32649163
 
     # Option 2: Approximate equilibrium state (neglects harness moment)
     # alpha, theta, v, _ = glider.equilibrium_glide(
@@ -279,10 +279,10 @@ def main():
     # )
     # beta = 0
 
-    UVW = v * np.asarray(
+    v_cm2e = v_mag * np.asarray(
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
-    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
+    omega_b2e = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # [rad/sec]
     euler = [np.deg2rad(0), theta, np.deg2rad(0)]  # [phi, theta, gamma]
     q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
     q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
@@ -291,8 +291,8 @@ def main():
     state0 = np.empty(1, dtype=GliderSim.state_dtype)
     state0["q"] = q
     state0["p"] = [0, 0, 0]
-    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
-    state0["omega"] = PQR
+    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, v_cm2e)
+    state0["omega"] = omega_b2e
 
     # -----------------------------------------------------------------------
     # Build a test scenario
