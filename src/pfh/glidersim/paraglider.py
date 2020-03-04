@@ -204,16 +204,15 @@ class Paraglider:
         M_h += cross3(hmp["cm"] - cm_g, F_h_weight)
 
         # ------------------------------------------------------------------
-        # Compute the accelerations \dot{omega_b2e} and \dot{v_cm2e}
+        # Compute the accelerations \dot{v_cm2e} and \dot{omega_b2e}
         #
-        # Builds a system of equations by equating the derivatives of angular
-        # and translatational momentum against the moments and forces, and
-        # rearranging terms with unknown and known factors.
+        # Builds a system of equations by equating derivatives of translational
+        # and angular momentum against the forces and moments.
 
         J = J_wing + J_h  # Total moment of inertia matrix about the glider cm
 
-        A1 = [np.zeros((3, 3)), m_g * np.eye(3)]
-        A2 = [J, np.zeros((3, 3))]
+        A1 = [m_g * np.eye(3), np.zeros((3, 3))]
+        A2 = [np.zeros((3, 3)), J]
         A = np.block([A1, A2])
 
         B1 = (
@@ -228,7 +227,7 @@ class Paraglider:
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        alpha_b2e, a_cm2e = derivatives[:3], derivatives[3:]
+        a_cm2e, alpha_b2e = derivatives[:3], derivatives[3:]
 
         return a_cm2e, alpha_b2e, ref
 
