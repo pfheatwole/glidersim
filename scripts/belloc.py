@@ -216,7 +216,7 @@ for kb, beta_deg in enumerate(betas):
 
         try:
             dF, dM, ref = wing.forces_and_moments(
-                0, 0, V_w2cp=-UVW, rho_air=rho_air, reference_solution=ref,
+                0, 0, v_w2cp=-UVW, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
@@ -252,7 +252,7 @@ for kb, beta_deg in enumerate(betas):
 
         try:
             dF, dM, ref = wing.forces_and_moments(
-                0, 0, V_w2cp=-UVW, rho_air=rho_air, reference_solution=ref,
+                0, 0, v_w2cp=-UVW, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
