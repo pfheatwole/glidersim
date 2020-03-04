@@ -308,7 +308,7 @@ def main():
     # Scenario: roll-yaw coupling w/ accelerator
     # delta_a = 1.0
     # delta_bl = 0.0
-    # delta_br = linear_control([(20, 0), (2, 0.65)])
+    # delta_br = linear_control([(20, 0), (8, 0.65)])  # Stress test: s/8/15
     # T = 60
 
     # Scenario: roll-yaw coupling with 5s brake pulse
