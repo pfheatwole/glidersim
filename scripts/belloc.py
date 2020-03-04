@@ -194,9 +194,6 @@ alphas = {}
 # betas = [0, 5, 10, 15]
 betas = np.arange(16)
 
-PQR = [0, 0, 0]
-g = [0, 0, 0]
-
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
     cp_wing = wing.control_points(0)  # Section control points
