@@ -62,13 +62,12 @@ class Paraglider:
         delta_bl=0,
         delta_br=0,
         v_w2e=None,
-        xyz=None,
+        r_CP2R=None,
         reference_solution=None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: needs a design review; the `xyz` parameter name in particular
         FIXME: the input sanitation is messy
         FIXME: review the docstring
 
@@ -93,19 +92,19 @@ class Paraglider:
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
-        xyz : ndarray of float, shape (K,3) [meters] (optional)
-            The control points, in frd coordinates. These are optional if the
-            wind field is uniform, but for non-uniform wind fields the
-            simulator used these coordinates to determine the wind vectors
-            at each control point.
+        r_CP2R : ndarray of float, shape (K,3) [m] (optional)
+            Position vectors of the control points, in frd coordinates. These
+            are optional if the wind field is uniform, but for non-uniform wind
+            fields the simulator used these coordinates to determine the wind
+            vectors at each control point.
 
             FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really,
-            why do I even have both `xyz` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the xyz. Using `delta_a` alone
-            would be the more intuitive, but would incur extra computation time
-            for finding the control points; the only point of `xyz` is to avoid
-            recomputing them.
+            they have nothing to do with wind field uniformity. And really, why
+            do I even have both `r_CP2R` and `delta_a` as inputs? The only
+            purpose of `delta_a` is to compute the r_CP2R. Using `delta_a`
+            alone would be the more intuitive, but would incur extra
+            computation time for finding the control points; the only point of
+            `r_CP2R` is to avoid recomputing them.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -134,15 +133,15 @@ class Paraglider:
             v_w2e = np.array([0, 0, 0])
         else:
             v_w2e = np.asarray(v_w2e)
-        if v_w2e.ndim > 1 and xyz is None:
-            # FIXME: needs a design review. Ensure that if `v_w2e` and `xyz`
+        if v_w2e.ndim > 1 and r_CP2R is None:
+            # FIXME: needs a design review. Ensure that if `v_w2e` and `r_CP2R`
             #        were computed using the same `delta_a`, if `v_w2e` was
             #        computed for the individual control points.
-            raise ValueError("Control point relative winds require xyz")
-        if v_w2e.ndim > 1 and v_w2e.shape[0] != xyz.shape[0]:
-            raise ValueError("Different number of wind and xyz vectors")
-        if xyz is None:
-            xyz = self.control_points(delta_a)
+            raise ValueError("Control point relative winds require r_CP2R")
+        if v_w2e.ndim > 1 and v_w2e.shape[0] != r_CP2R.shape[0]:
+            raise ValueError("Different number of wind and r_CP2R vectors")
+        if r_CP2R is None:
+            r_CP2R = self.control_points(delta_a)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
