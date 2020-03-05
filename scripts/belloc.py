@@ -82,7 +82,7 @@ ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
 
 # ---------------------------------------------------------------------------
-# Build the parafoil and wing
+# Build the canopy and wing
 
 airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
 
@@ -131,21 +131,21 @@ chord_surface = gsim.foil.ChordSurface(
     torsion=ftheta,
 )
 
-parafoil = gsim.foil.SimpleFoil(
+canopy = gsim.foil.SimpleFoil(
     airfoil=airfoil,
     chords=chord_surface,
     b_flat=b_flat,
 )
 
-print("Finished building the parafoil. Checking fit...")
-print(f"Projected area> Expected: {S}, Actual: {parafoil.S}")
-print(f"Flattened area> Expected: {S_flat}, Actual: {parafoil.S_flat}")
-print(f"Projected AR> Expected: {AR}, Actual: {parafoil.AR}")
-print(f"Flattened AR> Expected: {AR_flat}, Actual: {parafoil.AR_flat}")
+print("Finished defining the canopy. Checking fit...")
+print(f"Projected area> Expected: {S}, Actual: {canopy.S}")
+print(f"Flattened area> Expected: {S_flat}, Actual: {canopy.S_flat}")
+print(f"Projected AR> Expected: {AR}, Actual: {canopy.AR}")
+print(f"Flattened AR> Expected: {AR_flat}, Actual: {canopy.AR_flat}")
 
 wing = gsim.paraglider_wing.ParagliderWing(
-    parafoil=parafoil,
-    force_estimator=gsim.foil.Phillips(parafoil, 40),
+    canopy=canopy,
+    force_estimator=gsim.foil.Phillips(canopy, 40),
     brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
@@ -157,7 +157,7 @@ wing = gsim.paraglider_wing.ParagliderWing(
 )
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
-gsim.plots.plot_foil(parafoil, N_sections=121)
+gsim.plots.plot_foil(canopy, N_sections=121)
 embed()
 # 1/0
 
@@ -284,7 +284,7 @@ embed()
 #
 # Uses the flattened wing area as the reference, as per the Belloc paper.
 
-S = parafoil.S_flat
+S = canopy.S_flat
 
 coefficients = {}
 for beta in betas:
@@ -317,7 +317,7 @@ for beta in betas:
     # AR_effective = CL**2 / ((CD - CD0) * np.pi)  # Belloc Eq:6 (corrected)
     # print("Effective aspect ratios:\n", AR_effective)
     # plt.plot(np.rad2deg(alphas), AR_effective)
-    # plt.hlines(parafoil.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
+    # plt.hlines(canopy.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
     #            'r', 'dashed', linewidth=1)
     # plt.show()
 

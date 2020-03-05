@@ -14,14 +14,14 @@ class ParagliderWing:
     # FIXME: review weight shift and speedbar designs. Why use percentage-based
     #        controls?
 
-    def __init__(self, parafoil, force_estimator, brake_geo, d_riser, z_riser,
+    def __init__(self, canopy, force_estimator, brake_geo, d_riser, z_riser,
                  pA, pC, kappa_a, rho_upper, rho_lower):
         """
         FIXME: add docstring.
 
         Parameters
         ----------
-        parafoil : foil.FoilGeometry
+        canopy : foil.FoilGeometry
             The geometric shape of the lifting surface.
         force_estimator : foil.ForceEstimator
             The estimation method for the aerodynamic forces and moments.
@@ -42,7 +42,7 @@ class ParagliderWing:
         rho_upper, rho_lower : float [kg m^-2]
             Surface area densities of the upper and lower foil surfaces.
         """
-        self.parafoil = parafoil
+        self.canopy = canopy
         self.force_estimator = force_estimator
         self.brake_geo = brake_geo
         self.pA = pA
@@ -51,21 +51,20 @@ class ParagliderWing:
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
 
-        # The ParagliderWing coordinate system is a shifted version of the one
-        # defined by the FoilGeometry. The axes of both systems are parallel,
-        # but the origin moves from the central leading edge to the midpoint of
-        # the risers.
-        self.c0 = parafoil.chord_length(0)
+        # The ParagliderWing coordinate axes are parallel to the canopy axes,
+        # but the origin is translated from the central leading edge of the
+        # canopy to `R`, the midpoint between the two riser connections.
+        self.c0 = canopy.chord_length(0)
         foil_x = d_riser * self.c0
         foil_z = -z_riser
 
-        # Nominal lengths of the A and C lines, and their connection distance
+        # Default lengths of the A and C lines, and their connection distance
         self.A = np.sqrt((foil_x - self.pA * self.c0) ** 2 + foil_z ** 2)
         self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
         self.AC = (self.pC - self.pA) * self.c0
 
-        # Compute the mass properties in FoilGeometry coordinates
-        pmp = self.parafoil.mass_properties(N=5000)
+        # Compute the mass properties in canopy coordinates
+        pmp = self.canopy.mass_properties(N=5000)
         m_upper = pmp["upper_area"] * self.rho_upper
         m_lower = pmp["lower_area"] * self.rho_lower
         J_upper = pmp["upper_inertia"] * self.rho_upper
@@ -80,10 +79,10 @@ class ParagliderWing:
         J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
         self._mass_properties = {
             "m_solid": m_solid,
-            "cm_solid": cm_solid,  # In FoilGeometry coordinates
+            "cm_solid": cm_solid,  # In canopy coordinates
             "J_solid": J_solid,
             "m_air": pmp["volume"],  # Normalized by unit air density
-            "cm_air": pmp["volume_centroid"],  # In FoilGeometry coordinates
+            "cm_air": pmp["volume_centroid"],  # In canopy coordinates
             "J_air": pmp["volume_inertia"],  # Normalized by unit air density
         }
 
@@ -116,7 +115,7 @@ class ParagliderWing:
         dF, dM, solution = self.force_estimator(delta_f, v_w2cp, rho_air, reference_solution)
         return dF, dM, solution
 
-    def foil_origin(self, delta_a=0):
+    def canopy_origin(self, delta_a=0):
         """
         Compute the origin of the FoilGeometry coordinate system in frd.
 
@@ -127,7 +126,7 @@ class ParagliderWing:
 
         Returns
         -------
-        foil_origin : array of float, shape (3,) [meters]
+        canopy_origin : array of float, shape (3,) [meters]
             The offset of the origin of the FoilGeometry coordinate system in
             ParagliderWing coordinates.
         """
@@ -176,7 +175,7 @@ class ParagliderWing:
             The control points in ParagliderWing coordinates
         """
         cps = self.force_estimator.control_points  # In foil coordinates
-        return cps + self.foil_origin(delta_a)  # In wing coordinates
+        return cps + self.canopy_origin(delta_a)  # In wing coordinates
 
     def mass_properties(self, rho_air, delta_a=0):
         """
@@ -205,7 +204,7 @@ class ParagliderWing:
             J_air : array of float, shape (3,3) [m^2]
                 The inertia matrix of the enclosed air mass.
         """
-        offset = self.foil_origin(delta_a)  # foil origin <- wing origin
+        offset = self.canopy_origin(delta_a)  # canopy origin <- wing origin
         mp = self._mass_properties.copy()
         mp["cm_solid"] = mp["cm_solid"] + offset
         mp["cm_air"] = mp["cm_air"] + offset

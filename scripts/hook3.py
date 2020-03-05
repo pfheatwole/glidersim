@@ -134,14 +134,14 @@ def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = L / (0.5 * rho_air * v_mag ** 2 * wing.parafoil.S)
-        CD = D / (0.5 * rho_air * v_mag ** 2 * wing.parafoil.S)
+        CL = L / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
+        CD = D / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
         CM = Ms[n][1] / (
             0.5
             * rho_air
             * v_mag ** 2
-            * wing.parafoil.S
-            * wing.parafoil.chord_length(0)
+            * wing.canopy.S
+            * wing.canopy.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)
@@ -218,7 +218,7 @@ def build_hook3():
         torsion=torsion,
     )
 
-    parafoil = gsim.foil.SimpleFoil(
+    canopy = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface,
         # b=b,  # Option 1: Scale the using the projected span
@@ -226,29 +226,29 @@ def build_hook3():
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 
-    print("Parafoil geometry:")
-    print(f"  flattened span: {parafoil.b_flat:>6.3f}")
-    print(f"  flattened area: {parafoil.S_flat:>6.3f}")
-    print(f"  flattened AR:   {parafoil.AR_flat:>6.3f}")
-    # print(f"  planform flat SMC   {parafoil.SMC:>6.3f}")
-    # print(f"  planform flat MAC:  {parafoil.MAC:>6.3f}")
+    print("Canopy geometry:")
+    print(f"  flattened span: {canopy.b_flat:>6.3f}")
+    print(f"  flattened area: {canopy.S_flat:>6.3f}")
+    print(f"  flattened AR:   {canopy.AR_flat:>6.3f}")
+    # print(f"  planform flat SMC   {canopy.SMC:>6.3f}")
+    # print(f"  planform flat MAC:  {canopy.MAC:>6.3f}")
 
-    print(f"  projected span: {parafoil.b:>6.3f}")
-    print(f"  projected area: {parafoil.S:>6.3f}")
-    print(f"  projected AR:   {parafoil.AR:>6.3f}")
+    print(f"  projected span: {canopy.b:>6.3f}")
+    print(f"  projected area: {canopy.S:>6.3f}")
+    print(f"  projected AR:   {canopy.AR:>6.3f}")
     print()
 
-    # print("Drawing the parafoil")
-    # gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
-    # gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
+    # print("Drawing the canopy")
+    # gsim.plots.plot_foil(canopy, N_sections=131, flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=51)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 
     # print("\nPausing...")
     # embed()
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # plots.plot_foil_topdown(parafoil, N_sections=77)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Brake geometry
@@ -265,8 +265,8 @@ def build_hook3():
     # Wing and glider
 
     wing = gsim.paraglider_wing.ParagliderWing(
-        parafoil=parafoil,
-        force_estimator=gsim.foil.Phillips(parafoil, v_ref_mag=10, K=31),
+        canopy=canopy,
+        force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1

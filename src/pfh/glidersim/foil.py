@@ -921,29 +921,29 @@ class SimpleFoil:
         -------
         dictionary
             upper_area: float [m^2]
-                parafoil upper surface area
+                foil upper surface area
             upper_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the upper surface material in parafoil frd
+                center of mass of the upper surface material in foil frd
             upper_inertia: ndarray of float, shape (3, 3) [m^4]
                 The inertia matrix of the upper surface
             volume: float [m^3]
-                internal volume of the inflated parafoil
+                internal volume of the inflated foil
             volume_centroid: ndarray of float, shape (3,) [m]
-                centroid of the internal air mass in parafoil frd
+                centroid of the internal air mass in foil frd
             volume_inertia: ndarray of float, shape (3, 3) [m^5]
                 The inertia matrix of the internal volume
             lower_area: float [m^2]
-                parafoil lower surface area
+                foil lower surface area
             lower_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the lower surface material in parafoil frd
+                center of mass of the lower surface material in foil frd
             lower_inertia: ndarray of float, shape (3, 3) [m^4]
                 The inertia matrix of the upper surface
 
         Notes
         -----
-        The parafoil is treated as a composite of three components: the upper
+        The foil is treated as a composite of three components: the upper
         surface, internal volume, and lower surface. Because this class only
-        defines the geometry of the parafoil, not the physical properties, each
+        defines the geometry of the foil, not the physical properties, each
         component is treated as having unit densities, and the results are
         proportional to the values for a physical wing. To compute the values
         for a physical wing, the upper and lower surface inertia matrices must
@@ -955,7 +955,7 @@ class SimpleFoil:
         by different wing material densities and air densities to compute the
         values for the physical wing.
 
-        The calculation works by breaking the parafoil into N segments, where
+        The calculation works by breaking the foil into N segments, where
         each segment is assumed to have a constant airfoil and chord length.
         The airfoil for each segment is extruded along the segment span using
         the perpendicular axis theorem, then oriented into body coordinates,
@@ -1007,7 +1007,7 @@ class SimpleFoil:
         volume = segment_volume.sum()
         lower_area = segment_lower_area.sum()
 
-        # The upper/volume/lower centroids for the entire parafoil
+        # The upper/volume/lower centroids for the entire foil
         upper_centroid = (segment_upper_area * segment_upper_cm.T).T.sum(axis=0) / upper_area
         volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
         lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
