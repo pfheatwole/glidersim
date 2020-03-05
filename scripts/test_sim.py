@@ -279,7 +279,7 @@ def main():
     # )
     # beta = 0
 
-    v_cm2e = v_mag * np.asarray(
+    v_R2e = v_mag * np.asarray(
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
     omega_b2e = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # [rad/sec]
@@ -291,7 +291,7 @@ def main():
     state0 = np.empty(1, dtype=GliderSim.state_dtype)
     state0["q"] = q
     state0["p"] = [0, 0, 0]
-    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, v_cm2e)
+    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, v_R2e)
     state0["omega"] = omega_b2e
 
     # -----------------------------------------------------------------------

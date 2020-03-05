@@ -54,7 +54,7 @@ class Paraglider:
 
     def accelerations(
         self,
-        v_cm2e,
+        v_R2e,
         omega_b2e,
         g,
         rho_air,
@@ -74,8 +74,9 @@ class Paraglider:
 
         Parameters
         ----------
-        v_cm2e : array of float, shape (3,) [m/s]
-            Translational velocity of the mass center, in frd coordinates.
+        v_R2e : array of float, shape (3,) [m/s]
+            Translational velocity of `R` in frd coordinates, where `R` is the
+            midpoint between the two riser connection points.
         omega_b2e : array of float, shape (3,) [rad/s]
             Angular velocity of the body, in frd coordinates.
         g : array of float, shape (3,) [m/s^s]
@@ -110,8 +111,8 @@ class Paraglider:
 
         Returns
         -------
-        a_cm2e : array of float, shape (3,) [m/s^2]
-            Translational acceleration of the mass center, in frd coordinates.
+        a_R2e : array of float, shape (3,) [m/s^2]
+            Translational acceleration of `R` in frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
             Angular acceleration of the body, in frd coordinates.
 
@@ -143,42 +144,43 @@ class Paraglider:
         if xyz is None:
             xyz = self.control_points(delta_a)
 
-        v_cm2e = np.asarray(v_cm2e)
-        if v_cm2e.shape != (3,):
-            raise ValueError("v_cm2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+        v_R2e = np.asarray(v_R2e)
+        if v_R2e.shape != (3,):
+            raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
         wmp = self.wing.mass_properties(rho_air, delta_a)
         hmp = self.harness.mass_properties()
-        m_g = wmp["m_solid"] + wmp["m_air"] + hmp["mass"]
-        cm_g = (
+        m_B = wmp["m_solid"] + wmp["m_air"] + hmp["mass"]
+        r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
             + wmp["m_air"] * wmp["cm_air"]
             + hmp["mass"] * hmp["cm"]
-        ) / m_g
-        Rws = wmp["cm_solid"] - cm_g  # Displacement of the wing solid mass
-        Rwa = wmp["cm_air"] - cm_g  # Displacement of the wing enclosed air
-        Rh = hmp["cm"] - cm_g  # Displacement of the harness
-        Dws = (Rws @ Rws) * np.eye(3) - np.outer(Rws, Rws)
-        Dwa = (Rwa @ Rwa) * np.eye(3) - np.outer(Rwa, Rwa)
-        Dh = (Rh @ Rh) * np.eye(3) - np.outer(Rh, Rh)
+        ) / m_B
+        r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
+        r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
+        r_H2B = hmp["cm"] - r_B2R  # Displacement of the harness mass
+        Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
+        Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
+        Dh = (r_H2B @ r_H2B) * np.eye(3) - np.outer(r_H2B, r_H2B)
         J_wing = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dws
+            + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
-            + wmp["m_air"] * Dwa
+            + wmp["m_air"] * Dwea
         )
         J_h = (hmp["J"] + hmp["mass"] * Dh)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vector at each control point.
-        v_cp2e = v_cm2e + cross3(omega_b2e, xyz - cm_g)
-        v_w2cp = v_w2e - v_cp2e
+        v_B2e = v_R2e - cross3(omega_b2e, r_B2R)
+        v_CP2e = v_B2e + cross3(omega_b2e, r_CP2R - r_B2R)
+        v_w2cp = v_w2e - v_CP2e
 
         # FIXME: "magic" layout of array contents
-        cp_wing = xyz[:-1]
-        cp_harness = xyz[-1]
+        r_CP2B_wing = r_CP2R[:-1] - r_B2R
+        r_CP2B_harness = r_CP2R[-1] - r_B2R
         v_wing = v_w2cp[:-1]
         v_harness = v_w2cp[-1]
 
@@ -190,8 +192,8 @@ class Paraglider:
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(cp_wing - cm_g, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"] - cm_g, F_wing_weight)
+        M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
+        M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the harness
         dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_harness, rho_air)
@@ -200,18 +202,18 @@ class Paraglider:
         F_h_aero = dF_h_aero.sum(axis=0)
         F_h_weight = hmp["mass"] * g
         M_h = dM_h_aero.sum(axis=0)
-        M_h += cross3(cp_harness - cm_g, dF_h_aero).sum(axis=0)
-        M_h += cross3(hmp["cm"] - cm_g, F_h_weight)
+        M_h += cross3(r_CP2B_harness, dF_h_aero).sum(axis=0)
+        M_h += cross3(hmp["cm"] - r_B2R, F_h_weight)
 
         # ------------------------------------------------------------------
-        # Compute the accelerations \dot{v_cm2e} and \dot{omega_b2e}
+        # Compute the accelerations \dot{v_R2e} and \dot{omega_b2e}
         #
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum against the forces and moments.
 
         J = J_wing + J_h  # Total moment of inertia matrix about the glider cm
 
-        A1 = [m_g * np.eye(3), np.zeros((3, 3))]
+        A1 = [m_B * np.eye(3), np.zeros((3, 3))]
         A2 = [np.zeros((3, 3)), J]
         A = np.block([A1, A2])
 
@@ -220,16 +222,16 @@ class Paraglider:
             + F_wing_weight
             + F_h_aero
             + F_h_weight
-            - m_g * cross3(omega_b2e, v_cm2e)
-            - m_g * cross3(omega_b2e, cross3(omega_b2e, cm_g))
+            - m_B * cross3(omega_b2e, v_B2e)
+            - m_B * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
         )
         B2 = M_wing + M_h - np.cross(omega_b2e, J @ omega_b2e)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_cm2e, alpha_b2e = derivatives[:3], derivatives[3:]
+        a_R2e, alpha_b2e = derivatives[:3], derivatives[3:]
 
-        return a_cm2e, alpha_b2e, ref
+        return a_R2e, alpha_b2e, ref
 
     def equilibrium_glide(
         self,
@@ -402,7 +404,7 @@ class Paraglider:
             state["omega"] = [0, 0, 0]   # Zero every step to avoid oscillations
             g = 9.8 * quaternion.apply_quaternion_rotation(state["q"][0], [0, 0, 1])
             a_frd, alpha_frd, _ = self.accelerations(
-                v_cm2e=state["v"][0],
+                v_R2e=state["v"][0],
                 omega_b2e=state["omega"][0],
                 g=g,
                 rho_air=rho_air,
