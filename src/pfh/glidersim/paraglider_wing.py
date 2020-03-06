@@ -11,9 +11,6 @@ from pfh.glidersim.util import cross3
 class ParagliderWing:
     """FIXME: add class docstring."""
 
-    # FIXME: review weight shift and speedbar designs. Why use percentage-based
-    #        controls?
-
     def __init__(self, canopy, force_estimator, brake_geo, d_riser, z_riser,
                  pA, pC, kappa_a, rho_upper, rho_lower):
         """
@@ -132,7 +129,7 @@ class ParagliderWing:
         # Speedbar shortens the A lines, while AC and C remain fixed
         A = self.A - (delta_a * self.kappa_a)
         foil_x = (A ** 2 - self.C ** 2 + self.AC ** 2) / (2 * self.AC)
-        foil_y = 0  # FIXME: not with weight shift?
+        foil_y = 0
         foil_z = -np.sqrt(A ** 2 - foil_x ** 2)
         foil_x += self.pA * self.c0  # Account for the start of the AC line
 

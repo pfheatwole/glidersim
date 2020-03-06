@@ -14,17 +14,10 @@ class Paraglider:
     """
     FIXME: add a docstring.
 
-    FIXME: warn for non-zero harness control points (this model ignores them)
-
-    FIXME: this model assumes the glider center of mass is at the glider origin
-           (where the risers attach), so the harness doesn't contribute a
-           moment. I should estimate the true cm to double check the validity
-           of this assumption.
-
     Notes
     -----
-    This is a 7 DoF model: there is no relative motion between the wing and
-    the glider system, except for weight shift (y-axis displacement of the cm).
+    This is a 6 DoF model: there is no relative motion between the wing and
+    the harness.
     """
 
     def __init__(self, wing, harness):
