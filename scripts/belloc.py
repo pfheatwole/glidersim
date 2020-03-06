@@ -206,14 +206,14 @@ for kb, beta_deg in enumerate(betas):
     for ka, alpha in enumerate(alphas_down):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
         beta = np.deg2rad(beta_deg)
-        v_cp2w = np.asarray(
+        v_W2b = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
-        v_cp2w *= v_mag  # The Reynolds numbers are a function of the magnitude
+        v_W2b *= -v_mag  # The Reynolds numbers are a function of the magnitude
 
         try:
             dF, dM, ref = wing.forces_and_moments(
-                0, 0, v_w2cp=-v_cp2w, rho_air=rho_air, reference_solution=ref,
+                0, 0, v_W2b=v_W2b, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
@@ -242,14 +242,14 @@ for kb, beta_deg in enumerate(betas):
     for ka, alpha in enumerate(alphas_up):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
         beta = np.deg2rad(beta_deg)
-        v_cp2w = np.asarray(
+        v_W2b = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
-        v_cp2w *= v_mag  # The Reynolds numbers are a function of the magnitude
+        v_W2b *= -v_mag  # The Reynolds numbers are a function of the magnitude
 
         try:
             dF, dM, ref = wing.forces_and_moments(
-                0, 0, v_w2cp=-v_cp2w, rho_air=rho_air, reference_solution=ref,
+                0, 0, v_W2b=v_W2b, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!

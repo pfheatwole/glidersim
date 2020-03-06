@@ -86,7 +86,7 @@ class ParagliderWing:
             "J_air": pmp["volume_inertia"],  # Normalized by unit air density
         }
 
-    def forces_and_moments(self, delta_bl, delta_br, v_w2cp, rho_air, reference_solution=None):
+    def forces_and_moments(self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None):
         """
         FIXME: add docstring.
 
@@ -96,8 +96,8 @@ class ParagliderWing:
             The amount of left brake
         delta_br : float [percentage]
             The amount of right brake
-        v_w2cp : array of float, shape (K,3) [m/s]
-            The velocity of the fluid relative to each control point
+        v_W2b : array of float, shape (K,3) [m/s]
+            The wind vector at each control point in body frd
         rho_air : float [kg/m^3]
             The ambient air density
         reference_solution : dictionary, optional
@@ -106,13 +106,12 @@ class ParagliderWing:
         Returns
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
-            Forces and moments for each section, proportional to the air
-            density in [kg/m^3]. (This function assumes an air density of 1.)
+            Aerodynamic forces and moments for each section.
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
         delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta_f, v_w2cp, rho_air, reference_solution)
+        dF, dM, solution = self.force_estimator(delta_f, v_W2b, rho_air, reference_solution)
         return dF, dM, solution
 
     def canopy_origin(self, delta_a=0):
@@ -146,9 +145,9 @@ class ParagliderWing:
         cp_wing = self.control_points(delta_a)
 
         def target(alpha):
-            v_w2cp = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
+            v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.forces_and_moments(
-                delta_b, delta_b, v_w2cp, rho_air, reference_solution,
+                delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
             M = dM_wing.sum(axis=0) + cross3(cp_wing, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment

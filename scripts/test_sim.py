@@ -110,9 +110,9 @@ class GliderSim:
 
         # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
         # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
-        # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
-        v_w2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
-        v_w2e = quaternion.apply_quaternion_rotation(x["q"], v_w2e)
+        # v_W2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
+        v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
+        v_W2e = quaternion.apply_quaternion_rotation(x["q"], v_W2e)
 
         g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
         # g = [0, 0, 0]  # Disable the gravity force
@@ -126,7 +126,7 @@ class GliderSim:
             delta_a=self.delta_a(t),
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
-            v_w2e=v_w2e,
+            v_W2e=v_W2e,
             reference_solution=params["solution"],
         )
 

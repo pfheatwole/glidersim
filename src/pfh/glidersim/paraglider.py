@@ -61,7 +61,7 @@ class Paraglider:
         delta_a=0,
         delta_bl=0,
         delta_br=0,
-        v_w2e=None,
+        v_W2e=None,
         r_CP2R=None,
         reference_solution=None,
     ):
@@ -88,7 +88,7 @@ class Paraglider:
             The fraction of maximum left brake
         delta_br : float [percentage]
             The fraction of maximum right brake
-        v_w2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
             The wind relative to the earth, in frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -118,8 +118,8 @@ class Paraglider:
         Notes
         -----
         There are two use cases:
-         1. Uniform global wind across the wing (v_w2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_w2e.shape == (K,3))
+         1. Uniform global wind across the wing (v_W2e.shape == (3,))
+         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
 
         If the wind is locally uniform across the wing, then the simulator
         can pass the wind vector with no knowledge of the control points.
@@ -129,16 +129,16 @@ class Paraglider:
         parameter to eliminate their redundant computation.
         """
         # FIXME: design review names. `w` is overloaded ("wind" and "wing")
-        if v_w2e is None:
-            v_w2e = np.array([0, 0, 0])
+        if v_W2e is None:
+            v_W2e = np.array([0, 0, 0])
         else:
-            v_w2e = np.asarray(v_w2e)
-        if v_w2e.ndim > 1 and r_CP2R is None:
-            # FIXME: needs a design review. Ensure that if `v_w2e` and `r_CP2R`
-            #        were computed using the same `delta_a`, if `v_w2e` was
+            v_W2e = np.asarray(v_W2e)
+        if v_W2e.ndim > 1 and r_CP2R is None:
+            # FIXME: needs a design review. Ensure that if `v_W2e` and `r_CP2R`
+            #        were computed using the same `delta_a`, if `v_W2e` was
             #        computed for the individual control points.
             raise ValueError("Control point relative winds require r_CP2R")
-        if v_w2e.ndim > 1 and v_w2e.shape[0] != r_CP2R.shape[0]:
+        if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
             r_CP2R = self.control_points(delta_a)
@@ -172,21 +172,21 @@ class Paraglider:
         J_h = (hmp["J"] + hmp["mass"] * Dh)
 
         # -------------------------------------------------------------------
-        # Compute the relative wind vector at each control point.
+        # Compute the relative wind vectors for each control point.
         v_B2e = v_R2e - cross3(omega_b2e, r_B2R)
         v_CP2e = v_B2e + cross3(omega_b2e, r_CP2R - r_B2R)
-        v_w2cp = v_w2e - v_CP2e
+        v_W2b = v_W2e - v_CP2e
 
         # FIXME: "magic" layout of array contents
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_harness = r_CP2R[-1] - r_B2R
-        v_wing = v_w2cp[:-1]
-        v_harness = v_w2cp[-1]
+        v_W2b_wing = v_W2b[:-1]
+        v_W2b_harness = v_W2b[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-            delta_bl, delta_br, v_wing, rho_air, reference_solution,
+            delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
         )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -195,7 +195,7 @@ class Paraglider:
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the harness
-        dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_harness, rho_air)
+        dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_W2b_harness, rho_air)
         dF_h_aero = np.atleast_2d(dF_h_aero)
         dM_h_aero = np.atleast_2d(dM_h_aero)
         F_h_aero = dF_h_aero.sum(axis=0)
@@ -296,11 +296,11 @@ class Paraglider:
             alpha_eq = self.wing.equilibrium_alpha(
                 delta_a, delta_b, v_eq, rho_air, solution,
             )
-            v_w2cp = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, v_w2cp, rho_air, solution,
+                delta_b, delta_b, v_W2b, rho_air, solution,
             )
-            dF_h, dM_h = self.harness.forces_and_moments(v_w2cp, rho_air)
+            dF_h, dM_h = self.harness.forces_and_moments(v_W2b, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
             F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
 

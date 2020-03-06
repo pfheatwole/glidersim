@@ -118,7 +118,7 @@ def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
             dF, dM, reference_solution, = wing.forces_and_moments(
                 delta_bl=delta_b,
                 delta_br=delta_b,
-                v_w2cp=-v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
+                v_W2b=-v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
                 rho_air=rho_air,
                 reference_solution=reference_solution,
             )
