@@ -160,6 +160,122 @@ class Dynamics6a:
         return x_dot.view(float)  # The integrator expects a flat array
 
 
+class Dynamics9a:
+    """Defines the state dynamics for a 9 DoF paraglider model."""
+
+    # FIXME: I dislike this notation. It confuses the reference frames with
+    #        the coordinate systems embedded in those frames.
+    state_dtype = [
+        ("q_b2e", float, (4,)),  # Encodes `C_frd/ned` for the body
+        ("r_R2O", float, (3,)),  # The position of `R` in ned
+        ("v_R2e", float, (3,)),  # The velocity of `R` in ned
+        ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
+    ]
+
+    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
+        self.glider = glider
+
+        if callable(rho_air):
+            self.rho_air = rho_air
+        elif np.isscalar(rho_air):
+            self.rho_air = lambda t: rho_air
+        else:
+            raise ValueError("`rho_air` must be a scalar or callable")
+
+        if callable(delta_a):
+            self.delta_a = delta_a
+        elif np.isscalar(delta_a):
+            self.delta_a = lambda t: delta_a
+        else:
+            raise ValueError("`delta_a` must be a scalar or callable")
+
+        if callable(delta_bl):
+            self.delta_bl = delta_bl
+        elif np.isscalar(delta_bl):
+            self.delta_bl = lambda t: delta_bl
+        else:
+            raise ValueError("`delta_bl` must be a scalar or callable")
+
+        if callable(delta_br):
+            self.delta_br = delta_br
+        elif np.isscalar(delta_br):
+            self.delta_br = lambda t: delta_br
+        else:
+            raise ValueError("`delta_br` must be a scalar or callable")
+
+    def cleanup(self, state, t):
+        # FIXME: hack that runs after each integration step. Assumes it can
+        #        modify the integrator state directly.
+        state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
+
+    def dynamics(self, t, y, params):
+        """The state dynamics for the model
+
+        Matches the `f(t, y, *params)` signature for scipy.integrate.ode
+
+        Parameters
+        ----------
+        t : float [s]
+            Time
+        y : ndarray of float, shape (N,)
+            The array of N state components
+        params : dictionary
+            Any extra non-state parameters for computing the dynamics. Be aware
+            that 'solution' is an in-out parameter: solutions for the current
+            Gamma distribution are passed forward (output) to be used as the
+            proposal to the next time step.
+
+        Returns
+        -------
+        x_dot : ndarray of float, shape (N,)
+            The array of N state component derivatives
+        """
+        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
+        q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
+
+        # r_CP2R = self.glider.control_points(delta_a)  # In body coordinates
+        # r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        # v_W2e = self.wind(t, r_CP2O)  # Wind vectors at each ned coordinate
+        v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
+
+        a_R2e, alpha_b2e, solution = self.glider.accelerations(
+            quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
+            x["omega_b2e"],
+            quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+            rho_air=self.rho_air(t),
+            delta_a=self.delta_a(t),
+            delta_bl=self.delta_bl(t),
+            delta_br=self.delta_br(t),
+            v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
+            reference_solution=params["solution"],
+        )
+
+        # FIXME: what if Phillips fails? How do I abort gracefully?
+
+        # Quaternion derivative
+        #  * ref: Stevens, Eq:1.8-15, p51 (65)
+        P, Q, R = x["omega_b2e"]
+        # fmt: off
+        Omega = np.array([
+            [0, -P, -Q, -R],
+            [P,  0,  R, -Q],
+            [Q, -R,  0,  P],
+            [R,  Q, -P,  0]])
+        # fmt: on
+        q_dot = 0.5 * Omega @ x["q_b2e"]
+
+        x_dot = np.empty(1, self.state_dtype)
+        x_dot["q_b2e"] = q_dot
+        x_dot["r_R2O"] = x["v_R2e"]
+        x_dot["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, a_R2e)
+        x_dot["omega_b2e"] = alpha_b2e
+
+        # Use the solution as the reference_solution at the next time step
+        params["solution"] = solution  # FIXME: needs a design review
+
+        return x_dot.view(float)  # The integrator expects a flat array
+
+
 # ---------------------------------------------------------------------------
 
 
