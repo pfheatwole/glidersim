@@ -20,17 +20,19 @@ class Paraglider:
     the harness.
     """
 
-    def __init__(self, wing, harness):
+    def __init__(self, wing, payload):
         """
         Instantiate a Paraglider from given wing and harness.
 
         Parameters
         ----------
         wing : ParagliderWing
-        harness : Harness
+        payload : Harness
+            This uses a `Harness`, but since there is no model for the pilot
+            the harness should include the pilot mass.
         """
         self.wing = wing
-        self.harness = harness
+        self.payload = payload
 
     def control_points(self, delta_a=0):
         """
@@ -42,8 +44,8 @@ class Paraglider:
         wind. This function then transforms them into body coordinates.
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)
-        harness_cps = self.harness.control_points()
-        return np.vstack((wing_cps, harness_cps))
+        payload_cps = self.payload.control_points()
+        return np.vstack((wing_cps, payload_cps))
 
     def accelerations(
         self,
@@ -143,26 +145,26 @@ class Paraglider:
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
         wmp = self.wing.mass_properties(rho_air, delta_a)
-        hmp = self.harness.mass_properties()
-        m_B = wmp["m_solid"] + wmp["m_air"] + hmp["mass"]
+        pmp = self.payload.mass_properties()
+        m_B = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
             + wmp["m_air"] * wmp["cm_air"]
-            + hmp["mass"] * hmp["cm"]
+            + pmp["mass"] * pmp["cm"]
         ) / m_B
         r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
-        r_H2B = hmp["cm"] - r_B2R  # Displacement of the harness mass
+        r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
         Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
-        Dh = (r_H2B @ r_H2B) * np.eye(3) - np.outer(r_H2B, r_H2B)
+        Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
-        J_h = (hmp["J"] + hmp["mass"] * Dh)
+        J_p = (pmp["J"] + pmp["mass"] * Dp)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -172,9 +174,9 @@ class Paraglider:
 
         # FIXME: "magic" layout of array contents
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
-        r_CP2B_harness = r_CP2R[-1] - r_B2R
+        r_CP2B_payload = r_CP2R[-1] - r_B2R
         v_W2b_wing = v_W2b[:-1]
-        v_W2b_harness = v_W2b[-1]
+        v_W2b_payload = v_W2b[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
@@ -187,15 +189,15 @@ class Paraglider:
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
-        # Forces and moments of the harness
-        dF_h_aero, dM_h_aero = self.harness.forces_and_moments(v_W2b_harness, rho_air)
-        dF_h_aero = np.atleast_2d(dF_h_aero)
-        dM_h_aero = np.atleast_2d(dM_h_aero)
-        F_h_aero = dF_h_aero.sum(axis=0)
-        F_h_weight = hmp["mass"] * g
-        M_h = dM_h_aero.sum(axis=0)
-        M_h += cross3(r_CP2B_harness, dF_h_aero).sum(axis=0)
-        M_h += cross3(hmp["cm"] - r_B2R, F_h_weight)
+        # Forces and moments of the payload
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero = np.atleast_2d(dF_p_aero)
+        dM_p_aero = np.atleast_2d(dM_p_aero)
+        F_p_aero = dF_p_aero.sum(axis=0)
+        F_p_weight = pmp["mass"] * g
+        M_p = dM_p_aero.sum(axis=0)
+        M_p += cross3(r_CP2B_payload, dF_p_aero).sum(axis=0)
+        M_p += cross3(pmp["cm"] - r_B2R, F_p_weight)
 
         # ------------------------------------------------------------------
         # Compute the accelerations \dot{v_R2e} and \dot{omega_b2e}
@@ -203,7 +205,7 @@ class Paraglider:
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum against the forces and moments.
 
-        J = J_wing + J_h  # Total moment of inertia matrix about the glider cm
+        J = J_wing + J_p  # Total moment of inertia matrix about the glider cm
 
         A1 = [m_B * np.eye(3), np.zeros((3, 3))]
         A2 = [np.zeros((3, 3)), J]
@@ -212,12 +214,12 @@ class Paraglider:
         B1 = (
             F_wing_aero
             + F_wing_weight
-            + F_h_aero
-            + F_h_weight
+            + F_p_aero
+            + F_p_weight
             - m_B * cross3(omega_b2e, v_B2e)
             - m_B * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
         )
-        B2 = M_wing + M_h - np.cross(omega_b2e, J @ omega_b2e)
+        B2 = M_wing + M_p - np.cross(omega_b2e, J @ omega_b2e)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -276,14 +278,14 @@ class Paraglider:
 
         .. math::
 
-            v_{eq}^2 \cdot \Sigma F_{z,aero} + mg \cdot \text{sin} \left( \theta \right)
+            v_{eq}^2 \cdot \Sigma F_{z,aero} + m_p g \cdot \text{sin} \left( \theta \right)
 
-        where `m` is the mass of the harness + pilot.
+        where :math:`m_p` is the mass of the payload.
         """
 
         v_eq = v_eq_proposal  # The initial guess
         solution = reference_solution  # Approximate solution, if available
-        m_h = self.harness.mass_properties()["mass"]
+        m_p = self.payload.mass_properties()["mass"]
 
         for _ in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
@@ -293,14 +295,14 @@ class Paraglider:
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
                 delta_b, delta_b, v_W2b, rho_air, solution,
             )
-            dF_h, dM_h = self.harness.forces_and_moments(v_W2b, rho_air)
-            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_h).sum(axis=0)
+            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
+            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
             F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
 
             theta_eq = np.arctan2(F[0], -F[2])
 
             # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * m_h * np.cos(theta_eq)
+            weight_z = 9.8 * m_p * np.cos(theta_eq)
             v_eq = np.sqrt(-weight_z / F[2])
 
         return alpha_eq, theta_eq, v_eq, solution
