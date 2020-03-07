@@ -334,6 +334,10 @@ class Paraglider:
             The initial proposal for glider pitch angle.
         v_0 : float [m/s], optional
             The initial proposal for glider airspeed.
+        rho_air : float [kg/m^3]
+            Air density.
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
 
         Returns
         -------
