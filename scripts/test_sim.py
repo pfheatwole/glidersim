@@ -340,7 +340,7 @@ def main():
     k = len(times)
     q_inv = path["q"] * [1, -1, -1, -1]  # Applies C_ned/frd
     eulers = quaternion.quaternion_to_euler(path["q"])  # [phi, theta, gamma]
-    cps = model.glider.wing.control_points(0)  # Wing control points in frd
+    cps = model.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
     cp0 = cps[len(cps) // 2]  # The central control point in frd
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
