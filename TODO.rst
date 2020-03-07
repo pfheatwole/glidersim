@@ -1,62 +1,26 @@
-* Verify standardized names like `theta` for the pitch angle of the body
-  system (attached to the wing), `theta_h` for the relative pitch angle of the
-  harness, etc.
+* I'm not crazy about the name `forces_and_moments` if they don't include
+  weight. Should be `aerodynamic_forces_and_moments`, but that's really long.
 
-* Review Stevens Eq:1.8-21b. Ignore these for tangent-plane approximations?
+  Or, **should the `ParagliderWing` and `Harness` be responsible for computing
+  their own weight forces?**
 
-* Should I rename `V_cp2w`? The `w` is too much like "wing". Maybe `V_cp2air`?
+* Note to self: a paraglider wing is specific type of 'parafoil' that includes
+  the normal canopy + lines, but also a particular control input scheme. You
+  can't use a general `Parafoil` class for all parafoils since the controls
+  may differ. Same thing for paragliders: they are a particular
+  parafoil/payload system, where the parafoil is a paraglider wing, and the
+  payload is a paragliding harness.
 
-* I'm not crazy about `frd` versus `FRD`, but I'm doing it because that's what
-  Stevens does. Should I continue?
+* According to Nicolaides, "the Parafoil is both an airplane or glider and
+  also a parachute or decelerator". Good point
 
 * In `quaternion` I mention "yaw-pitch-role" Euler angles, but all parameters
   with independent inputs are `[phi, theta, gamma]` (roll-pitch-yaw). Is this
-  usage inconsistent? I'm still not comfortable with the terminology, but
+  usage consistent? I'm still not comfortable with the terminology, but
   I think it's okay? I suspect that the actual phi-theta-gamma values will
   depend on the order of their application, so the *values* phi-theta-gamma
   are the roll-pitch-yaw angles that would produce the desired rotation when
   applied in a yaw-pitch-role sequence. Probably just need a better docstring.
-
-* Why speedbar reverse the control direction? Why does `delta_a = 0.75` cause
-  `belta_br = 0.5` to produce a strong turn to the left? Consider if/how the
-  speedbar moves the center of mass in frd coordinates. Also, it's interesting
-  that `wing.inertia(delta_a=1)` introduces negative roll-yaw coupling...
-
-* If the center of mass moves (speedbar, relative harness pitch, etc) the
-  angular velocity must change in order to conserve angular momentum. Same
-  thing for changes to any inertia matrices; consider the angular momentum of
-  all components and verify they are being maintained. (Non-rigid-body motion
-  is a pain!)
-
-  This may prove tricky. If you know the cm moved a particular way, you can
-  compute the angular velocity that would satisfy conservation of angular
-  momentum. **But, the `Paraglider` returns accelerations, not net changes
-  in velocity; if the speedbar moved the cm over `dt`, who computes that net
-  change in angular momentum?** Does rate change of controls need to be part
-  of the state? How else do you determine the *change per time* of angular
-  momentum in response to control inputs?
-
-  First thing to do is probably to check how much the cm moves in response to
-  speedbar and relative harness pitch. Hopefully the cm doesn't change too
-  much. Or does conserving the angular momentums of the harness and parafoil
-  independently successfully conserve angular momentum of the total system?
-  **Is angular momentum of the system the sum of the components?**
-
-  Reminder: Stevens Eq:1.7-3 gives the equation for angular momentum:
-  `h_{cm/i}^{b}f = J^{bf} @ omega_{b/i}^{bf}`. So, if the wing had some
-  rotation rate `omega0` and you go from 0 to 100% accelerator, `omega1
-  = inv(J_delta1) @ J_delta0 @ omega0`
-
-  Crazy: for the Hook3, a +5deg/s roll rate would turn int +5.77deg/s roll and
-  +4.3deg/s yaw. That's a surprisingly big yaw effect.
-
-
-* Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,
-  `first_step`, `max_step`, etc. Remember the simulation depends on the system
-  dynamics (the vehicle) as well as the input dynamics (frequency content of
-  the brake, speedbar, and wind values).
-
-* Standardize the wind vector names (`V_cp2w`, `v_wing`, `V`, etc)
 
 
 Packaging
@@ -233,8 +197,12 @@ Low priority
   airfoils though, conceptually. Very elegant.
 
 
+
 Chord Surface
 =============
+
+* Is it bad for to use `r_x` and `r_yz` for the ratios when `r_A2B` are
+  vectors? A bit of an overlap, but doesn't seem like a big conflict.
 
 * Should `elliptical_lobe`: accept the alternative pair `{b/b_flat,
   max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
@@ -559,6 +527,14 @@ ParagliderWing
     positions. However, **that would change if the lobe supports
     deformations** in response to weight shift.
 
+* Check if paragliders have aerodynamic centers. See "Aircraft Performance and
+  Design" (Anderson; 1999), page 70 (89) for an equation that works **for
+  airfoils**. The key requirement is that the foil has linear lift and moment
+  curves, in which case the x-coordinate of the aerodynamic center is given by
+  the slope of the pitching coefficient divided by the slope of the lift
+  coefficient. But **is this accurate for an arched wing?** If so, what is the
+  z-component?
+
 
 Wing inertia
 ------------
@@ -589,22 +565,61 @@ contribution is (probably?) negligible.
 Paraglider
 ==========
 
-* Review the difference between:
+* The call signature for ``Paraglider.accelerations`` has too many parameters!
+  It's weird to pass in `r_CP2R` since it's redundant with `delta_a`. Is
+  that confusion-inducing redundancy worth saving the little bit of time to
+  recompute those `r_CP2R`?
 
-  1. Assuming the harness is rigid (if it's not placed at the risers, it will
-     introduce an unnatural pitching moment)
+* I don't like `v_W2b` etc. It's confusing that it's different for each
+  control point. Conceptually, it's the local velocity of a parcel of air `W`,
+  but the `W` is different for each control point. So it'd probably clean it
+  up if I had some other symbol besides `W`; `Wcp` maybe?
 
-  2. Assuming the center of mass is at the origin
 
-* The call signature for ``forces_and_moments`` has too many parameters! It's
-  weird to pass in `xyz` since it's redundant with `delta_s`. Is that
-  confusion-inducing redundancy worth saving the little bit of time to
-  recompute those `xyz`?
+Dynamics
+--------
 
-* Should the glider really be returning the forces and moments? Seems like
-  it'd be smart to return the accelerations (both translational and
-  rotational). This also factors into how you compute the inertia: real mass
-  versus apparent mass.
+* If the center of mass moves (speedbar, relative harness pitch, etc) the
+  angular velocity must change in order to conserve angular momentum. Same
+  thing for changes to any inertia matrices; consider the angular momentum of
+  all components and verify they are being maintained. (Non-rigid-body motion
+  is a pain!)
+
+  This may prove tricky. If you know the cm moved a particular way, you can
+  compute the angular velocity that would satisfy conservation of angular
+  momentum. **But, the `Paraglider` returns accelerations, not net changes
+  in velocity; if the speedbar moved the cm over `dt`, who computes that net
+  change in angular momentum?** Does rate change of controls need to be part
+  of the state? How else do you determine the *change per time* of angular
+  momentum in response to control inputs?
+
+  First thing to do is probably to check how much the cm moves in response to
+  speedbar and relative harness pitch. Hopefully the cm doesn't change too
+  much. Or does conserving the angular momentums of the harness and parafoil
+  independently successfully conserve angular momentum of the total system?
+  **Is angular momentum of the system the sum of the components?**
+
+  Reminder: Stevens Eq:1.7-3 gives the equation for angular momentum:
+  `h_{cm/i}^{b}f = J^{bf} @ omega_{b/i}^{bf}`. So, if the wing had some
+  rotation rate `omega0` and you go from 0 to 100% accelerator, `omega1
+  = inv(J_delta1) @ J_delta0 @ omega0`
+
+  Crazy: for the Hook3, a +5deg/s roll rate would turn into +5.77deg/s roll and
+  +4.3deg/s yaw. That's a surprisingly big yaw effect.
+
+  Also, consider where the energy from your legs dispersed into the system.
+  It'll either have accelerated the wing, or lifted the payload mass (most
+  likely a bit of both). Since the force is internal it won't accelerate the
+  center of mass, but it will produce a change to the wing and payload
+  position vectors; if you're tracking the velocity of the risers instead of
+  the center of mass, you'd expect a new translational acceleration term as
+  a function of the accelerator (eg, you'd expect `a_C/e` to have a -z
+  contribution while the accelerator is being moved).
+
+* Verify the roll-yaw coupling induced by the accelerator. If you hold `delta_a
+  = 1` and `delta_br = 0.65` for a long time, the wing starts slipping left so
+  fast the relative wind makes some sections stall. It'll probably just be
+  a deficiency of my rigid-body model, but I should make note of it.
 
 
 Simulator
@@ -618,6 +633,14 @@ Simulator
   simulations (eg, "run for 120sec").
 
 * Review the `GliderSim` state definitions (Dictionary? Structured array?)
+
+* For the simulator, why integrate velocity in `ned` instead of `frd`?
+  I forget the benefits.
+
+* Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,
+  `first_step`, `max_step`, etc. Remember the simulation depends on the system
+  dynamics (the vehicle) as well as the input dynamics (frequency content of
+  the brake, speedbar, and wind values).
 
 
 Scenario Design
