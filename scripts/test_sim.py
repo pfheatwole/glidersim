@@ -45,7 +45,9 @@ def linear_control(pairs):
     return c
 
 
-class GliderSim:
+class Dynamics6a:
+    """Defines the state dynamics for a 6 DoF paraglider model."""
+
     state_dtype = [
         ("q", float, (4,)),
         ("p", float, (3,)),
@@ -288,7 +290,7 @@ def main():
     q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
 
     # Define the initial state
-    state0 = np.empty(1, dtype=GliderSim.state_dtype)
+    state0 = np.empty(1, dtype=Dynamics6a.state_dtype)
     state0["q"] = q
     state0["p"] = [0, 0, 0]
     state0["v"] = quaternion.apply_quaternion_rotation(q_inv, v_R2e)
@@ -317,7 +319,7 @@ def main():
     # delta_br = linear_control([(20, 0), (2, 0.65), (5, None), (1, 0)])
     # T = 60
 
-    model = GliderSim(glider, rho_air, delta_a, delta_bl, delta_br)
+    model6a = Dynamics6a(glider, rho_air, delta_a, delta_bl, delta_br)
 
     # -----------------------------------------------------------------------
     # Run the simulation
@@ -332,7 +334,7 @@ def main():
 
     # Run the simulation
     dt = 0.1
-    times, path = simulate(model, state0, dt=dt, T=T)
+    times, path = simulate(model6a, state0, dt=dt, T=T)
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
@@ -340,7 +342,7 @@ def main():
     k = len(times)
     q_inv = path["q"] * [1, -1, -1, -1]  # Applies C_ned/frd
     eulers = quaternion.quaternion_to_euler(path["q"])  # [phi, theta, gamma]
-    cps = model.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
+    cps = model6a.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
     cp0 = cps[len(cps) // 2]  # The central control point in frd
     p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
     v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
@@ -360,7 +362,7 @@ def main():
     #        since lots of energy is lost to the air mass.
     # delta_PE = 9.8 * 75 * -path["p"].T[2]
     # KE_trans = 0.5 * 75 * np.linalg.norm(path["v"], axis=1)**2
-    # KE_rot = 0.5 * np.einsum("ij,kj->k", model.J, path["omega"]**2)
+    # KE_rot = 0.5 * np.einsum("ij,kj->k", model6a.J, path["omega"]**2)
     # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
 
     # -----------------------------------------------------------------------
