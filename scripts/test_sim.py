@@ -48,11 +48,13 @@ def linear_control(pairs):
 class Dynamics6a:
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
+    # FIXME: I dislike this notation. It confuses the reference frames with
+    #        the coordinate systems embedded in those frames.
     state_dtype = [
-        ("q", float, (4,)),
-        ("p", float, (3,)),
-        ("v", float, (3,)),
-        ("omega", float, (3,)),
+        ("q_b2e", float, (4,)),  # Encodes `C_frd/ned` for the body
+        ("r_R2O", float, (3,)),  # The position of `R` in ned
+        ("v_R2e", float, (3,)),  # The velocity of `R` in ned
+        ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
     ]
 
     def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
@@ -89,7 +91,7 @@ class Dynamics6a:
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
         #        modify the integrator state directly.
-        state["q"] /= np.sqrt((state["q"] ** 2).sum())  # Normalize `q`
+        state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
     def dynamics(self, t, y, params):
         """The state dynamics for the model
@@ -114,37 +116,30 @@ class Dynamics6a:
             The array of N state component derivatives
         """
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
+        q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
-        # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
-        # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
-        # v_W2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
+        # r_CP2R = self.glider.control_points(delta_a)  # In body coordinates
+        # r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        # v_W2e = self.wind(t, r_CP2O)  # Wind vectors at each ned coordinate
         v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
-        v_W2e = quaternion.apply_quaternion_rotation(x["q"], v_W2e)
 
-        g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
-        # g = [0, 0, 0]  # Disable the gravity force
-
-        v_frd = quaternion.apply_quaternion_rotation(x["q"], x["v"])
-        a_frd, alpha_frd, solution = self.glider.accelerations(
-            v_frd,
-            x["omega"],
-            g,
+        a_R2e, alpha_b2e, solution = self.glider.accelerations(
+            quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
+            x["omega_b2e"],
+            quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
             delta_a=self.delta_a(t),
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
-            v_W2e=v_W2e,
+            v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
             reference_solution=params["solution"],
         )
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
-        q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
-        a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
-
         # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
-        P, Q, R = x["omega"]
+        P, Q, R = x["omega_b2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -152,13 +147,13 @@ class Dynamics6a:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_dot = 0.5 * Omega @ x["q"]
+        q_dot = 0.5 * Omega @ x["q_b2e"]
 
         x_dot = np.empty(1, self.state_dtype)
-        x_dot["q"] = q_dot
-        x_dot["p"] = x["v"]
-        x_dot["v"] = a_ned
-        x_dot["omega"] = alpha_frd
+        x_dot["q_b2e"] = q_dot
+        x_dot["r_R2O"] = x["v_R2e"]
+        x_dot["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, a_R2e)
+        x_dot["omega_b2e"] = alpha_b2e
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
@@ -284,15 +279,15 @@ def main():
     )
     omega_b2e = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # [rad/sec]
     euler = [np.deg2rad(0), theta, np.deg2rad(0)]  # [phi, theta, gamma]
-    q = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
-    q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
+    q_b2e = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
+    q_e2b = q_b2e * [1, -1, -1, -1]  # Encodes C_ned/frd
 
     # Define the initial state
     state0 = np.empty(1, dtype=Dynamics6a.state_dtype)
-    state0["q"] = q
-    state0["p"] = [0, 0, 0]
-    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, v_R2e)
-    state0["omega"] = omega_b2e
+    state0["q_b2e"] = q_b2e
+    state0["r_R2O"] = [0, 0, 0]
+    state0["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, v_R2e)
+    state0["omega_b2e"] = omega_b2e
 
     # -----------------------------------------------------------------------
     # Build a test scenario
@@ -324,11 +319,11 @@ def main():
 
     print("Preparing the simulation.")
     print("Initial state:")
-    print("      q: ", state0["q"].round(4))
-    print("  euler: ", np.rad2deg(euler).round(4))
-    print("      p: ", state0["p"].round(4))
-    print("      v: ", state0["v"].round(4))
-    print("  omega: ", state0["omega"].round(4))
+    print("      q_b2e:", state0["q_b2e"].round(4))
+    print("      euler:", np.rad2deg(euler).round(4))
+    print("      r_R2O:", state0["r_R2O"].round(4))
+    print("      v_R2e:", state0["v_R2e"].round(4))
+    print("  omega_b2e:", state0["omega_b2e"].round(4))
 
     # Run the simulation
     dt = 0.1
@@ -338,13 +333,13 @@ def main():
     # Extra values for verification/debugging
 
     k = len(times)
-    q_inv = path["q"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    eulers = quaternion.quaternion_to_euler(path["q"])  # [phi, theta, gamma]
+    q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
+    eulers = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
     cps = model6a.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
-    cp0 = cps[len(cps) // 2]  # The central control point in frd
-    p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(q_inv, cp0)
-    v_cp0 = path["v"] + quaternion.apply_quaternion_rotation(q_inv, cross3(path["omega"], cp0))
-    v_frd = quaternion.apply_quaternion_rotation(path["q"], path["v"])
+    cp0 = cps[len(cps) // 2]  # The central control point in body frd
+    r_cp0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, cp0)
+    v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, cross3(path["omega_b2e"], cp0))
+    v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
 
     # Euler derivatives (Stevens Eq:1.4-4)
     _0, _1 = np.zeros(k), np.ones(k)
@@ -353,7 +348,7 @@ def main():
     tp, tt, tg = np.tan(eulers.T)
     T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
     T = np.moveaxis(T, -1, 0)
-    euler_dot = np.einsum("kij,kj->ki", T, path["omega"])
+    euler_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
 
     # -----------------------------------------------------------------------
     # Plots
@@ -362,10 +357,10 @@ def main():
     ax = plt.gca(projection='3d')
     ax.invert_yaxis()
     ax.invert_zaxis()
-    ax.plot(path["p"].T[0], path["p"].T[1], path["p"].T[2], label="p_risers")
-    ax.plot(p_cp0.T[0], p_cp0.T[1], p_cp0.T[2], label="p_cp0")
+    ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="p_risers")
+    ax.plot(r_cp0.T[0], r_cp0.T[1], r_cp0.T[2], label="r_cp0")
     for t in range(0, k, int(1 / dt)):  # Draw connecting lines once per second
-        p1, p2 = path["p"][t], p_cp0[t]
+        p1, p2 = path["r_R2O"][t], r_cp0[t]
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
     ax.legend()
     _set_axes_equal(ax)
@@ -382,7 +377,7 @@ def main():
     # plt.show()
 
     # Plot: omega vs Time
-    # plt.plot(times, np.rad2deg(path["omega"]))
+    # plt.plot(times, np.rad2deg(path["omega_b2e"]))
     # plt.ylabel("omega [deg]")
     # plt.show()
 

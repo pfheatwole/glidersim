@@ -69,10 +69,10 @@ class Paraglider:
         Parameters
         ----------
         v_R2e : array of float, shape (3,) [m/s]
-            Translational velocity of `R` in frd coordinates, where `R` is the
-            midpoint between the two riser connection points.
+            Translational velocity of `R` in body frd coordinates, where `R` is
+            the midpoint between the two riser connection points.
         omega_b2e : array of float, shape (3,) [rad/s]
-            Angular velocity of the body, in frd coordinates.
+            Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector
         rho_air : float [kg/m^3]
@@ -84,14 +84,14 @@ class Paraglider:
         delta_br : float [percentage]
             The fraction of maximum right brake
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
-            The wind relative to the earth, in frd coordinates. If it is a
+            The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
         r_CP2R : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in frd coordinates. These
-            are optional if the wind field is uniform, but for non-uniform wind
-            fields the simulator used these coordinates to determine the wind
-            vectors at each control point.
+            Position vectors of the control points, in body frd coordinates.
+            These are optional if the wind field is uniform, but for
+            non-uniform wind fields the simulator used these coordinates to
+            determine the wind vectors at each control point.
 
             FIXME: This docstring is wrong; they are useful if delta_a != 0,
             they have nothing to do with wind field uniformity. And really, why
@@ -106,9 +106,9 @@ class Paraglider:
         Returns
         -------
         a_R2e : array of float, shape (3,) [m/s^2]
-            Translational acceleration of `R` in frd coordinates.
+            Translational acceleration of `R` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in frd coordinates.
+            Angular acceleration of the body, in body frd coordinates.
 
         Notes
         -----
@@ -353,17 +353,20 @@ class Paraglider:
             FIXME: docstring. See `Phillips.__call__`
         """
         state_dtype = [
-            ("q", float, (4,)),  # Orientation quaternion, body/earth
-            ("v", float, (3,)),  # Translational velocity in frd
-            ("omega", float, (3,)),  # Angular velocity in frd
+            ("q_b2e", float, (4,)),  # Orientation quaternion, body/earth
+            ("v_R2e", float, (3,)),  # Translational velocity in body frd
+            ("omega_b2e", float, (3,)),  # Angular velocity in body frd
         ]
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            x["q"] /= np.sqrt((x["q"] ** 2).sum())
-            g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
-            a_frd, alpha_frd, ref = self.accelerations(x["v"], x["omega"], g, **kwargs)
-            P, Q, R = x["omega"]
+            a_frd, alpha_frd, ref = self.accelerations(
+                x["v_R2e"],
+                x["omega_b2e"],
+                quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+                **kwargs,
+            )
+            P, Q, R = x["omega_b2e"]
             # fmt: off
             Omega = np.array([
                 [0, -P, -Q, -R],
@@ -371,18 +374,18 @@ class Paraglider:
                 [Q, -R,  0,  P],
                 [R,  Q, -P,  0]])
             # fmt: on
-            q_dot = 0.5 * Omega @ x["q"]
+            q_dot = 0.5 * Omega @ x["q_b2e"]
             x_dot = np.empty(1, state_dtype)
-            x_dot["q"] = q_dot
-            x_dot["v"] = a_frd
-            x_dot["omega"] = alpha_frd
+            x_dot["q_b2e"] = q_dot
+            x_dot["v_R2e"] = a_frd
+            x_dot["omega_b2e"] = alpha_frd
             kwargs["reference_solution"] = ref
             return x_dot.view(float)  # The integrator expects a flat array
 
         state = np.empty(1, state_dtype)
-        state["q"] = quaternion.euler_to_quaternion([0, theta_0, 0])
-        state["v"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
-        state["omega"] = [0, 0, 0]
+        state["q_b2e"] = quaternion.euler_to_quaternion([0, theta_0, 0])
+        state["v_R2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
+        state["omega_b2e"] = [0, 0, 0]
 
         dynamics_kwargs = {
             "delta_a": delta_a,
@@ -397,14 +400,14 @@ class Paraglider:
         solver.set_f_params(dynamics_kwargs)
 
         while True:
+            state["q_b2e"] /= np.sqrt((x["q_b2e"] ** 2).sum())
             solver.set_initial_value(state.view(float))
             state = solver.integrate(1).view(state_dtype)
-            state["omega"] = [0, 0, 0]   # Zero every step to avoid oscillations
-            g = 9.8 * quaternion.apply_quaternion_rotation(state["q"][0], [0, 0, 1])
+            state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             a_frd, alpha_frd, _ = self.accelerations(
-                v_R2e=state["v"][0],
-                omega_b2e=state["omega"][0],
-                g=g,
+                state["v_R2e"][0],
+                state["omega_b2e"][0],
+                quaternion.apply_quaternion_rotation(state["q_b2e"][0], [0, 0, 9.8]),
                 rho_air=rho_air,
                 delta_a=delta_a,
                 delta_bl=delta_b,
@@ -419,8 +422,8 @@ class Paraglider:
                 state = state[0]
                 break
 
-        alpha_eq = np.arctan2(*state["v"][[2, 0]])
-        theta_eq = quaternion.quaternion_to_euler(state["q"])[1]
-        v_eq = np.linalg.norm(state["v"])
+        alpha_eq = np.arctan2(*state["v_R2e"][[2, 0]])
+        theta_eq = quaternion.quaternion_to_euler(state["q_b2e"])[1]
+        v_eq = np.linalg.norm(state["v_R2e"])
 
         return alpha_eq, theta_eq, v_eq, dynamics_kwargs["reference_solution"]
