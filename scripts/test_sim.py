@@ -361,14 +361,6 @@ def main():
     T = np.moveaxis(T, -1, 0)
     euler_dot = np.einsum("kij,kj->ki", T, path["omega"])
 
-    # FIXME: these energy terms need review. Some are only for the harness,
-    #        some are only for the wing. Not sure how useful they are anyway,
-    #        since lots of energy is lost to the air mass.
-    # delta_PE = 9.8 * 75 * -path["p"].T[2]
-    # KE_trans = 0.5 * 75 * np.linalg.norm(path["v"], axis=1)**2
-    # KE_rot = 0.5 * np.einsum("ij,kj->k", model6a.J, path["omega"]**2)
-    # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
-
     # -----------------------------------------------------------------------
     # Plots
 
