@@ -142,12 +142,6 @@ class Dynamics6a:
         q_inv = x["q"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
 
-        # `v_frd` (aka `UVW`) is the velocity of the reference point, which for
-        # the Paraglider I've defined to be the origin (the midpoint between
-        # the risers). Because the Paraglider rotates about it's center of
-        # mass, not the origin, you need to include the angular velocity of the
-        # paraglider when computing UVW.
-
         # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
         P, Q, R = x["omega"]
