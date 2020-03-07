@@ -10,13 +10,9 @@ from pfh.glidersim.util import cross3
 import scipy.integrate
 
 
-class Paraglider:
+class Paraglider6a:
     """
-    FIXME: add a docstring.
-
-    Notes
-    -----
-    This is a 6 DoF model: there is no relative motion between the wing and
+    A 6 DoF paraglider model; there is no relative motion between the wing and
     the harness.
     """
 

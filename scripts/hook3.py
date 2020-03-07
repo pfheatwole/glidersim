@@ -277,14 +277,20 @@ def build_hook3():
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )
 
+    return wing
+
+
+if __name__ == "__main__":
+
+    print("\n-------------------------------------------------------------\n")
+
     # Note to self: the wing should weight 4.7kG in total; according to these
     # specs, and the `rho_upper`/`rho_lower` embedded in ParagliderWing, the
     # wing materials I'm accounting for total to 1.83kg, so there's a lot left
     # in the lines, risers, ribs, etc.
-
+    wing = build_hook3()
     harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
-
-    glider = gsim.paraglider.Paraglider(wing, harness)
+    glider = gsim.paraglider.Paraglider6a(wing, harness)
 
     # print("Plotting the basic glider performance curves")
     # plot_foil_coefficients(glider)
@@ -292,15 +298,6 @@ def build_hook3():
     print("\nFinished building the glider.\n")
     # embed()
     # 1/0
-
-    return glider
-
-
-if __name__ == "__main__":
-
-    print("\n-------------------------------------------------------------\n")
-
-    glider = build_hook3()
 
     print("\nComputing the glider equilibrium...")
 

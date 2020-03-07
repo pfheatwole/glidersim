@@ -11,9 +11,8 @@ import scipy.integrate
 from scipy.interpolate import interp1d
 
 import hook3
+import pfh.glidersim as gsim
 from pfh.glidersim import quaternion
-from pfh.glidersim.util import cross3
-from pfh.glidersim.plots import _set_axes_equal
 
 
 def linear_control(pairs):
@@ -242,7 +241,9 @@ def main():
     # -----------------------------------------------------------------------
     # Build the glider
 
-    glider = hook3.build_hook3()
+    wing = hook3.build_hook3()
+    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    glider = gsim.paraglider.Paraglider6a(wing, harness)
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
@@ -338,7 +339,7 @@ def main():
     cps = model6a.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
     cp0 = cps[len(cps) // 2]  # The central control point in body frd
     r_cp0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, cp0)
-    v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, cross3(path["omega_b2e"], cp0))
+    v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, np.cross(path["omega_b2e"], cp0))
     v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
 
     # Euler derivatives (Stevens Eq:1.4-4)
@@ -363,7 +364,7 @@ def main():
         p1, p2 = path["r_R2O"][t], r_cp0[t]
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
     ax.legend()
-    _set_axes_equal(ax)
+    gsim.plots._set_axes_equal(ax)
     plt.show()
 
     # Plot: velocity vs Time
