@@ -157,14 +157,15 @@ if __name__ == "__main__":
 
     alpha = np.deg2rad(6)
     beta = np.deg2rad(5)
-    V_total = 10
-    UVW = V_total * np.asarray(
+    v_mag = 10
+    v_cp2w = np.asarray(
         [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
+    v_cp2w *= v_mag  # The Reynolds numbers are a function of the magnitude
     rho_air = 1.225
 
-    fe = gsim.foil.Phillips(wing, V_ref_mag=10, alpha_ref=5)
-    dF, dM, solution = fe(0, UVW, 1.2)
+    fe = gsim.foil.Phillips(wing, v_ref_mag=v_mag, alpha_ref=5)
+    dF, dM, solution = fe(0, -v_cp2w, 1.2)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)
 
@@ -172,9 +173,9 @@ if __name__ == "__main__":
 
     S = wing.S
 
-    CX, CY, CZ = F / (0.5 * rho_air * V_total ** 2 * S)
+    CX, CY, CZ = F / (0.5 * rho_air * v_mag ** 2 * S)
     CN = -CZ
-    CM = M.T[1] / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))
+    CM = M.T[1] / (0.5 * rho_air * v_mag ** 2 * S * wing.chord_length(0))
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     CD = (
@@ -188,7 +189,7 @@ if __name__ == "__main__":
     print(f"Force coefficients: CL={CL:.3f}, CD={CD:.3f}")
     print(
         "Moment coefficients:",
-        (M / (0.5 * rho_air * V_total ** 2 * S * wing.chord_length(0))).round(3),
+        (M / (0.5 * rho_air * v_mag ** 2 * S * wing.chord_length(0))).round(3),
     )
     print()
 
@@ -203,6 +204,6 @@ if __name__ == "__main__":
     # Check the resulting section alphas
     u_inf = -np.array([np.cos(alpha), 0, np.sin(alpha)])
     v = fe._induced_velocities(u_inf)
-    V, V_n, V_a, alphas = fe._local_velocities(-UVW, solution["Gamma"], v)
+    V, V_n, V_a, alphas = fe._local_velocities(-v_cp2w, solution["Gamma"], v)
 
     embed()

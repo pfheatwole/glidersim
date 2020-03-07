@@ -13,13 +13,19 @@ class Harness(abc.ABC):
         """FIXME: docstring"""
 
     @abc.abstractmethod
-    def forces_and_moments(self, xyz, v_cp2w):
+    def forces_and_moments(self, v_W2h, rho_air):
         """
         Calculate the aerodynamic forces at the control points.
 
-        The xyz and v_cp2w mirror that of the ParagliderWing. The idea is
-        that this API will support future models with non-isotropic forces
-        and non-point mass distributions.
+        Parameters
+        ----------
+        v_W2h : array of float, shape (K,3) [m/s]
+            The wind velocity at each of the control points in harness frd.
+
+        Returns
+        -------
+        dF, dM : array of float, shape (K,3) [N, N m]
+            Aerodynamic forces and moments for each control point.
         """
 
 
@@ -55,7 +61,7 @@ class Spherical(Harness):
         Parameters
         ----------
         mass : float [kg]
-            The mass of the harness, without a pilot
+            The mass of the harness
         z_riser : float [m]
             The distance from the risers to the harness center of mass, given
             in a local frd coordinate system with the origin at the risers.
@@ -64,17 +70,25 @@ class Spherical(Harness):
         CD : float [FIXME: units?]
             The isotropic drag coefficient
         """
-        self.mass = mass
-        self.z_riser = z_riser
-        self.S = S
-        self.CD = CD
+        self._mass = mass
+        self._z_riser = z_riser
+        self._S = S
+        self._CD = CD
 
     def control_points(self):
-        return np.array([0, 0, self.z_riser])
+        return np.array([0, 0, self._z_riser])
 
-    def forces_and_moments(self, V_cp2w, rho_air):
-        V2 = (V_cp2w ** 2).sum()
-        u_drag = -V_cp2w / np.sqrt(V2)  # Drag force unit vector
-        dF = 0.5 * rho_air * V2 * self.S * self.CD * u_drag
+    def forces_and_moments(self, v_W2h, rho_air):
+        v2 = (v_W2h ** 2).sum()
+        u_drag = v_W2h / np.sqrt(v2)  # Drag force unit vector
+        dF = 0.5 * rho_air * v2 * self._S * self._CD * u_drag
         dM = np.zeros(3)
         return dF, dM
+
+    def mass_properties(self):
+        return {
+            "mass": self._mass,
+            "cm": np.array([0, 0, self._z_riser]),
+            "J": np.zeros((3, 3)),  # FIXME: assumes a point mass
+            "J_apparent": np.zeros((3, 3)),
+        }

@@ -2,35 +2,95 @@ import time
 
 from IPython import embed
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 import numpy as np
 
 import scipy.integrate
+from scipy.interpolate import interp1d
 
 import hook3
+import pfh.glidersim as gsim
 from pfh.glidersim import quaternion
-from pfh.glidersim.util import cross3
 
 
-class GliderSim:
+def linear_control(pairs):
+    """
+    Helper funtion to build linear interpolators for control inputs.
+
+    The input is a sequence of tuples encoding  `(duration, value)`. An initial
+    value can be set with a leading `(0, initial_value)` tuple. To "hold" a
+    value, use `None` to repeat the previous value.
+
+    For example, to ramp from 0 to 0.5 over the initial 15 seconds, then
+    transition to 0.75 over a period of 2 seconds, hold for 10 seconds, then
+    decrease to 0 over 10 seconds:
+
+        pairs = [(15, 0.5), (2, 0.75), (10, None), (10, 0)]
+
+    Parameters
+    ----------
+    pairs : list of 2-tuples of float
+        Each tuple is (duration, value).
+    """
+    durations = np.array([t[0] for t in pairs])
+    values = [t[1] for t in pairs]
+    assert all(durations >= 0)
+    for n, v in enumerate(values):  # Use `None` for "hold previous value"
+        values[n] = v if v is not None else values[n - 1]
+    times = np.cumsum(durations)
+    c = interp1d(times, values, fill_value=(values[0], values[-1]), bounds_error=False)
+    return c
+
+
+class Dynamics6a:
+    """Defines the state dynamics for a 6 DoF paraglider model."""
+
+    # FIXME: I dislike this notation. It confuses the reference frames with
+    #        the coordinate systems embedded in those frames.
     state_dtype = [
-        ("q", float, (4,)),
-        ("p", float, (3,)),
-        ("v", float, (3,)),
-        ("omega", float, (3,)),
+        ("q_b2e", float, (4,)),  # Encodes `C_frd/ned` for the body
+        ("r_R2O", float, (3,)),  # The position of `R` in ned
+        ("v_R2e", float, (3,)),  # The velocity of `R` in ned
+        ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
     ]
 
-    def __init__(self, glider, rho_air):
+    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
         self.glider = glider
 
-        # FIXME: assumes J is constant. This is okay if rho_air is constant,
-        #        and delta_a is zero (no weight shift deformations)
-        self.J = glider.wing.inertia(rho_air=rho_air, N=5000)
-        self.J_inv = np.linalg.inv(self.J)
-
-        if np.isscalar(rho_air):
+        if callable(rho_air):
             self.rho_air = rho_air
+        elif np.isscalar(rho_air):
+            self.rho_air = lambda t: rho_air
         else:
-            raise ValueError("Non-scalar rho_air is not yet supported")
+            raise ValueError("`rho_air` must be a scalar or callable")
+
+        if callable(delta_a):
+            self.delta_a = delta_a
+        elif np.isscalar(delta_a):
+            self.delta_a = lambda t: delta_a
+        else:
+            raise ValueError("`delta_a` must be a scalar or callable")
+
+        if callable(delta_bl):
+            self.delta_bl = delta_bl
+        elif np.isscalar(delta_bl):
+            self.delta_bl = lambda t: delta_bl
+        else:
+            raise ValueError("`delta_bl` must be a scalar or callable")
+
+        if callable(delta_br):
+            self.delta_br = delta_br
+        elif np.isscalar(delta_br):
+            self.delta_br = lambda t: delta_br
+        else:
+            raise ValueError("`delta_br` must be a scalar or callable")
+
+    def cleanup(self, state, t):
+        # FIXME: hack that runs after each integration step. Assumes it can
+        #        modify the integrator state directly.
+        state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
     def dynamics(self, t, y, params):
         """The state dynamics for the model
@@ -55,49 +115,30 @@ class GliderSim:
             The array of N state component derivatives
         """
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
+        q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
-        # Determine the environmental conditions
-        # rho_air = self.rho_air(t, x["p"])
-        rho_air = self.rho_air  # FIXME: support air density functions
+        # r_CP2R = self.glider.control_points(delta_a)  # In body coordinates
+        # r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        # v_W2e = self.wind(t, r_CP2O)  # Wind vectors at each ned coordinate
+        v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
 
-        delta_a, delta_br, delta_bl = 0, 0, 0  # FIXME: time-varying input
-
-        q_inv = x["q"] * [1, -1, -1, -1]  # for frd->ned
-        # cps_frd = self.glider.control_points(delta_a)  # In body coordinates
-        # cps = x["p"] + quaternion.apply_quaternion_rotation(x["q"], cps_frd)
-        # v_w2e = self.wind(t, cps)  # Lookup the wind at each `ned` coordinate
-        v_w2e = 0  # FIXME: implement wind lookups
-
-        g = 9.8 * quaternion.apply_quaternion_rotation(x["q"], [0, 0, 1])
-        # g = [0, 0, 0]  # Disable the gravity force
-
-        # FIXME: Paraglider should return accelerations directly, not forces.
-        #        The Glider might want to utilize appparent inertia, etc.
-        v_frd = quaternion.apply_quaternion_rotation(x["q"], x["v"])
-        F, M, solution = self.glider.forces_and_moments(
-            v_frd,
-            x["omega"],
-            g,
-            rho_air=rho_air,
-            delta_a=delta_a,
-            delta_bl=delta_bl,
-            delta_br=delta_br,
+        a_R2e, alpha_b2e, solution = self.glider.accelerations(
+            quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
+            x["omega_b2e"],
+            quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+            rho_air=self.rho_air(t),
+            delta_a=self.delta_a(t),
+            delta_bl=self.delta_bl(t),
+            delta_br=self.delta_br(t),
+            v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
             reference_solution=params["solution"],
         )
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
-        # Translational acceleration of the cm
-        a_frd = F / self.glider.harness.mass  # FIXME: crude, incomplete
-        a_ned = quaternion.apply_quaternion_rotation(q_inv, a_frd)
-
-        # Angular acceleration of the body relative to the ned frame
-        #  * ref: Stevens, Eq:1.7-5, p36 (50)
-        alpha = self.J_inv @ (M - cross3(x["omega"], self.J @ x["omega"]))
-
         # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
-        P, Q, R = x["omega"]
+        P, Q, R = x["omega_b2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -105,13 +146,13 @@ class GliderSim:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_dot = 0.5 * Omega @ x["q"]
+        q_dot = 0.5 * Omega @ x["q_b2e"]
 
         x_dot = np.empty(1, self.state_dtype)
-        x_dot["q"] = q_dot
-        x_dot["p"] = x["v"]
-        x_dot["v"] = a_ned
-        x_dot["omega"] = alpha
+        x_dot["q_b2e"] = q_dot
+        x_dot["r_R2O"] = x["v_R2e"]
+        x_dot["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, a_R2e)
+        x_dot["omega_b2e"] = alpha_b2e
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
@@ -128,8 +169,8 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     Parameters
     ----------
     model
-        The model that provides `dynamics`
-    state0
+        The model that provides `dynamics` and `state_dtype`
+    state0 : model.state_dtype
         The initial state
     T : float [seconds]
         The total simulation time
@@ -143,10 +184,10 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     Returns
     -------
-    times : ndarray, shape (K+1, N)
-    path : ndarray, shape (K+1, N)
-        K : the number of discrete time values
-        N : the number of state variables
+    times : array of float, shape (K+1,) [seconds]
+        The timestamp of each solution
+    path : array of `model.state_dtype`, shape (K+1,)
+        The state trajectory.
     """
 
     num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
@@ -155,7 +196,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     path[0] = state0
 
     solver = scipy.integrate.ode(model.dynamics)
-    solver.set_integrator("dopri5", rtol=1e-3, first_step=0.25, max_step=0.5)
+    solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
     solver.set_initial_value(state0.view(float))
     solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
 
@@ -171,13 +212,13 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
                 msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
             print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
 
-            # WARNING: `solver.integrate` returns a *reference* to `_y`
-            #          Modifying `state` modifies `solver.y` directly.
+            # WARNING: `solver.integrate` returns a *reference* to `_y`, so
+            #          modifying `state` modifies `solver._y` directly.
             # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
             #        Using `solver.set_initial_value` would reset the
             #        integrator, but that's not what we want here.
             state = solver.integrate(solver.t + dt).view(model.state_dtype)
-            state["q"] /= np.sqrt((state["q"] ** 2).sum())  # Normalize `q`
+            model.cleanup(state, solver.t)  # Modifies `solver._y`!!
             path[k] = state  # Makes a copy of `solver._y`
             times[k] = solver.t
             k += 1
@@ -193,67 +234,155 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
 
     print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
 
-    # For debugging
-    eulers = np.rad2deg(quaternion.quaternion_to_euler(path["q"]))
-    cps = model.glider.control_points(0)  # Control points in FRD (wing+harness)
-    cp0 = cps[(cps.shape[0] - 1) // 2]  # The central control point in frd
-    p_cp0 = path["p"] + quaternion.apply_quaternion_rotation(path["q"], cp0)
-    v_cp0 = path["v"] + cross3(path["omega"], cp0)
-    Phi = quaternion.quaternion_to_euler(path["q"])  # FIXME: correct?
-
-    embed()
-
     return times, path
 
 
 def main():
-    glider = hook3.build_hook3()
+    # -----------------------------------------------------------------------
+    # Build the glider
+
+    wing = hook3.build_hook3()
+    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    glider = gsim.paraglider.Paraglider6a(wing, harness)
     rho_air = 1.2
-    model = GliderSim(glider, rho_air=rho_air)
 
-    # Start the wing in an equilibrium state (assuming zero wind)
-    # alpha, Theta, V = glider.equilibrium_glide(0, 0, rho_air=rho_air)
+    # -----------------------------------------------------------------------
+    # Define the initial state
 
-    # Start the wing in a random state (non-equilibrium)
-    alpha = np.deg2rad(8.5)
+    # Option 1: Arbitrary state (this should be equilibrium Hook 3)
+    alpha = np.deg2rad(8.86313992)
     beta = np.deg2rad(0)
-    Theta = np.deg2rad(3)
-    V = 10.5
+    theta = np.deg2rad(2.06783323)
+    v_mag = 10.32649163
 
-    # Build some data
-    UVW = V * np.asarray(
-        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)]
+    # Option 2: Approximate equilibrium state (neglects harness moment)
+    # alpha, theta, v, _ = glider.equilibrium_glide(
+    #     delta_a=0.0,
+    #     delta_b=0,
+    #     v_eq_proposal=10,
+    #     rho_air=rho_air
+    # )
+    # beta = 0
+
+    # Option 3: Equilibrium code (slow, but more accurate)
+    # alpha, theta, v, _ = glider.equilibrium_glide2(
+    #     delta_a=0,
+    #     delta_b=0,
+    #     alpha_0=np.deg2rad(9),
+    #     theta_0=np.deg2rad(3),
+    #     v_0=10,
+    #     rho_air=1.2,
+    # )
+    # beta = 0
+
+    v_R2e = v_mag * np.asarray(
+        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
     )
-    PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # omega [rad/sec]
-    Phi = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # attitude [rad]
-    # FIXME: make attitude a function of Theta
-
-    # q = np.array([1, 0, 0, 0])  # The identity quaternion (zero attitude)
-    q = quaternion.euler_to_quaternion(Phi)  # Encodes C_frd/ned
-    q_inv = q * [1, -1, -1, -1]  # Encodes C_ned/frd
+    omega_b2e = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # [rad/sec]
+    euler = [np.deg2rad(0), theta, np.deg2rad(0)]  # [phi, theta, gamma]
+    q_b2e = quaternion.euler_to_quaternion(euler)  # Encodes C_frd/ned
+    q_e2b = q_b2e * [1, -1, -1, -1]  # Encodes C_ned/frd
 
     # Define the initial state
-    state0 = np.empty(1, dtype=GliderSim.state_dtype)
-    state0["q"] = q
-    state0["p"] = [0, 0, 0]
-    state0["v"] = quaternion.apply_quaternion_rotation(q_inv, UVW)
-    state0["omega"] = PQR
+    state0 = np.empty(1, dtype=Dynamics6a.state_dtype)
+    state0["q_b2e"] = q_b2e
+    state0["r_R2O"] = [0, 0, 0]
+    state0["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, v_R2e)
+    state0["omega_b2e"] = omega_b2e
+
+    # -----------------------------------------------------------------------
+    # Build a test scenario
+    #
+    # FIXME: move these into "scenario" functions
+
+    # Scenario: continuous right turn
+    delta_a = 0.0
+    delta_bl = 0.0
+    delta_br = linear_control([(5, 0), (5, 0.75)])
+    T = 60
+
+    # Scenario: roll-yaw coupling w/ accelerator
+    # delta_a = 1.0
+    # delta_bl = 0.0
+    # delta_br = linear_control([(20, 0), (8, 0.65)])  # Stress test: s/8/15
+    # T = 60
+
+    # Scenario: roll-yaw coupling with 5s brake pulse
+    # delta_a = 1.0
+    # delta_bl = 0.0
+    # delta_br = linear_control([(20, 0), (2, 0.65), (5, None), (1, 0)])
+    # T = 60
+
+    model6a = Dynamics6a(glider, rho_air, delta_a, delta_bl, delta_br)
+
+    # -----------------------------------------------------------------------
+    # Run the simulation
 
     print("Preparing the simulation.")
-    print("Initial state:", state0)
+    print("Initial state:")
+    print("      q_b2e:", state0["q_b2e"].round(4))
+    print("      euler:", np.rad2deg(euler).round(4))
+    print("      r_R2O:", state0["r_R2O"].round(4))
+    print("      v_R2e:", state0["v_R2e"].round(4))
+    print("  omega_b2e:", state0["omega_b2e"].round(4))
 
-    # times05, path05 = simulate(model, state0_raw, dt=0.05, T=120)
-    # times10, path10 = simulate(model, state0_raw, dt=0.10, T=120)
-    times25, path25 = simulate(model, state0, dt=0.25, T=120)
-    # times50, path50 = simulate(model, state0_raw, dt=0.50, T=120)
+    # Run the simulation
+    dt = 0.1
+    times, path = simulate(model6a, state0, dt=dt, T=T)
 
-    # For verification purposes
-    # delta_PE = 9.8 * 75 * -path["p"].T[2]  # PE = mgh
-    # KE_trans = 1/2 * 75 * np.linalg.norm(path["v"], axis=1)**2  # translational KE
-    # KE_rot = 1/2 * np.einsum("ij,kj->k", J, path["omega"]**2)
-    # delta_E = delta_PE + (KE_trans - KE_trans[0]) + KE_rot
+    # -----------------------------------------------------------------------
+    # Extra values for verification/debugging
 
-    # embed()
+    k = len(times)
+    q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
+    eulers = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    cps = model6a.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
+    cp0 = cps[len(cps) // 2]  # The central control point in body frd
+    r_cp0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, cp0)
+    v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, np.cross(path["omega_b2e"], cp0))
+    v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
+
+    # Euler derivatives (Stevens Eq:1.4-4)
+    _0, _1 = np.zeros(k), np.ones(k)
+    sp, st, sg = np.sin(eulers.T)
+    cp, ct, cg = np.cos(eulers.T)
+    tp, tt, tg = np.tan(eulers.T)
+    T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
+    T = np.moveaxis(T, -1, 0)
+    euler_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
+
+    # -----------------------------------------------------------------------
+    # Plots
+
+    # 3D Plot: Position over time
+    ax = plt.gca(projection='3d')
+    ax.invert_yaxis()
+    ax.invert_zaxis()
+    ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="p_risers")
+    ax.plot(r_cp0.T[0], r_cp0.T[1], r_cp0.T[2], label="r_cp0")
+    for t in range(0, k, int(1 / dt)):  # Draw connecting lines once per second
+        p1, p2 = path["r_R2O"][t], r_cp0[t]
+        ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
+    ax.legend()
+    gsim.plots._set_axes_equal(ax)
+    plt.show()
+
+    # Plot: velocity vs Time
+    # mag_v_cp0 = np.linalg.norm(v_cp0, axis=1)
+    # mag_v_frd = np.linalg.norm(v_frd, axis=1)
+    # ax = plt.gca()
+    # ax.plot(times, mag_v_cp0, marker='.', lw=0.75, label="v_cp0")
+    # ax.plot(times, mag_v_frd, marker='.', lw=0.75, label="v_frd")
+    # ax.set_ylim(0, max(mag_v_cp0.max(), mag_v_frd.max()) * 1.1)
+    # ax.legend()
+    # plt.show()
+
+    # Plot: omega vs Time
+    # plt.plot(times, np.rad2deg(path["omega_b2e"]))
+    # plt.ylabel("omega [deg]")
+    # plt.show()
+
+    embed()
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
 
 # ---------------------------------------------------------------------------
-# Build the parafoil and wing
+# Build the canopy and wing
 
 airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
 
@@ -131,38 +131,33 @@ chord_surface = gsim.foil.ChordSurface(
     torsion=ftheta,
 )
 
-parafoil = gsim.foil.SimpleFoil(
+canopy = gsim.foil.SimpleFoil(
     airfoil=airfoil,
     chords=chord_surface,
     b_flat=b_flat,
 )
 
-print("Finished building the parafoil. Checking fit...")
-print(f"Projected area> Expected: {S}, Actual: {parafoil.S}")
-print(f"Flattened area> Expected: {S_flat}, Actual: {parafoil.S_flat}")
-print(f"Projected AR> Expected: {AR}, Actual: {parafoil.AR}")
-print(f"Flattened AR> Expected: {AR_flat}, Actual: {parafoil.AR_flat}")
+print("Finished defining the canopy. Checking fit...")
+print(f"Projected area> Expected: {S}, Actual: {canopy.S}")
+print(f"Flattened area> Expected: {S_flat}, Actual: {canopy.S_flat}")
+print(f"Projected AR> Expected: {AR}, Actual: {canopy.AR}")
+print(f"Flattened AR> Expected: {AR_flat}, Actual: {canopy.AR_flat}")
 
 wing = gsim.paraglider_wing.ParagliderWing(
-    parafoil=parafoil,
-    force_estimator=gsim.foil.Phillips(parafoil, 40),
+    canopy=canopy,
+    force_estimator=gsim.foil.Phillips(canopy, 40),
     brake_geo=gsim.brake_geometry.Cubic(0, 0.75, delta_max=0),  # unused
     d_riser=0.25,  # For the 1/8 model, d_riser = 0.0875 / 0.350 = 25%
     z_riser=1,  # The 1/8 scale model has the cg 1m below the central chord
     pA=0.08,  # unused
     pC=0.80,  # unused
     kappa_a=0,  # unused
-    rho_upper=0,  # unused
-    rho_lower=0,  # unused
+    rho_upper=0,  # Neglect gravitational forces
+    rho_lower=0,
 )
 
-# A `Harness` is required to instantiate the `Paraglider`, but should not
-# produce any forces (so zero weight and drag).
-harness = gsim.harness.Spherical(mass=0, z_riser=0.0, S=0.0, CD=0.0)
-glider = gsim.paraglider.Paraglider(wing, harness)
-
 print("\nFinished defining the complete wing. Pausing for review.\n")
-gsim.plots.plot_foil(parafoil, N_sections=121)
+gsim.plots.plot_foil(canopy, N_sections=121)
 embed()
 # 1/0
 
@@ -181,22 +176,11 @@ embed()
 # but if the dynamic viscosity of the air is standard, then we can compute the
 # density of the air.
 Re = 0.92e6
-V_mag = 40  # Wind tunnel airspeed [m/s]
+v_mag = 40  # Wind tunnel airspeed [m/s]
 L = 0.350  # central chord [m]
 mu = 1.81e-5  # Standard dynamic viscosity of air
-rho_air = Re * mu / (V_mag * L)
+rho_air = Re * mu / (v_mag * L)
 print("rho_air:", rho_air)
-
-# One-off test cases
-# alpha, beta = np.deg2rad(7), np.deg2rad(0)
-# alpha, beta = np.deg2rad(25), np.deg2rad(0)
-# alpha, beta = np.deg2rad(24), np.deg2rad(5)
-# alpha, beta = np.deg2rad(-5), np.deg2rad(10)
-# UVW = np.asarray([np.cos(alpha)*np.cos(beta), np.sin(beta), np.sin(alpha)*np.cos(beta)])
-# PQR = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
-# F, M, Gamma = glider.forces_and_moments(UVW, PQR, [0, 0, 0], rho_air=1)
-# embed()
-# 1/0
 
 # Full-range tests
 Fs, Ms, solutions = {}, {}, {}
@@ -210,11 +194,9 @@ alphas = {}
 # betas = [0, 5, 10, 15]
 betas = np.arange(16)
 
-PQR = [0, 0, 0]
-g = [0, 0, 0]
-
 for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
+    cp_wing = wing.control_points(0)  # Section control points
 
     alphas_up = np.deg2rad(np.linspace(2, 22, 75))
     alphas_down = np.deg2rad(np.linspace(2, -5, 30))[1:]
@@ -224,20 +206,24 @@ for kb, beta_deg in enumerate(betas):
     for ka, alpha in enumerate(alphas_down):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
         beta = np.deg2rad(beta_deg)
-        UVW = np.asarray(
+        v_W2b = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
-        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
+        v_W2b *= -v_mag  # The Reynolds numbers are a function of the magnitude
 
         try:
-            F, M, ref = glider.forces_and_moments(
-                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
+            dF, dM, ref = wing.forces_and_moments(
+                0, 0, v_W2b=v_W2b, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
             #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+
+        F = dF.sum(axis=0)
+        M = dM.sum(axis=0)  # Moment due to section `Cm`
+        M += np.cross(cp_wing, dF).sum(axis=0)  # Add the moment due to forces
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -256,20 +242,24 @@ for kb, beta_deg in enumerate(betas):
     for ka, alpha in enumerate(alphas_up):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
         beta = np.deg2rad(beta_deg)
-        UVW = np.asarray(
+        v_W2b = np.asarray(
             [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
         )
-        UVW *= V_mag  # Essential for calculating the correct Reynolds numbers
+        v_W2b *= -v_mag  # The Reynolds numbers are a function of the magnitude
 
         try:
-            F, M, ref = glider.forces_and_moments(
-                UVW, PQR, g=g, rho_air=rho_air, reference_solution=ref,
+            dF, dM, ref = wing.forces_and_moments(
+                0, 0, v_W2b=v_W2b, rho_air=rho_air, reference_solution=ref,
             )
         except gsim.foil.ForceEstimator.ConvergenceError:
             ka -= 1  # FIXME: messing with the index!
             break
             # FIXME: continue, or break? Maybe try the solution from a previous
             #        `beta`? eg: ref = solutions[betas[kb - 1]][ka]
+
+        F = dF.sum(axis=0)
+        M = dM.sum(axis=0)  # Moment due to section `Cm`
+        M += np.cross(cp_wing, dF).sum(axis=0)  # Add the moment due to forces
 
         Fs[beta_deg].append(F)
         Ms[beta_deg].append(M)
@@ -294,16 +284,16 @@ embed()
 #
 # Uses the flattened wing area as the reference, as per the Belloc paper.
 
-S = parafoil.S_flat
+S = canopy.S_flat
 
 coefficients = {}
 for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    CX, CY, CZ = Fs[beta].T / (0.5 * rho_air * V_mag**2 * S)
+    CX, CY, CZ = Fs[beta].T / (0.5 * rho_air * v_mag**2 * S)
     CN = -CZ
-    CM = Ms[beta].T[1] / (0.5 * rho_air * V_mag**2 * S * cc)  # The paper uses the central chord
+    CM = Ms[beta].T[1] / (0.5 * rho_air * v_mag**2 * S * cc)  # The paper uses the central chord
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
@@ -327,7 +317,7 @@ for beta in betas:
     # AR_effective = CL**2 / ((CD - CD0) * np.pi)  # Belloc Eq:6 (corrected)
     # print("Effective aspect ratios:\n", AR_effective)
     # plt.plot(np.rad2deg(alphas), AR_effective)
-    # plt.hlines(parafoil.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
+    # plt.hlines(canopy.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
     #            'r', 'dashed', linewidth=1)
     # plt.show()
 
@@ -412,22 +402,22 @@ for beta in betas:
     ix_a15 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 15))
 
     # Lateral force
-    Cy_a0.append(Fs[beta].T[1][ix_a0] / (0.5 * rho_air * V_mag**2 * S))
-    Cy_a5.append(Fs[beta].T[1][ix_a5] / (0.5 * rho_air * V_mag**2 * S))
-    Cy_a10.append(Fs[beta].T[1][ix_a10] / (0.5 * rho_air * V_mag**2 * S))
-    Cy_a15.append(Fs[beta].T[1][ix_a15] / (0.5 * rho_air * V_mag**2 * S))
+    Cy_a0.append(Fs[beta].T[1][ix_a0] / (0.5 * rho_air * v_mag**2 * S))
+    Cy_a5.append(Fs[beta].T[1][ix_a5] / (0.5 * rho_air * v_mag**2 * S))
+    Cy_a10.append(Fs[beta].T[1][ix_a10] / (0.5 * rho_air * v_mag**2 * S))
+    Cy_a15.append(Fs[beta].T[1][ix_a15] / (0.5 * rho_air * v_mag**2 * S))
 
     # Rolling moment coefficients
-    Cl_a0.append(Ms[beta].T[0][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cl_a5.append(Ms[beta].T[0][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cl_a10.append(Ms[beta].T[0][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cl_a15.append(Ms[beta].T[0][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cl_a0.append(Ms[beta].T[0][ix_a0] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cl_a5.append(Ms[beta].T[0][ix_a5] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cl_a10.append(Ms[beta].T[0][ix_a10] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cl_a15.append(Ms[beta].T[0][ix_a15] / (0.5 * rho_air * v_mag**2 * S * cc))
 
     # Yawing moment coeficients
-    Cn_a0.append(Ms[beta].T[2][ix_a0] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cn_a5.append(Ms[beta].T[2][ix_a5] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cn_a10.append(Ms[beta].T[2][ix_a10] / (0.5 * rho_air * V_mag**2 * S * cc))
-    Cn_a15.append(Ms[beta].T[2][ix_a15] / (0.5 * rho_air * V_mag**2 * S * cc))
+    Cn_a0.append(Ms[beta].T[2][ix_a0] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cn_a5.append(Ms[beta].T[2][ix_a5] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cn_a10.append(Ms[beta].T[2][ix_a10] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cn_a15.append(Ms[beta].T[2][ix_a15] / (0.5 * rho_air * v_mag**2 * S * cc))
 
 fig9, ax9 = plt.subplots()
 ax9.plot(betas, Cy_a0, label=r'$\alpha$=0°')

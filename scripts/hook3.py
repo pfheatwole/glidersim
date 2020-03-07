@@ -13,34 +13,40 @@ def plot_polar_curve(glider, N=51):
     delta_as = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of speedbar")
     ref = None  # Reference solution; speeds convergence
-    V_eq = 10  # Initial guess
+    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
-        alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-            da, 0, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+        alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+            da, 0, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
         )
-        gamma_eq = alpha_eq - Theta_eq
+        # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
+        #     da, 0, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
+        # )
+        gamma_eq = alpha_eq - theta_eq
         GR = 1 / np.tan(gamma_eq)
-        speedbar_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+        speedbar_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
     print()
 
     brake_equilibriums = np.empty((N, 5))
     delta_bs = np.linspace(0, 1, N)
     print("Calculating equilibriums over the range of brake")
     ref = None
-    V_eq = 10  # Initial guess
+    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
     for n, db in enumerate(delta_bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
-            alpha_eq, Theta_eq, V_eq, ref = glider.equilibrium_glide(
-                0, db, V_eq_proposal=V_eq, rho_air=1.2, reference_solution=ref,
+            alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+                0, db, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
             )
+            # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
+            #     0, db, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
+            # )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
             break
-        gamma_eq = alpha_eq - Theta_eq
+        gamma_eq = alpha_eq - theta_eq
         GR = 1 / np.tan(gamma_eq)
-        brake_equilibriums[n] = (alpha_eq, Theta_eq, gamma_eq, GR, V_eq)
+        brake_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
     print()
 
     # Truncate everything after convergence failed
@@ -52,7 +58,7 @@ def plot_polar_curve(glider, N=51):
     brake_polar = be[4] * np.array([np.cos(be[2]), -np.sin(be[2])])
     speedbar_polar = se[4] * np.array([np.cos(se[2]), -np.sin(se[2])])
 
-    fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [Theta_eq, GR]]
+    fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [theta_eq, GR]]
 
     # alpha_eq
     ax[0, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[0]), "r")
@@ -77,11 +83,11 @@ def plot_polar_curve(glider, N=51):
     ax[0, 1].grid(which="both")
     ax[0, 1].minorticks_on()
 
-    # Theta_eq
+    # theta_eq
     ax[1, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[1]), "r")
     ax[1, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[1]), "g")
     ax[1, 0].set_xlabel("control input [percentage]")
-    ax[1, 0].set_ylabel("Theta_eq [deg]")
+    ax[1, 0].set_ylabel("theta_eq [deg]")
 
     # Glide ratio
     #
@@ -102,40 +108,40 @@ def plot_polar_curve(glider, N=51):
     embed()
 
 
-def plot_foil_coefficients(glider, delta_a=0, delta_b=0, V_mag=10, rho_air=1.2):
+def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None
-    for alpha in alphas:
+    for k, alpha in enumerate(alphas):
         print(f"\ralpha: {np.rad2deg(alpha):6.2f}", end="")
         try:
-            F, M, reference_solution, = glider.forces_and_moments(
-                UVW=V_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
-                PQR=[0, 0, 0],
-                g=[0, 0, 0],
-                rho_air=rho_air,
-                delta_a=delta_a,
+            dF, dM, reference_solution, = wing.forces_and_moments(
                 delta_bl=delta_b,
                 delta_br=delta_b,
+                v_W2b=-v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)]),
+                rho_air=rho_air,
                 reference_solution=reference_solution,
             )
-            Fs.append(F)
-            Ms.append(M)
+            Fs.append(dF.sum(axis=0))
+            Ms.append(dM.sum(axis=0))
         except gsim.foil.ForceEstimator.ConvergenceError:
-            continue
+            break
+    alphas = alphas[:k]
+    Fs = Fs[:k]
+    Ms = Ms[:k]
 
     CLs, CDs, CMs = [], [], []
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = L / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
-        CD = D / (0.5 * rho_air * V_mag ** 2 * glider.wing.parafoil.S)
+        CL = L / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
+        CD = D / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
         CM = Ms[n][1] / (
             0.5
             * rho_air
-            * V_mag ** 2
-            * glider.wing.parafoil.S
-            * glider.wing.parafoil.chord_length(0)
+            * v_mag ** 2
+            * wing.canopy.S
+            * wing.canopy.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)
@@ -212,7 +218,7 @@ def build_hook3():
         torsion=torsion,
     )
 
-    parafoil = gsim.foil.SimpleFoil(
+    canopy = gsim.foil.SimpleFoil(
         airfoil=airfoil,
         chords=chord_surface,
         # b=b,  # Option 1: Scale the using the projected span
@@ -220,29 +226,29 @@ def build_hook3():
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 
-    print("Parafoil geometry:")
-    print(f"  flattened span: {parafoil.b_flat:>6.3f}")
-    print(f"  flattened area: {parafoil.S_flat:>6.3f}")
-    print(f"  flattened AR:   {parafoil.AR_flat:>6.3f}")
-    # print(f"  planform flat SMC   {parafoil.SMC:>6.3f}")
-    # print(f"  planform flat MAC:  {parafoil.MAC:>6.3f}")
+    print("Canopy geometry:")
+    print(f"  flattened span: {canopy.b_flat:>6.3f}")
+    print(f"  flattened area: {canopy.S_flat:>6.3f}")
+    print(f"  flattened AR:   {canopy.AR_flat:>6.3f}")
+    # print(f"  planform flat SMC   {canopy.SMC:>6.3f}")
+    # print(f"  planform flat MAC:  {canopy.MAC:>6.3f}")
 
-    print(f"  projected span: {parafoil.b:>6.3f}")
-    print(f"  projected area: {parafoil.S:>6.3f}")
-    print(f"  projected AR:   {parafoil.AR:>6.3f}")
+    print(f"  projected span: {canopy.b:>6.3f}")
+    print(f"  projected area: {canopy.S:>6.3f}")
+    print(f"  projected AR:   {canopy.AR:>6.3f}")
     print()
 
-    # print("Drawing the parafoil")
-    # gsim.plots.plot_foil(parafoil, N_sections=131, flatten=False)
-    # gsim.plots.plot_foil(parafoil, N_sections=71, flatten=True)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51)
-    # gsim.plots.plot_foil_topdown(parafoil, N_sections=51, flatten=True)
+    # print("Drawing the canopy")
+    # gsim.plots.plot_foil(canopy, N_sections=131, flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=51)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 
-    print("\nPausing...")
-    embed()
+    # print("\nPausing...")
+    # embed()
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # plots.plot_foil_topdown(parafoil, N_sections=77)
+    # gsim.plots.plot_foil_topdown(canopy, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Brake geometry
@@ -259,10 +265,10 @@ def build_hook3():
     # Wing and glider
 
     wing = gsim.paraglider_wing.ParagliderWing(
-        parafoil=parafoil,
-        force_estimator=gsim.foil.Phillips(parafoil, V_ref_mag=10, K=31),
+        canopy=canopy,
+        force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
         brake_geo=brakes,
-        d_riser=0.49,  # FIXME: Source? Trying to match `Theta_eq` at trim?
+        d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
         z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
         pA=0.11,  # Approximated from the line plan in the manual PDF, page 17
         pC=0.59,
@@ -271,57 +277,64 @@ def build_hook3():
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )
 
-    # Note to self: the wing should weight 4.7kG in total; according to these
-    # specs, and the `rho_upper`/`rho_lower` embedded in ParagliderWing, the
-    # wing materials I'm accounting for total to 1.83kg, so there's a lot left
-    # in the lines, risers, ribs, etc.
-
-    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
-
-    glider = gsim.paraglider.Paraglider(wing, harness)
-
-    # print("Plotting the basic glider performance curves")
-    # plot_foil_coefficients(glider)
-
-    # print("\nFinished building the glider.\n")
-    # embed()
-    # 1/0
-
-    return glider
+    return wing
 
 
 if __name__ == "__main__":
 
     print("\n-------------------------------------------------------------\n")
 
-    glider = build_hook3()
+    # Note to self: the wing should weight 4.7kG in total; according to these
+    # specs, and the `rho_upper`/`rho_lower` embedded in ParagliderWing, the
+    # wing materials I'm accounting for total to 1.83kg, so there's a lot left
+    # in the lines, risers, ribs, etc.
+    wing = build_hook3()
+    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    glider = gsim.paraglider.Paraglider6a(wing, harness)
+
+    # print("Plotting the basic glider performance curves")
+    # plot_foil_coefficients(glider)
+
+    print("\nFinished building the glider.\n")
+    # embed()
+    # 1/0
 
     print("\nComputing the glider equilibrium...")
-    alpha_eq, Theta_eq, V_eq, _ = glider.equilibrium_glide(
-        0, 0, V_eq_proposal=10, rho_air=1.2,
+
+    # Option 1: fast, approximately accurately
+    alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+        delta_a=0.0,
+        delta_b=0.0,
+        v_eq_proposal=10,
+        rho_air=1.2,
     )
-    gamma_eq = alpha_eq - Theta_eq
-    UVW = V_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-    PQR = np.array([0, 0, 0])
-    g = 9.8 * np.array([-np.sin(Theta_eq), 0, np.cos(Theta_eq)])
-    F, M, _, = glider.forces_and_moments(
-        UVW, PQR, g=g, rho_air=1.2, delta_bl=0, delta_br=0,
+    # Option 2: slow, more accurate
+    # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
+    #     delta_a=0.0,
+    #     delta_b=0.0,
+    #     alpha_0=np.deg2rad(9),
+    #     theta_0=np.deg2rad(3),
+    #     v_0=10,
+    #     rho_air=1.2,
+    # )
+
+    gamma_eq = alpha_eq - theta_eq
+    v_R2e = v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+    omega_b2e = np.array([0, 0, 0])
+    g = 9.8 * np.array([-np.sin(theta_eq), 0, np.cos(theta_eq)])
+    a_R2e, alpha_b2e, _, = glider.accelerations(
+        v_R2e, omega_b2e, g=g, rho_air=1.2, reference_solution=ref,
     )
 
-    print(f"  UVW:   {UVW.round(4)}")
-    print(f"  F:     {F.round(4)}")
-    print(f"  M:     {M.round(4)}")
-    print()
-    print(f"  alpha:       {np.rad2deg(np.arctan2(UVW[2], UVW[0])):>6.3f} [deg]")
-    print(f"  Theta:       {np.rad2deg(Theta_eq):>6.3f} [deg]")
+    print(f"  alpha_eq:    {np.rad2deg(alpha_eq):>6.3f} [deg]")
+    print(f"  theta_eq:    {np.rad2deg(theta_eq):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(gamma_eq):>6.3f} [deg]")
     print(f"  Glide ratio: {1 / np.tan(gamma_eq):>6.3f}")
-    print(f"  Glide speed: {V_eq:>6.3f}")
-
-    # Sanity check the dynamics
-    # J_wing = glider.wing.inertia(rho_air=1.2, N=5000)
-    # alpha_rad = np.linalg.inv(J_wing) @ M
-    # print("\nAngular acceleration at equilibrium:", np.rad2deg(alpha_rad))
+    print(f"  Glide speed: {v_eq:>6.3f}")
+    print()
+    print(f"  v_R2e:     {v_R2e.round(4)}")
+    print(f"  a_R2e:     {a_R2e.round(4)}")
+    print(f"  alpha_b2e: {np.rad2deg(alpha_b2e).round(4)}")
 
     print("\n<pausing before polar curves>\n")
     embed()

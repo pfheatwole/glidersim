@@ -528,19 +528,19 @@ class AirfoilGeometry:
             upper_length : float
                 The total length of the upper surface curve
             upper_centroid : array of float, shape (2,)
-                The centroid of the upper surface curve as (x, y) in ACS
+                The centroid of the upper surface curve as (x, y) in acs
             upper_inertia : array of float, shape (3,3)
                 The inertia matrix of the upper surface curve
             area : float
                 The area of the airfoil
             area_centroid : array of float, shape (2,)
-                The centroid of the area as (x, y) in ACS
+                The centroid of the area as (x, y) in acs
             area_inertia : array of float, shape (3,3)
                 The inertia matrix of the area
             lower_length : float
                 The total length of the lower surface curve
             lower_centroid : array of float, shape (2,)
-                The centroid of the lower surface curve as (x, y) in ACS
+                The centroid of the lower surface curve as (x, y) in acs
             lower_inertia : array of float, shape (3,3)
                 The inertia matrix of the lower surface curve
 
@@ -555,13 +555,13 @@ class AirfoilGeometry:
 
         Here, a z-axis that satisfies the right hand rule is added for the
         purpose of creating a well-defined inertia matrix. Let this set of axes
-        be called the "airfoil coordinate system" (ACS).
+        be called the "airfoil coordinate system" (acs).
 
-        Translating these ACS coordinates into the front-right-down (FRD)
+        Translating these acs coordinates into the front-right-down (frd)
         coordinate system requires reordering and reversing the direction of
-        vector components. To convert ACS -> FRD: [x, y, z] -> [-x, -z, -y]
+        vector components. To convert acs -> frd: [x, y, z] -> [-x, -z, -y]
 
-        In terms of code, to convert from ACS to FRD coordinates:
+        In terms of code, to convert from acs to frd coordinates:
 
         >>> C = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0

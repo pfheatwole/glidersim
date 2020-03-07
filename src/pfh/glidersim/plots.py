@@ -275,7 +275,9 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0,
         return ax.lines
 
 
-def plot_wing(wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None):
+def plot_paraglider_wing(
+    wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None
+):
     """
     Plot a ParagliderWing using 3D cross-sections.
 
@@ -293,17 +295,17 @@ def plot_wing(wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None
     else:
         independent_plot = False
 
-    plot_foil(wing.parafoil, N_sections=N_sections, N_points=N_points, ax=ax)
+    plot_foil(wing.canopy, N_sections=N_sections, N_points=N_points, ax=ax)
 
     # Add a dashed brake deflection line
     s = np.linspace(-1, 1, N_sections)
     delta = wing.brake_geo(s, delta_bl, delta_br)
     flap = delta / 0.2
-    c = wing.parafoil.chord_length(s)
-    orientations = wing.parafoil.section_orientation(s)
+    c = wing.canopy.chord_length(s)
+    orientations = wing.canopy.section_orientation(s)
     p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
          + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
-    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.parafoil.chord_xyz(s, 0)
+    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.canopy.chord_xyz(s, 0)
     ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
 
     if independent_plot:
