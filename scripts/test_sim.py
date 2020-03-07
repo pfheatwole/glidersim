@@ -86,6 +86,11 @@ class Dynamics6a:
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
 
+    def cleanup(self, state, t):
+        # FIXME: hack that runs after each integration step. Assumes it can
+        #        modify the integrator state directly.
+        state["q"] /= np.sqrt((state["q"] ** 2).sum())  # Normalize `q`
+
     def dynamics(self, t, y, params):
         """The state dynamics for the model
 
@@ -219,14 +224,13 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
                 msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
             print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
 
-            # WARNING: `solver.integrate` returns a *reference* to `_y`
-            #          Modifying `state` modifies `solver.y` directly.
-            # FIXME: normalizing `q` is a leaky abstraction
+            # WARNING: `solver.integrate` returns a *reference* to `_y`, so
+            #          modifying `state` modifies `solver._y` directly.
             # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
             #        Using `solver.set_initial_value` would reset the
             #        integrator, but that's not what we want here.
             state = solver.integrate(solver.t + dt).view(model.state_dtype)
-            state["q"] /= np.sqrt((state["q"] ** 2).sum())  # Normalize `q`
+            model.cleanup(state, solver.t)  # Modifies `solver._y`!!
             path[k] = state  # Makes a copy of `solver._y`
             times[k] = solver.t
             k += 1
