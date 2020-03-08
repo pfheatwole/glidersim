@@ -1513,7 +1513,7 @@ class Phillips(ForceEstimator):
             Gamma_ref = Gamma
 
             if target_backlog:
-                delta, v_W2f = target_backlog.pop()
+                delta_f, v_W2f = target_backlog.pop()
             else:
                 break
         else:
