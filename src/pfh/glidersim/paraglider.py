@@ -38,6 +38,15 @@ class Paraglider6a:
         need their relative wind vectors. Each component is responsible for
         creating a list of the coordinates where they need the value of the
         wind. This function then transforms them into body coordinates.
+
+        Parameters
+        ----------
+        delta_a : float [percentage]
+            The fraction of maximum accelerator
+
+        Returns
+        -------
+        FIXME: describe
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)
         payload_cps = self.payload.control_points()
@@ -70,7 +79,7 @@ class Paraglider6a:
         omega_b2e : array of float, shape (3,) [rad/s]
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
-            The gravity vector
+            The gravity vector in body frd
         rho_air : float [kg/m^3]
             The ambient air density
         delta_a : float [percentage]
@@ -105,6 +114,8 @@ class Paraglider6a:
             Translational acceleration of `R` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
             Angular acceleration of the body, in body frd coordinates.
+        solution : dictionary
+            FIXME: docstring. See `Phillips.__call__`
 
         Notes
         -----
