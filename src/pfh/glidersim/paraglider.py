@@ -823,8 +823,8 @@ class Paraglider9a:
             FIXME: docstring. See `Phillips.__call__`
         """
         state_dtype = [
-            ("q_b2e", float, (4,)),  # Encodes `C_frd/ned` for the body
-            ("q_p2b", float, (4,)),  # The relative orientation of the payload
+            ("q_b2e", float, (4,)),  # Orientation: body/earth
+            ("q_p2e", float, (4,)),  # Orientation: payload/earth
             ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
             ("omega_p2e", float, (3,)),  # Angular velocity of the payload in payload frd
             ("v_R2e", float, (3,)),  # The velocity of `R` in ned
@@ -832,7 +832,9 @@ class Paraglider9a:
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
+            q_e2b = x["q_b2e"] * [1, -1, -1, -1]
+            q_p2b = quaternion.quaternion_product(x["q_p2e"], q_e2b)
+            Theta_p = quaternion.quaternion_to_euler(q_p2b)
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
@@ -852,12 +854,7 @@ class Paraglider9a:
             # fmt: on
             q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-            # The dynamics calculate the angular velocity of the payload relative
-            # to earth, but the state definition tracks the orientation of the
-            # payload relative to the body.
-            omega_b2e = quaternion.apply_quaternion_rotation(x["q_p2b"], x["omega_b2e"])
-            omega_p2b = x["omega_p2e"] - omega_b2e
-            P, Q, R = omega_p2b
+            P, Q, R = x["omega_p2e"]
             # fmt: off
             Omega = np.array([
                 [0, -P, -Q, -R],
@@ -865,11 +862,11 @@ class Paraglider9a:
                 [Q, -R,  0,  P],
                 [R,  Q, -P,  0]])
             # fmt: on
-            q_p2b_dot = 0.5 * Omega @ x["q_p2b"]
+            q_p2e_dot = 0.5 * Omega @ x["q_p2e"]
 
             x_dot = np.empty(1, state_dtype)
             x_dot["q_b2e"] = q_b2e_dot
-            x_dot["q_p2b"] = q_p2b_dot
+            x_dot["q_p2e"] = q_p2e_dot
             x_dot["omega_b2e"] = alpha_b2e
             x_dot["omega_p2e"] = alpha_p2e
             x_dot["v_R2e"] = a_R2e
@@ -878,7 +875,7 @@ class Paraglider9a:
 
         state = np.empty(1, state_dtype)
         state["q_b2e"] = quaternion.euler_to_quaternion([0, theta_0, 0])
-        state["q_p2b"] = state["q_b2e"] * [1, -1, -1, -1]  # Payload aligned to gravity (straight down)
+        state["q_p2e"] = [1, 0, 0, 0]  # Payload aligned to gravity (straight down)  # FIXME: add theta_p_0
         state["omega_b2e"] = [0, 0, 0]
         state["omega_p2e"] = [0, 0, 0]
         state["v_R2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
@@ -897,12 +894,14 @@ class Paraglider9a:
 
         while True:
             state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
-            state["q_p2b"] /= np.sqrt((state["q_p2b"] ** 2).sum())
+            state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())
             solver.set_initial_value(state.view(float))
             state = solver.integrate(0.25).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             state["omega_p2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            Theta_p = quaternion.quaternion_to_euler(state["q_p2b"])[0]
+            q_e2b = state["q_b2e"][0] * [1, -1, -1, -1]
+            q_p2b = quaternion.quaternion_product(state["q_p2e"][0], q_e2b)
+            Theta_p = quaternion.quaternion_to_euler(q_p2b)
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
@@ -921,6 +920,7 @@ class Paraglider9a:
 
         alpha_eq = np.arctan2(*state["v_R2e"][[2, 0]])
         theta_eq = quaternion.quaternion_to_euler(state["q_b2e"])[1]
+        theta_p_eq = quaternion.quaternion_to_euler(state["q_b2e"])[1]
         v_eq = np.linalg.norm(state["v_R2e"])
 
-        return alpha_eq, theta_eq, v_eq, dynamics_kwargs["reference_solution"]
+        return alpha_eq, theta_b_eq, theta_p_eq, v_eq, dynamics_kwargs["reference_solution"]
