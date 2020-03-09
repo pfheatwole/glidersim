@@ -144,11 +144,10 @@ def apply_quaternion_rotation(q, u, v):
 def quaternion_product(p, q):
     """Multiply two quaternions."""
     # FIXME: document and test
+    # FIXME add broadcasting support
     pw, pv = p[0], p[1:]
     qw, qv = q[0], q[1:]
-    pq = np.array([
-        pw * qw - pv @ qv,
-        pw * qv + qw * pv + np.cross(pv, qv)])
+    pq = np.r_[pw * qw - pv @ qv, pw * qv + qw * pv + np.cross(pv, qv)]
     return pq
 
 
