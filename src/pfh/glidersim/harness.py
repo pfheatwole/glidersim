@@ -86,9 +86,10 @@ class Spherical(Harness):
         return dF, dM
 
     def mass_properties(self):
+        # Treats the mass as a uniform density solid sphere
         return {
             "mass": self._mass,
             "cm": np.array([0, 0, self._z_riser]),
-            "J": np.zeros((3, 3)),  # FIXME: assumes a point mass
+            "J": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
             "J_apparent": np.zeros((3, 3)),
         }
