@@ -448,21 +448,33 @@ def main():
     # FIXME: move these into "scenario" functions
 
     # Scenario: zero inputs
-    delta_a = 0.0
-    delta_bl = 0.0
-    delta_br = 0.0
-    T = 60
+    # delta_a = 0.90
+    # delta_bl = 0.0
+    # delta_br = 0.0
+    # T = 60
+
+    # Scenario: short right turn
+    # delta_a = 0.0
+    # delta_bl = 0.0
+    # delta_br = linear_control([(2, 0), (1, 0.80), (5, None), (2, 0)])
+    # T = 20
 
     # Scenario: continuous right turn
     # delta_a = 0.0
     # delta_bl = 0.0
-    # delta_br = linear_control([(2, 0), (5, 0.75)])
-    # T = 60
+    # delta_br = linear_control([(10, 0), (60, 0.85),])
+    # T = 120
+
+    # Scenario: speedbar off-on-off
+    # delta_a = linear_control([(2, 0), (5, 1.0), (10, None), (5, 0.0)])
+    # delta_bl = 0.0
+    # delta_br = 0.0
+    # T = 30
 
     # Scenario: roll-yaw coupling w/ accelerator
-    # delta_a = 1.0
+    # delta_a = linear_control([(2, 0), 3, 1)])
     # delta_bl = 0.0
-    # delta_br = linear_control([(20, 0), (8, 0.65)])  # Stress test: s/8/15
+    # delta_br = linear_control([(10, 0), (8, 0.75)])  # Stress test: s/8/15
     # T = 60
 
     # Scenario: roll-yaw coupling with 5s brake pulse
@@ -470,6 +482,20 @@ def main():
     # delta_bl = 0.0
     # delta_br = linear_control([(20, 0), (2, 0.65), (5, None), (1, 0)])
     # T = 60
+
+    # Scenario: smooth roll right then roll left
+    # delta_a = 0.0
+    # delta_br = linear_control([(2, 0), (2, 0.5), (10, None), (2, 0)])
+    # delta_bl = linear_control([(16, 0), (3, 0.5)])
+    # T = 60
+
+    # Scenario: multiple figure-8
+    delta_a = 0.0
+    on = [(2, 0.85), (18, None)]  # Braking on
+    off = [(1.0, 0), (19.0, None)]  # Braking off
+    delta_br = linear_control([(2, 0), *on, *off, *on, *off, *on, *off])
+    delta_bl = linear_control([(2, 0), *off, *on, *off, *on, *off, *on])
+    T = 120
 
     model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br)
     model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br)
