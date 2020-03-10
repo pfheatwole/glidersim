@@ -526,7 +526,7 @@ def main():
     print("      v_R2e:", state0["v_R2e"].round(4))
 
     # Run the simulation
-    dt = 0.01
+    dt = 0.1
     times, path = simulate(model, state0, dt=dt, T=T)
 
     # -----------------------------------------------------------------------
