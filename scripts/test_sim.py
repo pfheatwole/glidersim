@@ -530,19 +530,20 @@ def main():
     # Plots
 
     # 3D Plot: Position over time
+    fig = plt.figure(figsize=(12, 12))
     ax = plt.gca(projection='3d')
     ax.invert_yaxis()
     ax.invert_zaxis()
-    ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
-    ax.plot(r_cp0.T[0], r_cp0.T[1], r_cp0.T[2], label="cp0")
-    ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
-    lp = 0.25  # Line-plotting period [sec]
-    for t in range(0, k, int(lp / dt)):  # Draw connecting lines every `lp` seconds
+    lpp = 0.25  # Line-plotting period [sec]
+    for t in range(0, k, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
         p1, p2 = path["r_R2O"][t], r_cp0[t]  # Risers -> wing
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
 
         p1, p2 = path["r_R2O"][t], r_P2O[t]  # Risers -> payload
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
+    ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
+    ax.plot(r_cp0.T[0], r_cp0.T[1], r_cp0.T[2], label="cp0")
+    ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
     ax.legend()
     gsim.plots._set_axes_equal(ax)
     plt.show()
