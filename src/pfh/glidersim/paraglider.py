@@ -615,7 +615,6 @@ class Paraglider9a:
         r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
         J_p = pmp["J"]  # Inertia of the payload about `P`
 
-
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         #
@@ -635,9 +634,9 @@ class Paraglider9a:
         v_W2p = C_p2b @ v_W2e[-1] - v_CP2e_p  # Relative wind to the payload control points
 
         # -------------------------------------------------------------------
-        # Compute the forces and moments of the wing
+        # Forces and moments of the wing in body frd
         dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-            delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+            delta_bl, delta_br, v_W2b, rho_air, reference_solution,
         )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
