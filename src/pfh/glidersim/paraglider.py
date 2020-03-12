@@ -683,13 +683,13 @@ class Paraglider9a:
             F_wing_aero
             + F_wing_weight
             - m_b * cross3(omega_b2e, v_R2e)
-            + m_b * cross3(omega_b2e, cross3(omega_b2e, -r_B2R))
+            - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
         )
         B2 = (
             F_p_aero
             + F_p_weight
             - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
-            + m_p * cross3(omega_p2e, cross3(omega_p2e, -r_P2R))
+            - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
         )
         B3 = M_wing - M_R - cross3(omega_b2e, J_b @ omega_b2e)
         B4 = M_p + C_p2b @ M_R - cross3(omega_p2e, J_p @ omega_p2e)
