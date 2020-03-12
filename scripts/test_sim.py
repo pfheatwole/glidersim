@@ -56,7 +56,7 @@ class Dynamics6a:
         ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
     ]
 
-    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
+    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, v_W2e=None):
         self.glider = glider
 
         if callable(rho_air):
@@ -86,6 +86,13 @@ class Dynamics6a:
             self.delta_br = lambda t: delta_br
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
+
+        if callable(v_W2e):
+            self.v_W2e = v_W2e
+        elif v_W2e is None:
+            self.v_W2e = lambda t, r: np.zeros_like(r)
+        else:
+            raise ValueError("`v_W2e` must be a callable")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
@@ -117,20 +124,21 @@ class Dynamics6a:
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
-        # r_CP2R = self.glider.control_points(delta_a)  # In body coordinates
-        # r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
-        # v_W2e = self.wind(t, r_CP2O)  # Wind vectors at each ned coordinate
-        v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
+        delta_a = self.delta_a(t)
+        r_CP2R = self.glider.control_points(delta_a)  # In body frd
+        r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
         a_R2e, alpha_b2e, solution = self.glider.accelerations(
             quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
             x["omega_b2e"],
             quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
-            delta_a=self.delta_a(t),
+            delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
+            r_CP2R=r_CP2R,
             reference_solution=params["solution"],
         )
 
@@ -174,7 +182,7 @@ class Dynamics9a:
         ("v_R2e", float, (3,)),  # The velocity of `R` in ned
     ]
 
-    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0):
+    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, v_W2e=None):
         self.glider = glider
 
         if callable(rho_air):
@@ -204,6 +212,13 @@ class Dynamics9a:
             self.delta_br = lambda t: delta_br
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
+
+        if callable(v_W2e):
+            self.v_W2e = v_W2e
+        elif v_W2e is None:
+            self.v_W2e = lambda t, r: np.zeros_like(r)
+        else:
+            raise ValueError("`v_W2e` must be a callable")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
@@ -237,10 +252,10 @@ class Dynamics9a:
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
 
-        # r_CP2R = self.glider.control_points(Theta_p, delta_a)  # In body frd
-        # r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
-        # v_W2e = self.wind(t, r_CP2O)  # Wind vectors at each ned coordinate
-        v_W2e = np.array([0, 0, 0])  # FIXME: implement wind lookups
+        delta_a = self.delta_a(t)
+        r_CP2R = self.glider.control_points(Theta_p, delta_a)  # In body frd
+        r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
         a_R2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
             quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
@@ -249,10 +264,11 @@ class Dynamics9a:
             Theta_p,  # FIXME: design review the call signature
             quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
-            delta_a=self.delta_a(t),
+            delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
+            r_CP2R=r_CP2R,
             reference_solution=params["solution"],
         )
 
@@ -497,8 +513,16 @@ def main():
     delta_bl = linear_control([(2, 0), *off, *on, *off, *on, *off, *on])
     T = 120
 
-    model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br)
-    model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br)
+    # -----------------------------------------------------------------------
+    # Add some wind
+
+    v_W2e = None
+
+    # -----------------------------------------------------------------------
+    # Build the dynamics models
+
+    model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br, v_W2e)
+    model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br, v_W2e)
 
     # -----------------------------------------------------------------------
     # Run the simulation
