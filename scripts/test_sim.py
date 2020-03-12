@@ -626,15 +626,15 @@ def main():
 
     print("Preparing the simulation.")
     print("Initial state:")
-    print("      q_b2e:", state0["q_b2e"].round(4))
-    if "q_p2e" in state0.dtype.names:
-        print("      q_p2e:", state0["q_p2e"].round(4))
-    print("  omega_b2e:", state0["omega_b2e"].round(4))
-    if "omega_p2b" in state0.dtype.names:
-        print("  omega_p2b:", state0["omega_p2b"].round(4))
     print("  euler_b2e:", np.rad2deg(euler_b2e).round(4))
-    print("      r_R2O:", state0["r_R2O"].round(4))
-    print("      v_R2e:", state0["v_R2e"].round(4))
+    if "q_p2b" in state0.dtype.names:
+        euler_p2b = quaternion.quaternion_to_euler(state0["q_p2b"])[0]
+        print("  euler_p2b:", np.rad2deg(euler_p2b).round(4))
+    print("  omega_b2e:", state0["omega_b2e"][0].round(4))
+    if "omega_p2e" in state0.dtype.names:
+        print("  omega_p2e:", state0["omega_p2e"][0].round(4))
+    print("      r_R2O:", state0["r_R2O"][0].round(4))
+    print("      v_R2e:", state0["v_R2e"][0].round(4))
 
     # Run the simulation
     dt = 0.1
