@@ -44,6 +44,73 @@ def linear_control(pairs):
     return c
 
 
+class CircularThermal:
+
+    def __init__(self, px, py, mag, radius5, t_start=0):
+        """
+        Parameters
+        ----------
+        px, py : float [m]
+            The x and y coordinates of the thermal center
+        mag : float [m/s]
+            The magnitude of the thermal center
+        radius95 : float [m]
+            The distance from the center where the magnitude has dropped to 5%
+        """
+        self.c = np.array([px, py])
+        self.mag = mag
+        self.R = -radius5**2 / np.log(0.05)
+        self.t_start = t_start
+
+    def __call__(self, t, r):
+        # `t` is time, `r` is 3D position in ned coordinates
+        d2 = ((self.c - r[..., :2])**2).sum(axis=1)
+        wind = np.zeros(r.shape)
+        if t > self.t_start:
+            wind[..., 2] = self.mag * np.exp(-d2/self.R)
+        return wind
+
+
+class HorizontalShear:
+    """
+    Increasing vertical wind when traveling north. Transitions from 0 to `mag`
+    as a sigmoid function. The transition is stretch using `smooth`.
+    """
+    def __init__(self, x_start, mag, smooth, t_start):
+        self.x_start = x_start
+        self.mag = mag
+        self.smooth = smooth
+        self.t_start = t_start
+
+    def __call__(self, t, r):
+        # `t` is time, `r` is 3D position in ned coordinates
+        d = r[..., 0] - self.x_start
+        wind = np.zeros(r.shape)
+        if t > self.t_start:
+            wind[..., 2] = self.mag * np.exp(d/self.smooth) / (np.exp(d/self.smooth) + 1)  # Sigmoid
+        return wind
+
+
+class LateralGust:
+    """
+    Adds an east-west gust. Linear rampump.
+    """
+    def __init__(self, t_start, t_ramp, t_duration, mag):
+        t0 = 0
+        t1 = t_start  # Start the ramp-up
+        t2 = t1 + t_ramp  # Start the hold
+        t3 = t2 + t_duration # Start the ramp-down
+        t4 = t3 + t_ramp  # Finish the ramp down
+        times = [t0, t1, t2, t3, t4]
+        values = [0, 0, mag, mag, 0]
+        self._func = interp1d(times, values, bounds_error=False, fill_value=0)
+
+    def __call__(self, t, r):
+        wind = np.zeros(r.shape)
+        wind[..., 1] = self._func(t)
+        return wind
+
+
 class Dynamics6a:
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
