@@ -585,6 +585,21 @@ def main():
 
     v_W2e = None
 
+    # Use with no brakes
+    # v_W2e = CircularThermal(10*30, 0, -3, 10, t_start=30)
+    # v_W2e = CircularThermal(10*30, 4, -3, 10, t_start=0)
+    # v_W2e = CircularThermal(10*30, 5, 2, 15)  # Sink!
+
+    # Use with `delta_br = 0.75`
+    # v_W2e = CircularThermal(21, 65, -3, 10, t_start=30)
+    # v_W2e = CircularThermal(21, 71, -3, 10, t_start=30)
+    # v_W2e = CircularThermal(21, 78, -1.0, 8, t_start=30)
+    # v_W2e = CircularThermal(21, 65, 2, 10, t_start=30)  # Sink!
+
+    # v_W2e = HorizontalShear(10*30, -4, 25, 0)
+
+    # v_W2e = LateralGust(2, 1, 3, 10*1.6/3.6)
+
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
