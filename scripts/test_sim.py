@@ -618,8 +618,8 @@ def main():
     # -----------------------------------------------------------------------
     # Run the simulation
 
-    # state0 = state_6a
-    # model = model_6a
+    state0 = state_6a
+    model = model_6a
 
     state0 = state_9a
     model = model_9a
@@ -627,15 +627,11 @@ def main():
     print("Preparing the simulation.")
     print("Initial state:")
     print("      q_b2e:", state0["q_b2e"].round(4))
-    try:
+    if "q_p2e" in state0.dtype.names:
         print("      q_p2e:", state0["q_p2e"].round(4))
-    except:
-        pass
     print("  omega_b2e:", state0["omega_b2e"].round(4))
-    try:
+    if "omega_p2b" in state0.dtype.names:
         print("  omega_p2b:", state0["omega_p2b"].round(4))
-    except:
-        pass
     print("  euler_b2e:", np.rad2deg(euler_b2e).round(4))
     print("      r_R2O:", state0["r_R2O"].round(4))
     print("      v_R2e:", state0["v_R2e"].round(4))
@@ -647,26 +643,35 @@ def main():
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
 
-    k = len(times)
-    q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    eulers = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    K = len(times)
     cps = model.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
     cp0 = cps[len(cps) // 2]  # The central control point in body frd
+    euler_b2e = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
     r_cp0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, cp0)
-    r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
-        q_e2b,
-        quaternion.apply_quaternion_rotation(
-            path["q_p2b"] * [1, -1, -1, -1], model.glider.payload.control_points(),
-        ),
-    )
     v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, np.cross(path["omega_b2e"], cp0))
     v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
 
+    if "q_p2b" in path.dtype.names:  # 9 DoF model
+        q_p2e = np.asarray([quaternion.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
+        euler_p2b = quaternion.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
+        euler_p2e = quaternion.quaternion_to_euler(q_p2e)  # FIXME: verify!
+        r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
+            q_e2b,
+            quaternion.apply_quaternion_rotation(
+                path["q_p2b"] * [1, -1, -1, -1], model.glider.payload.control_points(),
+            ),
+        )
+    else:  # 6 DoF model
+        r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
+            q_e2b, model.glider.payload.control_points(),
+        )
+
     # Euler derivatives (Stevens Eq:1.4-4)
-    _0, _1 = np.zeros(k), np.ones(k)
-    sp, st, sg = np.sin(eulers.T)
-    cp, ct, cg = np.cos(eulers.T)
-    tp, tt, tg = np.tan(eulers.T)
+    _0, _1 = np.zeros(K), np.ones(K)
+    sp, st, sg = np.sin(euler_b2e.T)
+    cp, ct, cg = np.cos(euler_b2e.T)
+    tp, tt, tg = np.tan(euler_b2e.T)
     T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
     T = np.moveaxis(T, -1, 0)
     euler_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
@@ -680,7 +685,7 @@ def main():
     ax.invert_yaxis()
     ax.invert_zaxis()
     lpp = 0.25  # Line-plotting period [sec]
-    for t in range(0, k, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
+    for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
         p1, p2 = path["r_R2O"][t], r_cp0[t]  # Risers -> wing
         ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
 
