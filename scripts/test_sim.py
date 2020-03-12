@@ -117,10 +117,10 @@ class Dynamics6a:
     # FIXME: I dislike this notation. It confuses the reference frames with
     #        the coordinate systems embedded in those frames.
     state_dtype = [
-        ("q_b2e", float, (4,)),  # Encodes `C_frd/ned` for the body
+        ("q_b2e", float, (4,)),  # Orientation: body/earth
+        ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
         ("r_R2O", float, (3,)),  # The position of `R` in ned
         ("v_R2e", float, (3,)),  # The velocity of `R` in ned
-        ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
     ]
 
     def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, v_W2e=None):
