@@ -656,12 +656,12 @@ class Paraglider9a:
 
         M_R = np.zeros(3)  # FIXME: implement proper spring+damper dynamics
         omega_p2b = omega_p2e - C_p2b @ omega_b2e
-        M_R[0] += -3.0 * Theta_p[0]  # Roll restoring force
+        M_R[0] += -5.0 * Theta_p[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p[1]  # Pitch restoring force
-        M_R[2] += -3.0 * Theta_p[2]  # Yaw restoring force
-        M_R[0] += -1.0 * omega_p2b[0]  # Roll dampening
+        M_R[2] += -10.0 * Theta_p[2]  # Yaw restoring force
+        M_R[0] += -15.0 * omega_p2b[0]  # Roll dampening
         M_R[1] += -1.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -1.0 * omega_p2b[2]  # Yaw dampening
+        M_R[2] += -10.0 * omega_p2b[2]  # Yaw dampening
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
