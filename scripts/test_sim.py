@@ -531,10 +531,19 @@ def main():
     # FIXME: move these into "scenario" functions
 
     # Scenario: zero inputs
-    # delta_a = 0.90
+    # delta_a = 0.00
     # delta_bl = 0.0
     # delta_br = 0.0
     # T = 60
+
+    # Scenario: constant inputs
+    delta_a = 0.0
+    delta_bl = 0.0
+    delta_br = 0.0
+    # delta_a = linear_control([(0, 0), (3, 0.75)])
+    # delta_bl = linear_control([(0, 0), (3, 0.75)])
+    # delta_br = linear_control([(0, 0), (3, 0.75)])
+    T = 60
 
     # Scenario: short right turn
     # delta_a = 0.0
@@ -545,8 +554,8 @@ def main():
     # Scenario: continuous right turn
     # delta_a = 0.0
     # delta_bl = 0.0
-    # delta_br = linear_control([(10, 0), (60, 0.85),])
-    # T = 120
+    # delta_br = linear_control([(2, 0), (3, 0.75),])
+    # T = 60
 
     # Scenario: speedbar off-on-off
     # delta_a = linear_control([(2, 0), (5, 1.0), (10, None), (5, 0.0)])
@@ -573,12 +582,12 @@ def main():
     # T = 60
 
     # Scenario: multiple figure-8
-    delta_a = 0.0
-    on = [(2, 0.85), (18, None)]  # Braking on
-    off = [(1.0, 0), (19.0, None)]  # Braking off
-    delta_br = linear_control([(2, 0), *on, *off, *on, *off, *on, *off])
-    delta_bl = linear_control([(2, 0), *off, *on, *off, *on, *off, *on])
-    T = 120
+    # delta_a = 0.0
+    # on = [(2, 0.85), (18, None)]  # Braking on
+    # off = [(1.0, 0), (19.0, None)]  # Braking off
+    # delta_br = linear_control([(2, 0), *on, *off, *on, *off, *on, *off])
+    # delta_bl = linear_control([(2, 0), *off, *on, *off, *on, *off, *on])
+    # T = 120
 
     # -----------------------------------------------------------------------
     # Add some wind
