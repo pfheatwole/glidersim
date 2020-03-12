@@ -407,7 +407,7 @@ class Paraglider6a:
         solver.set_f_params(dynamics_kwargs)
 
         while True:
-            state["q_b2e"] /= np.sqrt((x["q_b2e"] ** 2).sum())
+            state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
             solver.set_initial_value(state.view(float))
             state = solver.integrate(1).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
