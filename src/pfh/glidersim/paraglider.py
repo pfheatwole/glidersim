@@ -175,8 +175,8 @@ class Paraglider6a:
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
-        v_B2e = v_R2e - cross3(omega_b2e, r_B2R)
-        v_CP2e = v_B2e + cross3(omega_b2e, r_CP2R - r_B2R)
+        v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
+        v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
         v_W2b = v_W2e - v_CP2e
 
         # FIXME: "magic" layout of array contents
@@ -214,8 +214,8 @@ class Paraglider6a:
 
         J = J_wing + J_p  # Total moment of inertia matrix about the glider cm
 
-        A1 = [m_B * np.eye(3), np.zeros((3, 3))]
-        A2 = [np.zeros((3, 3)), J]
+        A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
+        A2 = [m_B * quaternion.skew(r_B2R), J]
         A = np.block([A1, A2])
 
         B1 = (
@@ -223,7 +223,7 @@ class Paraglider6a:
             + F_wing_weight
             + F_p_aero
             + F_p_weight
-            - m_B * cross3(omega_b2e, v_B2e)
+            - m_B * cross3(omega_b2e, v_R2e)
             - m_B * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
         )
         B2 = M_wing + M_p - np.cross(omega_b2e, J @ omega_b2e)
