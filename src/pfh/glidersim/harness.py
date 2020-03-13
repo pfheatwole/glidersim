@@ -10,7 +10,18 @@ class Harness(abc.ABC):
 
     @abc.abstractmethod
     def control_points(self, delta_w):
-        """FIXME: docstring"""
+        """
+        Compute the force control points for the harness model.
+
+        Parameters
+        ----------
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
+
+        Returns
+        -------
+        FIXME: describe
+        """
 
     @abc.abstractmethod
     def forces_and_moments(self, v_W2h, rho_air):
@@ -37,44 +48,58 @@ class Harness(abc.ABC):
 
 class Spherical(Harness):
     """
-    Models the harness as a point mass inside a sphere.
+    Model a harness as a uniform density sphere.
 
-    The mass is concentrated at a single point, and the spherical assumption
-    implies isotropic drag, characterized by a single drag coefficient.
+    Coordinates use the front-right-down (frd) convention, with the origin at
+    the midpoint of the two riser connections.
 
-    FIXME: finish documentation
+    Parameters
+    ----------
+    mass : float [kg]
+        The mass of the harness
+    z_riser : float [m]
+        The vertical distance from the risers' midpoint to the harness center.
+    S : float [m^2]
+        The projected area of the sphere (ie, the area of a circle)
+
+        Typical values for pilot + harness ([1]_):
+         * <80kg:           0.5
+         * 80kg to 100kg:   0.6
+         * >100kg:          0.7
+
+    CD : float
+        The isotropic drag coefficient.
+
+        Typical values for pilot + harness ([1]_):
+         * Conventional:    0.8
+         * Performance:     0.4
+
+    kappa_w : float [m]
+        The maximum weight shift distance
 
     Notes
     -----
-    Typical drag coefficient for pilot + harness:
-     * Conventional:    0.8
-     * Performance:     0.4
+    The spherical assumption has several effects:
 
-    Typical cross-sectional area for pilot + harness:
-     * <80kg:           0.5
-     * 80kg to 100kg:   0.6
-     * >100kg:          0.7
+    * Isotropic drag: the aerodynamic force is the same in all directions, so
+      the drag coefficient is a single number. This implies that using the drag
+      coefficient for a performance harness (shaped to minimize drag in the
+      forward direction) will also reduce the drag from crosswind.
 
-    ref: PFD p85 (93)
+      Also, the aerodynamic moment for a sphere is zero, and since the
+      aerodynamic force is computed at the center of mass, the net moment about
+      the center of mass is always zero.
+
+    * Isotropic inertia: neglects the fact that pilot will often extend their
+      legs forward for aerodynamic efficiency, which should increase the pitch
+      and yaw inertia.
+
+    References
+    ----------
+    .. [1] Benedetti, Diego Muniz. "Paragliders Flight Dynamics". 2012. pg 85
     """
 
     def __init__(self, mass, z_riser, S, CD, kappa_w):
-        """
-
-        Parameters
-        ----------
-        mass : float [kg]
-            The mass of the harness
-        z_riser : float [m]
-            The distance from the risers to the harness center of mass, given
-            in a local frd coordinate system with the origin at the risers.
-        S : float [m^2]
-            The projected area of the sphere (ie, the area of a circle)
-        CD : float [FIXME: units?]
-            The isotropic drag coefficient
-        kappa_w : float [m]
-            The maximum weight shift distance
-        """
         self._mass = mass
         self._z_riser = z_riser
         self._S = S
