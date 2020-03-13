@@ -30,7 +30,7 @@ class Paraglider6a:
         self.wing = wing
         self.payload = payload
 
-    def control_points(self, delta_a=0):
+    def control_points(self, delta_a=0, delta_w=0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -43,13 +43,15 @@ class Paraglider6a:
         ----------
         delta_a : float [percentage]
             The fraction of maximum accelerator
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
 
         Returns
         -------
         FIXME: describe
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)
-        payload_cps = self.payload.control_points()
+        payload_cps = self.payload.control_points(delta_w)
         return np.vstack((wing_cps, payload_cps))
 
     def accelerations(
@@ -61,6 +63,7 @@ class Paraglider6a:
         delta_a=0,
         delta_bl=0,
         delta_br=0,
+        delta_w=0,
         v_W2e=None,
         r_CP2R=None,
         reference_solution=None,
@@ -88,6 +91,8 @@ class Paraglider6a:
             The fraction of maximum left brake
         delta_br : float [percentage]
             The fraction of maximum right brake
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -152,7 +157,7 @@ class Paraglider6a:
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
         wmp = self.wing.mass_properties(rho_air, delta_a)
-        pmp = self.payload.mass_properties()
+        pmp = self.payload.mass_properties(delta_w)
         m_B = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
@@ -456,7 +461,7 @@ class Paraglider9a:
         self.wing = wing
         self.payload = payload
 
-    def control_points(self, Theta_p, delta_a=0):
+    def control_points(self, Theta_p, delta_a=0, delta_w=0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -472,13 +477,15 @@ class Paraglider9a:
             the relative orientation of the payload with respect to the body.
         delta_a : float [percentage]
             The fraction of maximum accelerator
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
 
         Returns
         -------
         FIXME: describe
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
-        payload_cps = self.payload.control_points()  # In payload frd
+        payload_cps = self.payload.control_points(delta_w)  # In payload frd
         C_b2p = quaternion.euler_to_dcm(Theta_p).T
         return np.vstack((wing_cps, C_b2p @ payload_cps))
 
@@ -493,6 +500,7 @@ class Paraglider9a:
         delta_a=0,
         delta_bl=0,
         delta_br=0,
+        delta_w=0,
         v_W2e=None,
         r_CP2R=None,
         reference_solution=None,
@@ -525,6 +533,8 @@ class Paraglider9a:
             The fraction of maximum left brake
         delta_br : float [percentage]
             The fraction of maximum right brake
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -610,7 +620,7 @@ class Paraglider9a:
             + wmp["m_air"] * Dwea
         )
 
-        pmp = self.payload.mass_properties()
+        pmp = self.payload.mass_properties(delta_w)
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
         J_p = pmp["J"]  # Inertia of the payload about `P`

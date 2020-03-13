@@ -123,7 +123,9 @@ class Dynamics6a:
         ("v_R2e", float, (3,)),  # The velocity of `R` in ned
     ]
 
-    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, v_W2e=None):
+    def __init__(
+        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None
+    ):
         self.glider = glider
 
         if callable(rho_air):
@@ -153,6 +155,13 @@ class Dynamics6a:
             self.delta_br = lambda t: delta_br
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
+
+        if callable(delta_w):
+            self.delta_w = delta_w
+        elif np.isscalar(delta_w):
+            self.delta_w = lambda t: delta_w
+        else:
+            raise ValueError("`delta_w` must be a scalar or callable")
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
@@ -192,7 +201,8 @@ class Dynamics6a:
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
         delta_a = self.delta_a(t)
-        r_CP2R = self.glider.control_points(delta_a)  # In body frd
+        delta_w = self.delta_w(t)
+        r_CP2R = self.glider.control_points(delta_a, delta_w)  # In body frd
         r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
@@ -204,6 +214,7 @@ class Dynamics6a:
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
+            delta_w=delta_w,
             v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
             r_CP2R=r_CP2R,
             reference_solution=params["solution"],
@@ -249,7 +260,9 @@ class Dynamics9a:
         ("v_R2e", float, (3,)),  # The velocity of `R` in ned
     ]
 
-    def __init__(self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, v_W2e=None):
+    def __init__(
+        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None
+    ):
         self.glider = glider
 
         if callable(rho_air):
@@ -279,6 +292,13 @@ class Dynamics9a:
             self.delta_br = lambda t: delta_br
         else:
             raise ValueError("`delta_br` must be a scalar or callable")
+
+        if callable(delta_w):
+            self.delta_w = delta_w
+        elif np.isscalar(delta_w):
+            self.delta_w = lambda t: delta_w
+        else:
+            raise ValueError("`delta_w` must be a scalar or callable")
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
@@ -320,7 +340,8 @@ class Dynamics9a:
         Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
 
         delta_a = self.delta_a(t)
-        r_CP2R = self.glider.control_points(Theta_p, delta_a)  # In body frd
+        delta_w = self.delta_w(t)
+        r_CP2R = self.glider.control_points(Theta_p, delta_a, delta_w)  # In body frd
         r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
@@ -334,6 +355,7 @@ class Dynamics9a:
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
+            delta_w=delta_w,
             v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
             r_CP2R=r_CP2R,
             reference_solution=params["solution"],
@@ -542,6 +564,7 @@ def main():
     delta_a = 0.0
     delta_bl = 0.0
     delta_br = 0.0
+    delta_w = 0.0
     # delta_a = linear_control([(0, 0), (3, 0.75)])
     # delta_bl = linear_control([(0, 0), (3, 0.75)])
     # delta_br = linear_control([(0, 0), (3, 0.75)])
@@ -614,8 +637,8 @@ def main():
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
-    model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br, v_W2e)
-    model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br, v_W2e)
+    model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
+    model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
 
     # -----------------------------------------------------------------------
     # Run the simulation
