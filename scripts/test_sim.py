@@ -646,8 +646,8 @@ def main():
     state0 = state_6a
     model = model_6a
 
-    state0 = state_9a
-    model = model_9a
+    # state0 = state_9a
+    # model = model_9a
 
     print("Preparing the simulation.")
     print("Initial state:")
