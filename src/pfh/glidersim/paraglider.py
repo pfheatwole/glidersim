@@ -180,7 +180,6 @@ class Paraglider6a:
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
-        v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
         v_W2b = v_W2e - v_CP2e
 
@@ -634,35 +633,35 @@ class Paraglider9a:
         v_P2e = C_p2b @ v_R2e + cross3(omega_p2e, r_P2R)
 
         # FIXME: "magic" layout of array contents
-        r_CP2B = r_CP2R[:-1] - r_B2R
-        r_CP2P = C_p2b @ r_CP2R[-1] - r_P2R
+        r_CP2B_b = r_CP2R[:-1] - r_B2R
+        r_CP2P_p = C_p2b @ r_CP2R[-1] - r_P2R
 
-        v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2B)
-        v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2P)
+        v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2B_b)
+        v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2P_p)
 
-        v_W2b = v_W2e[:-1] - v_CP2e_b  # Relative wind to the body control points
-        v_W2p = C_p2b @ v_W2e[-1] - v_CP2e_p  # Relative wind to the payload control points
+        v_W2b_b = v_W2e[:-1] - v_CP2e_b
+        v_W2p_p = C_p2b @ v_W2e[-1] - v_CP2e_p
 
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-            delta_bl, delta_br, v_W2b, rho_air, reference_solution,
+            delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
         )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2B, dF_wing_aero).sum(axis=0)
+        M_wing += cross3(r_CP2B_b, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
         F_p_weight = pmp["mass"] * C_p2b @ g
-        M_p = dM_p_aero.sum(axis=0)                   # FIXME: verify: should be zero
-        M_p += cross3(r_CP2P, dF_p_aero).sum(axis=0)  # FIXME: verify: should be zero
-        M_p += cross3(pmp["cm"] - r_P2R, F_p_weight)  # FIXME: verify: should be zero
+        M_p = dM_p_aero.sum(axis=0)
+        M_p += cross3(r_CP2P_p, dF_p_aero).sum(axis=0)
+        M_p += cross3(pmp["cm"] - r_P2R, F_p_weight)
 
         M_R = np.zeros(3)  # FIXME: implement proper spring+damper dynamics
         omega_p2b = omega_p2e - C_p2b @ omega_b2e
@@ -848,7 +847,6 @@ class Paraglider9a:
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            q_e2b = x["q_b2e"] * [1, -1, -1, -1]
             Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 x["v_R2e"],
