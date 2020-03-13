@@ -303,7 +303,7 @@ if __name__ == "__main__":
 
     print("\nComputing the glider equilibrium...")
 
-    # Option 1: fast, approximately accurately
+    # Option 1: fast, but only approximate
     alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
         delta_a=0.0,
         delta_b=0.0,
