@@ -141,9 +141,12 @@ class Paraglider6a:
         else:
             v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2R is None:
-            # FIXME: needs a design review. Ensure that if `v_W2e` and `r_CP2R`
-            #        were computed using the same `delta_a`, if `v_W2e` was
-            #        computed for the individual control points.
+            # FIXME: needs a design review. The idea was that if `v_W2e` is
+            #        given for each individual control point, then require the
+            #        values of those control points to ensure they match the
+            #        current state of the wing (including the current control
+            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
+            #        never liked this design.
             raise ValueError("Control point relative winds require r_CP2R")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
@@ -216,7 +219,7 @@ class Paraglider6a:
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum against the forces and moments.
 
-        J = J_wing + J_p  # Total moment of inertia matrix about the glider cm
+        J = J_wing + J_p  # Total inertia matrix about `B`
 
         A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
         A2 = [m_B * quaternion.skew(r_B2R), J]
@@ -583,9 +586,12 @@ class Paraglider9a:
         else:
             v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2R is None:
-            # FIXME: needs a design review. Ensure that if `v_W2e` and `r_CP2R`
-            #        were computed using the same `delta_a`, if `v_W2e` was
-            #        computed for the individual control points.
+            # FIXME: needs a design review. The idea was that if `v_W2e` is
+            #        given for each individual control point, then require the
+            #        values of those control points to ensure they match the
+            #        current state of the wing (including the current control
+            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
+            #        never liked this design.
             raise ValueError("Control point relative winds require r_CP2R")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
@@ -663,7 +669,8 @@ class Paraglider9a:
         M_p += cross3(r_CP2P_p, dF_p_aero).sum(axis=0)
         M_p += cross3(pmp["cm"] - r_P2R, F_p_weight)
 
-        M_R = np.zeros(3)  # FIXME: implement proper spring+damper dynamics
+        # Moment at the connection point `R` modeled as a spring+damper system
+        M_R = np.zeros(3)
         omega_p2b = omega_p2e - C_p2b @ omega_b2e
         M_R[0] += -5.0 * Theta_p[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p[1]  # Pitch restoring force
