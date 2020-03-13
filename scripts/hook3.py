@@ -289,7 +289,9 @@ if __name__ == "__main__":
     # wing materials I'm accounting for total to 1.83kg, so there's a lot left
     # in the lines, risers, ribs, etc.
     wing = build_hook3()
-    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    harness = gsim.harness.Spherical(
+        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1
+    )
     glider = gsim.paraglider.Paraglider6a(wing, harness)
 
     # print("Plotting the basic glider performance curves")

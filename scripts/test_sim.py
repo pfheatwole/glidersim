@@ -461,7 +461,9 @@ def main():
     # Build the glider
 
     wing = hook3.build_hook3()
-    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    harness = gsim.harness.Spherical(
+        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1
+    )
     glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
     glider_9a = gsim.paraglider.Paraglider9a(wing, harness)
     rho_air = 1.2

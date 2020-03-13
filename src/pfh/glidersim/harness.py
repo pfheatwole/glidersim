@@ -9,7 +9,7 @@ class Harness(abc.ABC):
     """
 
     @abc.abstractmethod
-    def control_points(self):
+    def control_points(self, delta_w):
         """FIXME: docstring"""
 
     @abc.abstractmethod
@@ -26,6 +26,12 @@ class Harness(abc.ABC):
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
             Aerodynamic forces and moments for each control point.
+        """
+
+    @abc.abstractmethod
+    def mass_properties(self, delta_w):
+        """
+        FIXME: docstring
         """
 
 
@@ -52,10 +58,7 @@ class Spherical(Harness):
     ref: PFD p85 (93)
     """
 
-    def __init__(self, mass, z_riser, S, CD):
-        # FIXME: the pilot is the thing that weight shifts; does the Paraglider
-        #        manage that mass? Seems the right decision...
-
+    def __init__(self, mass, z_riser, S, CD, kappa_w):
         """
 
         Parameters
@@ -69,14 +72,17 @@ class Spherical(Harness):
             The projected area of the sphere (ie, the area of a circle)
         CD : float [FIXME: units?]
             The isotropic drag coefficient
+        kappa_w : float [m]
+            The maximum weight shift distance
         """
         self._mass = mass
         self._z_riser = z_riser
         self._S = S
         self._CD = CD
+        self._kappa_w = kappa_w  # FIXME: Strange notation to match `kappa_a`
 
-    def control_points(self):
-        return np.array([0, 0, self._z_riser])
+    def control_points(self, delta_w=0):
+        return np.array([0, delta_w * self._kappa_w, self._z_riser])
 
     def forces_and_moments(self, v_W2h, rho_air):
         v2 = (v_W2h ** 2).sum()
@@ -85,11 +91,11 @@ class Spherical(Harness):
         dM = np.zeros(3)
         return dF, dM
 
-    def mass_properties(self):
+    def mass_properties(self, delta_w=0):
         # Treats the mass as a uniform density solid sphere
         return {
             "mass": self._mass,
-            "cm": np.array([0, 0, self._z_riser]),
+            "cm": self.control_points(delta_w),
             "J": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
             "J_apparent": np.zeros((3, 3)),
         }
