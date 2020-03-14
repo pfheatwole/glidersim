@@ -11,8 +11,23 @@ from pfh.glidersim.util import cross3
 class ParagliderWing:
     """FIXME: add class docstring."""
 
-    def __init__(self, canopy, force_estimator, brake_geo, d_riser, z_riser,
-                 pA, pC, kappa_a, rho_upper, rho_lower):
+    def __init__(
+        self,
+        canopy,
+        force_estimator,
+        brake_geo,
+        d_riser,
+        z_riser,
+        pA,
+        pC,
+        kappa_a,
+        total_line_length,
+        average_line_diameter,
+        line_drag_positions,
+        Cd_lines,
+        rho_upper,
+        rho_lower,
+    ):
         """
         FIXME: add docstring.
 
@@ -27,15 +42,25 @@ class ParagliderWing:
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
-        z_riser : float [meters]
+        z_riser : float [m]
             The vertical distance from the risers to the central chord
         pA, pC : float [percentage]
             The position of the A and C lines as a fraction of the central
             chord. The speedbar adjusts the length of the A lines, while C
             remains fixed, causing a rotation about the point `pC`.
-        kappa_a : float [meters], optional
+        kappa_a : float [m], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
+        total_line_length : float [m]
+            The total length of the lines from the risers to the canopy
+        average_line_diameter : float [m^2]
+            The average diameter of the connecting lines
+        line_drag_positions : array of float, shape (K,3)
+            The mean location(s) of the connecting line surface area(s).
+            If multiple positions are given, the total line length will be
+            divided between them evenly.
+        Cd_lines : float
+            The drag coefficient of the lines
         rho_upper, rho_lower : float [kg m^-2]
             Surface area densities of the upper and lower foil surfaces.
         """
@@ -45,8 +70,14 @@ class ParagliderWing:
         self.pA = pA
         self.pC = pC
         self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
+        self._r_L2R = np.atleast_2d(line_drag_positions)
+        self._S_lines = total_line_length * average_line_diameter / self._r_L2R.shape[0]
+        self._Cd_lines = Cd_lines
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
+
+        if self._r_L2R.ndim != 2 or self._r_L2R.shape[-1] != 3:
+            raise ValueError("`line_drag_positions` is not a (K,3) array")
 
         # The ParagliderWing coordinate axes are parallel to the canopy axes,
         # but the origin is translated from the central leading edge of the
@@ -107,8 +138,28 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
-        delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta_f, v_W2b, rho_air, reference_solution)
+        K_foil = self.force_estimator.s_cps.shape[0]
+        K_lines = self._r_L2R.shape[0]
+        v_W2b = np.broadcast_to(v_W2b, (K_foil + K_lines, 3))
+        delta_f = self.brake_geo(
+            self.force_estimator.s_cps, delta_bl, delta_br
+        )  # FIXME: leaky, don't grab `s_cps` directly
+        dF_foil, dM_foil, solution = self.force_estimator(
+            delta_f, v_W2b[:-K_lines], rho_air, reference_solution
+        )
+
+        dF_lines = (
+            -0.5
+            * rho_air
+            * v_W2b[-K_lines:] ** 2
+            * self._S_lines  # Line area per control point
+            * self._Cd_lines
+        )
+        dM_lines = np.zeros(3)
+
+        dF = np.vstack((dF_foil, dF_lines))
+        dM = np.vstack((dM_foil, dM_lines))
+
         return dF, dM, solution
 
     def canopy_origin(self, delta_a=0):
@@ -177,8 +228,9 @@ class ParagliderWing:
         cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        cps = self.force_estimator.control_points  # In foil coordinates
-        return cps + self.canopy_origin(delta_a)  # In wing coordinates
+        foil_cps = self.force_estimator.control_points  # In foil coordinates
+        foil_cps = foil_cps + self.canopy_origin(delta_a)
+        return np.vstack((foil_cps, self._r_L2R))
 
     def mass_properties(self, rho_air, delta_a=0):
         """

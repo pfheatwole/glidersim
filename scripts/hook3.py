@@ -289,10 +289,14 @@ def build_hook3():
         force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
-        z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
-        pA=0.11,  # Approximated from the line plan in the manual PDF, page 17
+        z_riser=6.8,  # ref: "Hook 3 technical specs", pg 2
+        pA=0.11,  # Approximated from the line plan in the users manual, pg 17
         pC=0.59,
-        kappa_a=0.15,  # From the Hook 3 manual
+        kappa_a=0.15,  # ref: "Hook 3 technical specs", pg 2
+        total_line_length=213,  # ref: "Hook 3 technical specs", pg 2
+        average_line_diameter=1e-3,  # Blind guess
+        line_drag_positions=[[0, -1.75, -5], [0, 1.75, -5]],  # Blind guess
+        Cd_lines=0.98,  # ref: Kulhánek, 2019; page 5
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )
