@@ -136,7 +136,14 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(
-        self, delta_a, delta_b, v_mag, rho_air, reference_solution=None,
+        self,
+        delta_a,
+        delta_b,
+        v_mag,
+        rho_air,
+        alpha_0=9,
+        alpha_1=6,
+        reference_solution=None,
     ):
         """Compute the zero aerodynamic pitching moment angle of attack."""
         cp_wing = self.control_points(delta_a)
@@ -148,7 +155,7 @@ class ParagliderWing:
             )
             M = dM_wing.sum(axis=0) + cross3(cp_wing, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment
-        x0, x1 = np.deg2rad([9, 6])  # FIXME: review these bounds
+        x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
             raise foil.ForceEstimator.ConvergenceError

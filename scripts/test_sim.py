@@ -491,30 +491,22 @@ def main():
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
-    # Define the initial state
+    # Define the initial state for both models
 
-    # Option 1: Arbitrary state (should be equilibrium Hook 3)
-    # alpha = np.deg2rad(8.86313992)  # Good for Dynamics6a
-    alpha = np.deg2rad(9.31854038)  # Good for Dynamics9a
-    beta = np.deg2rad(0)
-    # theta_b = np.deg2rad(2.06783323)  # Good for Dynamics6a
-    theta_b = np.deg2rad(3.104)  # Good for Dynamics9a
-    theta_p = np.deg2rad(-2.102)  # Good for Dynamics9a payload
-    # v_mag = 10.32649163  # Good for Dynamics6a
-    v_mag = 10.10637021  # Good for Dynamics9a
+    # Precomputed equilibrium states
+    equilibrium_6a = {
+        "euler_b2e": [0, np.deg2rad(2.06783323), 0],
+        "v_R2e": [10.254, 0, 1.2219],
+    }
 
-    # Option 2: Approximate equilibrium state (neglects harness moment)
-    # alpha, theta_b, v, _ = glider.equilibrium_glide(
-    #     delta_a=0.0,
-    #     delta_b=0,
-    #     v_eq_proposal=10,
-    #     rho_air=rho_air
-    # )
-    # beta = 0
+    equilibrium_9a = {
+        "euler_b2e": [0, np.deg2rad(3.104), 0],
+        "euler_p2b": [0, np.deg2rad(-5.206), 0],
+        "v_R2e": [10, 0, 1.5],
+    }
 
-    # Option 3: Equilibrium code (slow, but more accurate)
-    # alpha, theta_b, v, _ = glider_6a.equilibrium_glide2(
-    # alpha, theta_b, theta_p, v, _ = glider_9a.equilibrium_glide2(
+    # Optional: recompute the equilibrium state
+    # state_6a = glider_6a.equilibrium_state(
     #     delta_a=0,
     #     delta_b=0,
     #     alpha_0=np.deg2rad(9),
@@ -522,32 +514,32 @@ def main():
     #     v_0=10,
     #     rho_air=1.2,
     # )
-    # beta = 0
+    #
+    # state_9a = glider_9a.equilibrium_state(
+    #     delta_a=0,
+    #     delta_b=0,
+    #     alpha_0=np.deg2rad(9),
+    #     theta_0=np.deg2rad(3),
+    #     v_0=10,
+    #     rho_air=1.2,
+    # )
 
-    v_R2e = v_mag * np.asarray(  # In body frd
-        [np.cos(alpha) * np.cos(beta), np.sin(beta), np.sin(alpha) * np.cos(beta)],
-    )
-    omega_b2e = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]  # [rad/sec]
-    euler_b2e = [np.deg2rad(0), theta_b, np.deg2rad(0)]  # [phi, theta, gamma]
-    q_b2e = quaternion.euler_to_quaternion(euler_b2e)  # Encodes C_frd/ned
-    q_e2b = q_b2e * [1, -1, -1, -1]  # Encodes C_ned/frd
+    # Optional: arbitrary modifications:
+    # state_9a["euler_p2b"] = -np.array(state_9a["euler_b2e"],  # Straight down
 
-    # Define the initial state
     state_6a = np.empty(1, dtype=Dynamics6a.state_dtype)
-    state_6a["q_b2e"] = q_b2e
+    state_6a["q_b2e"] = quaternion.euler_to_quaternion(equilibrium_6a["euler_b2e"])
+    state_6a["omega_b2e"] = [0, 0, 0]
     state_6a["r_R2O"] = [0, 0, 0]
-    state_6a["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, v_R2e)
-    state_6a["omega_b2e"] = omega_b2e
+    state_6a["v_R2e"] = equilibrium_6a["v_R2e"]
 
     state_9a = np.empty(1, dtype=Dynamics9a.state_dtype)
-    state_9a["q_b2e"] = q_b2e
-    # state_9a["q_p2b"] = [1, 0, 0, 0]  # Payload aligned to the body (zero relative angle)
-    # state_9a["q_p2b"] = q_b2e * [1, -1, -1, -1]  # Payload aligned to gravity (straight down)
-    state_9a["q_p2b"] = quaternion.euler_to_quaternion([0, theta_p - theta_b, 0])  # Precomputed equilibrium value
-    state_9a["omega_b2e"] = omega_b2e
+    state_9a["q_b2e"] = quaternion.euler_to_quaternion(equilibrium_9a["euler_b2e"])
+    state_9a["q_p2b"] = quaternion.euler_to_quaternion(equilibrium_9a["euler_p2b"])
+    state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
-    state_9a["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, v_R2e)
+    state_9a["v_R2e"] = equilibrium_9a["v_R2e"]
 
     # -----------------------------------------------------------------------
     # Build a test scenario
@@ -648,6 +640,8 @@ def main():
 
     # state0 = state_9a
     # model = model_9a
+
+    euler_b2e = quaternion.quaternion_to_euler(state0["q_b2e"])
 
     print("Preparing the simulation.")
     print("Initial state:")

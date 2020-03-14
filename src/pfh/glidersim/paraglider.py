@@ -241,87 +241,7 @@ class Paraglider6a:
 
         return a_R2e, alpha_b2e, ref
 
-    def equilibrium_glide(
-        self,
-        delta_a,
-        delta_b,
-        v_eq_proposal,
-        rho_air,
-        N_iter=2,
-        reference_solution=None,
-    ):
-        r"""
-        Steady-state angle of attack, pitch angle, and airspeed.
-
-        Parameters
-        ----------
-        delta_a : float [percentage]
-            Percentage of accelerator application
-        delta_b : float [percentage]
-            Percentage of symmetric brake application
-        v_eq_proposal : float [m/s]
-            A rough guess for the equilibrium airspeed. This is required to put
-            the Reynolds numbers into the proper range.
-        rho_air : float [kg/m^3]
-            Air density.
-        N_iter : integer, optional
-            Number of iterations to account for the fact that the Reynolds
-            numbers (and thus the coefficients) vary with the solution for
-            `v_eq`. If `v_eq_proposal` is anywhere close to accurate, then one
-            or two iterations are usually sufficient. Default: 2
-        reference_solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
-
-        Returns
-        -------
-        alpha_eq : float [radians]
-            Steady-state angle of attack
-        theta_eq : float [radians]
-            Steady-state pitch angle
-        v_eq : float [m/s]
-            Steady-state airspeed
-        solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        Calculating :math:`v_eq` takes advantage of the fact that all the
-        aerodynamic forces are proportional to :math:`v^2`. Thus, by
-        normalizing the forces to :math:`v = 1`, the following equation can be
-        solved for :math:`v_eq` directly using:
-
-        .. math::
-
-            v_{eq}^2 \cdot \Sigma F_{z,aero} + m_p g \cdot \text{sin} \left( \theta \right)
-
-        where :math:`m_p` is the mass of the payload.
-        """
-
-        v_eq = v_eq_proposal  # The initial guess
-        solution = reference_solution  # Approximate solution, if available
-        m_p = self.payload.mass_properties()["mass"]
-
-        for _ in range(N_iter):
-            alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, v_eq, rho_air, solution,
-            )
-            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-            dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, v_W2b, rho_air, solution,
-            )
-            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
-            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
-            F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
-
-            theta_eq = np.arctan2(F[0], -F[2])
-
-            # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * m_p * np.cos(theta_eq)
-            v_eq = np.sqrt(-weight_z / F[2])
-
-        return alpha_eq, theta_eq, v_eq, solution
-
-    def equilibrium_glide2(
+    def equilibrium_state(
         self,
         delta_a,
         delta_b,
@@ -332,24 +252,25 @@ class Paraglider6a:
         reference_solution=None,
     ):
         """
-        Compute the equilibrium state through simulation.
+        Compute the equilibrium glider state for given inputs.
 
-        Unlike `equilibrium_glide`, this uses the full model dynamics. The
-        other method is very fast, but ignores things like the weight of the
-        wing.
+        Unlike `equilibrium_state2`, this uses the full model dynamics. It's
+        currently very slow since it simply waits for oscillations to settle.
+        The other method is very fast, but ignores factors such as the moments
+        due to the weight of the wing and harness.
 
         Parameters
         ----------
         delta_a : float [percentage]
-            The percentage of accelerator.
+            Percentage of accelerator application
         delta_b : float [percentage]
-            The percentage of symmetric brake.
+            Percentage of symmetric brake application
         alpha_0 : float [rad], optional
-            The initial proposal for angle of attack.
+            An initial proposal for the body angle of attack.
         theta_0 : float [rad], optional
-            The initial proposal for glider pitch angle.
+            An initial proposal for the body pitch angle.
         v_0 : float [m/s], optional
-            The initial proposal for glider airspeed.
+            An initial proposal for the body airspeed.
         rho_air : float [kg/m^3]
             Air density.
         reference_solution : dictionary, optional
@@ -357,14 +278,19 @@ class Paraglider6a:
 
         Returns
         -------
-        alpha_eq : float [radians]
-            Steady-state angle of attack
-        theta_eq : float [radians]
-            Steady-state pitch angle
-        v_eq : float [m/s]
-            Steady-state airspeed
-        solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
+        dictionary
+            alpha_b : float [radians]
+                Angle of attack of the body (the wing)
+            gamma_b : float [radians]
+                Glide angle of the foil
+            glide_ratio : float
+                Units of ground distance traveled per unit of altitude lost
+            euler_b2e : array of float, shape (3,) [radians]
+                Steady state orientation as a set of yaw-pitch-role angles
+            v_R2e : float [m/s]
+                Steady-state velocity in body coordinates
+            solution : dictionary
+                FIXME: docstring. See `Phillips.__call__`
         """
         state_dtype = [
             ("q_b2e", float, (4,)),  # Orientation quaternion, body/earth
@@ -410,13 +336,13 @@ class Paraglider6a:
         }
 
         solver = scipy.integrate.ode(dynamics)
-        solver.set_integrator("dopri5", rtol=1e-5, max_step=0.1)
+        solver.set_integrator("dopri5", rtol=1e-5, max_step=0.25)
         solver.set_f_params(dynamics_kwargs)
 
         while True:
             state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
             solver.set_initial_value(state.view(float))
-            state = solver.integrate(1).view(state_dtype)
+            state = solver.integrate(3).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             a_frd, alpha_frd, _ = self.accelerations(
                 state["v_R2e"][0],
@@ -436,11 +362,131 @@ class Paraglider6a:
                 state = state[0]
                 break
 
-        alpha_eq = np.arctan2(*state["v_R2e"][[2, 0]])
-        theta_eq = quaternion.quaternion_to_euler(state["q_b2e"])[1]
-        v_eq = np.linalg.norm(state["v_R2e"])
+        alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
+        euler_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        gamma_b = alpha_b - euler_b2e[1]
 
-        return alpha_eq, theta_eq, v_eq, dynamics_kwargs["reference_solution"]
+        equilibrium = {
+            "alpha_b": alpha_b,
+            "gamma_b": gamma_b,
+            "glide_ratio": 1 / np.tan(gamma_b),
+            "euler_b2e": euler_b2e,
+            "v_R2e": state["v_R2e"],
+            "reference_solution": dynamics_kwargs["reference_solution"],
+        }
+
+        return equilibrium
+
+    def equilibrium_state2(
+        self,
+        delta_a,
+        delta_b,
+        alpha_0,
+        theta_0,  # For compatibility with `equilibrium_state`; unused here.
+        v_0,
+        rho_air,
+        N_iter=2,
+        reference_solution=None,
+    ):
+        r"""
+        Compute the approximate equilibrium glider state for given inputs.
+
+        It is very fast, and is often a good estimate, but can be inaccurate.
+
+        Because the pitch angles of the wing and payload are relatively small,
+        this method ignores the moment due to the harness, which allows it to
+        use the zero-moment angle of attack of the wing to quickly compute the
+        (approximate) steady-state conditions using a closed for equation.
+
+        Parameters
+        ----------
+        delta_a : float [percentage]
+            Percentage of accelerator application
+        delta_b : float [percentage]
+            Percentage of symmetric brake application
+        alpha_0 : float [rad]
+            An initial proposal for the body angle of attack.
+        theta_0 : unused
+            This parameter is ignored by this function. It is included simply
+            for function signature compatibility with `equilibrium_state`.
+        v_0 : float [m/s]
+            An initial proposal for the equilibrium airspeed. This is required
+            to put the Reynolds numbers into a reasonable range.
+        rho_air : float [kg/m^3]
+            Air density.
+        N_iter : integer, optional
+            Number of iterations to account for the fact that the Reynolds
+            numbers (and thus the coefficients) vary with the solution for
+            the airspeed. If `v_0` is anywhere close to accurate, then one
+            or two iterations are usually sufficient. Default: 2
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        dictionary
+            alpha_b : float [radians]
+                Angle of attack of the body (the wing)
+            gamma_b : float [radians]
+                Glide angle of the foil
+            glide_ratio : float
+                Units of ground distance traveled per unit of altitude lost
+            euler_b2e : array of float, shape (3,) [radians]
+                Steady state orientation as a set of yaw-pitch-role angles
+            v_R2e : float [m/s]
+                Steady-state velocity in body coordinates
+            solution : dictionary
+                FIXME: docstring. See `Phillips.__call__`
+
+        Notes
+        -----
+        Calculating the equilibrium airspeed :math:`\vec{v}_{eq}` takes
+        advantage of the fact that all the aerodynamic forces are proportional
+        to :math:`\vec{v}_{eq}^2`. Thus, by normalizing the forces to
+        :math:`\vec{v}_{eq} = 1`, the following equation can be solved for
+        :math:`\vec{v}_{eq}` directly using:
+
+        .. math::
+
+            \vec{v}_{eq}^2 \cdot \Sigma F_{z,aero} + m_p g \cdot \text{cos} \left( \theta \right)
+
+        where :math:`m_p` is the mass of the payload.
+        """
+
+        v_eq = v_0  # The initial guess
+        solution = reference_solution  # Approximate solution, if available
+        m_p = self.payload.mass_properties()["mass"]
+
+        for _ in range(N_iter):
+            alpha_eq = self.wing.equilibrium_alpha(
+                delta_a, delta_b, v_eq, rho_air, alpha_0=np.rad2deg(alpha_0), reference_solution=solution,
+            )
+            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            dF_wing, dM_wing, solution = self.wing.forces_and_moments(
+                delta_b, delta_b, v_W2b, rho_air, solution,
+            )
+            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
+            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
+            F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
+
+            theta_eq = np.arctan2(F[0], -F[2])
+
+            # FIXME: neglects the weight of the wing
+            weight_z = 9.8 * m_p * np.cos(theta_eq)
+            v_eq = np.sqrt(-weight_z / F[2])
+
+        gamma_eq = alpha_eq - theta_eq
+
+        equilibrium = {
+            "alpha_b": alpha_eq,
+            "gamma_b": gamma_eq,
+            "glide_ratio": 1 / np.tan(gamma_eq),
+            "euler_b2e": np.array([0, theta_eq, 0]),
+            "v_R2e": v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)]),
+            "reference_solution": solution,
+        }
+
+        return equilibrium
 
 
 class Paraglider9a:
@@ -719,87 +765,7 @@ class Paraglider9a:
 
         return a_R2e, alpha_b2e, alpha_p2e, ref
 
-    def equilibrium_glide(
-        self,
-        delta_a,
-        delta_b,
-        v_eq_proposal,
-        rho_air,
-        N_iter=2,
-        reference_solution=None,
-    ):
-        r"""
-        Steady-state angle of attack, pitch angle, and airspeed.
-
-        Parameters
-        ----------
-        delta_a : float [percentage]
-            Percentage of accelerator application
-        delta_b : float [percentage]
-            Percentage of symmetric brake application
-        v_eq_proposal : float [m/s]
-            A rough guess for the equilibrium airspeed. This is required to put
-            the Reynolds numbers into the proper range.
-        rho_air : float [kg/m^3]
-            Air density.
-        N_iter : integer, optional
-            Number of iterations to account for the fact that the Reynolds
-            numbers (and thus the coefficients) vary with the solution for
-            `v_eq`. If `v_eq_proposal` is anywhere close to accurate, then one
-            or two iterations are usually sufficient. Default: 2
-        reference_solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
-
-        Returns
-        -------
-        alpha_eq : float [radians]
-            Steady-state angle of attack
-        theta_eq : float [radians]
-            Steady-state pitch angle
-        v_eq : float [m/s]
-            Steady-state airspeed
-        solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        Calculating :math:`v_eq` takes advantage of the fact that all the
-        aerodynamic forces are proportional to :math:`v^2`. Thus, by
-        normalizing the forces to :math:`v = 1`, the following equation can be
-        solved for :math:`v_eq` directly using:
-
-        .. math::
-
-            v_{eq}^2 \cdot \Sigma F_{z,aero} + m_p g \cdot \text{sin} \left( \theta \right)
-
-        where :math:`m_p` is the mass of the payload.
-        """
-
-        v_eq = v_eq_proposal  # The initial guess
-        solution = reference_solution  # Approximate solution, if available
-        m_p = self.payload.mass_properties()["mass"]
-
-        for _ in range(N_iter):
-            alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, v_eq, rho_air, solution,
-            )
-            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-            dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, v_W2b, rho_air, solution,
-            )
-            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
-            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
-            F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
-
-            theta_eq = np.arctan2(F[0], -F[2])
-
-            # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * m_p * np.cos(theta_eq)
-            v_eq = np.sqrt(-weight_z / F[2])
-
-        return alpha_eq, theta_eq, v_eq, solution
-
-    def equilibrium_glide2(
+    def equilibrium_state(
         self,
         delta_a,
         delta_b,
@@ -835,14 +801,21 @@ class Paraglider9a:
 
         Returns
         -------
-        alpha_eq : float [radians]
-            Steady-state angle of attack
-        theta_eq : float [radians]
-            Steady-state pitch angle
-        v_eq : float [m/s]
-            Steady-state airspeed
-        solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
+        dictionary
+            alpha_b : float [radians]
+                Angle of attack of the body (the wing)
+            gamma_b : float [radians]
+                Glide angle
+            glide_ratio : float
+                Horizontal vs vertical distance
+            euler_b2e : array of float, shape (3,) [radians]
+                Orientation: body/earth
+            euler_p2b : array of float, shape (3,) [radians]
+                Orientation: payload/body
+            v_R2e : float [m/s]
+                Steady-state velocity in body coordinates
+            solution : dictionary
+                FIXME: docstring. See `Phillips.__call__`
         """
         state_dtype = [
             ("q_b2e", float, (4,)),  # Orientation: body/earth
@@ -932,15 +905,28 @@ class Paraglider9a:
             )
 
             # FIXME: this test doesn't guarantee equilibria
-            if any(abs(a_R2e) > 0.001) or any(abs(alpha_b2e) > 0.001) or any(abs(alpha_p2e) > 0.001):
+            if (
+                any(abs(a_R2e) > 0.001)
+                or any(abs(alpha_b2e) > 0.001)
+                or any(abs(alpha_p2e) > 0.001)
+            ):
                 continue
             else:
                 state = state[0]
                 break
 
-        alpha_eq = np.arctan2(*state["v_R2e"][[2, 0]])
-        theta_b_eq = quaternion.quaternion_to_euler(state["q_b2e"])[1]
-        theta_p_eq = quaternion.quaternion_to_euler(state["q_p2b"])[1]
-        v_eq = np.linalg.norm(state["v_R2e"])
+        alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
+        euler_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        gamma_b = alpha_b - euler_b2e[1]
 
-        return alpha_eq, theta_b_eq, theta_p_eq, v_eq, dynamics_kwargs["reference_solution"]
+        equilibrium = {
+            "alpha_b": alpha_b,
+            "gamma_b": gamma_b,
+            "glide_ratio": 1 / np.tan(gamma_b),
+            "euler_b2e": euler_b2e,
+            "euler_p2b": quaternion.quaternion_to_euler(state["q_p2b"]),
+            "v_R2e": state["v_R2e"],
+            "reference_solution": dynamics_kwargs["reference_solution"],
+        }
+
+        return equilibrium
