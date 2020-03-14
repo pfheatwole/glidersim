@@ -493,7 +493,7 @@ def main():
     # -----------------------------------------------------------------------
     # Define the initial state for both models
 
-    # Precomputed equilibrium states
+    # Precomputed equilibrium states in body coordinates
     equilibrium_6a = {
         "euler_b2e": [0, np.deg2rad(2.63584), 0],
         "v_R2e": [9.78258, 0, 1.67566],
@@ -526,19 +526,25 @@ def main():
     # Optional: arbitrary modifications:
     # state_9a["euler_p2b"] = -np.array(state_9a["euler_b2e"],  # Straight down
 
+    q_b2e_6a = quaternion.euler_to_quaternion(equilibrium_6a["euler_b2e"])
     state_6a = np.empty(1, dtype=Dynamics6a.state_dtype)
-    state_6a["q_b2e"] = quaternion.euler_to_quaternion(equilibrium_6a["euler_b2e"])
+    state_6a["q_b2e"] = q_b2e_6a
     state_6a["omega_b2e"] = [0, 0, 0]
     state_6a["r_R2O"] = [0, 0, 0]
-    state_6a["v_R2e"] = equilibrium_6a["v_R2e"]
+    state_6a["v_R2e"] = quaternion.apply_quaternion_rotation(
+        q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
+    )
 
+    q_b2e_9a = quaternion.euler_to_quaternion(equilibrium_9a["euler_b2e"])
     state_9a = np.empty(1, dtype=Dynamics9a.state_dtype)
-    state_9a["q_b2e"] = quaternion.euler_to_quaternion(equilibrium_9a["euler_b2e"])
+    state_9a["q_b2e"] = q_b2e_9a
     state_9a["q_p2b"] = quaternion.euler_to_quaternion(equilibrium_9a["euler_p2b"])
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
-    state_9a["v_R2e"] = equilibrium_9a["v_R2e"]
+    state_9a["v_R2e"] = quaternion.apply_quaternion_rotation(
+        q_b2e_9a * [-1, 1, 1, 1], equilibrium_9a["v_R2e"],
+    )
 
     # -----------------------------------------------------------------------
     # Build a test scenario
