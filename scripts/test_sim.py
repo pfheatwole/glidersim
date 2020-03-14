@@ -495,14 +495,14 @@ def main():
 
     # Precomputed equilibrium states
     equilibrium_6a = {
-        "euler_b2e": [0, np.deg2rad(2.06783323), 0],
-        "v_R2e": [10.254, 0, 1.2219],
+        "euler_b2e": [0, np.deg2rad(2.63584), 0],
+        "v_R2e": [9.78258, 0, 1.67566],
     }
 
     equilibrium_9a = {
-        "euler_b2e": [0, np.deg2rad(3.104), 0],
-        "euler_p2b": [0, np.deg2rad(-5.206), 0],
-        "v_R2e": [10, 0, 1.5],
+        "euler_b2e": [0, np.deg2rad(3.05484), 0],
+        "euler_p2b": [0, np.deg2rad(-5.01013), 0],
+        "v_R2e": [9.61059, 0, 1.71127],
     }
 
     # Optional: recompute the equilibrium state
@@ -514,7 +514,6 @@ def main():
     #     v_0=10,
     #     rho_air=1.2,
     # )
-    #
     # state_9a = glider_9a.equilibrium_state(
     #     delta_a=0,
     #     delta_b=0,
