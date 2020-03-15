@@ -142,10 +142,10 @@ class ParagliderWing:
         K_lines = self._r_L2R.shape[0]
         v_W2b = np.broadcast_to(v_W2b, (K_foil + K_lines, 3))
         delta_f = self.brake_geo(
-            self.force_estimator.s_cps, delta_bl, delta_br
+            self.force_estimator.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
         dF_foil, dM_foil, solution = self.force_estimator(
-            delta_f, v_W2b[:-K_lines], rho_air, reference_solution
+            delta_f, v_W2b[:-K_lines], rho_air, reference_solution,
         )
 
         dF_lines = (
@@ -196,15 +196,42 @@ class ParagliderWing:
         alpha_1=6,
         reference_solution=None,
     ):
-        """Compute the zero aerodynamic pitching moment angle of attack."""
-        cp_wing = self.control_points(delta_a)
+        """
+        Compute the angle of attack with zero aerodynamic pitching moment.
+
+        The final wing will have extra moments from the harness and weight of
+        the wing, but this value is often a good estimate.
+
+        Parameters
+        ----------
+        delta_a : float [percentage], optional
+            Percentage of accelerator application
+        delta_b : float [percentage]
+            The amount of symmetric brake
+        v_mag : float [m/s]
+            Airspeed
+        rho_air : float [kg/m^3]
+            Air density
+        alpha_0 : float [rad], optional
+            First guess for the equilibrium alpha search.
+        alpha_1 : float [rad], optional
+            First guess for the equilibrium alpha search.
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        float [rad]
+            The angle of attack where the section pitching moments sum to zero.
+        """
+        r_CP2R = self.control_points(delta_a)  # riser -> control points
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.forces_and_moments(
                 delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
-            M = dM_wing.sum(axis=0) + cross3(cp_wing, dF_wing).sum(axis=0)
+            M = dM_wing.sum(axis=0) + cross3(r_CP2R, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
