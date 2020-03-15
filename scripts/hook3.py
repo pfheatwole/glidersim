@@ -20,7 +20,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
     delta_as = np.linspace(0, 1, N)
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
-        "euler_b2e": [0, np.deg2rad(3), 0],
+        "Theta_b2e": [0, np.deg2rad(3), 0],
         "v_R2e": [10, 0, 1],
         "reference_solution": None,
     }
@@ -32,7 +32,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
                 delta_a=da,
                 delta_b=0,
                 alpha_0=equilibrium["alpha_b"],
-                theta_0=equilibrium["euler_b2e"][1],
+                theta_0=equilibrium["Theta_b2e"][1],
                 v_0=np.linalg.norm(equilibrium["v_R2e"]),
                 rho_air=1.2,
                 reference_solution=equilibrium["reference_solution"],
@@ -48,7 +48,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
     delta_bs = np.linspace(0, 1, N)
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
-        "euler_b2e": [0, np.deg2rad(3), 0],
+        "Theta_b2e": [0, np.deg2rad(3), 0],
         "v_R2e": [10, 0, 1],
         "reference_solution": None,
     }
@@ -60,7 +60,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
                 delta_a=0,
                 delta_b=db,
                 alpha_0=equilibrium["alpha_b"],
-                theta_0=equilibrium["euler_b2e"][1],
+                theta_0=equilibrium["Theta_b2e"][1],
                 v_0=np.linalg.norm(equilibrium["v_R2e"]),
                 rho_air=1.2,
                 reference_solution=equilibrium["reference_solution"],
@@ -73,10 +73,10 @@ def plot_polar_curve(glider, N=21, approximate=True):
     print()
 
     # Convert the airspeeds from body coordinates to Earth coordinates
-    euler_b2e_a = np.asarray([e["euler_b2e"] for e in eqs_a])
-    euler_b2e_b = np.asarray([e["euler_b2e"] for e in eqs_b])
-    q_e2b_a = quaternion.euler_to_quaternion(euler_b2e_a.T).T * [-1, 1, 1, 1]
-    q_e2b_b = quaternion.euler_to_quaternion(euler_b2e_b.T).T * [-1, 1, 1, 1]
+    Theta_b2e_a = np.asarray([e["Theta_b2e"] for e in eqs_a])
+    Theta_b2e_b = np.asarray([e["Theta_b2e"] for e in eqs_b])
+    q_e2b_a = quaternion.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
+    q_e2b_b = quaternion.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
     v_R2e_a = [e["v_R2e"] for e in eqs_a]
     v_R2e_b = [e["v_R2e"] for e in eqs_b]
     v_R2e_a = quaternion.apply_quaternion_rotation(q_e2b_a, v_R2e_a)
@@ -107,8 +107,8 @@ def plot_polar_curve(glider, N=21, approximate=True):
     ax[0, 1].minorticks_on()
 
     # theta_b versus control input
-    theta_b_a = [e["euler_b2e"][1] for e in eqs_a]
-    theta_b_b = [e["euler_b2e"][1] for e in eqs_b]
+    theta_b_a = [e["Theta_b2e"][1] for e in eqs_a]
+    theta_b_b = [e["Theta_b2e"][1] for e in eqs_b]
     ax[1, 0].plot(delta_as, np.rad2deg(theta_b_a), "g")
     ax[1, 0].plot(-delta_bs, np.rad2deg(theta_b_b), "r")
     ax[1, 0].set_xlabel("Control input [%]")
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     )
 
     # Compute the residual acceleration at the given equilibrium state
-    q_b2e = quaternion.euler_to_quaternion(eq["euler_b2e"])
+    q_b2e = quaternion.euler_to_quaternion(eq["Theta_b2e"])
     q_e2b = q_b2e * [-1, 1, 1, 1]
     v_R2e = quaternion.apply_quaternion_rotation(q_e2b, eq["v_R2e"])
 
@@ -363,7 +363,7 @@ if __name__ == "__main__":
     #     v_R2e=eq["v_R2e"],
     #     omega_b2e=[0, 0, 0],
     #     omega_p2e=[0, 0, 0],
-    #     Theta_p=eq["euler_p2b"],
+    #     Theta_p2b=eq["Theta_p2b"],
     #     g=quaternion.apply_quaternion_rotation(q_b2e, [0, 0, 9.8]),
     #     rho_air=1.2,
     #     reference_solution=eq["reference_solution"],
@@ -371,7 +371,7 @@ if __name__ == "__main__":
 
     print("Equilibrium state:")
     print(f"  alpha_b:     {np.rad2deg(eq['alpha_b']):>6.3f} [deg]")
-    print(f"  theta_b:     {np.rad2deg(eq['euler_b2e'][1]):>6.3f} [deg]")
+    print(f"  theta_b:     {np.rad2deg(eq['Theta_b2e'][1]):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(eq['gamma_b']):>6.3f} [deg]")
     print(f"  Glide ratio: {eq['glide_ratio']:>6.3f}")
     print(f"  Glide speed: {np.linalg.norm(v_R2e):>6.3f}")

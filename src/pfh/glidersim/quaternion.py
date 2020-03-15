@@ -19,7 +19,7 @@ def skew(v):
 
 def euler_to_dcm(euler):
     """
-    Convert a set of yaw-pitch-role Euler angles to a DCM.
+    Convert a set of yaw-pitch-role Tait-Bryan angles to a DCM.
 
     Parameters
     ----------
@@ -42,7 +42,7 @@ def euler_to_dcm(euler):
 
 def dcm_to_euler(dcm):
     """
-    Convert a DCM to a set of yaw-pitch-role Euler angles.
+    Convert a DCM to a set of yaw-pitch-role Tait-Bryan angles.
 
     Parameters
     ----------
@@ -62,7 +62,7 @@ def dcm_to_euler(dcm):
 
 def euler_to_quaternion(euler):
     """
-    Convert a set of yaw-pitch-role Euler angles to a quaternion.
+    Convert a set of yaw-pitch-role Tait-Bryan angles to a quaternion.
 
     Parameters
     ----------
@@ -99,7 +99,7 @@ def quaternion_to_dcm(q):
 
 
 def quaternion_to_euler(q):
-    """Convert a quaternion to a set of yaw-pitch-role Euler angles."""
+    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles."""
     # assert np.isclose(np.linalg.norm(q), 1)
     w, x, y, z = q.T
 

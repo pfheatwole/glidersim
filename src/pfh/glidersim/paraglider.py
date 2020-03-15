@@ -285,7 +285,7 @@ class Paraglider6a:
                 Glide angle of the foil
             glide_ratio : float
                 Units of ground distance traveled per unit of altitude lost
-            euler_b2e : array of float, shape (3,) [radians]
+            Theta_b2e : array of float, shape (3,) [radians]
                 Steady state orientation as a set of yaw-pitch-role angles
             v_R2e : float [m/s]
                 Steady-state velocity in body coordinates
@@ -363,14 +363,14 @@ class Paraglider6a:
                 break
 
         alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
-        euler_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
-        gamma_b = alpha_b - euler_b2e[1]
+        Theta_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        gamma_b = alpha_b - Theta_b2e[1]
 
         equilibrium = {
             "alpha_b": alpha_b,
             "gamma_b": gamma_b,
             "glide_ratio": 1 / np.tan(gamma_b),
-            "euler_b2e": euler_b2e,
+            "Theta_b2e": Theta_b2e,
             "v_R2e": state["v_R2e"],
             "reference_solution": dynamics_kwargs["reference_solution"],
         }
@@ -431,7 +431,7 @@ class Paraglider6a:
                 Glide angle of the foil
             glide_ratio : float
                 Units of ground distance traveled per unit of altitude lost
-            euler_b2e : array of float, shape (3,) [radians]
+            Theta_b2e : array of float, shape (3,) [radians]
                 Steady state orientation as a set of yaw-pitch-role angles
             v_R2e : float [m/s]
                 Steady-state velocity in body coordinates
@@ -481,7 +481,7 @@ class Paraglider6a:
             "alpha_b": alpha_eq,
             "gamma_b": gamma_eq,
             "glide_ratio": 1 / np.tan(gamma_eq),
-            "euler_b2e": np.array([0, theta_eq, 0]),
+            "Theta_b2e": np.array([0, theta_eq, 0]),
             "v_R2e": v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)]),
             "reference_solution": solution,
         }
@@ -509,7 +509,7 @@ class Paraglider9a:
         self.wing = wing
         self.payload = payload
 
-    def control_points(self, Theta_p, delta_a=0, delta_w=0):
+    def control_points(self, Theta_p2b, delta_a=0, delta_w=0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -520,7 +520,7 @@ class Paraglider9a:
 
         Parameters
         ----------
-        Theta_p : array of float, shape (3,) [radians]
+        Theta_p2b : array of float, shape (3,) [radians]
             The [phi, theta, gamma] of a yaw-pitch-roll sequence that encodes
             the relative orientation of the payload with respect to the body.
         delta_a : float [percentage]
@@ -534,7 +534,7 @@ class Paraglider9a:
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
         payload_cps = self.payload.control_points(delta_w)  # In payload frd
-        C_b2p = quaternion.euler_to_dcm(Theta_p).T
+        C_b2p = quaternion.euler_to_dcm(Theta_p2b).T
         return np.vstack((wing_cps, C_b2p @ payload_cps))
 
     def accelerations(
@@ -542,7 +542,7 @@ class Paraglider9a:
         v_R2e,
         omega_b2e,
         omega_p2e,
-        Theta_p,
+        Theta_p2b,
         g,
         rho_air,
         delta_a=0,
@@ -568,7 +568,7 @@ class Paraglider9a:
             Angular velocity of the body, in body frd coordinates.
         omega_p2e : array of float, shape (3,) [rad/s]
             Angular velocity of the payload, in payload frd coordinates.
-        Theta_p : array of float, shape (3,) [radians]
+        Theta_p2b : array of float, shape (3,) [radians]
             The [phi, theta, gamma] of a yaw-pitch-roll sequence that encodes
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
@@ -642,7 +642,7 @@ class Paraglider9a:
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
@@ -650,7 +650,7 @@ class Paraglider9a:
         if v_R2e.shape != (3,):
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
-        C_p2b = quaternion.euler_to_dcm(Theta_p)
+        C_p2b = quaternion.euler_to_dcm(Theta_p2b)
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
@@ -718,9 +718,9 @@ class Paraglider9a:
         # Moment at the connection point `R` modeled as a spring+damper system
         M_R = np.zeros(3)
         omega_p2b = omega_p2e - C_p2b @ omega_b2e
-        M_R[0] += -5.0 * Theta_p[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p[2]  # Yaw restoring force
+        M_R[0] += -5.0 * Theta_p2b[0]  # Roll restoring force
+        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
+        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
         M_R[0] += -15.0 * omega_p2b[0]  # Roll dampening
         M_R[1] += -1.0 * omega_p2b[1]  # Pitch dampening
         M_R[2] += -10.0 * omega_p2b[2]  # Yaw dampening
@@ -808,9 +808,9 @@ class Paraglider9a:
                 Glide angle
             glide_ratio : float
                 Horizontal vs vertical distance
-            euler_b2e : array of float, shape (3,) [radians]
+            Theta_b2e : array of float, shape (3,) [radians]
                 Orientation: body/earth
-            euler_p2b : array of float, shape (3,) [radians]
+            Theta_p2b : array of float, shape (3,) [radians]
                 Orientation: payload/body
             v_R2e : float [m/s]
                 Steady-state velocity in body coordinates
@@ -827,12 +827,12 @@ class Paraglider9a:
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
+            Theta_p2b = quaternion.quaternion_to_euler(x["q_p2b"])
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
                 x["omega_p2e"],
-                Theta_p,  # FIXME: design review the call signature
+                Theta_p2b,  # FIXME: design review the call signature
                 quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
                 **kwargs,
             )
@@ -894,12 +894,12 @@ class Paraglider9a:
             state = solver.integrate(0.25).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             state["omega_p2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            Theta_p = quaternion.quaternion_to_euler(state["q_p2b"][0])
+            Theta_p2b = quaternion.quaternion_to_euler(state["q_p2b"][0])
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
                 state["omega_p2e"][0],
-                Theta_p,  # FIXME: design review the call signature
+                Theta_p2b,  # FIXME: design review the call signature
                 quaternion.apply_quaternion_rotation(state["q_b2e"][0], [0, 0, 9.8]),
                 **dynamics_kwargs,
             )
@@ -916,15 +916,15 @@ class Paraglider9a:
                 break
 
         alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
-        euler_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
-        gamma_b = alpha_b - euler_b2e[1]
+        Theta_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        gamma_b = alpha_b - Theta_b2e[1]
 
         equilibrium = {
             "alpha_b": alpha_b,
             "gamma_b": gamma_b,
             "glide_ratio": 1 / np.tan(gamma_b),
-            "euler_b2e": euler_b2e,
-            "euler_p2b": quaternion.quaternion_to_euler(state["q_p2b"]),
+            "Theta_b2e": Theta_b2e,
+            "Theta_p2b": quaternion.quaternion_to_euler(state["q_p2b"]),
             "v_R2e": state["v_R2e"],
             "reference_solution": dynamics_kwargs["reference_solution"],
         }

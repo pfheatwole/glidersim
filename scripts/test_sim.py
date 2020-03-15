@@ -341,11 +341,11 @@ class Dynamics9a:
         """
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
-        Theta_p = quaternion.quaternion_to_euler(x["q_p2b"])
+        Theta_p2b = quaternion.quaternion_to_euler(x["q_p2b"])
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2R = self.glider.control_points(Theta_p, delta_a, delta_w)  # In body frd
+        r_CP2R = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
         r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
@@ -353,7 +353,7 @@ class Dynamics9a:
             quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
             x["omega_b2e"],
             x["omega_p2e"],
-            Theta_p,  # FIXME: design review the call signature
+            Theta_p2b,  # FIXME: design review the call signature
             quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
             delta_a=delta_a,
@@ -499,13 +499,13 @@ def main():
 
     # Precomputed equilibrium states in body coordinates
     equilibrium_6a = {
-        "euler_b2e": [0, np.deg2rad(2.63584), 0],
+        "Theta_b2e": [0, np.deg2rad(2.63584), 0],
         "v_R2e": [9.78258, 0, 1.67566],
     }
 
     equilibrium_9a = {
-        "euler_b2e": [0, np.deg2rad(3.05484), 0],
-        "euler_p2b": [0, np.deg2rad(-5.01013), 0],
+        "Theta_b2e": [0, np.deg2rad(3.05484), 0],
+        "Theta_p2b": [0, np.deg2rad(-5.01013), 0],
         "v_R2e": [9.61059, 0, 1.71127],
     }
 
@@ -528,9 +528,9 @@ def main():
     # )
 
     # Optional: arbitrary modifications:
-    # state_9a["euler_p2b"] = -np.array(state_9a["euler_b2e"],  # Straight down
+    # state_9a["Theta_p2b"] = -np.array(state_9a["Theta_b2e"],  # Straight down
 
-    q_b2e_6a = quaternion.euler_to_quaternion(equilibrium_6a["euler_b2e"])
+    q_b2e_6a = quaternion.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
     state_6a = np.empty(1, dtype=Dynamics6a.state_dtype)
     state_6a["q_b2e"] = q_b2e_6a
     state_6a["omega_b2e"] = [0, 0, 0]
@@ -539,10 +539,10 @@ def main():
         q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
     )
 
-    q_b2e_9a = quaternion.euler_to_quaternion(equilibrium_9a["euler_b2e"])
+    q_b2e_9a = quaternion.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
     state_9a = np.empty(1, dtype=Dynamics9a.state_dtype)
     state_9a["q_b2e"] = q_b2e_9a
-    state_9a["q_p2b"] = quaternion.euler_to_quaternion(equilibrium_9a["euler_p2b"])
+    state_9a["q_p2b"] = quaternion.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
@@ -654,14 +654,14 @@ def main():
     # state0 = state_9a
     # model = model_9a
 
-    euler_b2e = quaternion.quaternion_to_euler(state0["q_b2e"])
+    Theta_b2e = quaternion.quaternion_to_euler(state0["q_b2e"])
 
     print("Preparing the simulation.")
     print("Initial state:")
-    print("  euler_b2e:", np.rad2deg(euler_b2e).round(4))
+    print("  Theta_b2e:", np.rad2deg(Theta_b2e).round(4))
     if "q_p2b" in state0.dtype.names:
-        euler_p2b = quaternion.quaternion_to_euler(state0["q_p2b"])[0]
-        print("  euler_p2b:", np.rad2deg(euler_p2b).round(4))
+        Theta_p2b = quaternion.quaternion_to_euler(state0["q_p2b"])[0]
+        print("  Theta_p2b:", np.rad2deg(Theta_p2b).round(4))
     print("  omega_b2e:", state0["omega_b2e"][0].round(4))
     if "omega_p2e" in state0.dtype.names:
         print("  omega_p2e:", state0["omega_p2e"][0].round(4))
@@ -686,8 +686,8 @@ def main():
 
     if "q_p2b" in path.dtype.names:  # 9 DoF model
         q_p2e = np.asarray([quaternion.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
-        euler_p2b = quaternion.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
-        euler_p2e = quaternion.quaternion_to_euler(q_p2e)  # FIXME: verify!
+        Theta_p2b = quaternion.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
+        Theta_p2e = quaternion.quaternion_to_euler(q_p2e)  # FIXME: verify!
         r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
             q_e2b,
             quaternion.apply_quaternion_rotation(
@@ -700,14 +700,14 @@ def main():
         )
 
     # Euler derivatives (Stevens Eq:1.4-4)
-    euler_b2e = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    Theta_b2e = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
     _0, _1 = np.zeros(K), np.ones(K)
-    sp, st, sg = np.sin(euler_b2e.T)
-    cp, ct, cg = np.cos(euler_b2e.T)
-    tp, tt, tg = np.tan(euler_b2e.T)
+    sp, st, sg = np.sin(Theta_b2e.T)
+    cp, ct, cg = np.cos(Theta_b2e.T)
+    tp, tt, tg = np.tan(Theta_b2e.T)
     T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
     T = np.moveaxis(T, -1, 0)
-    euler_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
+    Theta_b2e_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
 
     print("\nRe-running the dynamics to get the accelerations")
     N = len(times)
