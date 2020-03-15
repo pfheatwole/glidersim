@@ -3,7 +3,7 @@ import time
 from IPython import embed
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 import numpy as np
 
@@ -67,7 +67,7 @@ class CircularThermal:
         d2 = ((self.c - r[..., :2])**2).sum(axis=1)
         wind = np.zeros(r.shape)
         if t > self.t_start:
-            wind[..., 2] = self.mag * np.exp(-d2/self.R)
+            wind[..., 2] = self.mag * np.exp(-d2 / self.R)
         return wind
 
 
@@ -87,7 +87,9 @@ class HorizontalShear:
         d = r[..., 0] - self.x_start
         wind = np.zeros(r.shape)
         if t > self.t_start:
-            wind[..., 2] = self.mag * np.exp(d/self.smooth) / (np.exp(d/self.smooth) + 1)  # Sigmoid
+            wind[..., 2] = (  # Sigmoid
+                self.mag * np.exp(d / self.smooth) / (np.exp(d / self.smooth) + 1)
+            )
         return wind
 
 
@@ -99,7 +101,7 @@ class LateralGust:
         t0 = 0
         t1 = t_start  # Start the ramp-up
         t2 = t1 + t_ramp  # Start the hold
-        t3 = t2 + t_duration # Start the ramp-down
+        t3 = t2 + t_duration  # Start the ramp-down
         t4 = t3 + t_ramp  # Finish the ramp down
         times = [t0, t1, t2, t3, t4]
         values = [0, 0, mag, mag, 0]
@@ -124,7 +126,7 @@ class Dynamics6a:
     ]
 
     def __init__(
-        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None
+        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None,
     ):
         self.glider = glider
 
@@ -176,7 +178,8 @@ class Dynamics6a:
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
     def dynamics(self, t, y, params):
-        """The state dynamics for the model
+        """
+        Compute the state derivatives from the model.
 
         Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
@@ -261,7 +264,7 @@ class Dynamics9a:
     ]
 
     def __init__(
-        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None
+        self, glider, rho_air, delta_a=0, delta_bl=0, delta_br=0, delta_w=0, v_W2e=None,
     ):
         self.glider = glider
 
@@ -314,7 +317,8 @@ class Dynamics9a:
         state["q_p2b"] /= np.sqrt((state["q_p2b"] ** 2).sum())  # Normalize
 
     def dynamics(self, t, y, params):
-        """The state dynamics for the model
+        """
+        Compute the state derivatives from the model.
 
         Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
@@ -406,6 +410,7 @@ class Dynamics9a:
 
 def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     """
+    Generate a state trajectory using the model dynamics.
 
     Parameters
     ----------
@@ -430,7 +435,6 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     path : array of `model.state_dtype`, shape (K+1,)
         The state trajectory.
     """
-
     num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
     times = np.zeros(num_steps)  # The simulation times
     path = np.empty(num_steps, dtype=model.state_dtype)
@@ -484,7 +488,7 @@ def main():
 
     wing = hook3.build_hook3()
     harness = gsim.harness.Spherical(
-        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1
+        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1,
     )
     glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
     glider_9a = gsim.paraglider.Paraglider9a(wing, harness)
@@ -634,8 +638,12 @@ def main():
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
-    model_6a = Dynamics6a(glider_6a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
-    model_9a = Dynamics9a(glider_9a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
+    model_6a = Dynamics6a(
+        glider_6a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
+    )
+    model_9a = Dynamics9a(
+        glider_9a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
+    )
 
     # -----------------------------------------------------------------------
     # Run the simulation
@@ -668,12 +676,12 @@ def main():
     # Extra values for verification/debugging
 
     K = len(times)
-    cps = model.glider.wing.control_points(0)  # Wing control points in body frd (FIXME: ignores `delta_a(t)`)
-    cp0 = cps[len(cps) // 2]  # The central control point in body frd
-    euler_b2e = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    LE0 = model.glider.wing.canopy_origin(0)  # FIXME: ignores `delta_a(t)`
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_cp0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, cp0)
-    v_cp0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(q_e2b, np.cross(path["omega_b2e"], cp0))
+    r_LE0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, LE0)
+    v_LE0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(
+        q_e2b, np.cross(path["omega_b2e"], LE0)
+    )
     v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
 
     if "q_p2b" in path.dtype.names:  # 9 DoF model
@@ -692,6 +700,7 @@ def main():
         )
 
     # Euler derivatives (Stevens Eq:1.4-4)
+    euler_b2e = quaternion.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
     _0, _1 = np.zeros(K), np.ones(K)
     sp, st, sg = np.sin(euler_b2e.T)
     cp, ct, cg = np.cos(euler_b2e.T)
@@ -720,25 +729,25 @@ def main():
     ax.invert_zaxis()
     lpp = 0.25  # Line-plotting period [sec]
     for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
-        p1, p2 = path["r_R2O"][t], r_cp0[t]  # Risers -> wing
-        ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
+        p1, p2 = path["r_R2O"][t], r_LE0[t]  # Risers -> wing central LE
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
 
         p1, p2 = path["r_R2O"][t], r_P2O[t]  # Risers -> payload
-        ax.plot([p1.T[0], p2.T[0]], [p1.T[1], p2.T[1]], [p1.T[2], p2.T[2]], lw=0.5, c='k')
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
     ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
-    ax.plot(r_cp0.T[0], r_cp0.T[1], r_cp0.T[2], label="cp0")
+    ax.plot(r_LE0.T[0], r_LE0.T[1], r_LE0.T[2], label="LE0")
     ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
     ax.legend()
     gsim.plots._set_axes_equal(ax)
     plt.show()
 
     # Plot: velocity vs Time
-    # mag_v_cp0 = np.linalg.norm(v_cp0, axis=1)
+    # mag_v_LE0 = np.linalg.norm(v_LE0, axis=1)
     # mag_v_frd = np.linalg.norm(v_frd, axis=1)
     # ax = plt.gca()
-    # ax.plot(times, mag_v_cp0, marker='.', lw=0.75, label="v_cp0")
+    # ax.plot(times, mag_v_LE0, marker='.', lw=0.75, label="v_LE0")
     # ax.plot(times, mag_v_frd, marker='.', lw=0.75, label="v_frd")
-    # ax.set_ylim(0, max(mag_v_cp0.max(), mag_v_frd.max()) * 1.1)
+    # ax.set_ylim(0, max(mag_v_LE0.max(), mag_v_frd.max()) * 1.1)
     # ax.legend()
     # plt.show()
 
