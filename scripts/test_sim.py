@@ -379,8 +379,9 @@ class Dynamics9a:
         # fmt: on
         q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-        omega_b2e = quaternion.apply_quaternion_rotation(x["q_p2b"], x["omega_b2e"])
-        omega_p2b = x["omega_p2e"] - omega_b2e
+        C_p2b = quaternion.quaternion_to_dcm(x["q_p2b"])
+        omega_p2b = x["omega_p2e"] - C_p2b @ x["omega_b2e"]
+
         P, Q, R = omega_p2b
         # fmt: off
         Omega = np.array([
