@@ -735,9 +735,9 @@ class Paraglider9a:
         # internal force on the risers, `F_R` (in body frd).
 
         I3, Z3 = np.eye(3), np.zeros((3, 3))
-        A1 = [m_b * I3, m_b * quaternion.skew(-r_B2R), Z3, I3]
-        A2 = [m_p * C_p2b, Z3, m_p * quaternion.skew(-r_P2R), -C_p2b]
-        A3 = [Z3, J_b, Z3, quaternion.skew(-r_B2R)]
+        A1 = [m_b * I3, -m_b * quaternion.skew(r_B2R), Z3, I3]
+        A2 = [m_p * C_p2b, Z3, -m_p * quaternion.skew(r_P2R), -C_p2b]
+        A3 = [Z3, J_b, Z3, -quaternion.skew(r_B2R)]
         A4 = [Z3, Z3, J_p, quaternion.skew(r_P2R) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
 
