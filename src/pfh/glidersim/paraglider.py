@@ -222,7 +222,7 @@ class Paraglider6a:
         J = J_wing + J_p  # Total inertia matrix about `B`
 
         A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
-        A2 = [m_B * quaternion.skew(r_B2R), J]
+        A2 = [np.zeros((3, 3)), J]
         A = np.block([A1, A2])
 
         B1 = (
