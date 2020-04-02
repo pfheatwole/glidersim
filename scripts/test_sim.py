@@ -491,7 +491,10 @@ def main():
         mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1,
     )
     glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
+    glider_6b = gsim.paraglider.Paraglider6b(wing, harness)
+    glider_6c = gsim.paraglider.Paraglider6c(wing, harness)
     glider_9a = gsim.paraglider.Paraglider9a(wing, harness)
+    glider_9b = gsim.paraglider.Paraglider9b(wing, harness)
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
@@ -641,8 +644,17 @@ def main():
     model_6a = Dynamics6a(
         glider_6a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
     )
+    model_6b = Dynamics6a(
+        glider_6b, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
+    )
+    model_6c = Dynamics6a(
+        glider_6c, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
+    )
     model_9a = Dynamics9a(
         glider_9a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
+    )
+    model_9b = Dynamics9a(
+        glider_9b, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
     )
 
     # -----------------------------------------------------------------------
@@ -651,8 +663,17 @@ def main():
     state0 = state_6a
     model = model_6a
 
+    # state0 = state_6a  # Same state as model_6a
+    # model = model_6b
+
+    # state0 = state_6a  # Same state as model_6a
+    # model = model_6c
+
     # state0 = state_9a
     # model = model_9a
+
+    # state0 = state_9a  # Same state as model_9a
+    # model = model_9b
 
     Theta_b2e = quaternion.quaternion_to_euler(state0["q_b2e"])
 
