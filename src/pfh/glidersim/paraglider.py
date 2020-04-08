@@ -203,10 +203,10 @@ class Paraglider6a:
                 delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
-            print("Bonk!")  # Maybe it can't recover once Gamma is jacked?
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
             # embed()
             # 1/0
-            print("Trying again, but with the default reference solution")
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_bl, delta_br, v_W2b_wing, rho_air,
             )
@@ -695,13 +695,14 @@ class Paraglider6b:
                 delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
-            print("Bonk!")  # Maybe it can't recover once Gamma is jacked?
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
             # embed()
             # 1/0
-            print("Trying again, but with the default reference solution")
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_bl, delta_br, v_W2b_wing, rho_air,
             )
+
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
@@ -722,10 +723,11 @@ class Paraglider6b:
         # Compute the accelerations \dot{v_R2e} and \dot{omega_b2e}
         #
         # Builds a system of equations by equating derivatives of translational
-        # and angular momentum against the forces and moments.
+        # and angular momentum to the forces and moments.
 
         J = J_wing + J_p  # Real mass inertia matrix about `R`
 
+        # Compute the real mass inertias
         v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
         p_B2e = m_B * v_B2e  # Linear momentum
         h_R = J @ omega_b2e + m_B * cross3(r_B2R, v_R2e)  # Angular momentum
@@ -743,6 +745,7 @@ class Paraglider6b:
         )
         h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
 
+        # Build the system matrices
         A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
         A2 = [m_B * quaternion.skew(r_B2R), J]
         A = np.block([A1, A2])
@@ -761,14 +764,8 @@ class Paraglider6b:
         B2 = (  # ref: Hughes Eq:13, pg 58 (67)
             M_wing
             + M_p
-
-            # Hughes version
-            - cross3(omega_b2e, h_R)
             - cross3(v_R2e, p_B2e)
-
-            # Barrows version
-            # + m_B * quaternion.skew(r_B2R) @ quaternion.skew(v_R2e) @ omega_b2e
-            # - quaternion.skew(omega_b2e) @ J @ omega_b2e
+            - cross3(omega_b2e, h_R)
 
             # Apparent inertial moment (Barrows Eq:64)
             - cross3(v_R2e, p_a)
@@ -1227,10 +1224,10 @@ class Paraglider6c:
                 delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
-            print("Bonk!")  # Maybe it can't recover once Gamma is jacked?
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
             # embed()
             # 1/0
-            print("Trying again, but with the default reference solution")
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_bl, delta_br, v_W2b_wing, rho_air,
             )
@@ -1745,9 +1742,10 @@ class Paraglider9a:
                 delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
             )
         except Exception:
-            print("Bonk!")  # Maybe it can't recover once Gamma is jacked
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
             # embed()
-            print("Trying again, but with the default reference solution")
+            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_bl, delta_br, v_W2b_b, rho_air,
             )
@@ -2201,9 +2199,10 @@ class Paraglider9b:
                 delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
             )
         except Exception:
-            print("Bonk!")  # Maybe it can't recover once Gamma is jacked
-            embed()
-            print("Trying again, but with the default reference solution")
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
+            # embed()
+            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_bl, delta_br, v_W2b_b, rho_air,
             )
@@ -2243,6 +2242,7 @@ class Paraglider9b:
         # `omega_b2e` (in body frd), `omega_p2e` (in payload frd), and the
         # internal force on the risers, `F_R` (in body frd).
 
+        # Compute the real mass inertias
         p_B2e = m_b * v_B2e
         p_P2e = m_p * v_P2e
         h_R_b = m_b * cross3(r_B2R, v_R2e) + J_b @ omega_b2e

@@ -531,13 +531,10 @@ def main():
     #     rho_air=1.2,
     # )
 
-    # Optional: arbitrary modifications:
-    # state_9a["Theta_p2b"] = -np.array(state_9a["Theta_b2e"],  # Straight down
-
     q_b2e_6a = quaternion.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
     state_6a = np.empty(1, dtype=Dynamics6a.state_dtype)
     state_6a["q_b2e"] = q_b2e_6a
-    state_6a["omega_b2e"] = [0, 0, 0]
+    state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
     state_6a["r_R2O"] = [0, 0, 0]
     state_6a["v_R2e"] = quaternion.apply_quaternion_rotation(
         q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
@@ -553,6 +550,10 @@ def main():
     state_9a["v_R2e"] = quaternion.apply_quaternion_rotation(
         q_b2e_9a * [-1, 1, 1, 1], equilibrium_9a["v_R2e"],
     )
+
+    # Optional: arbitrary modifications:
+    # state_9a["q_b2e"] = np.array([1, 0, 0, 0])
+    # state_9a["q_p2b"] = np.array([1, 0, 0, 0])
 
     # -----------------------------------------------------------------------
     # Build a test scenario
@@ -642,39 +643,25 @@ def main():
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
-    model_6a = Dynamics6a(
-        glider_6a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
-    )
-    model_6b = Dynamics6a(
-        glider_6b, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
-    )
-    model_6c = Dynamics6a(
-        glider_6c, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
-    )
-    model_9a = Dynamics9a(
-        glider_9a, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
-    )
-    model_9b = Dynamics9a(
-        glider_9b, rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e,
-    )
+    common_args = (rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
+    model_6a = Dynamics6a(glider_6a, *common_args)
+    model_6b = Dynamics6a(glider_6b, *common_args)
+    model_6c = Dynamics6a(glider_6c, *common_args)
+    model_9a = Dynamics9a(glider_9a, *common_args)
+    model_9b = Dynamics9a(glider_9b, *common_args)
+
+    # Choose which model to run
+    # state0, model = state_6a, model_6a
+    state0, model = state_6a, model_6b  # Same state as model_6a
+    # state0, model = state_6a, model_6c  # Same state as model_6a
+    # state0, model = state_9a, model_9a
+    # state0, model = state_9a, model_9b  # Same state as model_9a
+
+    # embed()
+    # 1/0
 
     # -----------------------------------------------------------------------
     # Run the simulation
-
-    state0 = state_6a
-    model = model_6a
-
-    # state0 = state_6a  # Same state as model_6a
-    # model = model_6b
-
-    # state0 = state_6a  # Same state as model_6a
-    # model = model_6c
-
-    # state0 = state_9a
-    # model = model_9a
-
-    # state0 = state_9a  # Same state as model_9a
-    # model = model_9b
 
     Theta_b2e = quaternion.quaternion_to_euler(state0["q_b2e"])
 
@@ -690,8 +677,7 @@ def main():
     print("      r_R2O:", state0["r_R2O"][0].round(4))
     print("      v_R2e:", state0["v_R2e"][0].round(4))
 
-    # Run the simulation
-    dt = 0.25
+    dt = 0.10  # Time step for the `path` trajectory
     times, path = simulate(model, state0, dt=dt, T=T)
 
     # -----------------------------------------------------------------------

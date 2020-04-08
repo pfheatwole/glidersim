@@ -235,7 +235,9 @@ class ParagliderWing:
         self._mass_properties["r_RC2R"] = r_RC2R
         self._mass_properties["r_PC2RC"] = r_PC2RC
 
-    def forces_and_moments(self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None):
+    def forces_and_moments(
+        self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
+    ):
         """
         FIXME: add docstring.
 
@@ -402,13 +404,13 @@ class ParagliderWing:
             cm_solid : array of float, shape (3,) [m]
                 The solid mass centroid
             J_solid : array of float, shape (3,3) [kg m^2]
-                The inertia matrix of the solid mass
+                The moment of inertia matrix of the solid mass about its cm
             m_air : float [kg m^3]
                 The enclosed air mass.
             cm_air : array of float, shape (3,) [m]
                 The air mass centroid
             J_air : array of float, shape (3,3) [m^2]
-                The inertia matrix of the enclosed air mass.
+                The moment of inertia matrix of the enclosed air mass about its cm
             r_PC2RC : array of float, shape (3,) [m]
                 Vector to the pitch center from the roll center
             r_RC2R : array of float, shape (3,) [m]
@@ -416,10 +418,10 @@ class ParagliderWing:
             A_R : array of float, shape (6,6)
                 The apparent inertia matrix of the volume about `R`
         """
-        offset = self.canopy_origin(delta_a)  # canopy origin <- wing origin
+        r_LE2R = self.canopy_origin(delta_a)  # canopy origin <- wing origin
         mp = self._mass_properties.copy()
-        mp["cm_solid"] = mp["cm_solid"] + offset
-        mp["cm_air"] = mp["cm_air"] + offset
+        mp["cm_solid"] = r_LE2R + mp["cm_solid"]
+        mp["cm_air"] = r_LE2R + mp["cm_air"]
         mp["m_air"] = mp["m_air"] * rho_air
         mp["J_air"] = mp["J_air"] * rho_air
         mp["A_R"] = mp["A_R"] * rho_air
