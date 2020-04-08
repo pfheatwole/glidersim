@@ -314,7 +314,7 @@ if __name__ == "__main__":
     # in the lines, risers, ribs, etc.
     wing = build_hook3()
     harness = gsim.harness.Spherical(
-        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1,
+        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
     )
     glider = gsim.paraglider.Paraglider6a(wing, harness)
     # glider = gsim.paraglider.Paraglider9a(wing, harness)
