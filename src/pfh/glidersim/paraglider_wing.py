@@ -164,8 +164,8 @@ class ParagliderWing:
         #
         # FIXME: There should be a balance between the thickness exposed to the
         #        forward and pitching moments versus the thickness exposed to
-        #        the lateral, rolling, and yawing motions. Perhaps different
-        #        tailor different thicknesses for the different dimensions?
+        #        the lateral, rolling, and yawing motions. Perhaps tailor
+        #        different thicknesses for the different dimensions?
         t = self.canopy.airfoil.geometry.thickness(np.linspace(0.1, .5, 25)).mean()
         t *= c  # The thickness is absolute, not proportional
 
@@ -176,14 +176,14 @@ class ParagliderWing:
         dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
         r = dz + r_tip2center[2]  # Arch radius
         theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle
-        h = r_tip2center[2]
+        h = r_tip2center[2]  # Height from the central section to the tip
         hstar = h / b
 
         # Three-dimensional correction factors
         k_A = 0.85
         k_B = 1.00
 
-        # Flat wing values, Barrows Eq:34-39
+        # Flat wing values, Barrows Eqs:34-39
         mf11 = k_A * np.pi * t ** 2 * b / 4
         mf22 = k_B * np.pi * t ** 2 * c / 4
         mf33 = AR / (1 + AR) * np.pi * c**2 * b / 4
@@ -196,15 +196,11 @@ class ParagliderWing:
         # The roll center, pitch center, and the "confluence point" all lie on
         # the z-axis of the idealized circular arch. The rest of the derivation
         # requires that the origin `R` lies in the xz-plane of symmetry.
-        r_C2R = self.canopy_origin(0) + np.array([-0.5 * self.c0, 0, r])
         z_PC2C = -r * np.sin(theta) / theta  # Barrows Eq:44
         z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r ** 2)  # Barrows Eq:50
         z_PC2RC = z_PC2C - z_RC2C
-        r_RC2C = np.array([0, 0, z_RC2C])
-        r_PC2RC = np.array([0, 0, z_PC2RC])
-        r_RC2R = r_RC2C + r_C2R
 
-        # Arched wing values
+        # Arched wing values, Barrows Eqs:51-55
         m11 = k_A * (1 + 8 / 3 * hstar ** 2) * np.pi * t**2 * b / 4
         m22 = (r ** 2 * mf22 + If11) / z_PC2C ** 2
         m33 = mf33
@@ -215,25 +211,18 @@ class ParagliderWing:
         I22 = If22
         I33 = 0.055 * (1 + 8 * hstar ** 2) * b ** 3 * t ** 2
 
-        # Translational and rotational components of the apparent inertia matrix
-        M = np.diag([m11, m22, m33])  # Barrows Eq:1
-        I = np.diag([I11, I22, I33])  # Barrows Eq:17
-
-        # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
-        S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
-        S_PC2RC = skew(r_PC2RC)
-        S_RC2R = skew(r_RC2R)
-        Q = S2 @ S_PC2RC @ M @ S_RC2R
-        J_R = I - S_RC2R @ M @ S_RC2R - S_PC2RC @ M @ S_PC2RC @ S2 - Q - Q.T
-
-        # Apparent mass matrix about `R` (Barrows Eq:27)
-        MC = -M @ (S_RC2R + S_PC2RC @ S2)
-        self._mass_properties["A_R"] = np.block([[M, MC], [MC.T, J_R]])
-
-        # The vectors to the roll and pitch centers are required to compute the
-        # apparent inertias. See Barrows Eq:16 and Eq:24.
-        self._mass_properties["r_RC2R"] = r_RC2R
-        self._mass_properties["r_PC2RC"] = r_PC2RC
+        # Save the precomputed values for use in `mass_properties`. The vectors
+        # are defined with respect to `C` and the canopy origin (the central
+        # leading edge), but the final apparent inertia matrix is about `R`,
+        # which depends on `delta_a`.
+        r_C2LE = np.array([-0.5 * self.c0, 0, r])
+        r_RC2C = np.array([0, 0, z_RC2C])
+        self._apparent_inertia = {
+            "r_RC2LE": r_RC2C + r_C2LE,
+            "r_PC2RC": np.array([0, 0, z_PC2RC]),
+            "M": np.diag([m11, m22, m33]),  # Barrows Eq:1
+            "I": np.diag([I11, I22, I33]),  # Barrows Eq:17
+        }
 
     def forces_and_moments(
         self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
@@ -424,5 +413,28 @@ class ParagliderWing:
         mp["cm_air"] = r_LE2R + mp["cm_air"]
         mp["m_air"] = mp["m_air"] * rho_air
         mp["J_air"] = mp["J_air"] * rho_air
-        mp["A_R"] = mp["A_R"] * rho_air
+
+        # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
+        ai = self._apparent_inertia  # Dictionary of precomputed values
+        S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
+        r_RC2R = r_LE2R + ai["r_RC2LE"]
+        S_PC2RC = skew(ai["r_PC2RC"])
+        S_RC2R = skew(r_RC2R)
+        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
+        J_R = (  # Barrows Eq:25
+            ai["I"]
+            - S_RC2R @ ai["M"] @ S_RC2R
+            - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
+            - Q
+            - Q.T
+        )
+        MC = -ai["M"] @ (S_RC2R + S_PC2RC @ S2)
+        A_R = np.block([[ai["M"], MC], [MC.T, J_R]])  # Barrows Eq:27
+
+        # The vectors to the roll and pitch centers are required to compute the
+        # apparent inertias. See Barrows Eq:16 and Eq:24.
+        mp["r_RC2R"] = r_RC2R
+        mp["r_PC2RC"] = ai["r_PC2RC"]
+        mp["A_R"] = A_R * rho_air
+
         return mp
