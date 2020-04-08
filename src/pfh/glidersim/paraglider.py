@@ -730,9 +730,23 @@ class Paraglider6b:
         p_B2e = m_B * v_B2e  # Linear momentum
         h_R = J @ omega_b2e + m_B * cross3(r_B2R, v_R2e)  # Angular momentum
 
+        # Compute the apparent mass inertias (Barrows Eq:16 and Eq:24)
+        M_a = wmp["A_R"][:3, :3]
+        J_a = wmp["A_R"][3:, 3:]
+        S2 = np.diag([0, 1, 0])
+        S_PC2RC = quaternion.skew(wmp["r_PC2RC"])
+        S_RC2R = quaternion.skew(wmp["r_RC2R"])
+        p_a = M_a @ (
+            v_R2e
+            - cross3(wmp["r_RC2R"], omega_b2e)
+            - quaternion.skew(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+        )
+        h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
+
         A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
         A2 = [m_B * quaternion.skew(r_B2R), J]
         A = np.block([A1, A2])
+        A += wmp["A_R"]  # Include the apparent mass
 
         B1 = (
             F_wing_aero
@@ -740,6 +754,9 @@ class Paraglider6b:
             + F_p_aero
             + F_p_weight
             - cross3(omega_b2e, p_B2e)
+
+            # Apparent inertial force (Barrows Eq:61)
+            - cross3(omega_b2e, p_a)
         )
         B2 = (  # ref: Hughes Eq:13, pg 58 (67)
             M_wing
@@ -752,6 +769,11 @@ class Paraglider6b:
             # Barrows version
             # + m_B * quaternion.skew(r_B2R) @ quaternion.skew(v_R2e) @ omega_b2e
             # - quaternion.skew(omega_b2e) @ J @ omega_b2e
+
+            # Apparent inertial moment (Barrows Eq:64)
+            - cross3(v_R2e, p_a)
+            - cross3(omega_b2e, h_a)
+            + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
         )
         B = np.r_[B1, B2]
 
@@ -2226,32 +2248,57 @@ class Paraglider9b:
         h_R_b = m_b * cross3(r_B2R, v_R2e) + J_b @ omega_b2e
         h_R_p = m_p * cross3(r_P2R, C_p2b @ v_R2e) + J_p @ omega_p2e
 
+        # Compute the apparent mass inertias (Barrows Eq:16 and Eq:24)
+        M_a = wmp["A_R"][:3, :3]
+        J_a = wmp["A_R"][3:, 3:]
+        S2 = np.diag([0, 1, 0])
+        S_PC2RC = quaternion.skew(wmp["r_PC2RC"])
+        S_RC2R = quaternion.skew(wmp["r_RC2R"])
+        p_a = M_a @ (
+            v_R2e
+            - cross3(wmp["r_RC2R"], omega_b2e)
+            - quaternion.skew(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+        )
+        h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
+
+        # Build the system matrices. A1 and A2 are the forces and moments on
+        # the body, A3 and A4 are the forces and moments on the payload. The
+        # vector of unknowns `x` is: [a_R2e, alpha_b2e, alpha_p2e, F_R]
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * quaternion.skew(r_B2R), Z3, I3]
-        A2 = [m_p * C_p2b, Z3, -m_p * quaternion.skew(r_P2R), -C_p2b]
-        A3 = [m_b * quaternion.skew(r_B2R), J_b, Z3, Z3]
+        A2 = [m_b * quaternion.skew(r_B2R), J_b, Z3, Z3]
+        A3 = [m_p * C_p2b, Z3, -m_p * quaternion.skew(r_P2R), -C_p2b]
         A4 = [m_p * quaternion.skew(r_P2R) @ C_p2b, Z3, J_p, Z3]
         A = np.block([A1, A2, A3, A4])
+        A[:6, :6] += wmp["A_R"]  # Include the apparent mass
 
         B1 = (
             F_wing_aero
             + F_wing_weight
             - m_b * cross3(omega_b2e, v_R2e)
             - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
+
+            # Apparent inertial force (Barrows Eq:61)
+            - cross3(omega_b2e, p_a)
         )
         B2 = (
-            F_p_aero
-            + F_p_weight
-            - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
-            - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
-        )
-        B3 = (
             M_wing
             - M_R
             - m_b * cross3(cross3(omega_b2e, r_B2R), v_R2e)
             - m_b * cross3(r_B2R, cross3(omega_b2e, v_R2e))
             - cross3(omega_b2e, J_b @ omega_b2e)
             - cross3(v_R2e, p_B2e)
+
+            # Apparent inertial moment (Barrows Eq:64)
+            - cross3(v_R2e, p_a)
+            - cross3(omega_b2e, h_a)
+            + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+        )
+        B3 = (
+            F_p_aero
+            + F_p_weight
+            - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
+            - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
         )
         B4 = (
             M_p
