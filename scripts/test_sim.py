@@ -749,7 +749,7 @@ def main():
     ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
     ax.legend()
     gsim.plots._set_axes_equal(ax)
-    plt.show()
+    # plt.show()
 
     # Plot: velocity vs Time
     # mag_v_LE0 = np.linalg.norm(v_LE0, axis=1)
@@ -765,6 +765,18 @@ def main():
     # plt.plot(times, np.rad2deg(path["omega_b2e"]))
     # plt.ylabel("omega [deg]")
     # plt.show()
+
+    fig, ax = plt.subplots(3)
+    ax[0].plot(times, np.rad2deg(Theta_b2e))
+    ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
+    ax[2].plot(times, np.rad2deg(derivatives["omega_b2e"]))
+    ax[0].set_ylabel("Theta_b2e [deg]")
+    ax[1].set_ylabel("omega_b2e [deg]")
+    ax[2].set_ylabel("alpha_b2e [deg]")
+    ax[0].grid()
+    ax[1].grid()
+    ax[2].grid()
+    plt.show()
 
     embed()
 
