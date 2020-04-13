@@ -614,11 +614,13 @@ def main():
 
     # Scenario: multiple figure-8
     # delta_a = 0.0
-    # on = [(2, 0.85), (18, None)]  # Braking on
-    # off = [(1.0, 0), (19.0, None)]  # Braking off
-    # delta_br = linear_control([(2, 0), *on, *off, *on, *off, *on, *off])
-    # delta_bl = linear_control([(2, 0), *off, *on, *off, *on, *off, *on])
-    # T = 120
+    # duration = 25  # Seconds per half-cycle
+    # N_cycles = 2  # Total number of full cycles
+    # on = [(2.0, 0.75), (duration - 2.0, None)]  # Braking on
+    # off = [(1.0, 0), (duration - 1.0, None)]  # Braking off
+    # delta_br = linear_control([(2, 0), *([*on, *off] * N_cycles)])
+    # delta_bl = linear_control([(2, 0), *([*off, *on] * N_cycles)])
+    # T = N_cycles * duration * 2
 
     # -----------------------------------------------------------------------
     # Add some wind
