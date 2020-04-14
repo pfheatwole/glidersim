@@ -1,8 +1,52 @@
-* I'm not crazy about the name `forces_and_moments` if they don't include
-  weight. Should be `aerodynamic_forces_and_moments`, but that's really long.
+* Might be a good idea to discuss why I'm using the dimensional version of
+  Phillips (versus the non-dimensionalized version)
 
-  Or, **should the `ParagliderWing` and `Harness` be responsible for computing
-  their own weight forces?**
+* I'd love to demo the effect of assuming a fixed Reynolds number (eg,
+  `1.5e6`) versus using their proper values. This is probably the most extreme
+  during a turn. Maybe I could plot the range of values for fast straight
+  flight versus a slow turn?
+
+  Also, how does the performance of the wing change when ridge soaring into
+  the wind with brakes compare to straight flight without brakes? The
+  airspeed's of the different equilibriums are different, but by how much?
+  Less than a factor of two, I think.
+
+* Aerodynamic centers exist for lifting bodies with linear lift coefficient
+  and constant pitching moment? How useful is this for paragliders? (ie, over
+  what range can you treat it as having an aerodynamic center)
+
+
+* How hard would it be to code up a linearized paraglider model? It'd be
+  fascinating to see how the linear assumption performed, both in terms of
+  accuracy and computation time.
+
+  Heck, I could even steal the coefficients from Benedetti and simulate his
+  wing.
+
+* Note to self: different airfoils can have dramatically different pitching
+  coefficients (eg, the NACA 24018 vs the LS(1)-0417), which should produce
+  significantly different equilibrium pitching angles. The arch of the wing
+  will likely give those different wings noticeably different dynamics in the
+  presence of a cross-wind, and **may have a significant impact on how the
+  wing respond to encountering a thermal during a turn**.
+
+* Some papers to review:
+
+  * "Ram-air parachute design" (Lingard, 1995)
+
+  * "Parafoil steady turn response to control input" (Brown, 1993)
+
+  * "Equations of motion for a vehicle in a moving fluid" (Thomasson, 2000)
+
+* I'm not crazy about `cm_solid` etc as vector names. Can I use something like
+  `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
+
+* If I'm computing the line drag at some specified geometry centers, should
+  I also add the weight of the lines at those points?
+
+* Why did I go with Phillips method instead of a Multhopp method like in
+  `gonzalez1993PrandtlTheoryApplied`? (I don't remember the difference, but
+  probably useful to mention it.)
 
 * Note to self: a paraglider wing is specific type of 'parafoil' that includes
   the normal canopy + lines, but also a particular control input scheme. You
@@ -13,6 +57,13 @@
 
 * According to Nicolaides, "the Parafoil is both an airplane or glider and
   also a parachute or decelerator". Good point
+
+* Should I rename the `quaternion` module to `rotation`? And probably rename
+  `apply_quaternion_rotation` to just `apply_quaternion` while I'm at it.
+
+* Does `skew` belong in `quaternion` or in `util`? Seems like a bad name
+  anyway: it's a cross-product matrix, which is technically a skew-symmetric
+  matrix, but not all skew-symmetric matrices are cross-product matrices.
 
 * In `quaternion` I mention "yaw-pitch-role" Euler angles, but all parameters
   with independent inputs are `[phi, theta, gamma]` (roll-pitch-yaw). Is this
@@ -94,6 +145,22 @@ Low priority
 Airfoil
 =======
 
+* In `lingard1995RamairParachuteDesign` they suggest a NASA (NACA) LS(1)-0417
+  airfoil. Good idea to compare it's basic performance to the NACA 23015. If
+  I could create the airfoil data and use it for my Hook 3, even better. (At
+  least review its performance characteristics: great L/D at low alpha, and
+  dramatically smaller pitching moment across the range of alpha; interesting
+  to consider how that'd change equilibrium conditions, etc.)
+
+* What are "low-speed airfoils"? The `NACA LS(1)-0417` (aka the `GA(W)-1`) is
+  considered low-speed, and is suggested in Lingard 1995 for ram-air
+  parachutes. The UIUC low-speed airfoil data catalogs cover such airfoils,
+  and they seem to use "low-speed" as synonymous with "low Reynolds number".
+  I'm seeing ranges from 60,000 to 500,000, depending on the document. In that
+  case, paragliders aren't particularly low-speed, but they're on the cusp,
+  and the tapered wing tips certainly delve into that range.
+
+
 Geometry
 --------
 
@@ -139,6 +206,10 @@ Geometry
 
 Coefficients
 ------------
+
+* An airfoil is a single entity. Why do the `AirfoilCoefficients` include
+  `delta_f`? Seems like a job for a compositor class that combines multiple
+  airfoils.
 
 * It might be interesting if `GridCoefficients` supported CSV that lack `Re`.
   Wouldn't make for good analysis, but would be interesting for demonstrating
@@ -296,7 +367,10 @@ Inertia
 * Should I rewrite the `mass_properties` to use the triangle mesh? It would
   make computing the surface areas more straightforward, but I'm not sure
   about the internal volumes. I suspect voxels may provide the solution, but
-  I haven't researched it yet.
+  I haven't researched it much yet; see `https://stackoverflow.com/a/1568551`
+  and the linked paper
+  `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
+  `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
 
 * `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
   `Airfoil.mass_properties`: the upper/lower surface inertias are likely
@@ -336,6 +410,9 @@ Meshes
 
 ParafoilSections
 ^^^^^^^^^^^^^^^^
+
+* Replace explicit `Airfoil` with `Profiles`, which defines the idealized
+  profiles as a function of section index.
 
 * Write a function that can return inflated profiles between two ribs.
 
@@ -422,6 +499,15 @@ Coefficient Estimation
 
 Phillips
 ^^^^^^^^
+
+* The `_hybrj` solver retries a bazillion times when it encounters a `nan`.
+  Can I use exceptions to abort early so I can use iterations instead of
+  letting `hybrj` try to brute force bad solutions?
+
+* If the target and reference are effectively the same, iteration will just
+  waste time (since you'll keep pushing the same target onto the stack). There
+  should be some kind of metric for deciding "the reference is too close to
+  the target to be of much use, just abort"
 
 * Review the conditions for non-convergence. What are the primary causes, and
   can they be mitigated? Right now, convergence via iteration is uncommon:
@@ -510,8 +596,25 @@ BrakeGeometry
   a discussion on "identifying optimal line cascading"
 
 
+Harness
+=======
+
+* Redefine the `SphericalHarness` to use the radius, not the projected area.
+  The projected area is not a common way to define a sphere; using the radius
+  just just makes more sense.
+
+
 ParagliderWing
 ==============
+
+* Do speed bars on real wings decrease the length of all lines, or just those
+  in the central sections? If they're unequal, you'd expect the lobe arcs to
+  flatten; do they?
+
+* Review the elements in the `ParagliderWing.mass_properties` dictionary.
+  Things like `cm_solid` are ambiguous: should they be `r_S2R` or similar? I'm
+  using `B` for the body mass center, maybe `S` for solid mass center and `V`
+  for volume centroid?
 
 * Review parameter naming conventions (like `kappa_a`). Why "kappa"?
 
@@ -565,6 +668,8 @@ contribution is (probably?) negligible.
 Paraglider
 ==========
 
+* Fix the "magic layout" for the control points in the paraglider models
+
 * The call signature for ``Paraglider.accelerations`` has too many parameters!
   It's weird to pass in `r_CP2R` since it's redundant with `delta_a`. Is
   that confusion-inducing redundancy worth saving the little bit of time to
@@ -579,11 +684,42 @@ Paraglider
 Dynamics
 --------
 
-* If the center of mass moves (speedbar, relative harness pitch, etc) the
-  angular velocity must change in order to conserve angular momentum. Same
-  thing for changes to any inertia matrices; consider the angular momentum of
-  all components and verify they are being maintained. (Non-rigid-body motion
-  is a pain!)
+* **The 9 DoF model performs very poorly with weight shift.** It looks like
+  the spring-damper model isn't a good fit for a paraglider since the relative
+  roll restoring force coefficient needs to be HUGE to eliminate relative roll
+  (which is most noticeable during weight shift), but that introduces huge
+  relative scale differences between the roll restoring force and the other
+  components of the dynamics matrix, so solving becomes painfully slow.
+  Probably a good idea to adapt Slegers' 8 DoF model to constrain relative
+  roll to zero.
+
+* Verify the common code for the 6 and 9 DoF models (`accelerations` and
+  `dynamics`) used by the Runge-Kutta integrator. Shared code means shared
+  bugs, so just because `Paraglider6a` and `Paraglider6c` agree doesn't mean
+  they don't have shared flaws.
+
+* In `Paraglider6a` (and `Paraglider6c`? Granted, `B` is close to `R` for the
+  six DoF models, so `r_B2R` is only about 24cm long) if you use the wrong
+  equation for the derivative of angular momentum it makes the model dynamics
+  largely match the nine DoF models. Coincidence? **Seems like a pretty big
+  coincidence.** (The error: let `A2 = [m_B * quaternion.skew(r_B2R), J]`)
+
+* I'm not crazy about the name `forces_and_moments` if they don't include
+  weight. Should be `aerodynamic_forces_and_moments`, but that's really long.
+  Maybe call it `aerodynamics`? Or, **should the `ParagliderWing` and
+  `Harness` be responsible for computing their own weight forces?**
+
+* Use `equilibrium_state2` for the initial guess in `equilibrium_state`?
+
+* Extend `equilibrium_state2` to `Paraglider9a`. I think it just needs an
+  approximate `Theta_p`, which will neglect the wing in the same way the
+  approximate wing solution neglects the payload.
+
+* If the center of mass moves (accelerator, weight shift, relative harness
+  pitch, etc) the angular velocity must change in order to conserve angular
+  momentum. Same thing for changes to any inertia matrices; consider the
+  angular momentum of all components and verify they are being maintained.
+  (Non-rigid-body motion is a pain!)
 
   This may prove tricky. If you know the cm moved a particular way, you can
   compute the angular velocity that would satisfy conservation of angular
@@ -594,10 +730,10 @@ Dynamics
   momentum in response to control inputs?
 
   First thing to do is probably to check how much the cm moves in response to
-  speedbar and relative harness pitch. Hopefully the cm doesn't change too
-  much. Or does conserving the angular momentums of the harness and parafoil
-  independently successfully conserve angular momentum of the total system?
-  **Is angular momentum of the system the sum of the components?**
+  speedbar, weight shift, and relative harness pitch. Hopefully the cm doesn't
+  change too much. Or does conserving the angular momentums of the harness and
+  parafoil independently successfully conserve angular momentum of the total
+  system? **Is angular momentum of the system the sum of the components?**
 
   Reminder: Stevens Eq:1.7-3 gives the equation for angular momentum:
   `h_{cm/i}^{b}f = J^{bf} @ omega_{b/i}^{bf}`. So, if the wing had some
@@ -613,17 +749,66 @@ Dynamics
   center of mass, but it will produce a change to the wing and payload
   position vectors; if you're tracking the velocity of the risers instead of
   the center of mass, you'd expect a new translational acceleration term as
-  a function of the accelerator (eg, you'd expect `a_C/e` to have a -z
+  a function of the accelerator (eg, you'd expect `a_R2e` to have a -z
   contribution while the accelerator is being moved).
 
-* Verify the roll-yaw coupling induced by the accelerator. If you hold `delta_a
-  = 1` and `delta_br = 0.65` for a long time, the wing starts slipping left so
-  fast the relative wind makes some sections stall. It'll probably just be
-  a deficiency of my rigid-body model, but I should make note of it.
+* Verify the roll-yaw coupling induced by the accelerator. For example, set
+  `delta_a = 0.85`, then compare `delta_br = 0.05` to `delta_br = 0.38` for
+  the Hook3 using `Paraglider6b`.
+
+* Weight shift has very little effect on the `Paraglider9a` model; the roll
+  restoring force is just too small. I tried bumping the coefficients but
+  never got good performance; the wing eventually becomes unstable. Could
+  investigate it more, but I suspect a linear spring+damper model just doesn't
+  cut it for the harness-riser connection.
+
+
+Apparent Inertia
+^^^^^^^^^^^^^^^^
+
+* Is the way I'm removing the steady-state terms correct? Barrows mentions
+  "simple theories, such as strip theory". Is my NLLT considered one of the
+  family of strip theories, or he is referencing something more like what's
+  described in "Basic Aerodynamics" (Flandro, McMahon, Roach; 2012), Sec:6.6
+  "Aerodynamic strip theory"?
+
+* Consider the apparent rolling inertia. In Barrows, Fig:6 shows the
+  relationship of the apparent roll inertia versus the ratio of circular
+  radius `R` to the span `b`. For my Hook 3, if `R = 4.84` and `b = 8.84`,
+  then `R/b = 0.548`. They say that a ratio of 0.5 is "not realistic for
+  a parafoil". Verify the results in Barrows are still valid for the Hook 3?
+
+* Consider all the simplifications in using Barrows' method for estimating the
+  apparent mass. Variable thickness, variable chord, elliptical (non-circular)
+  arch, sweep, taper, torsion, etc. For example, the thickness at the wing
+  tips is much thinner, so assuming uniform thickness is likely to
+  overestimate the yaw apparent moment of inertia.
+
+  Also, Barrows development of apparent inertia coefficients assumes the
+  canopy has two planes of symmetry, which suggests the `x` principal axis of
+  the volume is aligned with the central chord, but for normal parafoils the
+  x-hat tends to be rotated pitch down (due to the non-uniform airfoil
+  thickness). My current code assumes the two-planes of symmetry, and that the
+  principal axes of the canopy are aligned with the body axes, but in reality
+  the principal axes are rotated ~12deg pitch down. What affect does that
+  have?
+
+* I'm using Barrows equations for the *vehicle mass matrix*, which is
+  equivalent to Eq:9 from (Thomasson; 2000). The limitation is that **in this
+  formulation the relative accelerations mostly cancel**, so I'm not sure how
+  well it works in lift/sink. The Thomasson (2000) paper goes on to develop
+  a more general model in which the fluid medium may include **velocity
+  gradients** and **accelerations**. Both of those seem relevant to the
+  fine-resolution questions I'm asking of my paraglider dynamics (spanwise
+  velocity gradients when you're partially in a thermal, for example).
 
 
 Simulator
 =========
+
+* Design review the `v_W2e` parameter of the dynamics models. The other
+  parameters can take a scalar input; should `v_W2e` accept a 3-vector of
+  float? (then `self.v_W2e = lambda t, r: np.broadcast_to(v_W2e, r`)
 
 * The simulator needs to understand that Phillips can fail, and
   degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
@@ -633,9 +818,6 @@ Simulator
   simulations (eg, "run for 120sec").
 
 * Review the `GliderSim` state definitions (Dictionary? Structured array?)
-
-* For the simulator, why integrate velocity in `ned` instead of `frd`?
-  I forget the benefits.
 
 * Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,
   `first_step`, `max_step`, etc. Remember the simulation depends on the system
@@ -667,6 +849,18 @@ Documentation
 
 Testing
 =======
+
+* What if the sensation of being "pushed out of a thermal" is a combination of
+  effects: the wing yawing away and a *decrease in centripetal acceleration*?
+  Maybe what's being interpreted as "being pushed out" is more a "lack of
+  being pulled in"? All you know is that if feels like you're deviating from
+  your desired course, that the radius of your turn is being increased.
+
+  Oh, another interpretation: there is a reverse-pendulum after the initial
+  reaction: first you roll right, yaw left (into the thermal on your right) as
+  well as accelerating to your right, but then the wing snap quickly rolls
+  left once you're past the thermal. A pilot might interpret this delayed
+  roll-left motion as being pushed out?
 
 * Does my model demonstrate "control reversal" for small brake deflections?
 

@@ -1479,7 +1479,7 @@ class Phillips(ForceEstimator):
 
         return res["x"], v
 
-    def __call__(self, delta_f, v_W2f, rho_air, reference_solution=None, max_iterations=5):
+    def __call__(self, delta_f, v_W2f, rho_air, reference_solution=None, max_splits=10):
         # FIXME: this doesn't match the ForceEstimator.__call__ signature
         delta_f = np.broadcast_to(delta_f, (self.K))
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
@@ -1494,14 +1494,19 @@ class Phillips(ForceEstimator):
 
         # Try to solve for the target (`Gamma` as a function of `v_W2f` and
         # `delta_f`) directly using the `reference_solution`. If that fails,
-        # pick a point between the target and the reference, and solve for that
-        # easier case. Repeat for intermediate targets until either solving for
-        # the original target, or exceeding `max_iterations`.
+        # pick a point between the target and the reference, solve for that
+        # easier case, then use its solution as the new starting point for the
+        # next target. Repeat for intermediate targets until either solving for
+        # the original target, or exceeding `max_splits`.
         target_backlog = []  # Stack of pending targets
-        for _m in range(max_iterations):
+        num_splits = 0
+        while True:
             try:
                 Gamma, v = self._solve_circulation(delta_f, v_W2f, Re, Gamma_ref)
             except ForceEstimator.ConvergenceError:
+                if num_splits == max_splits:
+                    raise ForceEstimator.ConvergenceError("max splits reached")
+                num_splits += 1
                 target_backlog.append((delta_f, v_W2f))
                 P = 0.5  # Ratio, a point between the reference and the target
                 delta_f = (1 - P) * delta_f_ref + P * delta_f
@@ -1516,8 +1521,6 @@ class Phillips(ForceEstimator):
                 delta_f, v_W2f = target_backlog.pop()
             else:
                 break
-        else:
-            raise ForceEstimator.ConvergenceError("max iterations reached")
 
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
 

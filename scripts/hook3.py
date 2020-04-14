@@ -5,102 +5,122 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import pfh.glidersim as gsim
+from pfh.glidersim import quaternion
 
 
-def plot_polar_curve(glider, N=51):
+def plot_polar_curve(glider, N=21, approximate=True):
     """Compute the equilibrium conditions and plot the polar curves."""
-    speedbar_equilibriums = np.empty((N, 5))
+
+    if approximate:  # Option 1: fast, but only approximate
+        eqstate = glider.equilibrium_state2
+    else:  # Option 2: currently very slow, but more accurate
+        eqstate = glider.equilibrium_state
+
+    eqs_a = []
     delta_as = np.linspace(0, 1, N)
-    print("Calculating equilibriums over the range of speedbar")
-    ref = None  # Reference solution; speeds convergence
-    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
+    equilibrium = {  # Initial guesses
+        "alpha_b": np.deg2rad(9),
+        "Theta_b2e": [0, np.deg2rad(3), 0],
+        "v_R2e": [10, 0, 1],
+        "reference_solution": None,
+    }
+    print("Calculating equilibrium states over the range of accelerator")
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
-        alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
-            da, 0, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
-        )
-        # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
-        #     da, 0, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
-        # )
-        gamma_eq = alpha_eq - theta_eq
-        GR = 1 / np.tan(gamma_eq)
-        speedbar_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
+        try:
+            equilibrium = eqstate(
+                delta_a=da,
+                delta_b=0,
+                alpha_0=equilibrium["alpha_b"],
+                theta_0=equilibrium["Theta_b2e"][1],
+                v_0=np.linalg.norm(equilibrium["v_R2e"]),
+                rho_air=1.2,
+                reference_solution=equilibrium["reference_solution"],
+            )
+        except gsim.foil.ForceEstimator.ConvergenceError:
+            print("\nConvergence started failing. Aborting early.")
+            delta_as = delta_as[:n]
+            break
+        eqs_a.append(equilibrium)
     print()
 
-    brake_equilibriums = np.empty((N, 5))
+    eqs_b = []
     delta_bs = np.linspace(0, 1, N)
-    print("Calculating equilibriums over the range of brake")
-    ref = None
-    alpha_eq, theta_eq, v_eq = np.deg2rad(9), np.deg2rad(3), 10  # Initial guess
+    equilibrium = {  # Initial guesses
+        "alpha_b": np.deg2rad(9),
+        "Theta_b2e": [0, np.deg2rad(3), 0],
+        "v_R2e": [10, 0, 1],
+        "reference_solution": None,
+    }
+    print("Calculating equilibrium states over the range of brake")
     for n, db in enumerate(delta_bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
-            alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
-                0, db, v_eq_proposal=v_eq, rho_air=1.2, reference_solution=ref,
+            equilibrium = eqstate(
+                delta_a=0,
+                delta_b=db,
+                alpha_0=equilibrium["alpha_b"],
+                theta_0=equilibrium["Theta_b2e"][1],
+                v_0=np.linalg.norm(equilibrium["v_R2e"]),
+                rho_air=1.2,
+                reference_solution=equilibrium["reference_solution"],
             )
-            # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
-            #     0, db, alpha_eq, theta_eq, v_eq, rho_air=1.2, reference_solution=ref,
-            # )
         except gsim.foil.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
+            delta_bs = delta_bs[:n]
             break
-        gamma_eq = alpha_eq - theta_eq
-        GR = 1 / np.tan(gamma_eq)
-        brake_equilibriums[n] = (alpha_eq, theta_eq, gamma_eq, GR, v_eq)
+        eqs_b.append(equilibrium)
     print()
 
-    # Truncate everything after convergence failed
-    delta_bs = delta_bs[:n]
-    brake_equilibriums = brake_equilibriums[:n]
+    # Convert the airspeeds from body coordinates to Earth coordinates
+    Theta_b2e_a = np.asarray([e["Theta_b2e"] for e in eqs_a])
+    Theta_b2e_b = np.asarray([e["Theta_b2e"] for e in eqs_b])
+    q_e2b_a = quaternion.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
+    q_e2b_b = quaternion.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
+    v_R2e_a = [e["v_R2e"] for e in eqs_a]
+    v_R2e_b = [e["v_R2e"] for e in eqs_b]
+    v_R2e_a = quaternion.apply_quaternion_rotation(q_e2b_a, v_R2e_a)
+    v_R2e_b = quaternion.apply_quaternion_rotation(q_e2b_b, v_R2e_b)
 
-    # Build the polar curves
-    be, se = brake_equilibriums.T, speedbar_equilibriums.T
-    brake_polar = be[4] * np.array([np.cos(be[2]), -np.sin(be[2])])
-    speedbar_polar = se[4] * np.array([np.cos(se[2]), -np.sin(se[2])])
+    # -----------------------------------------------------------------------
+    # Plot the curves
+    fig, ax = plt.subplots(2, 2)  # [[alpha_b, sink rate], [theta_b, GR]]
 
-    fig, ax = plt.subplots(2, 2)  # [[alpha_eq, polar curve], [theta_eq, GR]]
+    # alpha_b versus control input
+    alpha_b_a = [e["alpha_b"] for e in eqs_a]
+    alpha_b_b = [e["alpha_b"] for e in eqs_b]
+    ax[0, 0].plot(delta_as, np.rad2deg(alpha_b_a), "g")
+    ax[0, 0].plot(-delta_bs, np.rad2deg(alpha_b_b), "r")
+    ax[0, 0].set_xlabel("Control input [%]")
+    ax[0, 0].set_ylabel("alpha_b [deg]")
 
-    # alpha_eq
-    ax[0, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[0]), "r")
-    ax[0, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[0]), "g")
-    ax[0, 0].set_ylabel("alpha_eq [deg]")
-
-    # Polar curve
-    #
-    # For (m/s, km/h)
-    # ax[0, 1].plot(3.6*brake_polar[0], brake_polar[1], 'r')
-    # ax[0, 1].plot(3.6*speedbar_polar[0], speedbar_polar[1], 'g')
-    # ax[0, 1].set_xlabel('airspeed [km/h]')
-    #
-    # For (m/s, m/s)
-    ax[0, 1].plot(brake_polar[0], brake_polar[1], "r")
-    ax[0, 1].plot(speedbar_polar[0], speedbar_polar[1], "g")
+    # Vertical versus horizontal airspeed
+    ax[0, 1].plot(v_R2e_a.T[0], v_R2e_a.T[2], "g")
+    ax[0, 1].plot(v_R2e_b.T[0], v_R2e_b.T[2], "r")
     ax[0, 1].set_aspect("equal")
-    ax[0, 1].set_xlabel("airspeed [m/s]")
     ax[0, 1].set_xlim(0, 25)
-    ax[0, 1].set_ylim(-8, 0)
+    ax[0, 1].set_ylim(0, 8)
+    ax[0, 1].invert_yaxis()
+    ax[0, 1].set_xlabel("Horizontal airspeed [m/s]")
     ax[0, 1].set_ylabel("sink rate [m/s]")
     ax[0, 1].grid(which="both")
     ax[0, 1].minorticks_on()
 
-    # theta_eq
-    ax[1, 0].plot(-delta_bs, np.rad2deg(brake_equilibriums.T[1]), "r")
-    ax[1, 0].plot(delta_as, np.rad2deg(speedbar_equilibriums.T[1]), "g")
-    ax[1, 0].set_xlabel("control input [percentage]")
-    ax[1, 0].set_ylabel("theta_eq [deg]")
+    # theta_b versus control input
+    theta_b_a = [e["Theta_b2e"][1] for e in eqs_a]
+    theta_b_b = [e["Theta_b2e"][1] for e in eqs_b]
+    ax[1, 0].plot(delta_as, np.rad2deg(theta_b_a), "g")
+    ax[1, 0].plot(-delta_bs, np.rad2deg(theta_b_b), "r")
+    ax[1, 0].set_xlabel("Control input [%]")
+    ax[1, 0].set_ylabel("theta_b [deg]")
 
     # Glide ratio
-    #
-    # For (m/s, km/h)
-    # ax[1, 1].plot(3.6*brake_polar[0], brake_equilibriums.T[3], 'r')
-    # ax[1, 1].plot(3.6*speedbar_polar[0], speedbar_equilibriums.T[3], 'g')
-    # ax[1, 1].set_xlabel('airspeed [km/h]')
-    #
-    # For (m/s, m/s)
-    ax[1, 1].plot(brake_polar[0], brake_equilibriums.T[3], "r")
-    ax[1, 1].plot(speedbar_polar[0], speedbar_equilibriums.T[3], "g")
+    GR_a = [e["glide_ratio"] for e in eqs_a]
+    GR_b = [e["glide_ratio"] for e in eqs_b]
+    ax[1, 1].plot(v_R2e_a.T[0], GR_a, "g")
+    ax[1, 1].plot(v_R2e_b.T[0], GR_b, "r")
     ax[1, 1].set_xlim(0, 25)
-    ax[1, 1].set_xlabel("airspeed [m/s]")
+    ax[1, 1].set_xlabel("Horizontal airspeed [m/s]")
     ax[1, 1].set_ylabel("Glide ratio")
 
     plt.show()
@@ -269,10 +289,14 @@ def build_hook3():
         force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
         brake_geo=brakes,
         d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
-        z_riser=6.8,  # From the Hook 3 manual PDF, section 11.1
-        pA=0.11,  # Approximated from the line plan in the manual PDF, page 17
+        z_riser=6.8,  # ref: "Hook 3 technical specs", pg 2
+        pA=0.11,  # Approximated from the line plan in the users manual, pg 17
         pC=0.59,
-        kappa_a=0.15,  # From the Hook 3 manual
+        kappa_a=0.15,  # ref: "Hook 3 technical specs", pg 2
+        total_line_length=213,  # ref: "Hook 3 technical specs", pg 2
+        average_line_diameter=1e-3,  # Blind guess
+        line_drag_positions=[[0, -1.75, -5], [0, 1.75, -5]],  # Blind guess
+        Cd_lines=0.98,  # ref: Kulhánek, 2019; page 5
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )
@@ -289,55 +313,76 @@ if __name__ == "__main__":
     # wing materials I'm accounting for total to 1.83kg, so there's a lot left
     # in the lines, risers, ribs, etc.
     wing = build_hook3()
-    harness = gsim.harness.Spherical(mass=75, z_riser=0.5, S=0.55, CD=0.8)
+    harness = gsim.harness.Spherical(
+        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
+    )
     glider = gsim.paraglider.Paraglider6a(wing, harness)
+    # glider = gsim.paraglider.Paraglider9a(wing, harness)
 
-    # print("Plotting the basic glider performance curves")
-    # plot_foil_coefficients(glider)
+    # print("Plotting the wing performance curves")
+    # plot_wing_coefficients(wing)
 
     print("\nFinished building the glider.\n")
     # embed()
     # 1/0
 
-    print("\nComputing the glider equilibrium...")
+    print("\nComputing the glider equilibrium state...")
 
-    # Option 1: fast, approximately accurately
-    alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide(
+    approximate = True
+    # approximate = False
+
+    if approximate:  # Option 1: fast, but only approximate
+        eqstate = glider.equilibrium_state2
+    else:  # Option 2: currently very slow, but more accurate
+        eqstate = glider.equilibrium_state
+
+    eq = eqstate(
         delta_a=0.0,
         delta_b=0.0,
-        v_eq_proposal=10,
+        alpha_0=np.deg2rad(9),
+        theta_0=np.deg2rad(3),
+        v_0=10,
         rho_air=1.2,
     )
-    # Option 2: slow, more accurate
-    # alpha_eq, theta_eq, v_eq, ref = glider.equilibrium_glide2(
-    #     delta_a=0.0,
-    #     delta_b=0.0,
-    #     alpha_0=np.deg2rad(9),
-    #     theta_0=np.deg2rad(3),
-    #     v_0=10,
+
+    # Compute the residual acceleration at the given equilibrium state
+    q_b2e = quaternion.euler_to_quaternion(eq["Theta_b2e"])
+    q_e2b = q_b2e * [-1, 1, 1, 1]
+    v_R2e = quaternion.apply_quaternion_rotation(q_e2b, eq["v_R2e"])
+
+    # For the `Paraglider6a` model
+    a_R2e, alpha_b2e, _ = glider.accelerations(
+        v_R2e=eq["v_R2e"],
+        omega_b2e=[0, 0, 0],
+        g=quaternion.apply_quaternion_rotation(q_b2e, [0, 0, 9.8]),
+        rho_air=1.2,
+        reference_solution=eq["reference_solution"],
+    )
+    # For the `Paraglider9a` model
+    # a_R2e, alpha_b2e, alpha_p2b, _ = glider.accelerations(
+    #     v_R2e=eq["v_R2e"],
+    #     omega_b2e=[0, 0, 0],
+    #     omega_p2e=[0, 0, 0],
+    #     Theta_p2b=eq["Theta_p2b"],
+    #     g=quaternion.apply_quaternion_rotation(q_b2e, [0, 0, 9.8]),
     #     rho_air=1.2,
+    #     reference_solution=eq["reference_solution"],
     # )
 
-    gamma_eq = alpha_eq - theta_eq
-    v_R2e = v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-    omega_b2e = np.array([0, 0, 0])
-    g = 9.8 * np.array([-np.sin(theta_eq), 0, np.cos(theta_eq)])
-    a_R2e, alpha_b2e, _, = glider.accelerations(
-        v_R2e, omega_b2e, g=g, rho_air=1.2, reference_solution=ref,
-    )
-
-    print(f"  alpha_eq:    {np.rad2deg(alpha_eq):>6.3f} [deg]")
-    print(f"  theta_eq:    {np.rad2deg(theta_eq):>6.3f} [deg]")
-    print(f"  Glide angle: {np.rad2deg(gamma_eq):>6.3f} [deg]")
-    print(f"  Glide ratio: {1 / np.tan(gamma_eq):>6.3f}")
-    print(f"  Glide speed: {v_eq:>6.3f}")
+    print("Equilibrium state:")
+    print(f"  alpha_b:     {np.rad2deg(eq['alpha_b']):>6.3f} [deg]")
+    print(f"  theta_b:     {np.rad2deg(eq['Theta_b2e'][1]):>6.3f} [deg]")
+    print(f"  Glide angle: {np.rad2deg(eq['gamma_b']):>6.3f} [deg]")
+    print(f"  Glide ratio: {eq['glide_ratio']:>6.3f}")
+    print(f"  Glide speed: {np.linalg.norm(v_R2e):>6.3f}")
     print()
-    print(f"  v_R2e:     {v_R2e.round(4)}")
-    print(f"  a_R2e:     {a_R2e.round(4)}")
-    print(f"  alpha_b2e: {np.rad2deg(alpha_b2e).round(4)}")
+    print("For verification of the equilibrium state:")
+    print(f"  v_R2e:       {v_R2e.round(4)}")
+    print(f"  a_R2e:       {a_R2e.round(4)}")
+    print(f"  alpha_b2e:   {np.rad2deg(alpha_b2e).round(4)}")
 
     print("\n<pausing before polar curves>\n")
     embed()
 
     input("Plot the polar curve?  Press any key")
-    plot_polar_curve(glider)
+    plot_polar_curve(glider, approximate=approximate)

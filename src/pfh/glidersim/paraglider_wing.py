@@ -6,13 +6,29 @@ from scipy.optimize import root_scalar
 
 from pfh.glidersim import foil
 from pfh.glidersim.util import cross3
+from pfh.glidersim.quaternion import skew
 
 
 class ParagliderWing:
     """FIXME: add class docstring."""
 
-    def __init__(self, canopy, force_estimator, brake_geo, d_riser, z_riser,
-                 pA, pC, kappa_a, rho_upper, rho_lower):
+    def __init__(
+        self,
+        canopy,
+        force_estimator,
+        brake_geo,
+        d_riser,
+        z_riser,
+        pA,
+        pC,
+        kappa_a,
+        total_line_length,
+        average_line_diameter,
+        line_drag_positions,
+        Cd_lines,
+        rho_upper,
+        rho_lower,
+    ):
         """
         FIXME: add docstring.
 
@@ -27,15 +43,25 @@ class ParagliderWing:
         d_riser : float [percentage]
             The longitudinal distance from the risers to the central leading
             edge, as a percentage of the chord length.
-        z_riser : float [meters]
+        z_riser : float [m]
             The vertical distance from the risers to the central chord
         pA, pC : float [percentage]
             The position of the A and C lines as a fraction of the central
             chord. The speedbar adjusts the length of the A lines, while C
             remains fixed, causing a rotation about the point `pC`.
-        kappa_a : float [meters], optional
+        kappa_a : float [m], optional
             The speed bar line length. This corresponds to the maximum change
             in the length of the lines to the leading edge.
+        total_line_length : float [m]
+            The total length of the lines from the risers to the canopy
+        average_line_diameter : float [m^2]
+            The average diameter of the connecting lines
+        line_drag_positions : array of float, shape (K,3)
+            The mean location(s) of the connecting line surface area(s).
+            If multiple positions are given, the total line length will be
+            divided between them evenly.
+        Cd_lines : float
+            The drag coefficient of the lines
         rho_upper, rho_lower : float [kg m^-2]
             Surface area densities of the upper and lower foil surfaces.
         """
@@ -45,8 +71,14 @@ class ParagliderWing:
         self.pA = pA
         self.pC = pC
         self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
+        self._r_L2R = np.atleast_2d(line_drag_positions)
+        self._S_lines = total_line_length * average_line_diameter / self._r_L2R.shape[0]
+        self._Cd_lines = Cd_lines
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
+
+        if self._r_L2R.ndim != 2 or self._r_L2R.shape[-1] != 3:
+            raise ValueError("`line_drag_positions` is not a (K,3) array")
 
         # The ParagliderWing coordinate axes are parallel to the canopy axes,
         # but the origin is translated from the central leading edge of the
@@ -83,7 +115,118 @@ class ParagliderWing:
             "J_air": pmp["volume_inertia"],  # Normalized by unit air density
         }
 
-    def forces_and_moments(self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None):
+        self._compute_apparent_masses()
+
+    def _compute_apparent_masses(self):
+        """
+        Compute an approximate apparent mass matrix for the canopy volume.
+
+        This follows the development in "Apparent Mass of Parafoils with
+        Spanwise Camber" (Barrows, 2002), which means it assumes the canopy has
+        a circular arch, has two planes of symmetry (xz and yz), and uniform
+        thickness. In reality, paragliders have non-circular arch, non-uniform
+        thickness, taper, and torsion. The assumptions in this paper, then, are
+        clearly very strong, but it's still a good starting point for average
+        paraglider wings.
+
+        This implementation tries to follow the equations in the paper as
+        closely as possible, with some exceptions:
+
+          * pitch and roll centers: `p` and `r` are now `PC` and `RC`
+          * circular confluence point: `c` is now `C`
+          * arc semi-angle: `Theta` is now `theta`
+          * radius: `R` is now `r`
+          * origin: `o` is now `R` (the riser connection point)
+
+        Dynamics models that want to incorporate these effects can use
+        equations 16, 24, 61, and 64 (making sure to remove the steady-state
+        term from Eq:64, as noted in the paper).
+        """
+        # For testing: values for the flat and arched wings in Barrows. Verify
+        # the results in Table:1 and Table:2.
+        # AR = 3
+        # b = 3
+        # c = 1
+        # r = 2.5
+        # t = 0.15
+        # S = b * c
+        # theta = np.deg2rad(35)
+        # hstar = eta / 4
+
+        # Values for the Hook 3 23
+        S = self.canopy.S
+        b = self.canopy.b
+        AR = self.canopy.AR
+        c = self.canopy.S_flat / self.canopy.b_flat  # Standard mean chord
+
+        # Barrows assumes uniform thickness, so I'm using an average of the
+        # thickest region.
+        #
+        # FIXME: There should be a balance between the thickness exposed to the
+        #        forward and pitching moments versus the thickness exposed to
+        #        the lateral, rolling, and yawing motions. Perhaps tailor
+        #        different thicknesses for the different dimensions?
+        t = self.canopy.airfoil.geometry.thickness(np.linspace(0.1, .5, 25)).mean()
+        t *= c  # The thickness is absolute, not proportional
+
+        # Assuming the arch is circular, find its radius and arc angle using
+        # the quarter-chords of the central section and the wing tip. See
+        # Barrows Figure:5 for a diagram.
+        r_tip2center = self.canopy.chord_xyz(1, 0.25) - self.canopy.chord_xyz(0, 0.25)
+        dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
+        r = dz + r_tip2center[2]  # Arch radius
+        theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle
+        h = r_tip2center[2]  # Height from the central section to the tip
+        hstar = h / b
+
+        # Three-dimensional correction factors
+        k_A = 0.85
+        k_B = 1.00
+
+        # Flat wing values, Barrows Eqs:34-39
+        mf11 = k_A * np.pi * t ** 2 * b / 4
+        mf22 = k_B * np.pi * t ** 2 * c / 4
+        mf33 = AR / (1 + AR) * np.pi * c**2 * b / 4
+        If11 = 0.055 * AR / (1 + AR) * b * S ** 2
+        If22 = 0.0308 * AR / (1 + AR) * c ** 3 * S
+        If33 = 0.055 * b ** 3 * t ** 2
+
+        # Compute the pitch and roll centers, treating the wing as a circular
+        # arch with fore-and-aft (yz) and lateral (xz) planes of symmetry.
+        # The roll center, pitch center, and the "confluence point" all lie on
+        # the z-axis of the idealized circular arch. The rest of the derivation
+        # requires that the origin `R` lies in the xz-plane of symmetry.
+        z_PC2C = -r * np.sin(theta) / theta  # Barrows Eq:44
+        z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r ** 2)  # Barrows Eq:50
+        z_PC2RC = z_PC2C - z_RC2C
+
+        # Arched wing values, Barrows Eqs:51-55
+        m11 = k_A * (1 + 8 / 3 * hstar ** 2) * np.pi * t**2 * b / 4
+        m22 = (r ** 2 * mf22 + If11) / z_PC2C ** 2
+        m33 = mf33
+        I11 = (
+            z_PC2RC ** 2 / z_PC2C ** 2 * r ** 2 * mf22
+            + z_RC2C ** 2 / z_PC2C ** 2 * If11
+        )
+        I22 = If22
+        I33 = 0.055 * (1 + 8 * hstar ** 2) * b ** 3 * t ** 2
+
+        # Save the precomputed values for use in `mass_properties`. The vectors
+        # are defined with respect to `C` and the canopy origin (the central
+        # leading edge), but the final apparent inertia matrix is about `R`,
+        # which depends on `delta_a`.
+        r_C2LE = np.array([-0.5 * self.c0, 0, r])
+        r_RC2C = np.array([0, 0, z_RC2C])
+        self._apparent_inertia = {
+            "r_RC2LE": r_RC2C + r_C2LE,
+            "r_PC2RC": np.array([0, 0, z_PC2RC]),
+            "M": np.diag([m11, m22, m33]),  # Barrows Eq:1
+            "I": np.diag([I11, I22, I33]),  # Barrows Eq:17
+        }
+
+    def forces_and_moments(
+        self, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
+    ):
         """
         FIXME: add docstring.
 
@@ -107,8 +250,28 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
-        delta_f = self.brake_geo(self.force_estimator.s_cps, delta_bl, delta_br)  # FIXME: leaky, don't grab s_cps directly
-        dF, dM, solution = self.force_estimator(delta_f, v_W2b, rho_air, reference_solution)
+        K_foil = self.force_estimator.s_cps.shape[0]
+        K_lines = self._r_L2R.shape[0]
+        v_W2b = np.broadcast_to(v_W2b, (K_foil + K_lines, 3))
+        delta_f = self.brake_geo(
+            self.force_estimator.s_cps, delta_bl, delta_br,
+        )  # FIXME: leaky, don't grab `s_cps` directly
+        dF_foil, dM_foil, solution = self.force_estimator(
+            delta_f, v_W2b[:-K_lines], rho_air, reference_solution,
+        )
+
+        dF_lines = (
+            -0.5
+            * rho_air
+            * v_W2b[-K_lines:] ** 2
+            * self._S_lines  # Line area per control point
+            * self._Cd_lines
+        )
+        dM_lines = np.zeros(3)
+
+        dF = np.vstack((dF_foil, dF_lines))
+        dM = np.vstack((dM_foil, dM_lines))
+
         return dF, dM, solution
 
     def canopy_origin(self, delta_a=0):
@@ -136,19 +299,53 @@ class ParagliderWing:
         return np.array([foil_x, foil_y, foil_z])
 
     def equilibrium_alpha(
-        self, delta_a, delta_b, v_mag, rho_air, reference_solution=None,
+        self,
+        delta_a,
+        delta_b,
+        v_mag,
+        rho_air,
+        alpha_0=9,
+        alpha_1=6,
+        reference_solution=None,
     ):
-        """Compute the zero aerodynamic pitching moment angle of attack."""
-        cp_wing = self.control_points(delta_a)
+        """
+        Compute the angle of attack with zero aerodynamic pitching moment.
+
+        The final wing will have extra moments from the harness and weight of
+        the wing, but this value is often a good estimate.
+
+        Parameters
+        ----------
+        delta_a : float [percentage], optional
+            Percentage of accelerator application
+        delta_b : float [percentage]
+            The amount of symmetric brake
+        v_mag : float [m/s]
+            Airspeed
+        rho_air : float [kg/m^3]
+            Air density
+        alpha_0 : float [rad], optional
+            First guess for the equilibrium alpha search.
+        alpha_1 : float [rad], optional
+            First guess for the equilibrium alpha search.
+        solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        float [rad]
+            The angle of attack where the section pitching moments sum to zero.
+        """
+        r_CP2R = self.control_points(delta_a)  # riser -> control points
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.forces_and_moments(
                 delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
-            M = dM_wing.sum(axis=0) + cross3(cp_wing, dF_wing).sum(axis=0)
+            M = dM_wing.sum(axis=0) + cross3(r_CP2R, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment
-        x0, x1 = np.deg2rad([9, 6])  # FIXME: review these bounds
+        x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
             raise foil.ForceEstimator.ConvergenceError
@@ -170,12 +367,16 @@ class ParagliderWing:
         cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        cps = self.force_estimator.control_points  # In foil coordinates
-        return cps + self.canopy_origin(delta_a)  # In wing coordinates
+        foil_cps = self.force_estimator.control_points  # In foil coordinates
+        foil_cps = foil_cps + self.canopy_origin(delta_a)
+        return np.vstack((foil_cps, self._r_L2R))
 
     def mass_properties(self, rho_air, delta_a=0):
         """
-        Compute the mass properties of the solid mass and enclosed air.
+        Compute the inertial properties of the wing.
+
+        Includes terms for the solid mass, the enclosed air, and the apparent
+        mass (which appears due to the inertial acceleration of the air).
 
         Parameters
         ----------
@@ -192,18 +393,48 @@ class ParagliderWing:
             cm_solid : array of float, shape (3,) [m]
                 The solid mass centroid
             J_solid : array of float, shape (3,3) [kg m^2]
-                The inertia matrix of the solid mass
+                The moment of inertia matrix of the solid mass about its cm
             m_air : float [kg m^3]
                 The enclosed air mass.
             cm_air : array of float, shape (3,) [m]
                 The air mass centroid
             J_air : array of float, shape (3,3) [m^2]
-                The inertia matrix of the enclosed air mass.
+                The moment of inertia matrix of the enclosed air mass about its cm
+            r_PC2RC : array of float, shape (3,) [m]
+                Vector to the pitch center from the roll center
+            r_RC2R : array of float, shape (3,) [m]
+                Vector to the roll center from the riser connection point
+            A_R : array of float, shape (6,6)
+                The apparent inertia matrix of the volume about `R`
         """
-        offset = self.canopy_origin(delta_a)  # canopy origin <- wing origin
+        r_LE2R = self.canopy_origin(delta_a)  # canopy origin <- wing origin
         mp = self._mass_properties.copy()
-        mp["cm_solid"] = mp["cm_solid"] + offset
-        mp["cm_air"] = mp["cm_air"] + offset
+        mp["cm_solid"] = r_LE2R + mp["cm_solid"]
+        mp["cm_air"] = r_LE2R + mp["cm_air"]
         mp["m_air"] = mp["m_air"] * rho_air
         mp["J_air"] = mp["J_air"] * rho_air
+
+        # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
+        ai = self._apparent_inertia  # Dictionary of precomputed values
+        S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
+        r_RC2R = r_LE2R + ai["r_RC2LE"]
+        S_PC2RC = skew(ai["r_PC2RC"])
+        S_RC2R = skew(r_RC2R)
+        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
+        J_R = (  # Barrows Eq:25
+            ai["I"]
+            - S_RC2R @ ai["M"] @ S_RC2R
+            - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
+            - Q
+            - Q.T
+        )
+        MC = -ai["M"] @ (S_RC2R + S_PC2RC @ S2)
+        A_R = np.block([[ai["M"], MC], [MC.T, J_R]])  # Barrows Eq:27
+
+        # The vectors to the roll and pitch centers are required to compute the
+        # apparent inertias. See Barrows Eq:16 and Eq:24.
+        mp["r_RC2R"] = r_RC2R
+        mp["r_PC2RC"] = ai["r_PC2RC"]
+        mp["A_R"] = A_R * rho_air
+
         return mp
