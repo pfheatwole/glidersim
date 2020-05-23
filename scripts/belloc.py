@@ -70,7 +70,7 @@ c = np.array([0.107, 0.137, 0.198, 0.259, 0.308, 0.339, 0.350,
 theta = np.deg2rad([3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3])  # torsion [deg]
 
 # Compute the section indices
-L_segments = np.linalg.norm(np.diff(xyz[..., 1:], axis=0), axis=1)
+L_segments = np.linalg.norm(np.diff(xyz, axis=0), axis=1)
 s_xyz = np.cumsum(np.r_[0, L_segments]) / L_segments.sum() * 2 - 1
 
 # Coordinates and chords are in meters, and must be normalized
@@ -84,7 +84,7 @@ ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 # ---------------------------------------------------------------------------
 # Build the canopy and wing
 
-airfoil_geo = gsim.airfoil.NACA(23015, convention='vertical')
+airfoil_geo = gsim.airfoil.NACA(23015, convention="vertical")
 
 polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N7.0"
 airfoil_coefs = gsim.airfoil.XFLR5Coefficients(polardir, flapped=False)
@@ -154,10 +154,16 @@ wing = gsim.paraglider_wing.ParagliderWing(
     kappa_a=0,  # unused
     rho_upper=0,  # Neglect gravitational forces
     rho_lower=0,
+
+    total_line_length=0,  # Neglect line drag
+    average_line_diameter=0,
+    line_drag_positions=[0, 0, 0],
+    Cd_lines=0,
 )
 
 print("\nFinished defining the complete wing. Pausing for review.\n")
 gsim.plots.plot_foil(canopy, N_sections=121)
+gsim.plots.plot_foil_topdown(canopy, N_sections=13)  # Belloc Fig:2
 embed()
 # 1/0
 
@@ -198,10 +204,10 @@ for kb, beta_deg in enumerate(betas):
     Fs[beta_deg], Ms[beta_deg], solutions[beta_deg] = [], [], []
     cp_wing = wing.control_points(0)  # Section control points
 
-    alphas_up = np.deg2rad(np.linspace(2, 22, 75))
     alphas_down = np.deg2rad(np.linspace(2, -5, 30))[1:]
+    alphas_up = np.deg2rad(np.linspace(2, 22, 75))
 
-    # First, going down
+    # First with decreasing alpha
     ref = None
     for ka, alpha in enumerate(alphas_down):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
@@ -237,7 +243,7 @@ for kb, beta_deg in enumerate(betas):
     solutions[beta_deg] = solutions[beta_deg][::-1]
     alphas_down = alphas_down[::-1]
 
-    # Again, going up
+    # Continue with increasing alpha
     ref = None
     for ka, alpha in enumerate(alphas_up):
         print(f"\rTest: alpha: {np.rad2deg(alpha): 6.2f}, beta: {beta_deg}", end="")
@@ -285,15 +291,16 @@ embed()
 # Uses the flattened wing area as the reference, as per the Belloc paper.
 
 S = canopy.S_flat
+q = 0.5 * rho_air * v_mag**2
 
 coefficients = {}
 for beta in betas:
     print(f"\nResults for beta={beta} [degrees]")
     coefficients[beta] = {}
 
-    CX, CY, CZ = Fs[beta].T / (0.5 * rho_air * v_mag**2 * S)
+    CX, CY, CZ = Fs[beta].T / (q * S)
     CN = -CZ
-    CM = Ms[beta].T[1] / (0.5 * rho_air * v_mag**2 * S * cc)  # The paper uses the central chord
+    CM = Ms[beta].T[1] / (q * S * cc)  # The paper uses the central chord
 
     # From Stevens, "Aircraft Control and Simulation", pg 90 (104)
     beta_rad = np.deg2rad(beta)
@@ -318,12 +325,12 @@ for beta in betas:
     # print("Effective aspect ratios:\n", AR_effective)
     # plt.plot(np.rad2deg(alphas), AR_effective)
     # plt.hlines(canopy.AR, np.rad2deg(alphas[0]), np.rad2deg(alphas[-1]),
-    #            'r', 'dashed', linewidth=1)
+    #            "r", "dashed", linewidth=1)
     # plt.show()
 
-    coefficients[beta]['CL'] = CL
-    coefficients[beta]['CD'] = CD
-    coefficients[beta]['CM'] = CM
+    coefficients[beta]["CL"] = CL
+    coefficients[beta]["CD"] = CD
+    coefficients[beta]["CM"] = CM
 
     # embed()
     # 1/0
@@ -334,27 +341,27 @@ for beta in betas:
 
 plotted_betas = {0, 5, 10, 15}  # The betas present in Belloc's plots
 fig, ax = plt.subplots(2, 2)
+m = "."  # Default marker
+m = None  # Disable the marker
 
 for beta in sorted(plotted_betas.intersection(betas)):
-    CL = coefficients[beta]['CL']
-    CD = coefficients[beta]['CD']
-    CM_G = coefficients[beta]['CM']
-    m = '.'
-    m = None
-    ax[0, 0].plot(np.rad2deg(alphas[beta]), CL, label=r'$\beta$={}°'.format(beta),
-                  marker=m)
-    ax[1, 0].plot(CD, CL, label=r'$\beta$={}°'.format(beta), marker=m)
-    ax[1, 1].plot(CM_G, CL, label=r'$\beta$={}°'.format(beta), marker=m)
+    CL = coefficients[beta]["CL"]
+    CD = coefficients[beta]["CD"]
+    CM_G = coefficients[beta]["CM"]
+    label = f"$\\beta$={beta}°"
+    ax[0, 0].plot(np.rad2deg(alphas[beta]), CL, label=label, marker=m)
+    ax[1, 0].plot(CD, CL, label=label, marker=m)
+    ax[1, 1].plot(CM_G, CL, label=label, marker=m)
 
-ax[0, 0].set_xlabel('alpha [degrees]')
-ax[0, 0].set_ylabel('CL')
+ax[0, 0].set_xlabel("alpha [degrees]")
+ax[0, 0].set_ylabel("CL")
 ax[0, 0].set_xlim(-10, 25)
 ax[0, 0].set_ylim(-0.4, 1.0)
 ax[0, 0].legend()
 ax[0, 0].grid()
 
-ax[1, 0].set_xlabel('CD')
-ax[1, 0].set_ylabel('CL')
+ax[1, 0].set_xlabel("CD")
+ax[1, 0].set_ylabel("CL")
 ax[1, 0].set_xlim(0, 0.2)
 ax[1, 0].set_ylim(-0.4, 1.0)
 ax[1, 0].legend()
@@ -366,25 +373,25 @@ ax[1, 0].grid()
 # CM_CL : due to the lift force applied to the wing
 # CM_c4 : due to the wing shape
 # CM_G: the total pitching moment = CM_CD + CM_CL + CM_c4
-CL = coefficients[0]['CL']
-CM_G = coefficients[0]['CM']
-CM_CD = coefficients[0]['CD'] * np.cos(alphas[0]) / cc   # Eq: 8
-CM_CL = -coefficients[0]['CL'] * np.sin(alphas[0]) / cc  # Eq: 9
-CM_c4 = CM_G - CM_CL - CM_CD                       # Eq: 7
+CL = coefficients[0]["CL"]
+CM_G = coefficients[0]["CM"]
+CM_CD = coefficients[0]["CD"] * np.cos(alphas[0]) / cc  # Eq: 8
+CM_CL = -coefficients[0]["CL"] * np.sin(alphas[0]) / cc  # Eq: 9
+CM_c4 = CM_G - CM_CL - CM_CD  # Eq: 7
 
-ax[0, 1].plot(CM_G, CL, label='CM_G', marker=m)
-ax[0, 1].plot(CM_CL, CL, label='CM_CL', marker=m)
-ax[0, 1].plot(CM_CD, CL, label='CM_CD', marker=m)
-ax[0, 1].plot(CM_c4, CL, label='CM_25%', marker=m)
-ax[0, 1].set_xlabel('CM')
-ax[0, 1].set_ylabel('CL')
+ax[0, 1].plot(CM_G, CL, label="CM_G", marker=m)
+ax[0, 1].plot(CM_CL, CL, label="CM_CL", marker=m)
+ax[0, 1].plot(CM_CD, CL, label="CM_CD", marker=m)
+ax[0, 1].plot(CM_c4, CL, label="CM_25%", marker=m)
+ax[0, 1].set_xlabel("CM")
+ax[0, 1].set_ylabel("CL")
 ax[0, 1].legend()
 ax[0, 1].grid()
 ax[0, 1].set_xlim(-0.5, 0.2)
 ax[0, 1].set_ylim(-0.4, 1.0)
 
-ax[1, 1].set_xlabel('CM_G')
-ax[1, 1].set_ylabel('CL')
+ax[1, 1].set_xlabel("CM_G")
+ax[1, 1].set_ylabel("CL")
 ax[1, 1].set_xlim(-0.5, 0.1)
 ax[1, 1].set_ylim(-0.4, 1.0)
 ax[1, 1].legend()
@@ -402,59 +409,59 @@ for beta in betas:
     ix_a15 = np.argmin(np.abs(np.rad2deg(alphas[beta]) - 15))
 
     # Lateral force
-    Cy_a0.append(Fs[beta].T[1][ix_a0] / (0.5 * rho_air * v_mag**2 * S))
-    Cy_a5.append(Fs[beta].T[1][ix_a5] / (0.5 * rho_air * v_mag**2 * S))
-    Cy_a10.append(Fs[beta].T[1][ix_a10] / (0.5 * rho_air * v_mag**2 * S))
-    Cy_a15.append(Fs[beta].T[1][ix_a15] / (0.5 * rho_air * v_mag**2 * S))
+    Cy_a0.append(Fs[beta].T[1][ix_a0] / (q * S))
+    Cy_a5.append(Fs[beta].T[1][ix_a5] / (q * S))
+    Cy_a10.append(Fs[beta].T[1][ix_a10] / (q * S))
+    Cy_a15.append(Fs[beta].T[1][ix_a15] / (q * S))
 
     # Rolling moment coefficients
-    Cl_a0.append(Ms[beta].T[0][ix_a0] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cl_a5.append(Ms[beta].T[0][ix_a5] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cl_a10.append(Ms[beta].T[0][ix_a10] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cl_a15.append(Ms[beta].T[0][ix_a15] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cl_a0.append(Ms[beta].T[0][ix_a0] / (q * S * cc))
+    Cl_a5.append(Ms[beta].T[0][ix_a5] / (q * S * cc))
+    Cl_a10.append(Ms[beta].T[0][ix_a10] / (q * S * cc))
+    Cl_a15.append(Ms[beta].T[0][ix_a15] / (q * S * cc))
 
     # Yawing moment coeficients
-    Cn_a0.append(Ms[beta].T[2][ix_a0] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cn_a5.append(Ms[beta].T[2][ix_a5] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cn_a10.append(Ms[beta].T[2][ix_a10] / (0.5 * rho_air * v_mag**2 * S * cc))
-    Cn_a15.append(Ms[beta].T[2][ix_a15] / (0.5 * rho_air * v_mag**2 * S * cc))
+    Cn_a0.append(Ms[beta].T[2][ix_a0] / (q * S * cc))
+    Cn_a5.append(Ms[beta].T[2][ix_a5] / (q * S * cc))
+    Cn_a10.append(Ms[beta].T[2][ix_a10] / (q * S * cc))
+    Cn_a15.append(Ms[beta].T[2][ix_a15] / (q * S * cc))
 
 fig9, ax9 = plt.subplots()
-ax9.plot(betas, Cy_a0, label=r'$\alpha$=0°')
-ax9.plot(betas, Cy_a5, label=r'$\alpha$=5°')
-ax9.plot(betas, Cy_a10, label=r'$\alpha$=10°')
-ax9.plot(betas, Cy_a15, label=r'$\alpha$=15°')
+ax9.plot(betas, Cy_a0, label=r"$\alpha$=0°")
+ax9.plot(betas, Cy_a5, label=r"$\alpha$=5°")
+ax9.plot(betas, Cy_a10, label=r"$\alpha$=10°")
+ax9.plot(betas, Cy_a15, label=r"$\alpha$=15°")
 ax9.set_xlim(-20, 20)
 ax9.set_ylim(-0.3, 0.3)
 ax9.set_title("Figure 9: The effect of sideslip on the lateral force")
-ax9.set_xlabel(r'$\beta$')
-ax9.set_ylabel(r'$\mathrm{C_y}$')
+ax9.set_xlabel(r"$\beta$")
+ax9.set_ylabel(r"$\mathrm{C_y}$")
 ax9.legend()
 ax9.grid()
 
 fig11, ax11 = plt.subplots()
-ax11.plot(betas, Cl_a0, label=r'$\alpha$=0°')
-ax11.plot(betas, Cl_a5, label=r'$\alpha$=5°')
-ax11.plot(betas, Cl_a10, label=r'$\alpha$=10°')
-ax11.plot(betas, Cl_a15, label=r'$\alpha$=15°')
+ax11.plot(betas, Cl_a0, label=r"$\alpha$=0°")
+ax11.plot(betas, Cl_a5, label=r"$\alpha$=5°")
+ax11.plot(betas, Cl_a10, label=r"$\alpha$=10°")
+ax11.plot(betas, Cl_a15, label=r"$\alpha$=15°")
 ax11.set_xlim(-20, 20)
 ax9.set_ylim(-0.2, 0.2)
 ax11.set_title("Figure 11: The effect of sideslip on the rolling moment")
-ax11.set_xlabel(r'$\beta$')
-ax11.set_ylabel(r'$\mathrm{Cl_G}$')
+ax11.set_xlabel(r"$\beta$")
+ax11.set_ylabel(r"$\mathrm{Cl_G}$")
 ax11.legend()
 ax11.grid()
 
 fig12, ax12 = plt.subplots()
-ax12.plot(betas, Cn_a0, label=r'$\alpha$=0°')
-ax12.plot(betas, Cn_a5, label=r'$\alpha$=5°')
-ax12.plot(betas, Cn_a10, label=r'$\alpha$=10°')
-ax12.plot(betas, Cn_a15, label=r'$\alpha$=15°')
+ax12.plot(betas, Cn_a0, label=r"$\alpha$=0°")
+ax12.plot(betas, Cn_a5, label=r"$\alpha$=5°")
+ax12.plot(betas, Cn_a10, label=r"$\alpha$=10°")
+ax12.plot(betas, Cn_a15, label=r"$\alpha$=15°")
 ax12.set_xlim(-20, 20)
 ax12.set_ylim(-0.1, 0.1)
 ax12.set_title("Figure 12: The effect of sideslip on the yawing moment")
-ax12.set_xlabel(r'$\beta$')
-ax12.set_ylabel(r'$\mathrm{Cn_G}$')
+ax12.set_xlabel(r"$\beta$")
+ax12.set_ylabel(r"$\mathrm{Cn_G}$")
 ax12.legend()
 ax12.grid()
 
