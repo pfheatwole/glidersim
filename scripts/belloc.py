@@ -69,6 +69,13 @@ c = np.array([0.107, 0.137, 0.198, 0.259, 0.308, 0.339, 0.350,
 
 theta = np.deg2rad([3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3])  # torsion [deg]
 
+# Alternatively, use the explicit equations from Eq:1 and Eq:2
+# i = np.arange(13)[::-1]  # Reverse the order to move left->right
+# thetas = i * np.pi / 12
+# xyz = np.c_[np.zeros(13), b / 2 * np.cos(thetas), -h * np.sin(thetas)]
+# k = 1.05
+# c = cc * np.sqrt(1 - (xyz.T[1] / (k * b / 2)) ** 2)  # Corrected Eq:2
+
 # Compute the section indices
 L_segments = np.linalg.norm(np.diff(xyz, axis=0), axis=1)
 s_xyz = np.cumsum(np.r_[0, L_segments]) / L_segments.sum() * 2 - 1
