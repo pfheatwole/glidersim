@@ -1,4 +1,4 @@
-"""Demo how to load a set of airfoil `.dat` files. usin `numpy`."""
+"""Demo how to load a set of airfoil `.dat` files using numpy."""
 
 from IPython import embed
 
