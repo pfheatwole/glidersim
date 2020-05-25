@@ -74,7 +74,9 @@ def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
 def _create_3d_axes(figsize=(12, 12), dpi=96):
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.gca(projection="3d")
-    ax.view_init(azim=-120, elev=20)
+    ax.set_proj_type('ortho')
+    elev = 90 - np.rad2deg(np.arctan(np.sqrt(2)))
+    ax.view_init(azim=-135, elev=elev)  # Isometric view
     ax.invert_yaxis()
     ax.invert_zaxis()
     return fig, ax
@@ -183,7 +185,6 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
 
     _set_axes_equal(ax)
-    ax.set_proj_type('ortho')  # FIXME: better for this application?
 
     # Plot projections of the quarter-chord
     xlim = ax.get_xlim3d()
