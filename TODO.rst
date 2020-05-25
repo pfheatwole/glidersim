@@ -1,3 +1,14 @@
+* `ParagliderWing.mass_properties` is ignoring the mass of the lines. Should
+  `Paraglider` be responsible for including it in the center of mass
+  calculations?
+
+* Question: are the "rectangles" you get from sampling `s` and `sa`
+  "quadrilaterals"?
+
+* The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
+  originally planning to create a `Parafoil` class which includes the cells
+  and accounts for cell billowing).
+
 * Might be a good idea to discuss why I'm using the dimensional version of
   Phillips (versus the non-dimensionalized version)
 
@@ -291,7 +302,7 @@ Geometry
   Should they be removed from `SimpleFoil`? If `surface_xyz` accepts the
   `surface` parameter, then you'll need *some* mapping between surface and
   airfoil coordinates.
-  
+
   Also, reconsider the name "intakes": this concept doesn't *require* that
   `s_upper != s_lower`; maybe a user has other reasons to shifting the
   upper/lower surface boundary away from the leading edge. Might even be
@@ -314,6 +325,130 @@ Geometry
   section index positioned along some line". 
 
 
+Inertia
+^^^^^^^
+
+* Should I rewrite the `mass_properties` to use the triangle mesh? It would
+  make computing the surface areas more straightforward, but I'm not sure
+  about the internal volumes. I suspect voxels may provide the solution, but
+  I haven't researched it much yet; see `https://stackoverflow.com/a/1568551`
+  and the linked paper
+  `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
+  `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
+
+* `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
+  `Airfoil.mass_properties`: the upper/lower surface inertias are likely
+  overestimated/underestimated (a little bit). (Using a mesh for the areas
+  would fix this nicely.)
+
+* Fix the inertia calculations: right now it places all the segment mass on the
+  airfoil bisecting the center of the segment. The code doesn't spread the mass
+  out along the segment span, so it underestimates `I_xx` and `I_zz` by
+  a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
+  practice, but still: it's wrong.
+
+
+Cells
+^^^^^
+
+This is a catch-all group. Right now I'm using the idealized `ChordSurface`
+directly, but real parafoils are comprised of cells, where the ribs provide
+internal structure and attempt to produce the desired airfoil cross-sections,
+but deformations (billowing, etc) cause deviations from that ideal shape.
+
+Long term, I'd like to combine the idealized chord surface with a set of ribs
+and produce the set of (approximately) deformed cells. There are many tasks
+here:
+
+* Replace explicit `Airfoil` references with (eg, `canopy.airfoil.geometry`)
+  with a function that returns the profile as a function of section index.
+
+* Define a set of rib types (vertical ribs, v-ribs, lateral bands, etc)
+
+* Define a set of heuristics that approximate the inflated profiles for each
+  cell (ie, profiles between the vertical ribs)
+
+* Write functions that compute points on the chords and surfaces of sections
+  from inflated or deflated cells. **There is a lot of sublety here.** There
+  needs to be a mapping between the inflated and deflated section indices, so
+  you can't just use the "flattened" values; the cell widths themselves
+  change.
+
+* Rewrite `mass_properties` to account for billowing. Since it currently uses
+  the inertia of the nominal airfoil the current design would require
+  recomputing the inertias for each of the distorted airfoils. Probably easier
+  to just use voxels for the arbitrary final geometry.
+
+Some considerations:
+
+* I'd like to at least try to maintain the surface areas during billowing; you
+  can explicitly ignore the creases that will develop, but the total surface
+  area shouldn't change THAT much. (Perhaps use the "mesh to cell surface
+  area" function to compute the `thickness_ratio` that would maintain
+  a constant surface area for the inflated and deflated cell surfaces?)
+
+  Related thought: if the upper surfaces maintain the same area, do the lower
+  surfaces also have the same area? Multiplying the thickness by a constant
+  seems like it should be a linear function, so I *think* the lower and upper
+  surfaces should both be correct, but it's worth checking.
+
+* Try to anticipate some of the effects of billowing. For example, compar the
+  performance of a normal `24018` to a 15% increased thickness `24018` using
+  XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
+  anticipated deviations compared to the idealized `ChordSurface`. (decreased
+  lift/drag ratio, etc)
+
+* How a cell compresses during inflation depends on the shape of the parafoil
+  (line loadings, etc). (ref: `altmann2019FluidStructureInteractionAnalysis`)
+
+Deformations
+^^^^^^^^^^^^
+
+* To warp the trailing edge, could you warp the mean camber line instead of
+  the surfaces themselves, then constrain to maintain constant curve length?
+
+* Starting with the `ChordSurface`, how hard would it be to warp the central
+  sections to produce a "weight shift" effect?
+
+* Is it a fools errand to support lifting-line methods in the presence of
+  deformations? Cell billowing, weight shift, trailing edge braking: they all
+  produce deformed profiles, adding many dimensions to the coefficients table.
+
+
+Meshes
+^^^^^^
+
+* I think my mesh functions are broken? The lower surface gave a bunch of "Bad
+  face in mesh" errors that crashed Blender 2.82. See `notes-2020w19` for more
+  details.
+
+* Other issues:
+
+  * The normals of my upper faces are backwards? (They point in, not out.)
+
+  * When do you want triangles versus quadrilaterals? You can cut the number
+    of edges and faces in half with "Edit -> Face -> Tris to Quads"
+
+* Refactor the "mesh" functions to take the vertices as inputs.
+
+  This would allow the user to generate a mesh over a subset of the foil, and
+  (more importantly) allow me to generate a mesh over a single cell (which you
+  can then use to compute the surface area.
+
+* Rewrite the vertex generator functions to take `s` and `sa` as parameters.
+
+  This would enable generating a mesh over the surfaces of individual cells
+  (should work with inflated or deflated cells) and compute their surface area.
+  (The surface area of a cell could be useful for estimating the inflated cell
+  surfaces.)
+
+* Write a function to compute the surface area of a mesh
+
+  Not hard: `.5 * cross(AB, AC)` or some such, right?
+
+  Would allow me to compute the `thickness_ratio` distribution (for the
+  inflated cells) that would maintain a constant surface area.
+
 
 Lower priority
 ^^^^^^^^^^^^^^
@@ -326,7 +461,7 @@ Lower priority
   I guess it'd be good enough to just require that `torsion(s=0) = 0`, but
   I guess I could also just compute `torsion(s=0)` and subtract that from all
   torsions, thus "centering" the twist in the same manner as the origin.
-  
+
 * Move `InterpolatedLobe` from `belloc.py` into `foil.py` and modify it to use
   intelligent resampling (near the given points, not just a blind resample).
 
@@ -361,90 +496,13 @@ Low Priority
   projecting changed `S` by `0.15%`, so it's not a big deal.
 
 
-Inertia
-^^^^^^^
+Coefficient Estimation
+----------------------
 
-* Should I rewrite the `mass_properties` to use the triangle mesh? It would
-  make computing the surface areas more straightforward, but I'm not sure
-  about the internal volumes. I suspect voxels may provide the solution, but
-  I haven't researched it much yet; see `https://stackoverflow.com/a/1568551`
-  and the linked paper
-  `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
-  `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
-
-* `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
-  `Airfoil.mass_properties`: the upper/lower surface inertias are likely
-  overestimated/underestimated (a little bit). (Using a mesh for the areas
-  would fix this nicely.)
-
-* Fix the inertia calculations: right now it places all the segment mass on the
-  airfoil bisecting the center of the segment. The code doesn't spread the mass
-  out along the segment span, so it underestimates `I_xx` and `I_zz` by
-  a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
-  practice, but still: it's wrong.
-
-
-Meshes
-^^^^^^
-
-* Refactor the "mesh" functions to take the vertices as inputs.
-  
-  This would allow the user to generate a mesh over a subset of the foil, and
-  (more importantly) allow me to generate a mesh over a single cell (which you
-  can then use to compute the surface area.
-
-* Rewrite the vertex generator functions to take `s` and `sa` as parameters.
-  
-  This would enable generating a mesh over the surfaces of individual cells
-  (should work with inflated or deflated cells) and compute their surface area.
-  (The surface area of a cell could be useful for estimating the inflated cell
-  surfaces.)
-
-* Write a function to compute the surface area of a mesh
-
-  Not hard: `.5 * cross(AB, AC)` or some such, right?
-
-  Would allow me to compute the `thickness_ratio` distribution (for the
-  inflated cells) that would maintain a constant surface area.
-
-
-ParafoilSections
-^^^^^^^^^^^^^^^^
-
-* Replace explicit `Airfoil` with `Profiles`, which defines the idealized
-  profiles as a function of section index.
-
-* Write a function that can return inflated profiles between two ribs.
-
-  Use the logic from `ribs.py` and assume some `thickness_ratio`; don't worry
-  about getting the areas correct for now. After that's working, estimate the
-  `thickness_ratio` using meshes?
-
-* Use the "mesh to cell surface area" function to compute the `thickness_ratio`
-  that would maintain a constant surface area for the inflated and deflated
-  cell surfaces.
-
-  Verify: if the upper surfaces have the same area, do the lower surfaces also
-  have the same area? Multiplying the thickness by a constant seems like it
-  should be a linear function, so I *think* the lower and upper surfaces
-  should both be correct, but it's worth checking.
-
-
-* Write functions that compute points on the chords and surfaces of sections
-  from inflated or deflated cells.
-
-  Right now, you just flatten the chord surface and that the "flattened"
-  position, but you don't just flatten an airfoil, you deflate it, which means
-  the cells become wider. I think the `x` and `z` coordinates remain
-  unchanged, but the `y` coordinates must increase (since the cell widths
-  increase).
-
-* Plot an inflated cell.
-
-* Review options for adding section-wise adjustments to coefficients.
+* **Adding section-wise adjustments to coefficients.**
 
   Example: air intake drag.
-  
+
   I'd prefer to keep adjustments independent of the foil geometry, but that
   doesn't mean the foil geometry can't *provide* the adjustments. You'll have
   to call `ParafoilSections` or whatever to get the coefficients; it can add
@@ -459,40 +517,20 @@ ParafoilSections
   section indices) that it can layer on top. For example, for air intakes, you
   could have a function that converts the intake size into extra drag.
 
-
-Deformations
-^^^^^^^^^^^^
-
-* To warp the trailing edge, could you warp the mean camber line instead of
-  the surfaces themselves, then constrain to maintain constant curve length?
-
-* Starting with the `ChordSurface`, how hard would it be to warp the central
-  sections to produce a "weight shift" effect?
-
-* Is it a fools errand to support lifting-line methods in the presence of
-  deformations? Cell billowing, weight shift, trailing edge braking: they all
-  produce deformed profiles, adding many dimensions to the coefficients table.
-
-
-
-Coefficient Estimation
-----------------------
-
-* Design review how the coefficient estimator signals non-convergence (#NEXT)
-
-  * All users that call `Phillips.__call__` should be exception-aware
+* Design review how the coefficient estimator signals non-convergence. (All
+  users that call `Phillips.__call__` should be exception-aware.)
 
 * Double check the drag correction terms for viscous effects
 
-  * Should the section drag really include the local sideslip airspeed for
-    calculating their drag? Or should they "discard" the sideways velocity and
-    calculate using only the chordwise+normal velocities? [WAIT: doesn't it
-    work out that the local velocity has no sideslip? Weird, but I think
-    that's the case.] Same goes for the direction of the drag vectors.
+  Should the section drag really include the local sideslip airspeed for
+  calculating their drag? Or should they "discard" the sideways velocity and
+  calculate using only the chordwise+normal velocities? [WAIT: doesn't it
+  work out that the local velocity has no sideslip? Weird, but I think
+  that's the case.] Same goes for the direction of the drag vectors.
 
 * Does Phillips' method detect significant differences in performance if the
-  quarter-chord lies in a plane or not? The lobe makes it curve backwards at
-  the tips, and I'm curious if that has performance considerations. You could
+  quarter-chord lies in a plane? The lobe makes it curve backwards at the
+  tips, and I'm curious if that has performance considerations. You could
   theoretically define a function that "undoes" the curvature induced by the
   lobe.
 
@@ -828,9 +866,20 @@ Simulator
 Scenario Design
 ---------------
 
-* Design a set of flight scenarios (#NEXT)
+* Design a set of flight scenarios that demonstrate wing behavior under
+  different wind models and control inputs.
 
-  * Demonstrate wing behavior under different wind models and control inputs
+  One thing I'd like to show is how different control+wind inputs can produce
+  similar looking trajectories.
+
+  Another thing that would be interesting is to show different scenarios where
+  the controls are uncorrelated, positively correlated, or negatively
+  correlated. This is interesting because it has a big impact on the proposal
+  design for the control inputs (you can't just assume increasing right brake
+  means decreasing left brake, for example); their *correlation depends on the
+  maneuver*. Not sure if you could capture this behavior using standard
+  kernels for a Gaussian process; it might need an extra parameter akin to
+  a "maneuver" variable.
 
 
 Documentation
