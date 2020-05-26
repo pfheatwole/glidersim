@@ -93,7 +93,7 @@ ftheta = scipy.interpolate.interp1d(s_xyz, theta)
 
 airfoil_geo = gsim.airfoil.NACA(23015, convention="vertical")
 
-polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N7.0"
+polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N1.0"
 airfoil_coefs = gsim.airfoil.XFLR5Coefficients(polardir, flapped=False)
 
 airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
