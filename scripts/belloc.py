@@ -26,6 +26,64 @@ import numpy as np
 import pfh.glidersim as gsim
 
 import scipy.interpolate
+from scipy.interpolate import PchipInterpolator as Pchip
+
+
+# ---------------------------------------------------------------------------
+# Custom AirfoilCoefficients class to use Kulhanek's airfoil data
+
+dtype = np.dtype({"names": ("alpha", "Cl", "Cd", "Cm"), "formats": [float] * 8})
+root_coefs = np.loadtxt("private_data/Kulhanek/root.dat", dtype=dtype)
+tip_coefs = np.loadtxt("private_data/Kulhanek/tip.dat", dtype=dtype)
+
+class KulhanekCoeffs:
+
+    def __init__(self):
+        alphas = np.deg2rad(root_coefs["alpha"])
+
+        self.Cl_root = Pchip(alphas, root_coefs["Cl"], extrapolate=False)
+        self.Cl_tip = Pchip(alphas, tip_coefs["Cl"], extrapolate=False)
+
+        self.Cl_alpha_root = self.Cl_root.derivative()
+        self.Cl_alpha_tip = self.Cl_tip.derivative()
+
+        self.Cd_root = Pchip(alphas, root_coefs["Cd"], extrapolate=False)
+        self.Cd_tip = Pchip(alphas, tip_coefs["Cd"], extrapolate=False)
+
+        self.Cm_root = Pchip(alphas, root_coefs["Cm"], extrapolate=False)
+        self.Cm_tip = Pchip(alphas, tip_coefs["Cm"], extrapolate=False)
+
+    @staticmethod
+    def _interpolate(Re, root, tip):
+        """
+        Interpolate the two values using the Reynolds number.
+
+        I'm not sure what he means by "root" and "tip" so I'm using linear
+        interpolation between the two based on Reynolds number, assuming the
+        root/tip Reynolds values are roughly 920 and 284
+        """
+        p = ((Re / 1e3) - 284) / (920 - 284)
+        return (1 - p) * tip + p * root
+
+    def Cl(self, delta_f, alpha, Re):
+        root = self.Cl_root(alpha)
+        tip = self.Cl_tip(alpha)
+        return self._interpolate(Re, root, tip)
+
+    def Cl_alpha(self, delta_f, alpha, Re):
+        root = self.Cl_alpha_root(alpha)
+        tip = self.Cl_alpha_tip(alpha)
+        return self._interpolate(Re, root, tip)
+
+    def Cd(self, delta_f, alpha, Re):
+        root = self.Cd_root(alpha)
+        tip = self.Cd_tip(alpha)
+        return self._interpolate(Re, root, tip)
+
+    def Cm(self, delta_f, alpha, Re):
+        root = self.Cm_root(alpha)
+        tip = self.Cm_tip(alpha)
+        return self._interpolate(Re, root, tip)
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +153,7 @@ airfoil_geo = gsim.airfoil.NACA(23015, convention="vertical")
 
 polardir = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_N1.0"
 airfoil_coefs = gsim.airfoil.XFLR5Coefficients(polardir, flapped=False)
+# airfoil_coefs = KulhanekCoeffs()
 
 airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
