@@ -318,6 +318,17 @@ for beta in betas:
     )
     CL = np.sin(alphas[beta]) * CX + np.cos(alphas[beta]) * CN
 
+    # Alternative form using a transformation matrix: body -> wind axes
+    # See: https://www.mathworks.com/help/aeroblks/aerodynamicforcesandmoments.html
+    # sa, sb = np.sin(alphas[beta]), np.sin(beta_rad)
+    # ca, cb = np.cos(alphas[beta]), np.cos(beta_rad)
+    # C_w2b = np.array([
+    #     [ca * cb, sb, sa * cb],
+    #     [-ca * sb, cb, -sa * sb],
+    #     [-sa, 0, ca]
+    # ])
+    # (CD, CC, CL) = C_w2b @ [-CX, -CY, -CZ]
+
     # Compute the CL versus alpha slope using data from -5..5 degrees AoA
     CLp = np.polynomial.Polynomial.fit(alphas[beta], CL, 1)
     CDp = np.polynomial.Polynomial.fit(alphas[beta], CD, 4)  # FIXME: 4?
