@@ -101,10 +101,13 @@ def plot_airfoil_geo(foil_geo, N_points=200):
         linewidth=0.75,
     )
 
+    ax.plot([0, 1], [0, 0], c="grey", lw=1, ls='-.', label="chord")
+
     ax.set_aspect("equal")
     ax.margins(x=0.1, y=0.40)
     ax.legend()
     ax.grid(True)
+    ax.grid(False)
     plt.show()
 
 
