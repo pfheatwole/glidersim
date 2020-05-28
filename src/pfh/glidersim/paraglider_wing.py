@@ -160,14 +160,19 @@ class ParagliderWing:
         c = self.canopy.S_flat / self.canopy.b_flat  # Standard mean chord
 
         # Barrows assumes uniform thickness, so I'm using an average of the
-        # thickest region.
+        # thickest region. Also note that although Barrows refers to `t` as a
+        # thickness "ratio", it is the absolute, not relative, thickness.
         #
         # FIXME: There should be a balance between the thickness exposed to the
         #        forward and pitching moments versus the thickness exposed to
         #        the lateral, rolling, and yawing motions. Perhaps tailor
         #        different thicknesses for the different dimensions?
-        t = self.canopy.airfoil.geometry.thickness(np.linspace(0.1, .5, 25)).mean()
-        t *= c  # The thickness is absolute, not proportional
+        t = np.mean(
+            self.canopy.section_thickness(
+                np.linspace(0.0, 0.5, 25),  # Central 50% of the canopy
+                np.linspace(0.1, 0.5, 25),  # Thickest parts of each airfoil
+            ),
+        )
 
         # Assuming the arch is circular, find its radius and arc angle using
         # the quarter-chords of the central section and the wing tip. See

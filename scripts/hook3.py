@@ -238,12 +238,17 @@ def build_hook3():
         torsion=torsion,
     )
 
-    canopy = gsim.foil.SimpleFoil(
+    # FIXME: add the viscous drag modifiers?
+    sections = gsim.foil.FoilSections(
         airfoil=airfoil,
+        intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
+    )
+
+    canopy = gsim.foil.SimpleFoil(
         chords=chord_surface,
+        sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
-        intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 
     print("Canopy geometry:")

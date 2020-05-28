@@ -197,9 +197,14 @@ chord_surface = gsim.foil.ChordSurface(
     torsion=ftheta,
 )
 
-canopy = gsim.foil.SimpleFoil(
+sections = gsim.foil.FoilSections(
     airfoil=airfoil,
+    intakes=None,
+)
+
+canopy = gsim.foil.SimpleFoil(
     chords=chord_surface,
+    sections=sections,
     b_flat=b_flat,
 )
 

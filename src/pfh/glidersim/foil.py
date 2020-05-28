@@ -367,15 +367,12 @@ class SimpleIntakes:
 
     def __call__(self, s, sa, surface):
         """
-        Convert parafoil upper surface coordinates into airfoil coordinates.
+        Convert parafoil surface coordinates into airfoil coordinates.
 
         Parameters
         ----------
         s : array_like of float
-            Section index. Unused for the upper surface in this simple model,
-            since the upper surface always extends to the same airfoil
-            coordinate. It is the lower surface that extends to close the
-            intake.
+            Section index.
         sa : array_like of float
             Parafoil surface coordinate, where `0 <= sa <= 1`, with `0`
             being the leading edge, and `1` being the trailing edge.
@@ -399,8 +396,9 @@ class SimpleIntakes:
 
         if surface == "upper":
             values = self.sa_upper + sa * (1 - self.sa_upper)
+            values = np.broadcast_arrays(s, values)[1]
         else:
-            # The lower section extends forward over sections without intakes
+            # The lower surface extends forward on sections without intakes
             starts = np.where(np.abs(s) < self.s_end, self.sa_lower, self.sa_upper)
             values = starts + sa * (-1 - starts)
 
@@ -702,6 +700,216 @@ class ChordSurface:
         return xyz
 
 
+class FoilSections:
+    """
+    Provides the section profile geometry and coefficients.
+
+    This simple implementation only takes a single airfoil; it does not support
+    spanwise interpolation of section profiles.
+
+    Parameters
+    ----------
+    airfoil : Airfoil
+        The airfoil that defines all section profiles.
+    intakes : function, optional
+        A function that defines the upper and lower intake positions in
+        airfoil surface coordinates as a function of the section index.
+    """
+
+    def __init__(
+        self,
+        airfoil,
+        intakes,
+    ):
+        self.airfoil = airfoil
+        self.intakes = intakes if intakes else self._no_intakes
+
+    def _no_intakes(self, s, sa, surface):
+        # For foils with no air intakes the canopy upper and lower surfaces map
+        # directly to the airfoil upper and lower surfaces, which were defined
+        # by the airfoil leading edge.
+        if surface == "lower":
+            sa = -sa
+        return np.broadcast_arrays(s, sa)[1]
+
+    def surface_xz(self, s, sa, surface):
+        """
+        Compute unscaled surface coordinates along section profiles.
+
+        These are unscaled since the FoilSections only defines the normalized
+        airfoil geometry and coefficients. The Foil scales, translates, and
+        orients these with the chord data it gets from the ChordSurface.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index.
+        sa : array_like of float
+            Surface or airfoil coordinates, depending on the value of `surface`.
+        surface : {"upper", "lower", "airfoil"}
+            How to interpret the coordinates in `sa`. If "upper" or "lower",
+            then `sa` is treated as surface coordinates, which range from 0 to
+            1, and specify points on the upper or lower surfaces, as defined by
+            the intakes. If "airfoil", then `sa` is treated as raw airfoil
+            coordinates, which must range from -1 to +1, and map from the
+            lower surface trailing edge to the upper surface trailing edge.
+
+        Returns
+        -------
+        array of float
+            A set of points from the surface of the airfoil in foil frd. The
+            shape is determined by standard numpy broadcasting of `s` and `sa`.
+        """
+        s = np.asarray(s)
+        sa = np.asarray(sa)
+        if s.min() < -1 or s.max() > 1:
+            raise ValueError("Section indices must be between -1 and 1.")
+        if surface not in {"upper", "lower", "airfoil"}:
+            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
+        if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
+            raise ValueError("Airfoil coordinates must be between -1 and 1.")
+        elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
+            embed()
+            raise ValueError("Surface coordinates must be between 0 and 1.")
+
+        if surface == "airfoil":
+            sa = np.broadcast_arrays(s, sa)[1]
+        else:
+            sa = self.intakes(s, sa, surface)
+
+        return self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
+
+    def Cl(self, s, delta_f, alpha, Re):
+        """
+        Compute the lift coefficient of the airfoil.
+
+        Parameters
+        ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
+
+        Returns
+        -------
+        Cl : float
+        """
+        # FIXME: verify the shapes all match
+        Cl = self.airfoil.coefficients.Cl(delta_f, alpha, Re)
+        return Cl
+
+    def Cl_alpha(self, s, delta_f, alpha, Re):
+        """
+        Compute the derivative of the lift coefficient versus angle of attack.
+
+        Parameters
+        ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
+
+        Returns
+        -------
+        Cl_alpha : float
+        """
+        # FIXME: verify the shapes all match
+        Cl_alpha = self.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
+        return Cl_alpha
+
+    def Cd(self, s, delta_f, alpha, Re):
+        """
+        Compute the drag coefficient of the airfoil.
+
+        Parameters
+        ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
+
+        Returns
+        -------
+        Cd : float
+        """
+        # FIXME: verify the shapes all match
+        Cd = self.airfoil.coefficients.Cd(delta_f, alpha, Re)
+
+        # Additional drag from the air intakes
+        #
+        # Ref: `babinsky1999AerodynamicPerformanceParagliders`
+        la = np.linalg.norm(  # Length of the air intake
+            self.surface_xz(s, 0, 'upper')
+            - self.surface_xz(s, 0, 'lower'),
+            axis=-1,
+        )
+        Cd += 0.07 * la  # Drag due to air intakes
+
+        # Additional drag from "surface characteristics"
+        #
+        # Ref: `ware1969WindtunnelInvestigationRamair`
+        Cd += 0.004
+
+        return Cd
+
+    def Cm(self, s, delta_f, alpha, Re):
+        """
+        Compute the pitching coefficient of the airfoil.
+
+        Parameters
+        ----------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge due to control inputs,
+            as measured between the deflected edge and the undeflected chord.
+        alpha : float [radians]
+            The angle of attack
+        Re : float [unitless]
+            The Reynolds number
+
+        Returns
+        -------
+        Cm : float
+        """
+        # FIXME: verify the shapes all match
+        Cm = self.airfoil.coefficients.Cm(delta_f, alpha, Re)
+        return Cm
+
+    def thickness(self, s, pc):
+        """
+        Compute section thickness.
+
+        These are the normalized thicknesses, not the absolute values. The
+        absolute thickness requires knowledge of the chord length.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index.
+        pc : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= pc <= 1`
+
+        Returns
+        -------
+        thickness : array_like of float
+            The normalized section profile thicknesses.
+        """
+        return self.airfoil.geometry.thickness(pc)
+
+    def mass_properties(self):
+        """Pass-through to the airfoil `mass_properties` function."""
+        # FIXME: I hate this. Also, should be a function of `s`
+        return self.airfoil.geometry.mass_properties()
+
+
 class SimpleFoil:
     """
     A foil geometry that applies a constant airfoil along a chord surface.
@@ -714,30 +922,26 @@ class SimpleFoil:
 
     def __init__(
         self,
-        airfoil,
         chords,
+        sections,
         b=None,
         b_flat=None,
-        intakes=None,
     ):
         """
         Add a docstring.
 
         Parameters
         ----------
-        airfoil : Airfoil
-            The airfoil that defines the section profiles.
         chords : ChordSurface
             FIXME: docstring
+        sections : FoilSections
+            The geometry and coefficients for the section profiles.
         b, b_flat : float
             The arched and flattened spans of the chords. Specify only one.
             These function as scaling factors for the ChordSurface.
-        intakes : function, optional
-            A function that defines the upper and lower intake positions in
-            airfoil surface coordinates as a function of the section index.
         """
-        self.airfoil = airfoil
         self._chords = chords
+        self.sections = sections
 
         if b is not None and b_flat is not None:
             raise ValueError("Specify only one of `b` or `b_flat`")
@@ -747,11 +951,6 @@ class SimpleFoil:
             self.b = b
         else:  # b_flat
             self.b_flat = b_flat
-
-        if intakes:
-            self.intakes = intakes
-        else:
-            self.intakes = lambda s, sa, surface: sa if surface == "upper" else -sa
 
     @property
     def b(self):
@@ -856,6 +1055,25 @@ class SimpleFoil:
         """
         return self._chords.orientation(s, flatten)
 
+    def section_thickness(self, s, pc):
+        """
+        Compute section thicknesses at chordwise stations.
+
+        Note that the thickness is determined by the airfoil convention, so
+        this value may be measured perpendicular to either the chord line or
+        to the camber line.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index.
+        pc : float
+            Position on the chords as a percentage, where `pc = 0` is the
+            leading edge, and `pc = 1` is the trailing edge.
+        """
+        # FIXME: does `pc` specify stations along the chord or the camber?
+        return self.sections.thickness(s, pc) * self.chord_length(s)
+
     def surface_xyz(self, s, sa, surface, flatten=False):
         """
         Sample points on section surfaces in foil frd.
@@ -888,19 +1106,10 @@ class SimpleFoil:
         sa = np.asarray(sa)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if surface not in {"upper", "lower", "airfoil"}:
-            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
-        if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
-            raise ValueError("Airfoil coordinates must be between -1 and 1.")
-        elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
-            raise ValueError("Surface coordinates must be between 0 and 1.")
-
-        if surface != "airfoil":
-            sa = self.intakes(s, sa, surface)
 
         LE = self.chord_xyz(s, 0, flatten=flatten)
         c = self.chord_length(s)
-        coords_a = self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
+        coords_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
         coords = np.stack(
             (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
         )
@@ -973,7 +1182,11 @@ class SimpleFoil:
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
-        section = self.airfoil.geometry.mass_properties()
+
+        # FIXME: assumes a constant airfoil over the entire foil, ignores air
+        #        intakes, and assuesm that the airfoil upper/lower surfaces are
+        #        equal to the canopy upper/lower surfaces
+        section = self.sections.mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
@@ -1395,7 +1608,7 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.foil.airfoil.coefficients.Cl(delta_f, alpha, Re)
+        Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
 
         # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `v_W2f**2`
         f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
@@ -1409,8 +1622,8 @@ class Phillips(ForceEstimator):
         V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.foil.airfoil.coefficients.Cl(delta_f, alpha, Re)
-        Cl_alpha = self.foil.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
+        Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
+        Cl_alpha = self.foil.sections.Cl_alpha(self.s_cps, delta_f, alpha, Re)
 
         # Use precomputed optimal einsum paths
         opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
@@ -1536,19 +1749,7 @@ class Phillips(ForceEstimator):
         # believe that is a mistake; it produces *massive* drag. Here I use the
         # section area like they do in "MachUp_Py" (see where they compute
         # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
-        #
-        # Include nominal airfoil drag plus some extra hacks from PFD p63 (71)
-        #  0. Nominal airfoil drag
-        #  1. Additional drag from the air intakes
-        #  2. Additional drag from "surface characteristics"
-        # FIXME: these extra terms have not been verified. The air intake
-        #        term in particular, which is for ram-air parachutes.
-        # FIXME: these extra terms depend on the Parafoil design, and so should
-        #        be provided by the Airfoil (similar to the "extra drag" terms
-        #        you can specify in the XFLR5 wing design tool)
-        Cd = self.foil.airfoil.coefficients.Cd(delta_f, alpha, Re)
-        Cd += 0.07 * self.foil.airfoil.geometry.thickness(0.03)
-        Cd += 0.004
+        Cd = self.foil.sections.Cd(self.s_cps, delta_f, alpha, Re)
         V2 = (V ** 2).sum(axis=1)
         u_drag = V.T / np.sqrt(V2)
         dF_viscous = 0.5 * V2 * self.dA * Cd * u_drag
@@ -1565,7 +1766,7 @@ class Phillips(ForceEstimator):
         # point (commonly the center of gravity); those extra moments must be
         # calculated by the wing.
         #  * ref: Hunsaker-Snyder Eq:20
-        Cm = self.foil.airfoil.coefficients.Cm(delta_f, alpha, Re)
+        Cm = self.foil.sections.Cm(self.s_cps, delta_f, alpha, Re)
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
