@@ -1,3 +1,41 @@
+* Rewrite `SimpleFoil.mass_properties`; it's way too complicated for what it
+  does. Can't I use the surface mesh and voxels for the surfaces and volumes
+  instead of needing the `mass_properties` from each airfoil? Relying on the
+  airfoils means the `FoilSections` interpolator will also need to interpolate
+  their mass properties, and implementing parafoil cells (which billow and
+  distort) you're REALLY going to need a better method.
+
+  And also, the current function assumes a uniform airfoil over the entire
+  wing (so it ignores air intakes and assumes the airfoil upper/lower surfaces
+  correspond to the canopy upper/lower surfaces). Heck, **Design review all
+  `mass_properties` functions in the entire codebase.**
+
+* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
+  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
+  index I don't seen an obvious way around it.
+
+* Add profile interpolation to `FoilSections`?
+
+* Document `FoilSections`; focus on how it uses section indices with no
+  knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
+  not been scaled by the chord length, etc.
+
+  Heck, I need to document the entire stack: "a Foil is a combination of
+  `ChordSurface` and `FoilSections`, both of which define units that are
+  scaled by the span of the foil"
+
+* Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
+
+* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
+  referring to "chordwise" or "camberwise" stations correctly. Some places
+  I mention "chordwise" stations, but glancing at the code it actually looks
+  like I'm computing `pc` as stations along the mean **camber** line.
+
+* Who should be responsible for sanity checking the parameters for foil
+  surface coordinates? For example, `FoilSections.surface_xz` could do it, or
+  it could punt it downstream to the air intake functions (meaning each intake
+  implementation should duplicate the sanity checking code).
+
 * `ParagliderWing.mass_properties` is ignoring the mass of the lines. Should
   `Paraglider` be responsible for including it in the center of mass
   calculations?
@@ -9,30 +47,12 @@
   originally planning to create a `Parafoil` class which includes the cells
   and accounts for cell billowing).
 
-* Might be a good idea to discuss why I'm using the dimensional version of
-  Phillips (versus the non-dimensionalized version)
-
-* I'd love to demo the effect of assuming a fixed Reynolds number (eg,
-  `1.5e6`) versus using their proper values. This is probably the most extreme
-  during a turn. Maybe I could plot the range of values for fast straight
-  flight versus a slow turn?
-
-  Also, how does the performance of the wing change when ridge soaring into
-  the wind with brakes compare to straight flight without brakes? The
-  airspeed's of the different equilibriums are different, but by how much?
-  Less than a factor of two, I think.
 
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
-  and constant pitching moment? How useful is this for paragliders? (ie, over
-  what range can you treat it as having an aerodynamic center)
+  and constant pitching moment? How useful is this concept for paragliders?
+  (ie, over what range can you treat it as having an aerodynamic center)
 
 
-* How hard would it be to code up a linearized paraglider model? It'd be
-  fascinating to see how the linear assumption performed, both in terms of
-  accuracy and computation time.
-
-  Heck, I could even steal the coefficients from Benedetti and simulate his
-  wing.
 
 * Note to self: different airfoils can have dramatically different pitching
   coefficients (eg, the NACA 24018 vs the LS(1)-0417), which should produce
@@ -41,13 +61,6 @@
   presence of a cross-wind, and **may have a significant impact on how the
   wing respond to encountering a thermal during a turn**.
 
-* Some papers to review:
-
-  * "Ram-air parachute design" (Lingard, 1995)
-
-  * "Parafoil steady turn response to control input" (Brown, 1993)
-
-  * "Equations of motion for a vehicle in a moving fluid" (Thomasson, 2000)
 
 * I'm not crazy about `cm_solid` etc as vector names. Can I use something like
   `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
@@ -55,19 +68,8 @@
 * If I'm computing the line drag at some specified geometry centers, should
   I also add the weight of the lines at those points?
 
-* Why did I go with Phillips method instead of a Multhopp method like in
-  `gonzalez1993PrandtlTheoryApplied`? (I don't remember the difference, but
-  probably useful to mention it.)
 
-* Note to self: a paraglider wing is specific type of 'parafoil' that includes
-  the normal canopy + lines, but also a particular control input scheme. You
-  can't use a general `Parafoil` class for all parafoils since the controls
-  may differ. Same thing for paragliders: they are a particular
-  parafoil/payload system, where the parafoil is a paraglider wing, and the
-  payload is a paragliding harness.
 
-* According to Nicolaides, "the Parafoil is both an airplane or glider and
-  also a parachute or decelerator". Good point
 
 * Should I rename the `quaternion` module to `rotation`? And probably rename
   `apply_quaternion_rotation` to just `apply_quaternion` while I'm at it.
@@ -719,8 +721,12 @@ Paraglider
   up if I had some other symbol besides `W`; `Wcp` maybe?
 
 
-Dynamics
---------
+Models
+------
+
+* How hard would it be to code up a linearized paraglider model? It'd be
+  fascinating to see how the linear assumption performed, both in terms of
+  accuracy and computation time.
 
 * **The 9 DoF model performs very poorly with weight shift.** It looks like
   the spring-damper model isn't a good fit for a paraglider since the relative
