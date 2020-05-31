@@ -503,18 +503,18 @@ def main():
 
     # Precomputed equilibrium states in body coordinates
     equilibrium_6a = {
-        "Theta_b2e": [0, np.deg2rad(2.63584), 0],
-        "v_R2e": [9.78258, 0, 1.67566],
+        "Theta_b2e": [0, np.deg2rad(2.1676), 0],
+        "v_R2e": [9.8783, 0, 1.2173],
     }
 
     equilibrium_9a = {
-        "Theta_b2e": [0, np.deg2rad(3.05484), 0],
-        "Theta_p2b": [0, np.deg2rad(-5.01013), 0],
-        "v_R2e": [9.61059, 0, 1.71127],
+        "Theta_b2e": [0, np.deg2rad(2.6173), 0],
+        "Theta_p2b": [0, np.deg2rad(-4.588), 0],
+        "v_R2e": [9.739, 0, 1.1916],
     }
 
     # Optional: recompute the equilibrium state
-    # state_6a = glider_6a.equilibrium_state(
+    # equilibrium_6a = glider_6a.equilibrium_state(
     #     delta_a=0,
     #     delta_b=0,
     #     alpha_0=np.deg2rad(9),
@@ -522,7 +522,7 @@ def main():
     #     v_0=10,
     #     rho_air=1.2,
     # )
-    # state_9a = glider_9a.equilibrium_state(
+    # equilibrium_9a = glider_9a.equilibrium_state(
     #     delta_a=0,
     #     delta_b=0,
     #     alpha_0=np.deg2rad(9),
