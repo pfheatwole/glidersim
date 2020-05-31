@@ -1765,7 +1765,8 @@ class Phillips(ForceEstimator):
         # section. It does not include moments about the aircraft reference
         # point (commonly the center of gravity); those extra moments must be
         # calculated by the wing.
-        #  * ref: Hunsaker-Snyder Eq:20
+        #  * ref: Hunsaker-Snyder Eq:19
+        #  * ref: Phillips Eq:28
         Cm = self.foil.sections.Cm(self.s_cps, delta_f, alpha, Re)
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
