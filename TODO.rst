@@ -1,52 +1,5 @@
-* Rewrite `SimpleFoil.mass_properties`; it's way too complicated for what it
-  does. Can't I use the surface mesh and voxels for the surfaces and volumes
-  instead of needing the `mass_properties` from each airfoil? Relying on the
-  airfoils means the `FoilSections` interpolator will also need to interpolate
-  their mass properties, and implementing parafoil cells (which billow and
-  distort) you're REALLY going to need a better method.
-
-  And also, the current function assumes a uniform airfoil over the entire
-  wing (so it ignores air intakes and assumes the airfoil upper/lower surfaces
-  correspond to the canopy upper/lower surfaces). Heck, **Design review all
-  `mass_properties` functions in the entire codebase.**
-
-* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
-  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
-  index I don't seen an obvious way around it.
-
-* Add profile interpolation to `FoilSections`?
-
-* Document `FoilSections`; focus on how it uses section indices with no
-  knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
-  not been scaled by the chord length, etc.
-
-  Heck, I need to document the entire stack: "a Foil is a combination of
-  `ChordSurface` and `FoilSections`, both of which define units that are
-  scaled by the span of the foil"
-
-* Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
-
-* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
-  referring to "chordwise" or "camberwise" stations correctly. Some places
-  I mention "chordwise" stations, but glancing at the code it actually looks
-  like I'm computing `pc` as stations along the mean **camber** line.
-
-* Who should be responsible for sanity checking the parameters for foil
-  surface coordinates? For example, `FoilSections.surface_xz` could do it, or
-  it could punt it downstream to the air intake functions (meaning each intake
-  implementation should duplicate the sanity checking code).
-
-* `ParagliderWing.mass_properties` is ignoring the mass of the lines. Should
-  `Paraglider` be responsible for including it in the center of mass
-  calculations?
-
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
-
-* The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
-  originally planning to create a `Parafoil` class which includes the cells
-  and accounts for cell billowing).
-
 
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
@@ -293,23 +246,55 @@ Chord Surface
   easy to approximate from pictures.
 
 
+FoilSections
+============
+
+* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
+  referring to "chordwise" or "camberwise" stations correctly. Some places
+  I mention "chordwise" stations, but glancing at the code it actually looks
+  like I'm computing `pc` as stations along the mean **camber** line.
+
+* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
+  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
+  index I don't seen an obvious way around it.
+
+* Add profile interpolation to `FoilSections`?
+
+* Document `FoilSections`; focus on how it uses section indices with no
+  knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
+  not been scaled by the chord length, etc.
+
+  Heck, I need to document the entire stack: "a Foil is a combination of
+  `ChordSurface` and `FoilSections`, both of which define units that are
+  scaled by the span of the foil"
+
+* Who should be responsible for sanity checking the parameters for foil
+  surface coordinates? For example, `FoilSections.surface_xz` could do it, or
+  it could punt it downstream to the air intake functions (meaning each intake
+  implementation should duplicate the sanity checking code).
+
+
+Intakes
+-------
+
+* Design review the air `intakes`. Possibly reconsider the name "intakes":
+  this concept doesn't *require* that `s_upper != s_lower`; it simply means
+  the upper/lower surface boundaries are different from the airfoil leading
+  edge. Might even be useful for **single surface designs**, which discard the
+  lower portion of the majority of the section profiles.
+
+* Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
+
+
 Parafoil
 ========
 
+* The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
+  originally planning to create a `Parafoil` class which includes the cells
+  and accounts for cell billowing).
+
 Geometry
 --------
-
-* Review the air `intakes` design
-
-  Should they be removed from `SimpleFoil`? If `surface_xyz` accepts the
-  `surface` parameter, then you'll need *some* mapping between surface and
-  airfoil coordinates.
-
-  Also, reconsider the name "intakes": this concept doesn't *require* that
-  `s_upper != s_lower`; maybe a user has other reasons to shifting the
-  upper/lower surface boundary away from the leading edge. Might even be
-  useful for **single surface designs**, that discard the lower portion of the
-  majority of the section profiles.
 
 * The `ChordSurface` requires the values to be proportional to `b_flat == 2`?
   **What if you don't know `b_flat`? Do you need to compute the total length
@@ -330,24 +315,29 @@ Geometry
 Inertia
 ^^^^^^^
 
-* Should I rewrite the `mass_properties` to use the triangle mesh? It would
-  make computing the surface areas more straightforward, but I'm not sure
-  about the internal volumes. I suspect voxels may provide the solution, but
-  I haven't researched it much yet; see `https://stackoverflow.com/a/1568551`
-  and the linked paper
-  `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
-  `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
-
-* `FoilGeometry.mass_properties` does not pass `sa_upper` and `sa_lower` to
-  `Airfoil.mass_properties`: the upper/lower surface inertias are likely
-  overestimated/underestimated (a little bit). (Using a mesh for the areas
-  would fix this nicely.)
-
 * Fix the inertia calculations: right now it places all the segment mass on the
   airfoil bisecting the center of the segment. The code doesn't spread the mass
   out along the segment span, so it underestimates `I_xx` and `I_zz` by
   a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
   practice, but still: it's wrong.
+
+* Rewrite `SimpleFoil.mass_properties`; it's inflexible and way too
+  complicated for what it does.
+
+  1. Its too complicated for what it does; using a surface mesh and voxels
+     should be a lot simpler. See `https://stackoverflow.com/a/1568551` and
+     the linked paper
+     `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
+     `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
+
+  2. Relying on the airfoils' `mass_properties` means the `FoilSections`
+     interpolator will also need to interpolate those airfoil mass properties,
+     and implementing parafoil cells (which introduces distortions like
+     billowing) will REALLY need a better method.
+
+  3. The current function assumes a uniform airfoil over the entire wing. It
+     ignores air intakes (so the upper/lower inertias are likely
+     under/overestimated a bit)
 
 
 Cells
@@ -682,12 +672,13 @@ ParagliderWing
 Wing inertia
 ------------
 
-I'm using a naive isotropic model for wing inertia (the standard definition),
-but because the surrounding air mass is in motion it adds an additional
-damping effect, which adds to the naive inertia. The *effective inertia* is
-then the result of the **apparent mass**. There are several definitions, like
-apparent mass, real mass, and solid mass; see "Apparent mass of parafoils with
-spanwise camber" (Barrows; 2002) for more information.
+* My implementation of Barrows needs a design review. The thickness parameter
+  `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
+  sure how to best translate for a paraglider wing.
+
+* `ParagliderWing.mass_properties` is ignoring the mass of the lines. Should
+  `Paraglider` be responsible for including it in the center of mass
+  calculations?
 
 
 Wing mass moment
