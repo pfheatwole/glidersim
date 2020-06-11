@@ -679,6 +679,7 @@ def main():
     print("      r_R2O:", state0["r_R2O"][0].round(4))
     print("      v_R2e:", state0["v_R2e"][0].round(4))
 
+    t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
     times, path = simulate(model, state0, dt=dt, T=T)
 
@@ -728,6 +729,9 @@ def main():
         print(f"\r{n}/{N}", end="")
         derivatives[n] = model.dynamics(times[n], pf[n], params).view(model.state_dtype)
     print()
+
+    t_stop = time.perf_counter()
+    print(f"\nTotal time: {t_stop - t_start:.2f}\n")
 
     # -----------------------------------------------------------------------
     # Plots
