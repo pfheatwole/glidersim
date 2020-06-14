@@ -785,21 +785,21 @@ class FoilSections:
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
-        alpha : float [radians]
-            The angle of attack
+        s : array_like of float
+            Section index.
+        delta_f : array_like of float [radians]
+            Deflection angle of the trailing edge due to control inputs, as
+            measured between the deflected edge and the undeflected chord.
+        alpha : array_like of float [radians]
+            Angle of attack
         Re : float [unitless]
-            The Reynolds number
+            Reynolds number
 
         Returns
         -------
         Cl : float
         """
-        # FIXME: verify the shapes all match
-        Cl = self.airfoil.coefficients.Cl(delta_f, alpha, Re)
-        return Cl
+        return self.airfoil.coefficients.Cl(delta_f, alpha, Re)
 
     def Cl_alpha(self, s, delta_f, alpha, Re):
         """
@@ -807,21 +807,21 @@ class FoilSections:
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
-        alpha : float [radians]
-            The angle of attack
+        s : array_like of float
+            Section index.
+        delta_f : array_like of float [radians]
+            Deflection angle of the trailing edge due to control inputs, as
+            measured between the deflected edge and the undeflected chord.
+        alpha : array_like of float [radians]
+            Angle of attack
         Re : float [unitless]
-            The Reynolds number
+            Reynolds number
 
         Returns
         -------
         Cl_alpha : float
         """
-        # FIXME: verify the shapes all match
-        Cl_alpha = self.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
-        return Cl_alpha
+        return self.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
 
     def Cd(self, s, delta_f, alpha, Re):
         """
@@ -829,19 +829,20 @@ class FoilSections:
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
-        alpha : float [radians]
-            The angle of attack
+        s : array_like of float
+            Section index.
+        delta_f : array_like of float [radians]
+            Deflection angle of the trailing edge due to control inputs, as
+            measured between the deflected edge and the undeflected chord.
+        alpha : array_like of float [radians]
+            Angle of attack
         Re : float [unitless]
-            The Reynolds number
+            Reynolds number
 
         Returns
         -------
         Cd : float
         """
-        # FIXME: verify the shapes all match
         Cd = self.airfoil.coefficients.Cd(delta_f, alpha, Re)
 
         # Additional drag from the air intakes
@@ -879,9 +880,7 @@ class FoilSections:
         -------
         Cm : float
         """
-        # FIXME: verify the shapes all match
-        Cm = self.airfoil.coefficients.Cm(delta_f, alpha, Re)
-        return Cm
+        return self.airfoil.coefficients.Cm(delta_f, alpha, Re)
 
     def thickness(self, s, pc):
         """
