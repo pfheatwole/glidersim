@@ -1739,7 +1739,7 @@ class Phillips(ForceEstimator):
         # section area like they do in "MachUp_Py" (see where they compute
         # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
         Cd = self.foil.sections.Cd(self.s_cps, delta_f, alpha, Re)
-        V2 = (V ** 2).sum(axis=1)
+        V2 = np.einsum("ik,ik->i", V, V)
         u_drag = V.T / np.sqrt(V2)
         dF_viscous = 0.5 * V2 * self.dA * Cd * u_drag
 
