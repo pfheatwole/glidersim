@@ -1601,17 +1601,13 @@ class Phillips(ForceEstimator):
 
     def _f(self, Gamma, delta_f, v_W2f, v, Re):
         # Compute the residual error vector
-        #  * ref: Phillips Eq:14
         #  * ref: Hunsaker-Snyder Eq:8
+        #  * ref: Phillips Eq:14
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
-
-        # FIXME: verify: `V**2` or `(V_n**2 + V_a**2)` or `v_W2f**2`
-        f = 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
-
-        return f
+        return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
 
     def _J(self, Gamma, delta_f, v_W2f, v, Re, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
@@ -1637,9 +1633,8 @@ class Phillips(ForceEstimator):
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
             J_true = self._J_finite(Gamma, delta_f, v_W2f, v, Re)
-            mask = ~np.isnan(J_true) | ~np.isnan(J)
-            if not np.allclose(J[mask], J_true[mask]):
-                print("\n !!! The analytical Jacobian is wrong. Halting. !!!")
+            if not np.allclose(J, J_true):
+                print("\n !!! The analytical Jacobian disagrees. Halting. !!!")
                 embed()
 
         return J
