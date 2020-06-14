@@ -1618,7 +1618,6 @@ class Phillips(ForceEstimator):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
         #  * ref: Hunsaker-Snyder Eq:11
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
-        V_na = (V_n[:, None] * self.u_n) + (V_a[:, None] * self.u_a)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
@@ -1628,8 +1627,12 @@ class Phillips(ForceEstimator):
         J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl))
         J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n)
               - np.einsum("i,jik,ik->ij", V_n, v, self.u_a))
-        J3 *= (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * np.einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na)
+        J3 *= (
+            (self.dA * Cl_alpha)[:, None]
+            * np.einsum("ik,ik->i", V, V)
+            / (V_n ** 2 + V_a ** 2)
+        )
+        J4 = 2 * np.einsum("i,i,ik,jik->ij", self.dA, Cl, V, v)
         J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
