@@ -1662,7 +1662,7 @@ class Phillips(ForceEstimator):
         True
         """
         # This uses the same method as `scipy.optimize.approx_fprime`, but that
-        # function only works for scalar functions.
+        # function only works for scalar-valued functions.
         JT = np.empty((self.K, self.K))  # Jacobian transpose  (J_ji)
         eps = np.sqrt(np.finfo(float).eps)
 
