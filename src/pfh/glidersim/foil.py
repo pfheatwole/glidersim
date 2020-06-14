@@ -1565,7 +1565,6 @@ class Phillips(ForceEstimator):
         # print("\nDEBUG> Re:", Re, "\n")
         return Re
 
-    @property
     def control_points(self):
         cps = self.cps.view()  # FIXME: better than making a copy?
         cps.flags.writeable = False  # FIXME: make the base ndarray immutable?

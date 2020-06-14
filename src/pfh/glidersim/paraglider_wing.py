@@ -372,7 +372,7 @@ class ParagliderWing:
         cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        foil_cps = self.force_estimator.control_points  # In foil coordinates
+        foil_cps = self.force_estimator.control_points()  # In foil coordinates
         foil_cps = foil_cps + self.canopy_origin(delta_a)
         return np.vstack((foil_cps, self._r_L2R))
 
