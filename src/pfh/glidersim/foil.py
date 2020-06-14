@@ -1583,7 +1583,7 @@ class Phillips(ForceEstimator):
             / (r1 * (r1 - np.einsum("k,ijk->ij", u_inf, R1)))[..., None]
         )
 
-        return v / (4 * np.pi)
+        return v / (4 * np.pi)  # axes: (inducer, inducee, 3-vector)
 
     def _local_velocities(self, v_W2f, Gamma, v):
         # Compute the local fluid velocities
@@ -1668,11 +1668,31 @@ class Phillips(ForceEstimator):
         return JT.T
 
     def _solve_circulation(self, delta_f, v_W2f, Re, Gamma0):
-        # Solve for the circulation using a gradient-based method.
-        # Fails when wing sections enter stall (Cl_alpha goes to zero).
+        """
+        Solve for the spanwise circulation distribution.
+
+        Parameters
+        ----------
+        delta_f : array of float, shape (K,) [radians]
+            The deflection angle of each section.
+        v_W2f : array of float, shape (K,) [m/s]
+            Relative wind velocity at each control point.
+        Re : array of float, shape (K,)
+            Reynolds number at each segment
+        Gamma0 : array of float, shape (K,)
+            The initial proposal
+
+        Returns
+        -------
+        Gamma : array of float, shape (K,)
+            Circulation strengths of each segment.
+        v : array, shape (K,K,3) [m/s]
+            Induced velocities between each segment, indexed as (inducer,
+            inducee).
+        """
         v_mid = v_W2f[self.K // 2]
         u_inf = v_mid / np.linalg.norm(v_mid)  # FIXME: what if PQR != 0?
-        v = self._induced_velocities(u_inf)  # axes = (inducer, inducee)
+        v = self._induced_velocities(u_inf)
         args = (delta_f, v_W2f, v, Re)
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
