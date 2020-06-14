@@ -1624,19 +1624,12 @@ class Phillips(ForceEstimator):
         Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
         Cl_alpha = self.foil.sections.Cl_alpha(self.s_cps, delta_f, alpha, Re)
 
-        # Use precomputed optimal einsum paths
-        opt2 = ["einsum_path", (0, 2), (0, 2), (0, 1)]
-        opt3 = ["einsum_path", (0, 2), (0, 1)]
-        opt4 = ["einsum_path", (0, 1), (1, 2), (0, 1)]
-
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
-        J2 = 2 * np.einsum(
-            "i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl), optimize=opt2,
-        )
-        J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n, optimize=opt3)
-              - np.einsum("i,jik,ik->ij", V_n, v, self.u_a, optimize=opt3))
+        J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl))
+        J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n)
+              - np.einsum("i,jik,ik->ij", V_n, v, self.u_a))
         J3 *= (self.dA * Cl_alpha)[:, None]
-        J4 = 2 * np.einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na, optimize=opt4)
+        J4 = 2 * np.einsum("i,i,jik,ik->ij", self.dA, Cl, v, V_na)
         J += J2 - J3 - J4
 
         # Compare the analytical gradient to the finite-difference version
