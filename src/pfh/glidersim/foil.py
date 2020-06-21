@@ -1587,7 +1587,7 @@ class Phillips(ForceEstimator):
 
     def _local_velocities(self, v_W2f, Gamma, v):
         # Compute the local fluid velocities
-        #  * ref: Hunsaker-Snyder Eq:5
+        #  * ref: Hunsaker Eq:5
         #  * ref: Phillips Eq:5 (nondimensional version)
         V = v_W2f + np.einsum("j,jik->ik", Gamma, v)
 
@@ -1601,17 +1601,18 @@ class Phillips(ForceEstimator):
 
     def _f(self, Gamma, delta_f, v_W2f, v, Re):
         # Compute the residual error vector
-        #  * ref: Hunsaker-Snyder Eq:8
+        #  * ref: Hunsaker Eq:8
         #  * ref: Phillips Eq:14
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.sections.Cl(self.s_cps, delta_f, alpha, Re)
-        return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
+        # return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
+        return 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
 
     def _J(self, Gamma, delta_f, v_W2f, v, Re, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
-        #  * ref: Hunsaker-Snyder Eq:11
+        #  * ref: Hunsaker Eq:11
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
@@ -1747,12 +1748,12 @@ class Phillips(ForceEstimator):
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
 
         # Compute the inviscid forces using the 3D vortex lifting law
-        #  * ref: Hunsaker-Snyder Eq:1
+        #  * ref: Hunsaker Eq:1
         #  * ref: Phillips Eq:4
         dF_inviscid = Gamma * cross3(V, self.dl).T
 
         # Compute the viscous forces.
-        #  * ref: Hunsaker-Snyder Eq:17
+        #  * ref: Hunsaker Eq:17
         #
         # The equation in the paper uses the "characteristic chord", but I
         # believe that is a mistake; it produces *massive* drag. Here I use the
@@ -1767,14 +1768,14 @@ class Phillips(ForceEstimator):
         dF = dF_inviscid + dF_viscous
 
         # Compute the section moments.
-        #  * ref: Hunsaker-Snyder Eq:19
+        #  * ref: Hunsaker Eq:19
         #  * ref: Phillips Eq:28
         #
         # These are strictly the section moments caused by airflow around the
         # section. It does not include moments about the aircraft reference
         # point (commonly the center of gravity); those extra moments must be
         # calculated by the wing.
-        #  * ref: Hunsaker-Snyder Eq:19
+        #  * ref: Hunsaker Eq:19
         #  * ref: Phillips Eq:28
         Cm = self.foil.sections.Cm(self.s_cps, delta_f, alpha, Re)
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
