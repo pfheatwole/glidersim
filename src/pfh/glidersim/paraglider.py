@@ -17,19 +17,16 @@ class Paraglider6a:
 
     This version uses the riser connection midpoint `R` as the reference point
     for the angular momentum, and includes the effects of apparent mass.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
     """
 
     def __init__(self, wing, payload):
-        """
-        Instantiate a Paraglider from given wing and harness.
-
-        Parameters
-        ----------
-        wing : ParagliderWing
-        payload : Harness
-            This uses a `Harness`, but since there is no model for the pilot
-            the harness should include the pilot mass.
-        """
         self.wing = wing
         self.payload = payload
 
@@ -969,19 +966,16 @@ class Paraglider9a:
     """
     A 9 DoF paraglider model, allowing rotation between the wing and the
     harness, with the connection modelled by spring-damper dynamics.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
     """
 
     def __init__(self, wing, payload):
-        """
-        Instantiate a Paraglider from given wing and harness.
-
-        Parameters
-        ----------
-        wing : ParagliderWing
-        payload : Harness
-            This uses a `Harness`, but since there is no model for the pilot
-            the harness should include the pilot mass.
-        """
         self.wing = wing
         self.payload = payload
 
