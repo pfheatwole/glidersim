@@ -653,8 +653,8 @@ def main():
     model_9b = Dynamics9a(glider_9b, *common_args)
 
     # Choose which model to run
-    # state0, model = state_6a, model_6a
-    state0, model = state_6a, model_6b  # Same state as model_6a
+    state0, model = state_6a, model_6a
+    # state0, model = state_6a, model_6b  # Same state as model_6a
     # state0, model = state_6a, model_6c  # Same state as model_6a
     # state0, model = state_9a, model_9a
     # state0, model = state_9a, model_9b  # Same state as model_9a
