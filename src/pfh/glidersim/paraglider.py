@@ -234,7 +234,7 @@ class Paraglider6a:
 
         J = J_wing + J_p  # Total inertia matrix about `B`
 
-        A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
+        A1 = [m_B * np.eye(3), np.zeros((3, 3))]
         A2 = [np.zeros((3, 3)), J]
         A = np.block([A1, A2])
 
@@ -243,15 +243,20 @@ class Paraglider6a:
             + F_wing_weight
             + F_p_aero
             + F_p_weight
-            - m_B * cross3(omega_b2e, v_R2e)
-            - m_B * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
         )
         B2 = M_wing + M_p - np.cross(omega_b2e, J @ omega_b2e)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e = derivatives[:3]
+        a_B2e = derivatives[:3]
         alpha_b2e = derivatives[3:]
+
+        a_R2e = (
+            a_B2e
+            - np.cross(alpha_b2e, r_B2R)
+            - cross3(omega_b2e, v_R2e)
+            - cross3(omega_b2e, cross3(omega_b2e, r_B2R))
+        )
 
         return a_R2e, alpha_b2e, ref
 
