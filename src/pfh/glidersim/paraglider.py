@@ -15,9 +15,8 @@ class Paraglider6a:
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
 
-    This implementation computes `a_R2e` directly using the derivative of body
-    linear momentum, and `alpha_b2e` using the angular momentum of the body
-    about the riser connection midpoint `R`.
+    This version uses the riser connection midpoint `R` as the reference point
+    for the angular momentum, and includes the effects of apparent mass.
     """
 
     def __init__(self, wing, payload):
@@ -541,9 +540,13 @@ class Paraglider6b(Paraglider6a):
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
 
-    This implementation computes `a_R2e` directly using the derivative of body
-    linear momentum, and `alpha_b2e` using the angular momentum of the body
-    about the body center of mass `B`.
+    This version uses the body center of mass `B` as the reference point for
+    the angular momentum. It does not includes the effects of apparent mass.
+    Neglecting apparent mass and using the center of mass means the linear and
+    angular momentum are fully decoupled and can be solved independently. The
+    system produces `a_B2e` which is then used to compute `a_R2e`.
+
+    Identical to 6c, except it uses `v_R2e` for the linear momentum.
     """
 
     def accelerations(
@@ -718,7 +721,7 @@ class Paraglider6b(Paraglider6a):
         # Compute the accelerations \dot{v_R2e} and \dot{omega_b2e}
         #
         # Builds a system of equations by equating derivatives of translational
-        # and angular momentum against the forces and moments.
+        # and angular momentum to the net forces and moments.
 
         J = J_wing + J_p  # Total inertia matrix about `B`
 
@@ -753,10 +756,13 @@ class Paraglider6c(Paraglider6a):
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
 
-    This implementation computes `a_R2e` indirectly, by first calculating
-    `a_B2e` and `alpha_b2e` using fully decoupled motion (linear momentum using
-    `v_B2e` and angular momentum about the body center of mass `B`), then uses
-    `a_B2e` and `alpha_b2e` to compute `a_R2e`.
+    This version uses the body center of mass `B` as the reference point for
+    the angular momentum. It does not includes the effects of apparent mass.
+    Neglecting apparent mass and using the center of mass means the linear and
+    angular momentum are fully decoupled and can be solved independently. The
+    system produces `a_B2e` which is then used to compute `a_R2e`.
+
+    Identical to 6b, except it uses `v_B2e` for the linear momentum.
     """
 
     def accelerations(
@@ -931,7 +937,7 @@ class Paraglider6c(Paraglider6a):
         # Compute the accelerations \dot{v_R2e} and \dot{omega_b2e}
         #
         # Builds a system of equations by equating derivatives of translational
-        # and angular momentum against the forces and moments.
+        # and angular momentum to the net forces and moments.
 
         J = J_wing + J_p  # Total inertia matrix about `B`
 
@@ -952,7 +958,8 @@ class Paraglider6c(Paraglider6a):
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_B2e, alpha_b2e = derivatives[:3], derivatives[3:]
+        a_B2e = derivatives[:3]
+        alpha_b2e = derivatives[3:]
         a_R2e = a_B2e - cross3(alpha_b2e, r_B2R)
 
         return a_R2e, alpha_b2e, ref
