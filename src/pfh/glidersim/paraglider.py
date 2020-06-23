@@ -544,6 +544,13 @@ class Paraglider6b(Paraglider6a):
     system produces `a_B2e` which is then used to compute `a_R2e`.
 
     Identical to 6c, except it uses `v_R2e` for the linear momentum.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
     """
 
     def accelerations(
@@ -760,6 +767,13 @@ class Paraglider6c(Paraglider6a):
     system produces `a_B2e` which is then used to compute `a_R2e`.
 
     Identical to 6b, except it uses `v_B2e` for the linear momentum.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
     """
 
     def accelerations(
@@ -964,8 +978,12 @@ class Paraglider6c(Paraglider6a):
 
 class Paraglider9a:
     """
-    A 9 DoF paraglider model, allowing rotation between the wing and the
-    harness, with the connection modelled by spring-damper dynamics.
+    A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
+    and the harness, with the connection modelled by spring-damper dynamics.
+
+    This version uses the riser connection midpoint `R` as the reference point
+    for both the body and the payload. It includes the effects of apparent
+    mass.
 
     Parameters
     ----------
@@ -1463,8 +1481,27 @@ class Paraglider9a:
 
 class Paraglider9b(Paraglider9a):
     """
-    A 9 DoF paraglider model, allowing rotation between the wing and the
-    harness, with the connection modelled by spring-damper dynamics.
+    A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
+    and the harness, with the connection modelled by spring-damper dynamics.
+
+    This version uses the body center of mass `B` as the reference point for
+    the "body" (the wing) and the payload center of mass `P` as the reference
+    point for the payload. It does not include the effects of apparent mass.
+
+    Using the centers of mass makes the derivation of the linear system of
+    equations more intuitive, but it also makes using the apparent mass a bit
+    more work (since `ParagliderWing` returns the apparent inertia matrix using
+    `R` as the reference point, not `B`). I suppose you could (assuming `B`
+    lies in the xz-plane as is assumed by Barrows), but I just haven't done it
+    yet. This class is mostly for practice and to help catch implementation
+    mistakes in `Paraglider9a`.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
     """
 
     def accelerations(
