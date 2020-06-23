@@ -1769,12 +1769,12 @@ class Paraglider9a:
         # Moment at the connection point `R` modeled as a spring+damper system
         M_R = np.zeros(3)
         omega_p2b = omega_p2e - C_p2b @ omega_b2e
-        M_R[0] += -5.0 * Theta_p2b[0]  # Roll restoring force
+        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
         M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -15.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -1.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -10.0 * omega_p2b[2]  # Yaw dampening
+        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
+        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
+        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -2226,12 +2226,12 @@ class Paraglider9b:
         # Moment at the connection point `R` modeled as a spring+damper system
         M_R = np.zeros(3)
         omega_p2b = omega_p2e - C_p2b @ omega_b2e  # FIXME: body or payload axes?
-        M_R[0] += -5.0 * Theta_p2b[0]  # Roll restoring force
+        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
         M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -15.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -1.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -10.0 * omega_p2b[2]  # Yaw dampening
+        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
+        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
+        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
