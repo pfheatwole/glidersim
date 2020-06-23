@@ -250,7 +250,8 @@ class Paraglider6a:
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e, alpha_b2e = derivatives[:3], derivatives[3:]
+        a_R2e = derivatives[:3]
+        alpha_b2e = derivatives[3:]
 
         return a_R2e, alpha_b2e, ref
 
@@ -775,10 +776,8 @@ class Paraglider6b:
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e, alpha_b2e = derivatives[:3], derivatives[3:]
-
-        # embed()
-        # 1/0
+        a_R2e = derivatives[:3]
+        alpha_b2e = derivatives[3:]
 
         return a_R2e, alpha_b2e, ref
 
