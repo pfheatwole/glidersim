@@ -287,21 +287,30 @@ def build_hook3():
     brakes = gsim.brake_geometry.Cubic(p_start, p_peak, delta_max)
 
     # -----------------------------------------------------------------------
+    # Line geometry
+    #
+    # The line drag positions are a blind guess.
+    line_parameters = {
+        "kappa_x": 0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
+        "kappa_z": 6.8 / chord_root,  # ref: "Hook 3 technical specs", pg 2
+        "kappa_A": 0.11,  # Approximated from the line plan in the users manual, pg 17
+        "kappa_C": 0.59,
+        "kappa_a": 0.15 / chord_root,  # ref: "Hook 3 technical specs", pg 2
+        "total_line_length": 213 / chord_root,  # ref: "Hook 3 technical specs", pg 2
+        "average_line_diameter": 1e-3,  # Blind guess
+        "line_drag_positions": np.array([[-0.5 * chord_root, -1.75, -5],
+                                         [-0.5 * chord_root, 1.75, -5]]) / chord_root,
+        "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
+    }
+
+    # -----------------------------------------------------------------------
     # Wing and glider
 
     wing = gsim.paraglider_wing.ParagliderWing(
         canopy=canopy,
         force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
         brake_geo=brakes,
-        d_riser=0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
-        z_riser=6.8,  # ref: "Hook 3 technical specs", pg 2
-        pA=0.11,  # Approximated from the line plan in the users manual, pg 17
-        pC=0.59,
-        kappa_a=0.15,  # ref: "Hook 3 technical specs", pg 2
-        total_line_length=213,  # ref: "Hook 3 technical specs", pg 2
-        average_line_diameter=1e-3,  # Blind guess
-        line_drag_positions=[[0, -1.75, -5], [0, 1.75, -5]],  # Blind guess
-        Cd_lines=0.98,  # ref: Kulhánek, 2019; page 5
+        **line_parameters,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
     )

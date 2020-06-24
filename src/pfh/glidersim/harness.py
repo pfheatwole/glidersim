@@ -58,7 +58,7 @@ class Spherical(Harness):
     mass : float [kg]
         The mass of the harness
     z_riser : float [m]
-        The vertical distance from the risers' midpoint to the harness center.
+        The vertical distance from `R` to the harness center.
     S : float [m^2]
         The projected area of the sphere (ie, the area of a circle)
 

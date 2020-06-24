@@ -10,17 +10,61 @@ from pfh.glidersim.quaternion import skew
 
 
 class ParagliderWing:
-    """FIXME: add class docstring."""
+    """
+    FIXME: add class docstring.
+
+    Parameters
+    ----------
+    canopy : foil.FoilGeometry
+        The geometric shape of the lifting surface.
+    force_estimator : foil.ForceEstimator
+        The estimation method for the aerodynamic forces and moments.
+    brake_geo : BrakeGeometry
+        Section trailing edge deflections as a function of delta_bl/br
+    kappa_x : float [percentage]
+        The absolute x-coordinate distance from `R` to the canopy origin,
+        normalized by the length of the central chord.
+    kappa_z : float [m]
+        The absolute z-coordinate distance from `R` to the canopy origin,
+        normalized by the length of the central chord.
+    kappa_A, kappa_C : float [percentage]
+        The position of the A and C canopy connection points, normalized by the
+        length of the central chord. The accelerator adjusts the length of the
+        A lines, while the C lines remain fixed length, effectively causing a
+        rotation of the canopy about the point `kappa_C`.
+    kappa_a : float [m], optional
+        The accelerator line length normalized by the length of the central
+        chord. This is the maximum change in the length of the A lines.
+    total_line_length : float [m]
+        The total length of the lines from the risers to the canopy, normalized
+        by the length of the central chord.
+    average_line_diameter : float [m^2]
+        The average diameter of the connecting lines
+    line_drag_positions : array of float, shape (K,3)
+        The mean location(s) of the connecting line surface area(s), normalized
+        by the length of the central chord.  If multiple positions are given,
+        the total line length will be divided between them evenly.
+    Cd_lines : float
+        The drag coefficient of the lines
+    rho_upper, rho_lower : float [kg m^-2]
+        Surface area densities of the upper and lower foil surfaces.
+
+    Notes
+    -----
+    The ParagliderWing coordinate axes are parallel to the canopy axes, but the
+    origin is translated from the central leading edge of the canopy to `R`,
+    the midpoint between the two riser connections.
+    """
 
     def __init__(
         self,
         canopy,
         force_estimator,
         brake_geo,
-        d_riser,
-        z_riser,
-        pA,
-        pC,
+        kappa_x,
+        kappa_z,
+        kappa_A,
+        kappa_C,
         kappa_a,
         total_line_length,
         average_line_diameter,
@@ -29,68 +73,30 @@ class ParagliderWing:
         rho_upper,
         rho_lower,
     ):
-        """
-        FIXME: add docstring.
-
-        Parameters
-        ----------
-        canopy : foil.FoilGeometry
-            The geometric shape of the lifting surface.
-        force_estimator : foil.ForceEstimator
-            The estimation method for the aerodynamic forces and moments.
-        brake_geo : BrakeGeometry
-            Section trailing edge deflections as a function of delta_bl/br
-        d_riser : float [percentage]
-            The longitudinal distance from the risers to the central leading
-            edge, as a percentage of the chord length.
-        z_riser : float [m]
-            The vertical distance from the risers to the central chord
-        pA, pC : float [percentage]
-            The position of the A and C lines as a fraction of the central
-            chord. The speedbar adjusts the length of the A lines, while C
-            remains fixed, causing a rotation about the point `pC`.
-        kappa_a : float [m], optional
-            The speed bar line length. This corresponds to the maximum change
-            in the length of the lines to the leading edge.
-        total_line_length : float [m]
-            The total length of the lines from the risers to the canopy
-        average_line_diameter : float [m^2]
-            The average diameter of the connecting lines
-        line_drag_positions : array of float, shape (K,3)
-            The mean location(s) of the connecting line surface area(s).
-            If multiple positions are given, the total line length will be
-            divided between them evenly.
-        Cd_lines : float
-            The drag coefficient of the lines
-        rho_upper, rho_lower : float [kg m^-2]
-            Surface area densities of the upper and lower foil surfaces.
-        """
         self.canopy = canopy
         self.force_estimator = force_estimator
+
+        # FIXME: accept (,3) arrays
+        # if self._r_L2R.ndim != 2 or self._r_L2R.shape[-1] != 3:
+        #     raise ValueError("`line_drag_positions` is not a (K,3) array")
+
+        self.c_0 = canopy.chord_length(0)
         self.brake_geo = brake_geo
-        self.pA = pA
-        self.pC = pC
+        self.kappa_A = kappa_A
+        self.kappa_C = kappa_C
         self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
-        self._r_L2R = np.atleast_2d(line_drag_positions)
-        self._S_lines = total_line_length * average_line_diameter / self._r_L2R.shape[0]
+        self._r_L2R = np.atleast_2d(line_drag_positions) * self.c_0
+        self._S_lines = (
+            total_line_length * self.c_0 * average_line_diameter / self._r_L2R.shape[0]
+        )
         self._Cd_lines = Cd_lines
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
 
-        if self._r_L2R.ndim != 2 or self._r_L2R.shape[-1] != 3:
-            raise ValueError("`line_drag_positions` is not a (K,3) array")
 
-        # The ParagliderWing coordinate axes are parallel to the canopy axes,
-        # but the origin is translated from the central leading edge of the
-        # canopy to `R`, the midpoint between the two riser connections.
-        self.c0 = canopy.chord_length(0)
-        foil_x = d_riser * self.c0
-        foil_z = -z_riser
-
-        # Default lengths of the A and C lines, and their connection distance
-        self.A = np.sqrt((foil_x - self.pA * self.c0) ** 2 + foil_z ** 2)
-        self.C = np.sqrt((self.pC * self.c0 - foil_x) ** 2 + foil_z ** 2)
-        self.AC = (self.pC - self.pA) * self.c0
+        # Default lengths of the A and C lines (when `delta_a = 0`)
+        self.A = np.sqrt(kappa_z ** 2 + (kappa_x - kappa_A) ** 2)
+        self.C = np.sqrt(kappa_z ** 2 + (kappa_C - kappa_x) ** 2)
 
         # Compute the mass properties in canopy coordinates
         pmp = self.canopy.mass_properties(N=5000)
@@ -220,7 +226,7 @@ class ParagliderWing:
         # are defined with respect to `C` and the canopy origin (the central
         # leading edge), but the final apparent inertia matrix is about `R`,
         # which depends on `delta_a`.
-        r_C2LE = np.array([-0.5 * self.c0, 0, r])
+        r_C2LE = np.array([-0.5 * self.c_0, 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
         self._apparent_inertia = {
             "r_RC2LE": r_RC2C + r_C2LE,
@@ -285,23 +291,24 @@ class ParagliderWing:
 
         Parameters
         ----------
-        delta_a : float or array of float, shape (N,) [percentage] (optional)
-            Fraction of maximum accelerator application
+        delta_a : array_like of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application. Default: 0
 
         Returns
         -------
-        canopy_origin : array of float, shape (3,) [meters]
-            The offset of the origin of the FoilGeometry coordinate system in
-            ParagliderWing coordinates.
+        r_LE2R : array of float, shape (N,3) [meters]
+            The canopy origin in wing coordinates.
         """
-        # Speedbar shortens the A lines, while AC and C remain fixed
-        A = self.A - (delta_a * self.kappa_a)
-        foil_x = (A ** 2 - self.C ** 2 + self.AC ** 2) / (2 * self.AC)
-        foil_y = 0
-        foil_z = -np.sqrt(A ** 2 - foil_x ** 2)
-        foil_x += self.pA * self.c0  # Account for the start of the AC line
-
-        return np.array([foil_x, foil_y, foil_z])
+        # The accelerator shortens the A lines, while C remains fixed
+        delta_a = np.asarray(delta_a)
+        R_x = (
+            (self.A - delta_a * self.kappa_a) ** 2 - self.C ** 2
+            - self.kappa_A ** 2 + self.kappa_C ** 2
+            ) / (2 * (self.kappa_C - self.kappa_A))
+        R_y = np.zeros_like(delta_a)
+        R_z = np.sqrt(self.C ** 2 - (self.kappa_C - R_x) ** 2)
+        r_R2LE = self.c_0 * np.array([-R_x, R_y, R_z]).T
+        return -r_R2LE
 
     def equilibrium_alpha(
         self,
