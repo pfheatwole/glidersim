@@ -40,7 +40,7 @@ class ParagliderWing:
         by the length of the central chord.
     average_line_diameter : float [m^2]
         The average diameter of the connecting lines
-    line_drag_positions : array of float, shape (K,3)
+    line_drag_positions : array of float, shape (K,3) [m]
         The mean location(s) of the connecting line surface area(s), normalized
         by the length of the central chord.  If multiple positions are given,
         the total line length will be divided between them evenly.
