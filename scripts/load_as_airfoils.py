@@ -32,8 +32,8 @@ if __name__ == "__main__":
         airfoil = gsim.airfoil.AirfoilGeometry.from_points(
             airfoils[key]['points'],
             convention="perpendicular",
-            center=True,
-            derotate=True,
+            center=False,
+            derotate=False,
             normalize=False,
         )
         airfoils[key]['airfoil'] = airfoil
