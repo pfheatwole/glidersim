@@ -125,8 +125,10 @@ class Paraglider6a:
         Notes
         -----
         There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
+
+        1. Uniform global wind across the wing (v_W2e.shape == (3,))
+
+        2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
 
         If the wind is locally uniform across the wing, then the simulator
         can pass the wind vector with no knowledge of the control points.
