@@ -30,7 +30,7 @@ author = 'Peter Heatwole'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.napoleon',
+    'numpydoc',
 ]
 
 autodoc_default_options = {
