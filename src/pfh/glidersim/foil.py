@@ -241,17 +241,23 @@ def elliptical_chord(root, tip):
     )
 
 
-def elliptical_arc(mean_anhedral, max_anhedral=None):
+def elliptical_arc(mean_anhedral, tip_anhedral=None):
     """
     Build an elliptical arc curve as a function of the section index.
 
     Parameters
     ----------
     mean_anhedral : float [degrees]
-        The angle between the xy-plane and the line from the central section
-        to the wing tip.
-    max_anhedral : float [degrees]
-        The angle between the xy-plane and the section y-axis at the wing tip.
+        The average anhedral angle of the wing sections, measured as the angle
+        between the xy-plane and the line from the central section to the wing
+        tip projected onto the yz-plane.
+    tip_anhedral : float [degrees], optional
+        The anhedral angle of the right wing tip section, measured as the angle
+        between the xy-plane and the section y-axis projected onto the
+        yz-plane. The wing is symmetric, so the left wing tip anhedral is the
+        negative of this value. This optional value must satisfy `2 *
+        mean_anhedral <= tip_anhedral <= 90`. If no value is specified the
+        default is `2 * mean_anhedral`, which results in a circular arc.
 
     Returns
     -------
@@ -259,15 +265,15 @@ def elliptical_arc(mean_anhedral, max_anhedral=None):
         A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
         arc length `2` (suitable for use with `ChordSurface`).
     """
-    if max_anhedral is None:  # Assume circular
-        max_anhedral = 2 * mean_anhedral
+    if tip_anhedral is None:  # Assume circular
+        tip_anhedral = 2 * mean_anhedral
 
     if mean_anhedral < 0 or mean_anhedral > 45:
         raise ValueError("mean_anhedral must be between 0 and 45 [degrees]")
-    if max_anhedral < 0 or max_anhedral > 90:
-        raise ValueError("max_anhedral must be between 0 and 90 [degrees]")
-    if max_anhedral < 2 * mean_anhedral:
-        raise ValueError("max_anhedral must be >= 2 * mean_anhedral")
+    if tip_anhedral < 0 or tip_anhedral > 90:
+        raise ValueError("tip_anhedral must be between 0 and 90 [degrees]")
+    if tip_anhedral < 2 * mean_anhedral:
+        raise ValueError("tip_anhedral must be >= 2 * mean_anhedral")
 
     # Very small angles produce divide-by-zero, just just assume the user wants
     # a zero-angle and "do the right thing".
@@ -276,15 +282,15 @@ def elliptical_arc(mean_anhedral, max_anhedral=None):
         return FlatYZ()
 
     mean_anhedral = np.deg2rad(mean_anhedral)
-    max_anhedral = np.deg2rad(max_anhedral)
+    tip_anhedral = np.deg2rad(tip_anhedral)
 
     # Two cases: perfectly circular, or elliptical
-    if np.isclose(2 * mean_anhedral, max_anhedral):  # Circular
+    if np.isclose(2 * mean_anhedral, tip_anhedral):  # Circular
         A = B = 1
         t_min = np.pi / 2 - 2 * mean_anhedral
     else:  # Elliptical
-        v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral)
-        v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral)
+        v1 = 1 - np.tan(mean_anhedral) / np.tan(tip_anhedral)
+        v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(tip_anhedral)
         A = v1 / np.sqrt(v2)
         B = np.tan(mean_anhedral) * v1 / v2
         t_min = np.arccos(1 / A)

@@ -233,7 +233,7 @@ def build_hook3():
         r_x=0.75,
         x=0,
         r_yz=1.00,
-        yz=gsim.foil.elliptical_arc(mean_anhedral=33, max_anhedral=67),
+        yz=gsim.foil.elliptical_arc(mean_anhedral=33, tip_anhedral=67),
         chord_length=chord_length,
         torsion=torsion,
     )
