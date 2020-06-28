@@ -1,6 +1,7 @@
 """FIXME: add docstring."""
 
 import abc
+import warnings
 
 import numpy as np
 
@@ -258,24 +259,35 @@ def elliptical_arc(mean_anhedral, max_anhedral=None):
         A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
         arc length `2` (suitable for use with `ChordSurface`).
     """
-    if max_anhedral is None:
-        max_anhedral = 2 * mean_anhedral + 1e-6
+    if max_anhedral is None:  # Assume circular
+        max_anhedral = 2 * mean_anhedral
 
-    # For a paraglider, dihedral should be negative (anhedral)
-    if max_anhedral <= 2 * mean_anhedral:
-        raise ValueError("max_anhedral <= 2 * mean_anhedral")
+    if mean_anhedral < 0 or mean_anhedral > 45:
+        raise ValueError("mean_anhedral must be between 0 and 45 [degrees]")
+    if max_anhedral < 0 or max_anhedral > 90:
+        raise ValueError("max_anhedral must be between 0 and 90 [degrees]")
+    if max_anhedral < 2 * mean_anhedral:
+        raise ValueError("max_anhedral must be >= 2 * mean_anhedral")
+
+    # Very small angles produce divide-by-zero, just just assume the user wants
+    # a zero-angle and "do the right thing".
+    if mean_anhedral < 0.1:
+        warnings.warn("Very small mean_anhedral. Returning a FlatYZ.")
+        return FlatYZ()
 
     mean_anhedral = np.deg2rad(mean_anhedral)
     max_anhedral = np.deg2rad(max_anhedral)
 
-    # FIXME: handle `mean_anhedral == 0` gracefully (maybe suggest the user
-    #        uses `FlatYZ`)
-
-    v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral)
-    v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral)
-    A = v1 / np.sqrt(v2)
-    B = np.tan(mean_anhedral) * v1 / v2
-    t_min = np.arccos(1 / A)
+    # Two cases: perfectly circular, or elliptical
+    if np.isclose(2 * mean_anhedral, max_anhedral):  # Circular
+        A = B = 1
+        t_min = np.pi / 2 - 2 * mean_anhedral
+    else:  # Elliptical
+        v1 = 1 - np.tan(mean_anhedral) / np.tan(max_anhedral)
+        v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(max_anhedral)
+        A = v1 / np.sqrt(v2)
+        B = np.tan(mean_anhedral) * v1 / v2
+        t_min = np.arccos(1 / A)
 
     # FIXME: hack to avoid sign-flip issues at `np.sin(pi)`, which makes the
     #        normalized dyds explode (sign flip +1 to -1)
