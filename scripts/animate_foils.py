@@ -14,6 +14,7 @@ from pfh.glidersim.airfoil import Airfoil, NACA  # noqa: F401
 from pfh.glidersim.foil import (  # noqa: F401
     FlatYZ,
     SimpleFoil,
+    FoilSections,
     PolynomialTorsion as PT,
     elliptical_chord,
     elliptical_arc,
@@ -368,7 +369,7 @@ def foil_generator(base_config, sequences, fps=60):
                 exec(f"params['{k}'] = {v}")
             chord_surface = gsim.foil.ChordSurface(**params)
             yield config, gsim.foil.SimpleFoil(
-                airfoil=Airfoil(None, NACA(24018)),
+                sections=FoilSections(airfoil=Airfoil(None, NACA(24018))),
                 chords=chord_surface,
                 b_flat=10,
             )
@@ -400,6 +401,7 @@ from pfh.glidersim.foil import (
     elliptical_chord,
     SimpleFoil,
     FlatYZ,
+    FoilSections,
     PolynomialTorsion as PT,
 )
 
@@ -412,7 +414,7 @@ chord_surface = ChordSurface(
 )
 
 foil = gsim.foil.SimpleFoil(
-    airfoil=Airfoil(None, NACA(24018),
+    sections=FoilSections(Airfoil(None, NACA(24018)),
     chords=chord_surface,
     b_flat=10,
 )
