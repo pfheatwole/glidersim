@@ -719,7 +719,7 @@ class FoilSections:
     def __init__(
         self,
         airfoil,
-        intakes,
+        intakes=None,
     ):
         self.airfoil = airfoil
         self.intakes = intakes if intakes else self._no_intakes
