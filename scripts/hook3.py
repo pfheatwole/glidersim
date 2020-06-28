@@ -251,16 +251,16 @@ def build_hook3():
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
     )
 
-    print("Canopy geometry:")
-    print(f"  flattened span: {canopy.b_flat:>6.3f}")
-    print(f"  flattened area: {canopy.S_flat:>6.3f}")
-    print(f"  flattened AR:   {canopy.AR_flat:>6.3f}")
+    print("Canopy geometry:           [Target]")
+    print(f"  flattened span: {canopy.b_flat:>6.3f}   [{b_flat:>6.3f}]")
+    print(f"  flattened area: {canopy.S_flat:>6.3f}   [{S_flat:>6.3f}]")
+    print(f"  flattened AR:   {canopy.AR_flat:>6.3f}   [{AR_flat:>6.3f}]")
     # print(f"  planform flat SMC   {canopy.SMC:>6.3f}")
     # print(f"  planform flat MAC:  {canopy.MAC:>6.3f}")
 
-    print(f"  projected span: {canopy.b:>6.3f}")
-    print(f"  projected area: {canopy.S:>6.3f}")
-    print(f"  projected AR:   {canopy.AR:>6.3f}")
+    print(f"  projected span: {canopy.b:>6.3f}   [{b:>6.3f}]")
+    print(f"  projected area: {canopy.S:>6.3f}   [{S:>6.3f}]")
+    print(f"  projected AR:   {canopy.AR:>6.3f}   [{AR:>6.3f}]")
     print()
 
     # print("Drawing the canopy")
