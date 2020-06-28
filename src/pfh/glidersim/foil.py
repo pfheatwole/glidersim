@@ -240,9 +240,9 @@ def elliptical_chord(root, tip):
     )
 
 
-def elliptical_lobe(mean_anhedral, max_anhedral=None):
+def elliptical_arc(mean_anhedral, max_anhedral=None):
     """
-    Build an elliptical lobe curve as a function of the section index.
+    Build an elliptical arc curve as a function of the section index.
 
     Parameters
     ----------
@@ -282,11 +282,11 @@ def elliptical_lobe(mean_anhedral, max_anhedral=None):
     if t_min < 1e-10:
         t_min = 1e-10
 
-    lobe = EllipticalArc(
+    arc = EllipticalArc(
         A / B, length=2, p_domain=[-1, 1], t_domain=[np.pi + t_min, 2 * np.pi - t_min],
     )
-    lobe.origin = -lobe(0)  # The middle of the curve is the origin
-    return lobe
+    arc.origin = -arc(0)  # The middle of the curve is the origin
+    return arc
 
 
 class PolynomialTorsion:
@@ -519,7 +519,7 @@ class ChordSurface:
             self.LE0 = self.xyz(0, 0)
 
         # TODO: this `b` calculation is a reasonable placeholder for average
-        # foil shapes, but it assumes the lobe is symmetric and that it is the
+        # foil shapes, but it assumes the arc is symmetric and that it is the
         # wing-tip section that defines the span.
         self.b = 2 * max(self.xyz(1, [0, 1]).T[1])
         self.b_flat = 2  # FIXME: poor design? I like making it explicit.
@@ -587,12 +587,12 @@ class ChordSurface:
         torsion = np.moveaxis(torsion, [0, 1], [-2, -1])
         return torsion
 
-    def _lobe_dihedral(self, s):
+    def _arc_dihedral(self, s):
         """
-        Compute the lobe dihedral (rotations about the lobe x-axis).
+        Compute the arc dihedral (rotations about the arc x-axis).
 
         This rotation refers to the angle between the y-axis of a section and
-        the y-axis of the central chord of the lobe.
+        the y-axis of the central chord of the arc.
         """
         derivatives = self.yz.derivative(s).T
         dyds, dzds = derivatives[0].T, derivatives[1].T
@@ -631,7 +631,7 @@ class ChordSurface:
         """
         R = self._planform_torsion(s)
         if not flatten:
-            R = self._lobe_dihedral(s) @ R
+            R = self._arc_dihedral(s) @ R
         return R
 
     def length(self, s):
@@ -679,7 +679,7 @@ class ChordSurface:
         x = self.x(s)
         c = self._chord_length(s)
         torsion = self._planform_torsion(s)
-        dihedral = self._lobe_dihedral(s)
+        dihedral = self._arc_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
         xhat_wing = dihedral @ torsion @ [1, 0, 0]
 

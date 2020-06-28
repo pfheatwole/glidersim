@@ -16,7 +16,7 @@ from pfh.glidersim.foil import (  # noqa: F401
     SimpleFoil,
     PolynomialTorsion as PT,
     elliptical_chord,
-    elliptical_lobe,
+    elliptical_arc,
 )
 
 
@@ -239,12 +239,12 @@ def SEQS_sweep_xrx_elliptical(T, fps):
 def SEQS_sweep_elliptical_anhedral(T, fps):
     def f1(vstart, vstop, T, fps, reverse=True):
         for ma in sweep(vstart, vstop, T, fps, reverse):
-            yield {"yz": f"elliptical_lobe({ma:<#5.2f})"}
+            yield {"yz": f"elliptical_arc({ma:<#5.2f})"}
 
     def f2(vstart, vstop, T, fps, reverse=True):
         ma = vstart
         for mar in sweep(vstart * 2 + 1, vstop, T, fps, reverse):
-            yield {"yz": f"elliptical_lobe({ma:<#5.2f}, {mar:<#5.2f})"}
+            yield {"yz": f"elliptical_arc({ma:<#5.2f}, {mar:<#5.2f})"}
 
     base = {"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}
     seq1a = [
@@ -270,7 +270,7 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
 
     base = {
         "chord_length": "elliptical_chord(root=0.5, tip=0.1)",
-        "yz": "elliptical_lobe(30, 85)",
+        "yz": "elliptical_arc(30, 85)",
     }
 
     seq1a = [
@@ -396,7 +396,7 @@ def update(config_and_foil, axes):
     code = """\
 from pfh.glidersim.airfoil import Airfoil, NACA
 from pfh.glidersim.foil import (
-    elliptical_lobe,
+    elliptical_arc,
     elliptical_chord,
     SimpleFoil,
     FlatYZ,
