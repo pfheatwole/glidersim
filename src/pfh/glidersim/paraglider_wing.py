@@ -271,13 +271,18 @@ class ParagliderWing:
             delta_f, v_W2b[:-K_lines], rho_air, reference_solution,
         )
 
+        # Simplistic model for line drag using `K_lines` isotropic points
+        V = v_W2b[-K_lines:]  # FIXME: uses "magic" indexing
+        V2 = (V**2).sum(axis=1)
+        u_drag = V.T / np.sqrt(V2)
         dF_lines = (
-            -0.5
+            0.5
             * rho_air
-            * v_W2b[-K_lines:] ** 2
+            * V2
             * self._S_lines  # Line area per control point
             * self._Cd_lines
-        )
+            * u_drag
+        ).T
         dM_lines = np.zeros(3)
 
         dF = np.vstack((dF_foil, dF_lines))
