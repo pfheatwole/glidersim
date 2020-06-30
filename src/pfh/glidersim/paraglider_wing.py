@@ -283,7 +283,7 @@ class ParagliderWing:
             * self._Cd_lines
             * u_drag
         ).T
-        dM_lines = np.zeros(3)
+        dM_lines = np.zeros((K_lines, 3))
 
         dF = np.vstack((dF_foil, dF_lines))
         dM = np.vstack((dM_foil, dM_lines))
