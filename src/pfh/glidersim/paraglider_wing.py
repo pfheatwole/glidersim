@@ -75,28 +75,28 @@ class ParagliderWing:
     ):
         self.canopy = canopy
         self.force_estimator = force_estimator
-
-        # FIXME: accept (,3) arrays
-        # if self._r_L2R.ndim != 2 or self._r_L2R.shape[-1] != 3:
-        #     raise ValueError("`line_drag_positions` is not a (K,3) array")
-
         self.c_0 = canopy.chord_length(0)
         self.brake_geo = brake_geo
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
         self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
-        self._r_L2R = np.atleast_2d(line_drag_positions) * self.c_0
-        self._S_lines = (
-            total_line_length * self.c_0 * average_line_diameter / self._r_L2R.shape[0]
-        )
-        self._Cd_lines = Cd_lines
-        self.rho_upper = rho_upper
-        self.rho_lower = rho_lower
-
 
         # Default lengths of the A and C lines (when `delta_a = 0`)
         self.A = np.sqrt(kappa_z ** 2 + (kappa_x - kappa_A) ** 2)
         self.C = np.sqrt(kappa_z ** 2 + (kappa_C - kappa_x) ** 2)
+
+        # `L` is an array of points where line drag is applied
+        r_L2R = np.atleast_2d(line_drag_positions) * self.c_0
+        if r_L2R.ndim != 2 or r_L2R.shape[-1] != 3:
+            raise ValueError("`line_drag_positions` is not a (K,3) array")
+        self._r_L2LE = r_L2R - self.canopy_origin(0)
+        self._S_lines = (
+            total_line_length * self.c_0 * average_line_diameter / r_L2R.shape[0]
+        )
+        self._Cd_lines = Cd_lines
+
+        self.rho_upper = rho_upper
+        self.rho_lower = rho_lower
 
         # Compute the mass properties in canopy coordinates
         pmp = self.canopy.mass_properties(N=5000)
@@ -262,7 +262,7 @@ class ParagliderWing:
             FIXME: docstring. See `Phillips.__call__`
         """
         K_foil = self.force_estimator.s_cps.shape[0]
-        K_lines = self._r_L2R.shape[0]
+        K_lines = self._r_L2LE.shape[0]
         v_W2b = np.broadcast_to(v_W2b, (K_foil + K_lines, 3))
         delta_f = self.brake_geo(
             self.force_estimator.s_cps, delta_bl, delta_br,
@@ -379,9 +379,10 @@ class ParagliderWing:
         cps : array of floats, shape (K,3) [meters]
             The control points in ParagliderWing coordinates
         """
-        foil_cps = self.force_estimator.control_points()  # In foil coordinates
-        foil_cps = foil_cps + self.canopy_origin(delta_a)
-        return np.vstack((foil_cps, self._r_L2R))
+        r_LE2R = self.canopy_origin(delta_a)
+        foil_cps = self.force_estimator.control_points() + r_LE2R
+        line_cps = self._r_L2LE + r_LE2R
+        return np.vstack((foil_cps, line_cps))
 
     def mass_properties(self, rho_air, delta_a=0):
         """
