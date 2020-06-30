@@ -1,3 +1,43 @@
+* Should I move all the line parameters (`total_line_length`,
+  `average_line_dimaeter`, `line_drag_positions`, `Cd_lines`) out of
+  `ParagliderWing` and into some basic `LineGeometry` class? The
+  `ParagliderWing` constructor has too many parameters, which makes the API
+  unnecessarily fragile.
+
+  Would the `kappa_x` etc go with it? Conceptually that'd make sense: the wing
+  doesn't care **how** the line geometry gives its results; it justs needs the
+  results.
+
+  Ooh, does this also present the opportunity to eliminate the `BrakeGeometry`
+  class? Make `delta_f` the responsibility of the `LineGeometry`?
+
+
+* Building a linear model for the paraglider dynamics requires the *stability
+  derivatives* (derivatives of the coefficients with respect to `alpha` and
+  `beta`). The direct approach is finite differencing, but for a "more
+  economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
+  Sec:6.5.7, "Stability and control derivative calculation".
+
+* I must make sure to point out how I'm handling section dihedral angles.
+  I made the conscious decision to allow step changes, even though it produces
+  overlap at panel boundaries (as in my version of Belloc's reference wing).
+  My assumption is that the small overlap is less important that getting the
+  panel quarter-chord lines correct. You could try to account for airfoil
+  thickness and round the dihedral angles at the panel boundaries, but if
+  you're allowing continuously curving reference curves you'll have this issue
+  anyway.
+
+* I'd love to demo the effect of assuming a fixed Reynolds number (eg,
+  `1.5e6`) versus using their proper values. This is probably the most extreme
+  during a turn. Maybe I could plot the range of values for fast straight
+  flight versus a slow turn?
+
+  Also, how does the performance of the wing change when ridge soaring into
+  the wind with brakes compare to straight flight without brakes? The
+  airspeed's of the different equilibriums are different, but by how much?
+  Less than a factor of two, I think.
+
+
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
 
@@ -17,9 +57,6 @@
 
 * I'm not crazy about `cm_solid` etc as vector names. Can I use something like
   `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
-
-* If I'm computing the line drag at some specified geometry centers, should
-  I also add the weight of the lines at those points?
 
 
 
@@ -129,6 +166,16 @@ Airfoil
 
 Geometry
 --------
+
+* If my airfoil coefficients are parametrized by `delta`, should the airfoil
+  geometry be as well? I don't like either option: currently I have the
+  `AirfoilCoefficients` handling the interpolation over `delta` since it's
+  much easier to just dump all the coefficient data into a single `csv` file,
+  but that implies the `AirfoilGeometry` should handle interpolating the
+  geometry, which I think belongs in the `FoilSections`. The foil sections are
+  there to eventually support airfoil interpolation, cell definitions, and the
+  cell distortions, but maybe it'd make sense to let the `AirfoilGeometry`
+  handle delta in the sense of "this is the idealized shape"?
 
 * Write an `AirfoilGeometry` interpolator. Takes two geometries, and returns
   the interpolated surface points.
@@ -241,7 +288,7 @@ Chord Surface
 * Is it bad for to use `r_x` and `r_yz` for the ratios when `r_A2B` are
   vectors? A bit of an overlap, but doesn't seem like a big conflict.
 
-* Should `elliptical_lobe`: accept the alternative pair `{b/b_flat,
+* Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
   max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
   easy to approximate from pictures.
 
@@ -454,7 +501,7 @@ Lower priority
   I guess I could also just compute `torsion(s=0)` and subtract that from all
   torsions, thus "centering" the twist in the same manner as the origin.
 
-* Move `InterpolatedLobe` from `belloc.py` into `foil.py` and modify it to use
+* Move `InterpolatedArc` from `belloc.py` into `foil.py` and modify it to use
   intelligent resampling (near the given points, not just a blind resample).
 
 * Review the API: accept any of `{b, b_flat, S, S_flat}` as scaling factors
@@ -512,27 +559,41 @@ Coefficient Estimation
 * Design review how the coefficient estimator signals non-convergence. (All
   users that call `Phillips.__call__` should be exception-aware.)
 
-* Double check the drag correction terms for viscous effects
-
-  Should the section drag really include the local sideslip airspeed for
-  calculating their drag? Or should they "discard" the sideways velocity and
-  calculate using only the chordwise+normal velocities? [WAIT: doesn't it
-  work out that the local velocity has no sideslip? Weird, but I think
-  that's the case.] Same goes for the direction of the drag vectors.
-
-* Does Phillips' method detect significant differences in performance if the
-  quarter-chord lies in a plane? The lobe makes it curve backwards at the
-  tips, and I'm curious if that has performance considerations. You could
-  theoretically define a function that "undoes" the curvature induced by the
-  lobe.
-
 
 Phillips
 ^^^^^^^^
 
+* By placing the boundary condition at `0.25c` instead of `0.75c` or similar,
+  this method can produce infinite induced velocities as the number of
+  sections increases. This is mostly a problem since it means `alpha` at the
+  wing tips `alpha` can go to infinity, which produces `nan` for the lift
+  coefficients. For an example that triggers this, change the arc anhedral for
+  the "Hook3-ish" from 33/67 degrees to 10/21 degrees and apply brakes; even
+  though the flatter wing seems "easier" conceptually, the particularities of
+  the geometry and lift curve causes failure for any reasonable number of
+  segments.
+
+* I'm using Hunsaker's derivation for `_f` and `_J`, but there is some
+  uncertainty regarding his choice of wind vector (for the 3D vortex law) and
+  airspeed (for section lift due to lift coefficient). Phillips uses "V_total"
+  and "V_infinity", Hunsaker uses "V_total" and "V_total", and in
+  "Weissinger's model of the nonlinear lifting-line method for aircraft
+  design" (Owens; 1998) they appear to use "V_infinity" for both (he simply
+  uses V_total for computing the induced angle of attack). These terms are all
+  relatively close and don't make a huge difference, but it still bothers me.
+
+  The bigger question is that **all of those seem wrong for a paraglider!!**
+  Does the spanwise airspeed really contribute to section lift? Spanwise flow
+  is significant at the wing tips of a parafoil; seems wrong for that to count
+  towards section lift. I'd expect lift from the section lift coefficients to
+  depend only on `V_n**2 + V_a**2`.
+
 * The `_hybrj` solver retries a bazillion times when it encounters a `nan`.
-  Can I use exceptions to abort early so I can use iterations instead of
-  letting `hybrj` try to brute force bad solutions?
+  Can I use exceptions to abort early so I can use relaxation iterations
+  instead of letting `hybrj` try to brute force bad solutions? What if `_f`
+  threw an exception when it produces a `nan`, which is caught by Phillips to
+  initiate a relaxation solution? (This probably depends on how scipy calls
+  the Fortran code; not sure what happens to the Python exceptions.)
 
 * If the target and reference are effectively the same, iteration will just
   waste time (since you'll keep pushing the same target onto the stack). There
@@ -540,58 +601,32 @@ Phillips
   the target to be of much use, just abort"
 
 * Review the conditions for non-convergence. What are the primary causes, and
-  can they be mitigated? Right now, convergence via iteration is uncommon:
-  cases either succeed, or they don't.
-
-  At a glance, if `beta = 0`, you don't really need an input reference
-  solution; the base case works fine. The reference does improve convergence
-  when you get to abnormal situations, like in `belloc` when `beta = 15`.
+  can they be mitigated? What are the average number of iterations for
+  convergence? Right now, convergence via iteration is uncommon: cases either
+  succeed, or they don't. It'd be nice to detect "non-convergence" ASAP.
 
 * **Review the iteration design**: should I be interpolating `Gamma`?
 
-* What are the average number of iterations for convergence? It'd be nice to
-  recognize "non-convergence" ASAP.
-
-* Should `V` be greater or smaller than `V_rel`?
-
-* Where did J4 come from in Hunsaker's derivation? It wasn't in Phillip's
-  derivation.
+* Verify the analytical Jacobian; right now the finite-difference
+  approximation disagrees with the analytical version
 
 * How should I handle a turning wing? (Non-uniform `u_inf`) Right now I just
   use the central `V_rel` for `u_inf` and assume it's the same everywhere.
 
-* **Can I mitigate poor behavior near `Cl_alpha = 0`?** Consider pre-computing
-  a function `stall_point(alpha, delta)` that checks where `Cl_alpha` goes to
-  zero. The `delta` are fixed during iterations, but if proposals are pushing
-  `alpha` beyond that stall point, bad things **will** be happening.
-
-* In `Phillips` I have a fixme about using the "characteristic chord", but
-  right now I'm using the section area (`dA`). If I switch it to `c_avg`, the
-  `CL vs CD` curve looks MUCH more like what's in the Belloc paper, but
-  the other curves go to pot. **(#NEXT)**
-
-* Refactor the drag coefficient correction terms (skin friction, etc) outside
-  Phillips (#NEXT)
-
-  * This belongs with the parafoil model; Phillips shouldn't care. Maybe part
-    of the tentative ParafoilSections design?
-
-* My Jacobian calculations seem to be broken again; at least, the
-  finite-difference approximation disagrees with the analytical version. And
-  the equations for the `J` terms don't match Hunsaker; why not?
-
-* Phillips should check for zero `Cl_alpha`. What should it do if it does? Can
-  it gracefully fail over to fixed-point iterations? Should it return a mask
-  of which sections are experiencing stall conditions? Does it matter if XFOIL
-  is unreliable post-stall anyway?
+* Using straight segments to approximate an curved wing will underestimate the
+  upper surface and overestimate the lower surface. It'd be interesting to
+  compute surface meshes for a range of `K` and (1) see how the error
+  accumulates for both surfaces, and (2) consider how the upper and lower
+  surfaces contribute to the airfoil coefficients. For example, if the
+  dominant contributor to the section lift coefficient is the pressure over
+  the upper surface of the airfoil, you'd expect an underestimate of the
+  segment upper surface area to underestimate the segment lift coefficient,
+  but I'm not sure what conclusions you could reliably produce from such
+  a crude measure.
 
 * Refactor Phillips outside `foil.py`?
 
 * Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
-
-* I compute the complete Jacobian, but MINPACK's documentation for `hybrj`
-  says it should be the `Q` from a `QR` factorization? I can't say
-  I understand this.
 
 * The Jacobian uses the smoothed `Cl_alpha`, which technically will not match
   the finite-difference of the raw `Cl`. Should I smooth the `Cl` and replace
@@ -638,7 +673,7 @@ ParagliderWing
 ==============
 
 * Do speed bars on real wings decrease the length of all lines, or just those
-  in the central sections? If they're unequal, you'd expect the lobe arcs to
+  in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
 
 * Review the elements in the `ParagliderWing.mass_properties` dictionary.
@@ -648,17 +683,14 @@ ParagliderWing
 
 * Review parameter naming conventions (like `kappa_a`). Why "kappa"?
 
-* `d_riser` and `z_riser` are different units, which is odd. Almost everything
-  is proportional to `b_flat`, but `z_riser` is a concrete unit?
-
 * *Design* the "query control points, compute wind vectors, query dynamics"
   sequence and API
 
 * Paraglider should be responsible for weight shifting?
 
   * The wing doesn't care about the glider cm, only the changes to the riser
-    positions. However, **that would change if the lobe supports
-    deformations** in response to weight shift.
+    positions. However, **that would change if the arc supports deformations**
+    in response to weight shift.
 
 * Check if paragliders have aerodynamic centers. See "Aircraft Performance and
   Design" (Anderson; 1999), page 70 (89) for an equation that works **for
