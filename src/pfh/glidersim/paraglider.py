@@ -188,7 +188,7 @@ class Paraglider6a:
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
         v_W2b = v_W2e - v_CP2e
 
-        # FIXME: "magic" layout of array contents
+        # FIXME: "magic" indexing established by `self.control_points`
         r_CP2R_wing = r_CP2R[:-1]
         r_CP2R_payload = r_CP2R[-1]
         v_W2b_wing = v_W2b[:-1]
@@ -687,7 +687,7 @@ class Paraglider6b(Paraglider6a):
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
         v_W2b = v_W2e - v_CP2e
 
-        # FIXME: "magic" layout of array contents
+        # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
         v_W2b_wing = v_W2b[:-1]
@@ -910,7 +910,7 @@ class Paraglider6c(Paraglider6a):
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
         v_W2b = v_W2e - v_CP2e
 
-        # FIXME: "magic" layout of array contents
+        # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
         v_W2b_wing = v_W2b[:-1]
@@ -1175,7 +1175,7 @@ class Paraglider9a:
         v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
         v_P2e = C_p2b @ v_R2e + cross3(omega_p2e, r_P2R)
 
-        # FIXME: "magic" layout of array contents
+        # FIXME: "magic" indexing established by `self.control_points`
         r_CP2R_b = r_CP2R[:-1]
         r_CP2R_p = C_p2b @ r_CP2R[-1]
 
@@ -1653,7 +1653,7 @@ class Paraglider9b(Paraglider9a):
         v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
         v_P2e = C_p2b @ v_R2e + cross3(omega_p2e, r_P2R)
 
-        # FIXME: "magic" layout of array contents
+        # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_b = r_CP2R[:-1] - r_B2R
         r_CP2P_p = C_p2b @ r_CP2R[-1] - r_P2R
 
