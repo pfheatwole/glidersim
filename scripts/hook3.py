@@ -276,20 +276,11 @@ def build_hook3():
     # gsim.plots.plot_foil_topdown(canopy, N_sections=77)
 
     # -----------------------------------------------------------------------
-    # Brake geometry
-    #
-    # FIXME: this is completely unknown. For now this just a standin until I
-    #        implement a proper line geometry and can calculate the deflection
-    #        distributions from that.
-
-    p_start = 0.10
-    p_peak = gsim.brake_geometry.Cubic.p_peak_min(p_start) + 1e-9
-    brakes = gsim.brake_geometry.Cubic(p_start, p_peak, delta_max)
-
-    # -----------------------------------------------------------------------
     # Line geometry
     #
-    # The line drag positions are a blind guess.
+    # The brake parameters are not based on the actual wing in any way.
+    # The line drag positions are crude guess.
+
     line_parameters = {
         "kappa_x": 0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
         "kappa_z": 6.8 / chord_root,  # ref: "Hook 3 technical specs", pg 2
@@ -299,20 +290,32 @@ def build_hook3():
         "total_line_length": 213 / chord_root,  # ref: "Hook 3 technical specs", pg 2
         "average_line_diameter": 1e-3,  # Blind guess
         "line_drag_positions": np.array([[-0.5 * chord_root, -1.75, -5],
-                                         [-0.5 * chord_root, 1.75, -5]]) / chord_root,
+                                         [-0.5 * chord_root,  1.75, -5]]) / chord_root,
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
     }
+
+    s_delta_start = 0.1
+    s_delta_max = gsim.line_geometry.SimpleLineGeometry.minimum_s_delta_max(s_delta_start) + 1e-9
+    brake_parameters = {
+        "s_delta_start": s_delta_start,
+        "s_delta_max": s_delta_max,
+        "delta_max": delta_max,
+    }
+
+    lines = gsim.line_geometry.SimpleLineGeometry(
+        **line_parameters,
+        **brake_parameters,
+    )
 
     # -----------------------------------------------------------------------
     # Wing and glider
 
     wing = gsim.paraglider_wing.ParagliderWing(
+        lines=lines,
         canopy=canopy,
-        force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
-        brake_geo=brakes,
-        **line_parameters,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
+        force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
     )
 
     return wing
