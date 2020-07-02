@@ -216,7 +216,7 @@ def build_hook3():
     SMC_flat = b_flat / AR_flat
     S, b, AR = 19.55, 8.84, 4.00
 
-    chord_length = gsim.foil.elliptical_chord(
+    c = gsim.foil.elliptical_chord(
         root=chord_root / (b_flat / 2),
         tip=chord_tip / (b_flat / 2),
     )
@@ -226,16 +226,16 @@ def build_hook3():
     # spanwise distribution with a maximum valueof 6 or so? Unfortunately that
     # distribution proves difficult for Phillips method, so here I provide an
     # "easier" alternative.
-    # torsion = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
-    torsion = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
+    # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
+    theta = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
     chord_surface = gsim.foil.ChordSurface(
         r_x=0.75,
         x=0,
         r_yz=1.00,
         yz=gsim.foil.elliptical_arc(mean_anhedral=33, tip_anhedral=67),
-        chord_length=chord_length,
-        torsion=torsion,
+        c=c,
+        theta=theta,
     )
 
     # FIXME: add the viscous drag modifiers?

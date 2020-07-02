@@ -460,7 +460,7 @@ class ChordSurface:
     x : float or callable
         The x-coordinates of each section as a function of the section index.
         Each chord is shifted forward until the x-coordinate of its leading
-        edge is at `chord_length * r_x`.
+        edge is at `c * r_x`.
     r_yz : float or callable
         A ratio from 0 to 1 that defines the chord position of the `yz` curve.
         This can be a constant or a function of the section index. For example,
@@ -469,9 +469,9 @@ class ChordSurface:
     yz : callable
         The yz-coordinates of each section as a function of the section index.
         This curve shapes the yz-plane view of the inflated wing.
-    chord_length : float or callable
+    c : float or callable
         The section chord lengths as a function of section index.
-    torsion : float or callable, optional
+    theta : float or callable, optional
         Geometric torsion as a function of the section index. These angles
         specify a positive rotation about the local (section) y-axis. Values
         must be in radians. Default: `0` at all sections.
@@ -492,8 +492,8 @@ class ChordSurface:
         x,
         r_yz,
         yz,
-        chord_length,
-        torsion=0,
+        c,
+        theta=0,
         center=True,
     ):
         if callable(r_x):
@@ -520,15 +520,15 @@ class ChordSurface:
 
         # FIXME: validate `length(yz) == 2`?
 
-        if callable(chord_length):
-            self._chord_length = chord_length
+        if callable(c):
+            self.c = c
         else:
-            self._chord_length = lambda s: np.full(np.shape(s), float(chord_length))
+            self.c = lambda s: np.full(np.shape(s), float(c))
 
-        if callable(torsion):
-            self.torsion = torsion
+        if callable(theta):
+            self.theta = theta
         else:
-            self.torsion = lambda s: np.full(np.shape(s), float(torsion))
+            self.theta = lambda s: np.full(np.shape(s), float(theta))
 
         # Set the origin to the central chord leading edge. A default value of
         # zeros must be set before calling `xyz` to find the real offset.
@@ -590,7 +590,7 @@ class ChordSurface:
         These angles are between the x-axis of a section and the x-axis of the
         central chord when the wing is flat.
         """
-        thetas = self.torsion(s)
+        thetas = self.theta(s)
         ct, st = np.cos(thetas), np.sin(thetas)
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
@@ -666,7 +666,7 @@ class ChordSurface:
         array_like of float, shape (N,)
             The length of the section chord.
         """
-        return self._chord_length(s)
+        return self.c(s)
 
     def xyz(self, s, pc, flatten=False):
         """
@@ -695,7 +695,7 @@ class ChordSurface:
         r_x = self.r_x(s)
         r_yz = self.r_yz(s)
         x = self.x(s)
-        c = self._chord_length(s)
+        c = self.c(s)
         torsion = self._planform_torsion(s)
         dihedral = self._arc_dihedral(s)
         xhat_planform = torsion @ [1, 0, 0]
