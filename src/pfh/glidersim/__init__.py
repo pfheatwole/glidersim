@@ -1,5 +1,5 @@
 from pfh.glidersim import airfoil
-from pfh.glidersim import brake_geometry
+from pfh.glidersim import line_geometry
 from pfh.glidersim import foil
 from pfh.glidersim import harness
 from pfh.glidersim import paraglider

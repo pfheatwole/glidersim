@@ -198,7 +198,7 @@ class Paraglider6a:
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -206,7 +206,7 @@ class Paraglider6a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -508,7 +508,7 @@ class Paraglider6a:
             )
             v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_b, delta_b, v_W2b, rho_air, solution,
+                delta_a, delta_b, delta_b, v_W2b, rho_air, solution,
             )
             dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
@@ -697,7 +697,7 @@ class Paraglider6b(Paraglider6a):
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -705,7 +705,7 @@ class Paraglider6b(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -920,7 +920,7 @@ class Paraglider6c(Paraglider6a):
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -928,7 +928,7 @@ class Paraglider6c(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -1189,7 +1189,7 @@ class Paraglider9a:
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1197,7 +1197,7 @@ class Paraglider9a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1667,7 +1667,7 @@ class Paraglider9b(Paraglider9a):
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1675,7 +1675,7 @@ class Paraglider9b(Paraglider9a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
