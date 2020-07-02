@@ -687,7 +687,10 @@ def main():
     # Extra values for verification/debugging
 
     K = len(times)
-    LE0 = model.glider.wing.canopy_origin(0)  # FIXME: ignores `delta_a(t)`
+    if np.isscalar(delta_a):
+        LE0 = model.glider.wing.canopy_origin(delta_a)
+    else:
+        LE0 = model.glider.wing.canopy_origin(delta_a(times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
     r_LE0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, LE0)
     v_LE0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(
