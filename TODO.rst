@@ -1,15 +1,44 @@
-* Should I move all the line parameters (`total_line_length`,
-  `average_line_dimaeter`, `line_drag_positions`, `Cd_lines`) out of
-  `ParagliderWing` and into some basic `LineGeometry` class? The
-  `ParagliderWing` constructor has too many parameters, which makes the API
-  unnecessarily fragile.
+* The line parameters in `line_geometry` are super long. Should they be
+  `kappa`-ized?
 
-  Would the `kappa_x` etc go with it? Conceptually that'd make sense: the wing
-  doesn't care **how** the line geometry gives its results; it justs needs the
-  results.
+* Rename the `chord_length` and `torsion` reference curves to `c` and `theta`
+  to match the math. Save the human readable versions for the consumers of
+  these objects.
 
-  Ooh, does this also present the opportunity to eliminate the `BrakeGeometry`
-  class? Make `delta_f` the responsibility of the `LineGeometry`?
+* I don't currently support "piloting with the C's", but if the `LineGeometry`
+  controls the `ChordSurface` shape then that could be implemented (at least
+  approximately).
+
+* Review the "4 riser speed system" in the "Paraglider design handbook":
+  http://laboratoridenvol.com/paragliderdesign/risers.html. They use a 4-line
+  setup instead of a 3-line (so the D lines are fixed), but otherwise his
+  derivation closely matches my own.
+
+
+* Add a `control_point_section_indices` or somesuch to `Phillips`. Should
+  return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
+
+
+* In the future, I'd like the `LineGeometry` to own the `yz` function for the
+  `ChordSurface`. Conceptually, I like the idea that `yz` is a function of the
+  line geometry. But how does the interface work? You call
+  `SimpleFoil.chord_xyz` or `SimpleFoil.surface_xyz`, which call
+  `ChordSurface.xyz` which calls `LineGeometry.yz`: how do you get the
+  `delta_a` parameter all the way through that without polluting the entire
+  API chain with those "unnecessary" parameters?
+
+* The control points need a redesign. I don't like stacking in them arrays
+  since that requires "magic" indexing (remembering which rows belong to each
+  component). I considered putting each component in a dictionary, but that
+  starts to weigh on the users of the class to know what to do with each
+  component. The paraglider classes shouldn't care what components are present
+  in the paraglider wing (the foil and the lines). You could use an idiom like
+  `moments = {key: np.cross(cps[key], forces[key]) for key in cp.keys}`, but
+  sprinkling that all over seems kind of icky to me. I have a vague feeling
+  a `ControlPoints` class might actually be warranted once the number of
+  components gets higher, but for now I'll just make each class keep track of
+  its own "magic" indices.
+
 
 
 * Building a linear model for the paraglider dynamics requires the *stability
