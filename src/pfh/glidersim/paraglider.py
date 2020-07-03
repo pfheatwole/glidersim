@@ -5,7 +5,7 @@ from IPython import embed
 import numpy as np
 
 from pfh.glidersim import quaternion
-from pfh.glidersim.util import cross3
+from pfh.glidersim.util import cross3, crossmat
 
 import scipy.integrate
 
@@ -242,18 +242,18 @@ class Paraglider6a:
         M_a = wmp["A_R"][:3, :3]
         J_a = wmp["A_R"][3:, 3:]
         S2 = np.diag([0, 1, 0])
-        S_PC2RC = quaternion.skew(wmp["r_PC2RC"])
-        S_RC2R = quaternion.skew(wmp["r_RC2R"])
+        S_PC2RC = crossmat(wmp["r_PC2RC"])
+        S_RC2R = crossmat(wmp["r_RC2R"])
         p_a = M_a @ (
             v_R2e
             - cross3(wmp["r_RC2R"], omega_b2e)
-            - quaternion.skew(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
         )
         h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
 
         # Build the system matrices
-        A1 = [m_B * np.eye(3), -m_B * quaternion.skew(r_B2R)]
-        A2 = [m_B * quaternion.skew(r_B2R), J]
+        A1 = [m_B * np.eye(3), -m_B * crossmat(r_B2R)]
+        A2 = [m_B * crossmat(r_B2R), J]
         A = np.block([A1, A2])
         A += wmp["A_R"]  # Include the apparent mass
 
@@ -1245,12 +1245,12 @@ class Paraglider9a:
         M_a = wmp["A_R"][:3, :3]
         J_a = wmp["A_R"][3:, 3:]
         S2 = np.diag([0, 1, 0])
-        S_PC2RC = quaternion.skew(wmp["r_PC2RC"])
-        S_RC2R = quaternion.skew(wmp["r_RC2R"])
+        S_PC2RC = crossmat(wmp["r_PC2RC"])
+        S_RC2R = crossmat(wmp["r_RC2R"])
         p_a = M_a @ (
             v_R2e
             - cross3(wmp["r_RC2R"], omega_b2e)
-            - quaternion.skew(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
         )
         h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
 
@@ -1258,10 +1258,10 @@ class Paraglider9a:
         # the body, A3 and A4 are the forces and moments on the payload. The
         # vector of unknowns `x` is: [a_R2e, alpha_b2e, alpha_p2e, F_R]
         I3, Z3 = np.eye(3), np.zeros((3, 3))
-        A1 = [m_b * I3, -m_b * quaternion.skew(r_B2R), Z3, I3]
-        A2 = [m_b * quaternion.skew(r_B2R), J_b, Z3, Z3]
-        A3 = [m_p * C_p2b, Z3, -m_p * quaternion.skew(r_P2R), -C_p2b]
-        A4 = [m_p * quaternion.skew(r_P2R) @ C_p2b, Z3, J_p, Z3]
+        A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
+        A2 = [m_b * crossmat(r_B2R), J_b, Z3, Z3]
+        A3 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
+        A4 = [m_p * crossmat(r_P2R) @ C_p2b, Z3, J_p, Z3]
         A = np.block([A1, A2, A3, A4])
         A[:6, :6] += wmp["A_R"]  # Include the apparent mass
 
@@ -1714,10 +1714,10 @@ class Paraglider9b(Paraglider9a):
         # internal force on the risers, `F_R` (in body frd).
 
         I3, Z3 = np.eye(3), np.zeros((3, 3))
-        A1 = [m_b * I3, -m_b * quaternion.skew(r_B2R), Z3, I3]
-        A2 = [m_p * C_p2b, Z3, -m_p * quaternion.skew(r_P2R), -C_p2b]
-        A3 = [Z3, J_b, Z3, -quaternion.skew(r_B2R)]
-        A4 = [Z3, Z3, J_p, quaternion.skew(r_P2R) @ C_p2b]
+        A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
+        A2 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
+        A3 = [Z3, J_b, Z3, -crossmat(r_B2R)]
+        A4 = [Z3, Z3, J_p, crossmat(r_P2R) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
 
         B1 = (

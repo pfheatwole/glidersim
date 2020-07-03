@@ -4,17 +4,7 @@ from numba import float64, guvectorize
 
 import numpy as np
 
-from pfh.glidersim.util import _cross3
-
-
-def skew(v):
-    """Compute the skew operator (cross-product matrix) for a vector."""
-    assert v.shape in ((3,), (3, 1))
-    vx, vy, vz = v.flatten()
-    sv = [[0, -vz, vy],
-          [vz, 0, -vx],
-          [-vy, vx, 0]]
-    return np.asarray(sv)
+from pfh.glidersim.util import _cross3, crossmat
 
 
 def euler_to_dcm(euler):
@@ -93,7 +83,7 @@ def quaternion_to_dcm(q):
     qw, qv = q[0], q[1:]
 
     # ref: Stevens, Eq:1.8-16, pg 53 (67)
-    dcm = 2 * qv @ qv.T + (qw ** 2 - qv.T @ qv) * np.eye(3) - 2 * qw * skew(qv)
+    dcm = 2 * qv @ qv.T + (qw ** 2 - qv.T @ qv) * np.eye(3) - 2 * qw * crossmat(qv)
 
     return np.asarray(dcm)
 

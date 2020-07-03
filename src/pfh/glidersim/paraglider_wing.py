@@ -5,8 +5,7 @@ import numpy as np
 from scipy.optimize import root_scalar
 
 from pfh.glidersim import foil
-from pfh.glidersim.util import cross3
-from pfh.glidersim.quaternion import skew
+from pfh.glidersim.util import cross3, crossmat
 
 
 class ParagliderWing:
@@ -356,8 +355,8 @@ class ParagliderWing:
         ai = self._apparent_inertia  # Dictionary of precomputed values
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
         r_RC2R = r_LE2R + ai["r_RC2LE"]
-        S_PC2RC = skew(ai["r_PC2RC"])
-        S_RC2R = skew(r_RC2R)
+        S_PC2RC = crossmat(ai["r_PC2RC"])
+        S_RC2R = crossmat(r_RC2R)
         Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
         J_R = (  # Barrows Eq:25
             ai["I"]

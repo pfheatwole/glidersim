@@ -82,3 +82,32 @@ def _cross3(a, b):
     result[1] = a3 * b1 - a1 * b3
     result[2] = a1 * b2 - a2 * b1
     return result
+
+
+def crossmat(v):
+    """
+    Build the cross-product matrix for a vector.
+
+    The cross-product matrix of a vector `v` is a skew-symmetric matrix which
+    can be left-mulitiplied by another vector to compute the cross-product
+    operation. That is, `crossmat(v) @ u == cross(v, u)`.
+
+    These are useful when building systems of equations since it turns a
+    function call into a simple matrix multiplication.
+
+    Parameters
+    ----------
+    v : array of float, shape (3,) or (3,1)
+        The 3-vector for the left-hand term of a cross-product operation.
+
+    Returns
+    -------
+    array of float, shape (3,3)
+        The skew-symmetric matrix that encodes the cross-product opeation.
+    """
+    assert v.shape in ((3,), (3, 1))
+    vx, vy, vz = v.flatten()
+    sv = [[0, -vz, vy],
+          [vz, 0, -vx],
+          [-vy, vx, 0]]
+    return np.asarray(sv)
