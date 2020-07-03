@@ -1,4 +1,4 @@
-"""A scratchpad for quaternion work."""
+"""A scratchpad for orientation-related work."""
 
 from numba import float64, guvectorize
 

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import pfh.glidersim as gsim
-from pfh.glidersim import quaternion
+from pfh.glidersim import orientation
 
 
 def plot_polar_curve(glider, N=21, approximate=True):
@@ -75,12 +75,12 @@ def plot_polar_curve(glider, N=21, approximate=True):
     # Convert the airspeeds from body coordinates to Earth coordinates
     Theta_b2e_a = np.asarray([e["Theta_b2e"] for e in eqs_a])
     Theta_b2e_b = np.asarray([e["Theta_b2e"] for e in eqs_b])
-    q_e2b_a = quaternion.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
-    q_e2b_b = quaternion.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
+    q_e2b_a = orientation.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
+    q_e2b_b = orientation.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
     v_R2e_a = [e["v_R2e"] for e in eqs_a]
     v_R2e_b = [e["v_R2e"] for e in eqs_b]
-    v_R2e_a = quaternion.quaternion_rotate(q_e2b_a, v_R2e_a)
-    v_R2e_b = quaternion.quaternion_rotate(q_e2b_b, v_R2e_b)
+    v_R2e_a = orientation.quaternion_rotate(q_e2b_a, v_R2e_a)
+    v_R2e_b = orientation.quaternion_rotate(q_e2b_b, v_R2e_b)
 
     # -----------------------------------------------------------------------
     # Plot the curves
@@ -363,15 +363,15 @@ if __name__ == "__main__":
     )
 
     # Compute the residual acceleration at the given equilibrium state
-    q_b2e = quaternion.euler_to_quaternion(eq["Theta_b2e"])
+    q_b2e = orientation.euler_to_quaternion(eq["Theta_b2e"])
     q_e2b = q_b2e * [-1, 1, 1, 1]
-    v_R2e = quaternion.quaternion_rotate(q_e2b, eq["v_R2e"])
+    v_R2e = orientation.quaternion_rotate(q_e2b, eq["v_R2e"])
 
     # For the `Paraglider6a` model
     a_R2e, alpha_b2e, _ = glider.accelerations(
         v_R2e=eq["v_R2e"],
         omega_b2e=[0, 0, 0],
-        g=quaternion.quaternion_rotate(q_b2e, [0, 0, 9.8]),
+        g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
         rho_air=1.2,
         reference_solution=eq["reference_solution"],
     )
@@ -381,7 +381,7 @@ if __name__ == "__main__":
     #     omega_b2e=[0, 0, 0],
     #     omega_p2e=[0, 0, 0],
     #     Theta_p2b=eq["Theta_p2b"],
-    #     g=quaternion.quaternion_rotate(q_b2e, [0, 0, 9.8]),
+    #     g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
     #     rho_air=1.2,
     #     reference_solution=eq["reference_solution"],
     # )

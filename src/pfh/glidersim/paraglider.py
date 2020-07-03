@@ -4,7 +4,7 @@ from IPython import embed
 
 import numpy as np
 
-from pfh.glidersim import quaternion
+from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3, crossmat
 
 import scipy.integrate
@@ -348,7 +348,7 @@ class Paraglider6a:
             a_frd, alpha_frd, ref = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
-                quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
+                orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
                 **kwargs,
             )
             P, Q, R = x["omega_b2e"]
@@ -368,7 +368,7 @@ class Paraglider6a:
             return x_dot.view(float)  # The integrator expects a flat array
 
         state = np.empty(1, state_dtype)
-        state["q_b2e"] = quaternion.euler_to_quaternion([0, theta_0, 0])
+        state["q_b2e"] = orientation.euler_to_quaternion([0, theta_0, 0])
         state["v_R2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
         state["omega_b2e"] = [0, 0, 0]
 
@@ -392,7 +392,7 @@ class Paraglider6a:
             a_frd, alpha_frd, _ = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
-                quaternion.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
+                orientation.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
                 rho_air=rho_air,
                 delta_a=delta_a,
                 delta_bl=delta_b,
@@ -408,7 +408,7 @@ class Paraglider6a:
                 break
 
         alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
-        Theta_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
         gamma_b = alpha_b - Theta_b2e[1]
 
         equilibrium = {
@@ -1024,7 +1024,7 @@ class Paraglider9a:
         """
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
         payload_cps = self.payload.control_points(delta_w)  # In payload frd
-        C_b2p = quaternion.euler_to_dcm(Theta_p2b).T
+        C_b2p = orientation.euler_to_dcm(Theta_p2b).T
         return np.vstack((wing_cps, C_b2p @ payload_cps))
 
     def accelerations(
@@ -1140,7 +1140,7 @@ class Paraglider9a:
         if v_R2e.shape != (3,):
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
-        C_p2b = quaternion.euler_to_dcm(Theta_p2b)
+        C_p2b = orientation.euler_to_dcm(Theta_p2b)
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload about `R`
@@ -1376,13 +1376,13 @@ class Paraglider9a:
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            Theta_p2b = quaternion.quaternion_to_euler(x["q_p2b"])
+            Theta_p2b = orientation.quaternion_to_euler(x["q_p2b"])
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
                 x["omega_p2e"],
                 Theta_p2b,  # FIXME: design review the call signature
-                quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
+                orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
                 **kwargs,
             )
 
@@ -1396,7 +1396,7 @@ class Paraglider9a:
             # fmt: on
             q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-            omega_b2e = quaternion.quaternion_rotate(x["q_p2b"], x["omega_b2e"])
+            omega_b2e = orientation.quaternion_rotate(x["q_p2b"], x["omega_b2e"])
             omega_p2b = x["omega_p2e"] - omega_b2e
             P, Q, R = omega_p2b
             # fmt: off
@@ -1418,7 +1418,7 @@ class Paraglider9a:
             return x_dot.view(float)  # The integrator expects a flat array
 
         state = np.empty(1, state_dtype)
-        state["q_b2e"] = quaternion.euler_to_quaternion([0, theta_0, 0])
+        state["q_b2e"] = orientation.euler_to_quaternion([0, theta_0, 0])
         state["q_p2b"] = state["q_b2e"] * [1, -1, -1, -1]  # Payload aligned to gravity (straight down)  # FIXME: add theta_p_0
         state["omega_b2e"] = [0, 0, 0]
         state["omega_p2e"] = [0, 0, 0]
@@ -1443,13 +1443,13 @@ class Paraglider9a:
             state = solver.integrate(0.25).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             state["omega_p2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            Theta_p2b = quaternion.quaternion_to_euler(state["q_p2b"][0])
+            Theta_p2b = orientation.quaternion_to_euler(state["q_p2b"][0])
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
                 state["omega_p2e"][0],
                 Theta_p2b,  # FIXME: design review the call signature
-                quaternion.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
+                orientation.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
                 **dynamics_kwargs,
             )
 
@@ -1465,7 +1465,7 @@ class Paraglider9a:
                 break
 
         alpha_b = np.arctan2(*state["v_R2e"][[2, 0]])
-        Theta_b2e = quaternion.quaternion_to_euler(state["q_b2e"])
+        Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
         gamma_b = alpha_b - Theta_b2e[1]
 
         equilibrium = {
@@ -1473,7 +1473,7 @@ class Paraglider9a:
             "gamma_b": gamma_b,
             "glide_ratio": 1 / np.tan(gamma_b),
             "Theta_b2e": Theta_b2e,
-            "Theta_p2b": quaternion.quaternion_to_euler(state["q_p2b"]),
+            "Theta_p2b": orientation.quaternion_to_euler(state["q_p2b"]),
             "v_R2e": state["v_R2e"],
             "reference_solution": dynamics_kwargs["reference_solution"],
         }
@@ -1619,7 +1619,7 @@ class Paraglider9b(Paraglider9a):
         if v_R2e.shape != (3,):
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
-        C_p2b = quaternion.euler_to_dcm(Theta_p2b)
+        C_p2b = orientation.euler_to_dcm(Theta_p2b)
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
