@@ -206,19 +206,19 @@ class Dynamics6a:
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
         r_CP2R = self.glider.control_points(delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        r_CP2O = x["r_R2O"] + quaternion.quaternion_rotate(q_e2b, r_CP2R)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
         a_R2e, alpha_b2e, solution = self.glider.accelerations(
-            quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
+            quaternion.quaternion_rotate(x["q_b2e"], x["v_R2e"]),
             x["omega_b2e"],
-            quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+            quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
-            v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
+            v_W2e=quaternion.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2R=r_CP2R,
             reference_solution=params["solution"],
         )
@@ -240,7 +240,7 @@ class Dynamics6a:
         x_dot = np.empty(1, self.state_dtype)
         x_dot["q_b2e"] = q_dot
         x_dot["r_R2O"] = x["v_R2e"]
-        x_dot["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, a_R2e)
+        x_dot["v_R2e"] = quaternion.quaternion_rotate(q_e2b, a_R2e)
         x_dot["omega_b2e"] = alpha_b2e
 
         # Use the solution as the reference_solution at the next time step
@@ -346,21 +346,21 @@ class Dynamics9a:
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
         r_CP2R = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, r_CP2R)
+        r_CP2O = x["r_R2O"] + quaternion.quaternion_rotate(q_e2b, r_CP2R)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
         a_R2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
-            quaternion.apply_quaternion_rotation(x["q_b2e"], x["v_R2e"]),
+            quaternion.quaternion_rotate(x["q_b2e"], x["v_R2e"]),
             x["omega_b2e"],
             x["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
-            quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+            quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
-            v_W2e=quaternion.apply_quaternion_rotation(x["q_b2e"], v_W2e),
+            v_W2e=quaternion.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2R=r_CP2R,
             reference_solution=params["solution"],
         )
@@ -398,7 +398,7 @@ class Dynamics9a:
         x_dot["omega_b2e"] = alpha_b2e
         x_dot["omega_p2e"] = alpha_p2e
         x_dot["r_R2O"] = x["v_R2e"]
-        x_dot["v_R2e"] = quaternion.apply_quaternion_rotation(q_e2b, a_R2e)
+        x_dot["v_R2e"] = quaternion.quaternion_rotate(q_e2b, a_R2e)
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
@@ -536,7 +536,7 @@ def main():
     state_6a["q_b2e"] = q_b2e_6a
     state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
     state_6a["r_R2O"] = [0, 0, 0]
-    state_6a["v_R2e"] = quaternion.apply_quaternion_rotation(
+    state_6a["v_R2e"] = quaternion.quaternion_rotate(
         q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
     )
 
@@ -547,7 +547,7 @@ def main():
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
-    state_9a["v_R2e"] = quaternion.apply_quaternion_rotation(
+    state_9a["v_R2e"] = quaternion.quaternion_rotate(
         q_b2e_9a * [-1, 1, 1, 1], equilibrium_9a["v_R2e"],
     )
 
@@ -692,24 +692,24 @@ def main():
     else:
         LE0 = model.glider.wing.c_0 * model.glider.wing.lines.canopy_origin(delta_a(times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_LE0 = path["r_R2O"] + quaternion.apply_quaternion_rotation(q_e2b, LE0)
-    v_LE0 = path["v_R2e"] + quaternion.apply_quaternion_rotation(
+    r_LE0 = path["r_R2O"] + quaternion.quaternion_rotate(q_e2b, LE0)
+    v_LE0 = path["v_R2e"] + quaternion.quaternion_rotate(
         q_e2b, np.cross(path["omega_b2e"], LE0)
     )
-    v_frd = quaternion.apply_quaternion_rotation(path["q_b2e"], path["v_R2e"])
+    v_frd = quaternion.quaternion_rotate(path["q_b2e"], path["v_R2e"])
 
     if "q_p2b" in path.dtype.names:  # 9 DoF model
         q_p2e = np.asarray([quaternion.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
         Theta_p2b = quaternion.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
         Theta_p2e = quaternion.quaternion_to_euler(q_p2e)  # FIXME: verify!
-        r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
+        r_P2O = path["r_R2O"] + quaternion.quaternion_rotate(
             q_e2b,
-            quaternion.apply_quaternion_rotation(
+            quaternion.quaternion_rotate(
                 path["q_p2b"] * [1, -1, -1, -1], model.glider.payload.control_points(),
             ),
         )
     else:  # 6 DoF model
-        r_P2O = path["r_R2O"] + quaternion.apply_quaternion_rotation(
+        r_P2O = path["r_R2O"] + quaternion.quaternion_rotate(
             q_e2b, model.glider.payload.control_points(),
         )
 

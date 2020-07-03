@@ -104,7 +104,7 @@ def quaternion_to_euler(q):
 
 @guvectorize([(float64[:], float64[:], float64[:])],
              '(n),(m)->(m)', nopython=True)
-def apply_quaternion_rotation(q, u, v):
+def quaternion_rotate(q, u, v):
     """Rotate a 3-vector using a quaternion.
 
     Treats the vector as a pure quaternion, and returns only the vector part.
@@ -161,7 +161,7 @@ def main():
         # Transform a random vector using both methods
         u = np.random.random(3)  # A random 3-vector
         ve = dcm_e @ u
-        vq = apply_quaternion_rotation(q, u)
+        vq = quaternion_rotate(q, u)
 
         print("\n")
         print(f"euler: {np.rad2deg(euler)}")

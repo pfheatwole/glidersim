@@ -348,7 +348,7 @@ class Paraglider6a:
             a_frd, alpha_frd, ref = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
-                quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+                quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
                 **kwargs,
             )
             P, Q, R = x["omega_b2e"]
@@ -392,7 +392,7 @@ class Paraglider6a:
             a_frd, alpha_frd, _ = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
-                quaternion.apply_quaternion_rotation(state["q_b2e"][0], [0, 0, 9.8]),
+                quaternion.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
                 rho_air=rho_air,
                 delta_a=delta_a,
                 delta_bl=delta_b,
@@ -1382,7 +1382,7 @@ class Paraglider9a:
                 x["omega_b2e"],
                 x["omega_p2e"],
                 Theta_p2b,  # FIXME: design review the call signature
-                quaternion.apply_quaternion_rotation(x["q_b2e"], [0, 0, 9.8]),
+                quaternion.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
                 **kwargs,
             )
 
@@ -1396,7 +1396,7 @@ class Paraglider9a:
             # fmt: on
             q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-            omega_b2e = quaternion.apply_quaternion_rotation(x["q_p2b"], x["omega_b2e"])
+            omega_b2e = quaternion.quaternion_rotate(x["q_p2b"], x["omega_b2e"])
             omega_p2b = x["omega_p2e"] - omega_b2e
             P, Q, R = omega_p2b
             # fmt: off
@@ -1449,7 +1449,7 @@ class Paraglider9a:
                 state["omega_b2e"][0],
                 state["omega_p2e"][0],
                 Theta_p2b,  # FIXME: design review the call signature
-                quaternion.apply_quaternion_rotation(state["q_b2e"][0], [0, 0, 9.8]),
+                quaternion.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
                 **dynamics_kwargs,
             )
 
