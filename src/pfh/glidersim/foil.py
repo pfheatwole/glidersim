@@ -1305,6 +1305,13 @@ class SimpleFoil:
         be scaled by the wing materials and air density to get their physical
         values. See "Notes" for a thorough description.
 
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+
         Returns
         -------
         dictionary
