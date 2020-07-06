@@ -797,7 +797,6 @@ class FoilSections:
         if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
             raise ValueError("Airfoil coordinates must be between -1 and 1.")
         elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
-            embed()
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
         if surface == "airfoil":
