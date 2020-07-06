@@ -1,60 +1,4 @@
-* The line parameters in `line_geometry` are super long. Should they be
-  `kappa`-ized?
-
-* Rename the `chord_length` and `torsion` reference curves to `c` and `theta`
-  to match the math. Save the human readable versions for the consumers of
-  these objects.
-
-* I don't currently support "piloting with the C's", but if the `LineGeometry`
-  controls the `ChordSurface` shape then that could be implemented (at least
-  approximately).
-
-* Review the "4 riser speed system" in the "Paraglider design handbook":
-  http://laboratoridenvol.com/paragliderdesign/risers.html. They use a 4-line
-  setup instead of a 3-line (so the D lines are fixed), but otherwise his
-  derivation closely matches my own.
-
-
-* Add a `control_point_section_indices` or somesuch to `Phillips`. Should
-  return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
-
-
-* In the future, I'd like the `LineGeometry` to own the `yz` function for the
-  `ChordSurface`. Conceptually, I like the idea that `yz` is a function of the
-  line geometry. But how does the interface work? You call
-  `SimpleFoil.chord_xyz` or `SimpleFoil.surface_xyz`, which call
-  `ChordSurface.xyz` which calls `LineGeometry.yz`: how do you get the
-  `delta_a` parameter all the way through that without polluting the entire
-  API chain with those "unnecessary" parameters?
-
-* The control points need a redesign. I don't like stacking in them arrays
-  since that requires "magic" indexing (remembering which rows belong to each
-  component). I considered putting each component in a dictionary, but that
-  starts to weigh on the users of the class to know what to do with each
-  component. The paraglider classes shouldn't care what components are present
-  in the paraglider wing (the foil and the lines). You could use an idiom like
-  `moments = {key: np.cross(cps[key], forces[key]) for key in cp.keys}`, but
-  sprinkling that all over seems kind of icky to me. I have a vague feeling
-  a `ControlPoints` class might actually be warranted once the number of
-  components gets higher, but for now I'll just make each class keep track of
-  its own "magic" indices.
-
-
-
-* Building a linear model for the paraglider dynamics requires the *stability
-  derivatives* (derivatives of the coefficients with respect to `alpha` and
-  `beta`). The direct approach is finite differencing, but for a "more
-  economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
-  Sec:6.5.7, "Stability and control derivative calculation".
-
-* I must make sure to point out how I'm handling section dihedral angles.
-  I made the conscious decision to allow step changes, even though it produces
-  overlap at panel boundaries (as in my version of Belloc's reference wing).
-  My assumption is that the small overlap is less important that getting the
-  panel quarter-chord lines correct. You could try to account for airfoil
-  thickness and round the dihedral angles at the panel boundaries, but if
-  you're allowing continuously curving reference curves you'll have this issue
-  anyway.
+* Refactor `mesh_vertex_lists` to work on `upper/lower/airfoil`?
 
 * I'd love to demo the effect of assuming a fixed Reynolds number (eg,
   `1.5e6`) versus using their proper values. This is probably the most extreme
@@ -66,7 +10,6 @@
   airspeed's of the different equilibriums are different, but by how much?
   Less than a factor of two, I think.
 
-
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
 
@@ -74,36 +17,12 @@
   and constant pitching moment? How useful is this concept for paragliders?
   (ie, over what range can you treat it as having an aerodynamic center)
 
-
-
-* Note to self: different airfoils can have dramatically different pitching
+* Note to self: different airfoils can have significantly different pitching
   coefficients (eg, the NACA 24018 vs the LS(1)-0417), which should produce
   significantly different equilibrium pitching angles. The arch of the wing
   will likely give those different wings noticeably different dynamics in the
   presence of a cross-wind, and **may have a significant impact on how the
   wing respond to encountering a thermal during a turn**.
-
-
-* I'm not crazy about `cm_solid` etc as vector names. Can I use something like
-  `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
-
-
-
-
-* Should I rename the `quaternion` module to `rotation`? And probably rename
-  `apply_quaternion_rotation` to just `apply_quaternion` while I'm at it.
-
-* Does `skew` belong in `quaternion` or in `util`? Seems like a bad name
-  anyway: it's a cross-product matrix, which is technically a skew-symmetric
-  matrix, but not all skew-symmetric matrices are cross-product matrices.
-
-* In `quaternion` I mention "yaw-pitch-role" Euler angles, but all parameters
-  with independent inputs are `[phi, theta, gamma]` (roll-pitch-yaw). Is this
-  usage consistent? I'm still not comfortable with the terminology, but
-  I think it's okay? I suspect that the actual phi-theta-gamma values will
-  depend on the order of their application, so the *values* phi-theta-gamma
-  are the roll-pitch-yaw angles that would produce the desired rotation when
-  applied in a yaw-pitch-role sequence. Probably just need a better docstring.
 
 
 Packaging
@@ -126,21 +45,28 @@ Packaging
 General
 =======
 
+* Vectorize `crossmat`?
+
+* The control points need a redesign. I don't like stacking in them arrays
+  since that requires "magic" indexing (remembering which rows belong to each
+  component). I considered putting each component in a dictionary, but that
+  starts to weigh on the users of the class to know what to do with each
+  component. The paraglider classes shouldn't care what components are present
+  in the paraglider wing (the foil and the lines). You could use an idiom like
+  `moments = {key: np.cross(cps[key], forces[key]) for key in cp.keys}`, but
+  sprinkling that all over seems kind of icky to me. I have a vague feeling
+  a `ControlPoints` class might actually be warranted once the number of
+  components gets higher, but for now I'll just make each class keep track of
+  its own "magic" indices.
+
 * I'm using `breakpoint()` a few places, which wasn't added until Python 3.7.
   Should I set that as a hard dependency?
 
-* Define an `njit` wrapper that replaces `njit` with a noop
-
-* Lots of missing/incomplete docstrings, and particularly for modules.
-
-* Verify function docstrings match the signatures
+* Define an `njit` wrapper that replaces `njit` with a noop (#NEXT)
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
-  Numba to warn me about it, at least. (see `quaternion`)
-
-* Should docstring types be "array of" or "ndarray of"? I lean towards
-  "array", but would it be better to use the canonical name so sphinx can link
-  to the numpy datatype documentation?
+  Numba to warn me about it, at least. (see the error when defining
+  `orientation.quaternion_rotate`)
 
 * Review the API for consistency
 
@@ -160,13 +86,8 @@ Plots
 Low priority
 ------------
 
-* Review function parameters for compatibility with either scalar or array
-  arguments. (Broadcasting is useful together with `np.meshgrid`, etc.)
-
-* Investigate applying the "Paraglider Flight Dynamics" (Bendetti, 2012)
-  stability analyses in the context of my refactored design (eg, longitudinal
-  static stability as a function of speed bar, and thus as a function of
-  {d_cg, h_cg})
+* Review function parameters for compatibility with `array_like` arguments.
+  (Broadcasting is useful together with `np.meshgrid`, etc.)
 
 * Do a performance comparison between `cross3` and the `np.cross`
   implementation added to Numba `v0.46`. As of 2019-12-16, that function is
@@ -190,21 +111,26 @@ Airfoil
   and they seem to use "low-speed" as synonymous with "low Reynolds number".
   I'm seeing ranges from 60,000 to 500,000, depending on the document. In that
   case, paragliders aren't particularly low-speed, but they're on the cusp,
-  and the tapered wing tips certainly delve into that range.
+  and the tapered wing tips certainly delve into that range. But isn't the
+  "low Reynolds number" / "low-speed" assumption implying an assumption of
+  laminar flow? That is, they might **only** provide superior performance
+  **if** the flow is laminar? Seems like laminar flows are unlikely on
+  a paraglider.
 
 
 Geometry
 --------
 
-* If my airfoil coefficients are parametrized by `delta`, should the airfoil
+* If my airfoil coefficients are parametrized by `delta_f`, should the airfoil
   geometry be as well? I don't like either option: currently I have the
-  `AirfoilCoefficients` handling the interpolation over `delta` since it's
+  `AirfoilCoefficients` handling the interpolation over `delta_f` since it's
   much easier to just dump all the coefficient data into a single `csv` file,
   but that implies the `AirfoilGeometry` should handle interpolating the
   geometry, which I think belongs in the `FoilSections`. The foil sections are
   there to eventually support airfoil interpolation, cell definitions, and the
   cell distortions, but maybe it'd make sense to let the `AirfoilGeometry`
-  handle delta in the sense of "this is the idealized shape"?
+  handle delta in the sense of "this is the idealized shape"? Related to this
+  is "how do you compute the mass properties of a wing with brakes applied?"
 
 * Write an `AirfoilGeometry` interpolator. Takes two geometries, and returns
   the interpolated surface points.
@@ -215,11 +141,12 @@ Geometry
 
 * Implement **accurate** `camber_curve` and `thickness` estimators.
 
+  This is mostly only an issue if I implement cell billowing (and thus ribs).
   If I'm going to scale airfoils by changing their thickness, then I need the
   correct camber and thickness functions. If I don't, then there will be weird
-  disjoint surfaces at small thickness changes (since you'll move from the true
-  surface to the version of that surface produced by estimates of its thickness
-  and camber).
+  disjoint surfaces at small thickness changes (since you'll move from the
+  true surface to the version of that surface produced by estimates of its
+  thickness and camber). See branch `WIP_airfoil_curves`.
 
 * Write a basic "trailing edge deflection" routine for airfoils. Doesn't have
   to be physically accurate for now, just need to establish the API.
@@ -232,7 +159,11 @@ Geometry
 
   * The XFOIL source code?
 
-* Verify the polar curves, especially for curved airfoils.
+
+Coefficients
+------------
+
+* Verify the polar curves, especially for flapped airfoils.
 
   The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
   output (at least not my use of it). It is extremely sensitive to tiny
@@ -242,20 +173,15 @@ Geometry
   removing the tiny TE gap causes the pitching moment in particular to change
   dramatically.
 
-* Should `AirfoilGeometry` provide an `acs2frd` conversion method? Or include
-  that as a boolean parameter to `AirfoilGeometry.mass_properties` or similar?
+* An airfoil is a single entity, so I'm not a big fan of the fact that the
+  `AirfoilCoefficients` are parametrized by `delta_f`. Right now it does that
+  because it's computationally much faster to use a single
+  `LinearNDInterpolator` for the entire set, but it still seems a bit awkward.
 
-
-Coefficients
-------------
-
-* An airfoil is a single entity. Why do the `AirfoilCoefficients` include
-  `delta_f`? Seems like a job for a compositor class that combines multiple
-  airfoils.
-
-* It might be interesting if `GridCoefficients` supported CSV that lack `Re`.
-  Wouldn't make for good analysis, but would be interesting for demonstrating
-  the effect of ignoring Reynolds numbers.
+* It might be interesting if `GridCoefficients` automatically handled CSV
+  files that lack `Re`. Maybe just print a warning that Reynolds values will
+  be ignored. Wouldn't make for good analysis, but would be interesting for
+  demonstrating the effect of ignoring Reynolds numbers.
 
 * In `XFLR5Coefficients`, the `LinearNDInterpolator` should be able to use
   `scale=True` instead of the `Re = Re / 1e6` in the coefficients functions,
@@ -270,56 +196,68 @@ Coefficients
 Low priority
 ------------
 
-* Let NACA use it's actual explicit curve definitions. I'll have to compute `x`
-  as a function of arc-lengths, but beyond that use the actual functions
-  instead of relying on interpolated estimates. The annoying part will be
-  calculating the `surface_curve_normal` and `surface_curve_tangent` functions.
+* Let `NACA` use its explicit curve definitions. I'll have to compute `x` as
+  a function of arc-lengths, but beyond that use the actual functions instead
+  of relying on interpolated estimates. The annoying part will be calculating
+  the `surface_curve_normal` and `surface_curve_tangent` functions.
 
-* Rewrite `AirfoilGeometry.mass_properties` to handle airfoils that aren't
-  simply `y_upper - y_lower` type surfaces. Not a high priority for now since
-  I'm simple shapes with derotation. (Then again, I'm not sure this function
-  will continue making sense later on (probably better ways compute the area
-  and volume inertias, but beware this issue for now.)
+* Rewrite `AirfoilGeometry.mass_properties` to handle rotated airfoils
+  (meaning you can't just integrate over `y_upper - y_lower`). Not a high
+  priority for now since I'm simple shapes with derotation. Besides, I'm not
+  sure this function will continue making sense later on (probably better ways
+  compute the area and volume inertias of the wing (integrate the meshes for
+  areas and voxels for the volume).
 
 * Rename airfoil's `surface` to `profile`? "Surface" suggests 2D.
 
 * Consider Gaussian quadratures or other more efficient arc-length methods?
 
-* `AirfoilCoefficients` should support automatic broadcasting of `alpha` and
-  `delta`. (For example, suppose `alpha` is an array and `delta` is a scalar.)
-
 * Why does `s` go clockwise? Why not just keep the counter-clockwise
   convention? I do like that there is a sort of right-hand rule that points in
   the +y direction though.
 
-* AirfoilGeometry is for a single airfoil, but AirfoilCoefficients support
-  `delta` for braking (ie, multiple airfoils). Among other things, this
-  asymmetry means you can't compute the inertia matrices for braking wings
-  (heck, you don't even have their geometry, right?)
-
-* Should I provide `s2d` and `d2s` functions? Suppose a user wanted to step
-  along the curve in equal steps; they'd need to convert those equally spaced
-  `d` into `s`, which is weird since the upper and lower surfaces use
-  different spacings for `s`...
-
-* If I'm using a UnivariateSpline for the airfoil coefficients, I need to
-  handle "out of bounds" better. Catch `ValueError` and return `nan`?
+* Should I provide `s2d` and `d2s` functions? (Recall, `d` is the linear
+  distance along the entire surface, `s` is the linear distance along each
+  upper or lower surface) Suppose a user wanted to step along the curve in
+  equal steps; they'd need to convert those equally spaced `d` into `s`, which
+  is weird since the upper and lower surfaces use different spacings for
+  `s`...
 
 * Add Joukowski airfoil builders? Those are typically defined in terms of
   their surface coordinates, not mean camber and thickness curves. Neat
   airfoils though, conceptually. Very elegant.
 
 
-
-Chord Surface
+ChordSurface
 =============
 
-* Is it bad for to use `r_x` and `r_yz` for the ratios when `r_A2B` are
-  vectors? A bit of an overlap, but doesn't seem like a big conflict.
+* Should I make the reference curves parametric functions? From a modelling
+  perspective, it would be convenient if the reference curves were "owned" by
+  the `LineGeometry`; it would allow things like making `yz` a function of
+  `delta_a` (ie, let the `LineGeometry` own `yz`), approximate "piloting with
+  the C's" control, etc. See branch `WIP_parametric_chords` for a mockup (and
+  a discussion of the limitations).
+
+* Should I use the notation `r_x` and `r_yz` for the chord ratios when the
+  notation `r_A2B` always indicates vectors? (Focus being the use of "r".)
 
 * Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
   max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
-  easy to approximate from pictures.
+  relatively easy to approximate from pictures.
+
+
+FoilGeometry
+============
+
+* Should `FoilGeometry` be a parent class? Right now I only have SimpleFoil,
+  but it'd be nice to be able to reference `FoilGeometry` and have it be
+  a concrete thing in the code.
+
+* Should `S_flat`, `b`, etc really be class properties? Class properties don't
+  support parameters, which means these break for parametric reference curves
+  (eg, if arc anhedral is a function of `delta_a`). You could require users to
+  specify "default parameters" for any extra parameters in the reference
+  curves, but somehow that feels wrong.
 
 
 FoilSections
@@ -391,30 +329,23 @@ Geometry
 Inertia
 ^^^^^^^
 
-* Fix the inertia calculations: right now it places all the segment mass on the
-  airfoil bisecting the center of the segment. The code doesn't spread the mass
-  out along the segment span, so it underestimates `I_xx` and `I_zz` by
-  a factor of ``\int{y^2 dm}``. (Verify this.) Doesn't make a big difference in
-  practice, but still: it's wrong.
+* The new mesh-based `SimpleFoil.mass_properties` uses triangles which are not
+  symmetric outwards from the central section, so small numerical differences
+  produce significantly non-zero Ixy/Iyz terms in the inertia tensors. Once
+  I fix this I should also remove the manual symmetry corrections in
+  `ParagliderWing.__init__`.
 
-* Rewrite `SimpleFoil.mass_properties`; it's inflexible and way too
-  complicated for what it does.
+* Mark `AirfoilGeometry.mass_properties` and `SimpleFoil.mass_properties` as
+  deprecated. Probably best to move it to a separate branch. Still useful for
+  validation purposes, but they add way too much complexity to the overall
+  codebase.
 
-  1. Its too complicated for what it does; using a surface mesh and voxels
-     should be a lot simpler. See `https://stackoverflow.com/a/1568551` and
-     the linked paper
-     `http://chenlab.ece.cornell.edu/Publication/Cha/icip01_Cha.pdf`. Also
-     `https://n-e-r-v-o-u-s.com/blog/?p=4415` looks informative.
+* Why doesn't the old `mass_properties` agree with the mesh-based method?
 
-  2. Relying on the airfoils' `mass_properties` means the `FoilSections`
-     interpolator will also need to interpolate those airfoil mass properties,
-     and implementing parafoil cells (which introduces distortions like
-     billowing) will REALLY need a better method.
-
-  3. The current function assumes a uniform airfoil over the entire wing. It
-     ignores air intakes (so the upper/lower inertias are likely
-     under/overestimated a bit)
-
+* Refactor the mesh sampling so I don't have to duplicate it in both
+  `mass_properties` and `_mesh_vertex_lists`. Probably best to generalize
+  `mesh_vertex_lists` to work on {"upper", "lower", "airfoil"} and add
+  a different function that outputs the wing mesh to a file.
 
 Cells
 ^^^^^
@@ -567,7 +498,7 @@ Low Priority
 Coefficient Estimation
 ----------------------
 
-* **Adding section-wise adjustments to coefficients.**
+* **Add section-wise adjustments to coefficients.**
 
   Example: air intake drag.
 
@@ -588,9 +519,19 @@ Coefficient Estimation
 * Design review how the coefficient estimator signals non-convergence. (All
   users that call `Phillips.__call__` should be exception-aware.)
 
+* Building a linear model for the paraglider dynamics requires the *stability
+  derivatives* (derivatives of the coefficients with respect to `alpha` and
+  `beta`). The direct approach is finite differencing, but for a "more
+  economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
+  Sec:6.5.7, "Stability and control derivative calculation".
+
+
 
 Phillips
 ^^^^^^^^
+
+* Add a `control_point_section_indices` or somesuch to `Phillips`. Should
+  return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
 
 * By placing the boundary condition at `0.25c` instead of `0.75c` or similar,
   this method can produce infinite induced velocities as the number of
@@ -698,6 +639,18 @@ Harness
   just just makes more sense.
 
 
+LineGeometry
+============
+
+* The line parameters in `line_geometry` are super long. Should they be
+  `kappa`-ized?
+
+* Review the "4 riser speed system" in the "Paraglider design handbook":
+  http://laboratoridenvol.com/paragliderdesign/risers.html. They use a 4-line
+  setup instead of a 3-line (so the D lines are fixed), but otherwise his
+  derivation closely matches my own.
+
+
 ParagliderWing
 ==============
 
@@ -730,8 +683,11 @@ ParagliderWing
   z-component?
 
 
-Wing inertia
-------------
+Wing mass properties
+--------------------
+
+* I don't like using `cm_solid` etc as vector names. Can I use something like
+  `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
 
 * My implementation of Barrows needs a design review. The thickness parameter
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
@@ -858,6 +814,10 @@ Models
   investigate it more, but I suspect a linear spring+damper model just doesn't
   cut it for the harness-riser connection.
 
+* Investigate applying the "Paraglider Flight Dynamics" (Bendetti, 2012)
+  stability analyses in the context of my refactored design (eg, longitudinal
+  static stability as a function of speed bar)
+
 
 Apparent Inertia
 ^^^^^^^^^^^^^^^^
@@ -942,6 +902,23 @@ Scenario Design
 
 Documentation
 =============
+
+* Should docstring types be "array of" or "ndarray of"? I lean towards
+  "array", but would it be better to use the canonical name so sphinx can link
+  to the numpy datatype documentation?
+
+* Lots of missing/incomplete docstrings, and particularly for modules.
+
+* Verify function docstrings match the signatures
+
+* I must make sure to point out how I'm handling section dihedral angles.
+  I made the conscious decision to allow step changes, even though it produces
+  overlap at panel boundaries (as in my version of Belloc's reference wing).
+  My assumption is that the small overlap is less important that getting the
+  panel quarter-chord lines correct. You could try to account for airfoil
+  thickness and round the dihedral angles at the panel boundaries, but if
+  you're allowing continuously curving reference curves you'll have this issue
+  anyway.
 
 * I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
   A set of Jinja2 templates from
