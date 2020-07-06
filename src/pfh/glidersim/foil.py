@@ -1350,8 +1350,13 @@ class SimpleFoil:
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
         sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
-        vu = self.surface_xyz(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
+
+        # The lower surface goes right->left to ensure the normals point down,
+        # which is important for computing the enclosed volume of air between
+        # the two surfaces, and for 3D programs in general (which tend to
+        # expect the normals to point "out" of the volume).
+        vu = self.surface_xyz(s[:, np.newaxis], sa, 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], sa, 'lower').reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles). The
         # input grid is conceptually a set of rectangles, and each rectangle
