@@ -1137,7 +1137,8 @@ class SimpleFoil:
         c = self.chord_length(s)
         coords_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
         coords = np.stack(
-            (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
+            (-coords_a[..., 0], np.zeros(coords_a.shape[:-1]), -coords_a[..., 1]),
+            axis=-1,
         )
         orientations = self.section_orientation(s, flatten)
         surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
