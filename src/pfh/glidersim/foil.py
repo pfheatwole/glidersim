@@ -931,10 +931,10 @@ class FoilSections:
         """
         return self.airfoil.geometry.thickness(pc)
 
-    def mass_properties(self):
+    def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
         # FIXME: I hate this. Also, should be a function of `s`
-        return self.airfoil.geometry.mass_properties()
+        return self.airfoil.geometry._mass_properties()
 
 
 class SimpleFoil:
@@ -1149,6 +1149,9 @@ class SimpleFoil:
         """
         Compute the quantities that control inertial behavior.
 
+        (This method is deprecated by the new mesh-based method, and is only
+        used for sanity checks.)
+
         The inertia matrices returned by this function are proportional to the
         values for a physical wing, and do not have standard units. They must
         be scaled by the wing materials and air density to get their physical
@@ -1198,23 +1201,26 @@ class SimpleFoil:
         the perpendicular axis theorem, then oriented into body coordinates,
         and finally translated to the global centroid (of the surface or
         volume) using the parallel axis theorem.
-        """
-        # FIXME: doesn't account for `sa_upper`/`sa_lower` (minor effect)
-        #
-        # FIXME: Places all the segment mass on the section bisecting the
-        #        center of the segment instead of spreading the mass out along
-        #        the segment span, so it underestimates `I_xx` and `I_zz` by a
-        #        factor of `\int{y^2 dm}`. Doesn't make a big difference in
-        #        practice, but still: it's wrong.
 
+        Limitations:
+
+        * Assumes a constant airfoil over the entire foil.
+
+        * Assumes the upper and lower surfaces of the foil are the same as the
+          upper and lower surfaces of the airfoil. (Ignores air intakes.)
+
+        * Places all the segment mass on the section bisecting the center of
+          the segment instead of spreading the mass out along the segment span,
+          so it underestimates `I_xx` and `I_zz` by a factor of `\int{y^2 dm}`.
+          Doesn't make a big difference in practice, but still: it's wrong.
+
+        * Requires the AirfoilGeometry to compute its own `mass_properties`,
+          which is an extra layer of mess I'd like to eliminate.
+        """
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
-
-        # FIXME: assumes a constant airfoil over the entire foil, ignores air
-        #        intakes, and assumes that the airfoil upper/lower surfaces are
-        #        equal to the canopy upper/lower surfaces
-        section = self.sections.mass_properties()
+        section = self.sections._mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
