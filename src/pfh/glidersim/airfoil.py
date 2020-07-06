@@ -499,7 +499,7 @@ class AirfoilGeometry:
 
         return cls(surface, camber, thickness, convention, theta, scale)
 
-    def mass_properties(self, sa_upper=0, sa_lower=0, N=200):
+    def _mass_properties(self, sa_upper=0, sa_lower=0, N=200):
         """
         Calculate the inertial properties for the curves and planar area.
 

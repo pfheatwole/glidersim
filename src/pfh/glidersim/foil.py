@@ -7,6 +7,7 @@ import numpy as np
 
 import scipy.interpolate
 import scipy.optimize
+from scipy.spatial import Delaunay
 
 from pfh.glidersim.util import cross3
 
@@ -796,7 +797,6 @@ class FoilSections:
         if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
             raise ValueError("Airfoil coordinates must be between -1 and 1.")
         elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
-            embed()
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
         if surface == "airfoil":
@@ -930,10 +930,10 @@ class FoilSections:
         """
         return self.airfoil.geometry.thickness(pc)
 
-    def mass_properties(self):
+    def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
         # FIXME: I hate this. Also, should be a function of `s`
-        return self.airfoil.geometry.mass_properties()
+        return self.airfoil.geometry._mass_properties()
 
 
 class SimpleFoil:
@@ -1137,7 +1137,8 @@ class SimpleFoil:
         c = self.chord_length(s)
         coords_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
         coords = np.stack(
-            (-coords_a[..., 0], np.zeros(sa.shape), -coords_a[..., 1]), axis=-1,
+            (-coords_a[..., 0], np.zeros(coords_a.shape[:-1]), -coords_a[..., 1]),
+            axis=-1,
         )
         orientations = self.section_orientation(s, flatten)
         surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
@@ -1146,6 +1147,9 @@ class SimpleFoil:
     def mass_properties(self, N=250):
         """
         Compute the quantities that control inertial behavior.
+
+        (This method is deprecated by the new mesh-based method, and is only
+        used for sanity checks.)
 
         The inertia matrices returned by this function are proportional to the
         values for a physical wing, and do not have standard units. They must
@@ -1196,25 +1200,28 @@ class SimpleFoil:
         the perpendicular axis theorem, then oriented into body coordinates,
         and finally translated to the global centroid (of the surface or
         volume) using the parallel axis theorem.
-        """
-        # FIXME: doesn't account for `sa_upper`/`sa_lower` (minor effect)
-        #
-        # FIXME: Places all the segment mass on the section bisecting the
-        #        center of the segment instead of spreading the mass out along
-        #        the segment span, so it underestimates `I_xx` and `I_zz` by a
-        #        factor of `\int{y^2 dm}`. Doesn't make a big difference in
-        #        practice, but still: it's wrong.
 
+        Limitations:
+
+        * Assumes a constant airfoil over the entire foil.
+
+        * Assumes the upper and lower surfaces of the foil are the same as the
+          upper and lower surfaces of the airfoil. (Ignores air intakes.)
+
+        * Places all the segment mass on the section bisecting the center of
+          the segment instead of spreading the mass out along the segment span,
+          so it underestimates `I_xx` and `I_zz` by a factor of `\int{y^2 dm}`.
+          Doesn't make a big difference in practice, but still: it's wrong.
+
+        * Requires the AirfoilGeometry to compute its own `mass_properties`,
+          which is an extra layer of mess I'd like to eliminate.
+        """
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
-
-        # FIXME: assumes a constant airfoil over the entire foil, ignores air
-        #        intakes, and assuesm that the airfoil upper/lower surfaces are
-        #        equal to the canopy upper/lower surfaces
-        section = self.sections.mass_properties()
+        section = self.sections._mass_properties()
         node_chords = self.chord_length(s_nodes)
-        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
+        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
         u = self.section_orientation(s_mid_nodes)
         u_inv = np.linalg.inv(u)
@@ -1227,7 +1234,8 @@ class SimpleFoil:
         segment_origins = self.chord_xyz(s_mid_nodes, 0)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
-            + segment_origins[None, ...])
+            + segment_origins[None, ...]
+        )
 
         # Scaling factors for converting 2D airfoils into 3D segments.
         # Approximates each segments' `chord * span` area as parallelograms.
@@ -1282,7 +1290,191 @@ class SimpleFoil:
             "volume_inertia": volume_J,
             "lower_area": lower_area,
             "lower_centroid": lower_centroid,
-            "lower_inertia": lower_J}
+            "lower_inertia": lower_J
+        }
+
+        return mass_properties
+
+    def mass_properties2(self, N_s=301, N_sa=301):
+        """
+        Compute the quantities that control inertial behavior.
+
+        The inertia matrices returned by this function are proportional to the
+        values for a physical wing, and do not have standard units. They must
+        be scaled by the wing materials and air density to get their physical
+        values. See "Notes" for a thorough description.
+
+        Parameters
+        ----------
+        N_s : int
+            The grid resolution over the section index.
+        N_sa : int
+            The grid resolution over the surface coordinates.
+
+        Returns
+        -------
+        dictionary
+            upper_area: float [m^2]
+                foil upper surface area
+            upper_centroid: ndarray of float, shape (3,) [m]
+                center of mass of the upper surface material in foil frd
+            upper_inertia: ndarray of float, shape (3, 3) [m^4]
+                The inertia matrix of the upper surface
+            volume: float [m^3]
+                internal volume of the inflated foil
+            volume_centroid: ndarray of float, shape (3,) [m]
+                centroid of the internal air mass in foil frd
+            volume_inertia: ndarray of float, shape (3, 3) [m^5]
+                The inertia matrix of the internal volume
+            lower_area: float [m^2]
+                foil lower surface area
+            lower_centroid: ndarray of float, shape (3,) [m]
+                center of mass of the lower surface material in foil frd
+            lower_inertia: ndarray of float, shape (3, 3) [m^4]
+                The inertia matrix of the upper surface
+
+        Notes
+        -----
+        The foil is treated as a composite of three components: the upper
+        surface, internal volume, and lower surface. Because this class only
+        defines the geometry of the foil, not the physical properties, each
+        component is treated as having unit densities, and the results are
+        proportional to the values for a physical wing. To compute the values
+        for a physical wing, the upper and lower surface inertia matrices must
+        be scaled by the aerial densities [kg/m^2] of the upper and lower wing
+        surface materials, and the volumetric inertia matrix must be scaled by
+        the volumetric density [kg/m^3] of air.
+
+        Keeping these components separate allows a user to simply multiply them
+        by different wing material densities and air densities to compute the
+        values for the physical wing.
+
+        The volume calculation requires a closed surface mesh, so it ignores
+        air intakes and assumes a closed trailing edge (which is fine for
+        inflatable foils like a paraglider). The concept of using a summation
+        of signed tetrahedron volumes is developed in [1]. This implementation
+        of that idea is from [2], which first computes the inertia tensor of a
+        "canonical tetrahedron" then applies an affine transformation to
+        compute the inertia tensors of each individual tetrahedron.
+
+        References
+        ----------
+        1. Efficient feature extraction for 2D/3D objects in mesh
+           representation, Zhang and Chen, 2001(?)
+
+        2. How to find the inertia tensor (or other mass properties) of a 3D
+           solid body represented by a triangle mesh, Jonathan Blow, 2004.
+           http://number-none.com/blow/inertia/index.html
+        """
+        # Note to self: the triangles are not symmetric about the xz-plane,
+        # which produces non-zero terms that should have cancelled out. Would
+        # need to reverse the left-right triangle directions over one semispan.
+        tu, tl = self._mesh_triangles(N_s, N_sa)
+
+        # Triangle and net surface areas
+        u1, u2 = np.swapaxes(np.diff(tu, axis=1), 0, 1)
+        l1, l2 = np.swapaxes(np.diff(tl, axis=1), 0, 1)
+        au = np.linalg.norm(np.cross(u1, u2), axis=1) / 2
+        al = np.linalg.norm(np.cross(l1, l2), axis=1) / 2
+        Au = np.sum(au)
+        Al = np.sum(al)
+
+        # Triangle and net surface area centroids
+        cu = np.einsum("Nij->Nj", tu) / 3
+        cl = np.einsum("Nij->Nj", tl) / 3
+        Cu = np.einsum("N,Ni->i", au, cu) / Au
+        Cl = np.einsum("N,Ni->i", al, cl) / Al
+
+        # Surface area inertia tensors
+        cov_au = np.einsum("N,Ni,Nj->ij", au, cu, cu)
+        cov_al = np.einsum("N,Ni,Nj->ij", al, cl, cl)
+        Ju = np.trace(cov_au) * np.eye(3) - cov_au
+        Jl = np.trace(cov_al) * np.eye(3) - cov_al
+
+        # -------------------------------------------------------------------
+        # Volumes
+
+        # The volume calculation requires a closed mesh, so resample the
+        # surface using the closed section profiles (ie, ignore air intakes).
+        s = np.linspace(-1, 1, N_s)
+        sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
+        sa = np.concatenate((-sa[:0:-1], sa))
+        surface_vertices = self.surface_xyz(s[:, None], sa, "airfoil")
+
+        # Using Delaunay is too slow as the number of vertices increases.
+        S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_sa - 2), indexing='ij')
+        triangle_indices = np.concatenate(
+            (
+                [[S, SA], [S + 1, SA + 1], [S + 1, SA]],
+                [[S, SA], [S, SA + 1], [S + 1, SA + 1]],
+            ),
+            axis=-2,
+        )
+        ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
+        surface_indices = np.ravel_multi_index(ti.T, (N_s, 2 * N_sa - 1)).T
+        surface_tris = surface_vertices.reshape(-1, 3)[surface_indices]
+
+        # Add two meshes to close the wing tips so the volume is counted
+        # correctly. Uses the 2D section profile to compute the triangulation.
+        # If a wing tip has a closed trailing edge there will be coplanar
+        # vertices, which `Delaunay` will discard automatically.
+        left_vertices = self.surface_xyz(-1, sa, "airfoil")
+        right_vertices = self.surface_xyz(1, sa, "airfoil")
+
+        # Verson 1: use scipy.spatial.Delaunay. This version will automatically
+        # discard coplanar points if the trailing edge is closed.
+        #
+        left_points = self.sections.surface_xz(-1, sa, 'airfoil')
+        right_points = self.sections.surface_xz(1, sa, 'airfoil')
+        left_tris = left_vertices[Delaunay(left_points).simplices]
+        right_tris = right_vertices[Delaunay(right_points).simplices[:, ::-1]]
+
+        # Version 2: build the list of simplices explicitly. This version just
+        # assumes the trailing edge is closed (reasonable for inflatable foils)
+        # and discards the vertex at the upper surface trailing edge. This is
+        # fine even if the trailing edge is not truly closed as long as it's
+        # _effectively_ closed and N_sa is reasonably large.
+        #
+        # ix = np.arange(N_sa - 2)
+        # upper_simplices = np.stack((2 * N_sa - 3 - ix, 2 * N_sa - 4 - ix, ix + 1)).T
+        # lower_simplices = np.stack((ix + 1, ix, 2 * N_sa - 3 - ix)).T
+        # simplices = np.concatenate((upper_simplices, lower_simplices))
+        # left_tris = left_vertices[simplices]
+        # right_tris = right_vertices[simplices[:, ::-1]]
+
+        tris = np.concatenate((left_tris, surface_tris, right_tris))
+
+        # Tetrahedron signed volumes and net volume
+        v = np.einsum("Ni,Ni->N", cross3(tris[..., 0], tris[..., 1]), tris[..., 2]) / 6
+        V = np.sum(v)
+
+        # Tetrahedron centroids and net centroid
+        cv = np.einsum("Nij->Nj", tris) / 4
+        Cv = np.einsum("N,Ni->i", v, cv) / V
+
+        # Volume inertia tensors
+        cov_canonical = np.full((3,3), 1 / 120) + np.eye(3) / 120
+        cov_v = np.einsum(
+            "N,Nji,jk,Nkl->il",
+            np.linalg.det(tris),
+            tris,
+            cov_canonical,
+            tris,
+            optimize=True,
+        )
+        Jv = np.eye(3) * np.trace(cov_v) - cov_v
+
+        mass_properties = {
+            "upper_area": Au,
+            "upper_centroid": Cu,
+            "upper_inertia": Ju,
+            "volume": V,
+            "volume_centroid": Cv,
+            "volume_inertia": Jv,
+            "lower_area": Al,
+            "lower_centroid": Cl,
+            "lower_inertia": Jl,
+        }
 
         return mass_properties
 
@@ -1307,11 +1499,10 @@ class SimpleFoil:
         Returns
         -------
         vertices_upper, vertices_lower : array of float, shape (N_s * N_sa, 3)
-            The vertices on the upper and lower surfaces.
-        face_indices : array of int, shape (N_s * N_sa * 2, 3)
-            A array of arrays of vertex indices. These define the triangles
-            over the surfaces by their index on the grid. The same grid was
-            used for both surfaces, so this array defines both meshes.
+            Vertices on the upper and lower surfaces.
+        simplices : array of int, shape (N_s * N_sa * 2, 3)
+            Lists of vertex indices for each triangle. The same grid was used
+            for both surfaces, so this array defines both meshes.
 
         See Also
         --------
@@ -1334,31 +1525,30 @@ class SimpleFoil:
            # Blender doesn't support numpy arrays
            vu = data['vertices_upper'].tolist()
            vl = data['vertices_lower'].tolist()
-           fi = data['face_indices'].tolist()
+           simplices = data['simplices'].tolist()
            mesh_upper = bpy.data.meshes.new("upper")
            mesh_lower = bpy.data.meshes.new("lower")
            object_upper = bpy.data.objects.new("upper", mesh_upper)
            object_lower = bpy.data.objects.new("lower", mesh_lower)
            bpy.context.scene.collection.objects.link(object_upper)
            bpy.context.scene.collection.objects.link(object_lower)
-           mesh_upper.from_pydata(vu, [], fi)
-           mesh_lower.from_pydata(vl, [], fi)
+           mesh_upper.from_pydata(vu, [], simplices)
+           mesh_lower.from_pydata(vl, [], simplices)
            mesh_upper.update(calc_edges=True)
            mesh_lower.update(calc_edges=True)
         """
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
         sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
-        vu = self.surface_xyz(s[:, None], sa[None, :], 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[:, None], sa[None, :], 'lower').reshape(-1, 3)
 
-        # Compute the vertex lists for all of the faces (the triangles). The
-        # input grid is conceptually a set of rectangles, and each rectangle
-        # must be represented by two triangles, so this computes two sets of
-        # triangles, where each triangle is a set of 3 vertex indices. Finally,
-        # because most programs expect the vertices as a flat (2D) array, we
-        # need to convert the 3D indices over (N_s, N_sa, 3) into their flat
-        # counterparts in (N_s * N_sa, 3).
+        # The lower surface goes right->left to ensure the normals point down,
+        # which is important for computing the enclosed volume of air between
+        # the two surfaces, and for 3D programs in general (which tend to
+        # expect the normals to point "out" of the volume).
+        vu = self.surface_xyz(s[:, np.newaxis], sa, 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], sa, 'lower').reshape(-1, 3)
+
+        # Compute the vertex lists for all of the faces (the triangles).
         S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(N_sa - 1), indexing='ij')
         triangle_indices = np.concatenate(
             (
@@ -1368,17 +1558,17 @@ class SimpleFoil:
             axis=-2,
         )
         ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
-        face_indices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
+        simplices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
 
         if filename:
             np.savez_compressed(
                 filename,
                 vertices_upper=vu,
                 vertices_lower=vl,
-                face_indices=face_indices,  # Same list for both surfaces
+                simplices=simplices,  # Same list for both surfaces
             )
 
-        return vu, vl, face_indices
+        return vu, vl, simplices
 
     def _mesh_triangles(self, N_s=131, N_sa=151, filename=None):
         """Generate triangle meshes over the upper and lower surfaces.

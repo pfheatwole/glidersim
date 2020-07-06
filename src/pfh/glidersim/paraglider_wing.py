@@ -41,7 +41,19 @@ class ParagliderWing:
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
 
         # Compute the mass properties in canopy coordinates
-        pmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
+        # pmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
+        pmp = self.canopy.mass_properties2(101, 101)
+
+        # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
+        # meshes should be symmetric about the xz-plane, but for now I'll just
+        # assume symmetry and set the values to zero. (You can increase the
+        # grid resolution but that makes `mass_properties2` slow for no real
+        # gain. If I start using asymmetric geometries then I'll change this.)
+        print("Applying manual symmetry corrections to the canopy inertia...")
+        for k in ("upper", "volume", "lower"):
+            pmp[k + "_centroid"][1] = 0
+            pmp[k + "_inertia"][[0, 1, 1, 2], [1, 0, 2, 1]] = 0
+
         m_upper = pmp["upper_area"] * self.rho_upper
         m_lower = pmp["lower_area"] * self.rho_lower
         J_upper = pmp["upper_inertia"] * self.rho_upper
