@@ -1500,11 +1500,10 @@ class SimpleFoil:
         Returns
         -------
         vertices_upper, vertices_lower : array of float, shape (N_s * N_sa, 3)
-            The vertices on the upper and lower surfaces.
-        face_indices : array of int, shape (N_s * N_sa * 2, 3)
-            A array of arrays of vertex indices. These define the triangles
-            over the surfaces by their index on the grid. The same grid was
-            used for both surfaces, so this array defines both meshes.
+            Vertices on the upper and lower surfaces.
+        simplices : array of int, shape (N_s * N_sa * 2, 3)
+            Lists of vertex indices for each triangle. The same grid was used
+            for both surfaces, so this array defines both meshes.
 
         See Also
         --------
@@ -1527,15 +1526,15 @@ class SimpleFoil:
            # Blender doesn't support numpy arrays
            vu = data['vertices_upper'].tolist()
            vl = data['vertices_lower'].tolist()
-           fi = data['face_indices'].tolist()
+           simplices = data['simplices'].tolist()
            mesh_upper = bpy.data.meshes.new("upper")
            mesh_lower = bpy.data.meshes.new("lower")
            object_upper = bpy.data.objects.new("upper", mesh_upper)
            object_lower = bpy.data.objects.new("lower", mesh_lower)
            bpy.context.scene.collection.objects.link(object_upper)
            bpy.context.scene.collection.objects.link(object_lower)
-           mesh_upper.from_pydata(vu, [], fi)
-           mesh_lower.from_pydata(vl, [], fi)
+           mesh_upper.from_pydata(vu, [], simplices)
+           mesh_lower.from_pydata(vl, [], simplices)
            mesh_upper.update(calc_edges=True)
            mesh_lower.update(calc_edges=True)
         """
@@ -1550,13 +1549,7 @@ class SimpleFoil:
         vu = self.surface_xyz(s[:, np.newaxis], sa, 'upper').reshape(-1, 3)
         vl = self.surface_xyz(s[::-1, np.newaxis], sa, 'lower').reshape(-1, 3)
 
-        # Compute the vertex lists for all of the faces (the triangles). The
-        # input grid is conceptually a set of rectangles, and each rectangle
-        # must be represented by two triangles, so this computes two sets of
-        # triangles, where each triangle is a set of 3 vertex indices. Finally,
-        # because most programs expect the vertices as a flat (2D) array, we
-        # need to convert the 3D indices over (N_s, N_sa, 3) into their flat
-        # counterparts in (N_s * N_sa, 3).
+        # Compute the vertex lists for all of the faces (the triangles).
         S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(N_sa - 1), indexing='ij')
         triangle_indices = np.concatenate(
             (
@@ -1566,17 +1559,17 @@ class SimpleFoil:
             axis=-2,
         )
         ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
-        face_indices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
+        simplices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
 
         if filename:
             np.savez_compressed(
                 filename,
                 vertices_upper=vu,
                 vertices_lower=vl,
-                face_indices=face_indices,  # Same list for both surfaces
+                simplices=simplices,  # Same list for both surfaces
             )
 
-        return vu, vl, face_indices
+        return vu, vl, simplices
 
     def _mesh_triangles(self, N_s=131, N_sa=151, filename=None):
         """Generate triangle meshes over the upper and lower surfaces.
