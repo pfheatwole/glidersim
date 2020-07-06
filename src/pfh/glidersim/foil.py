@@ -1212,11 +1212,11 @@ class SimpleFoil:
         nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
 
         # FIXME: assumes a constant airfoil over the entire foil, ignores air
-        #        intakes, and assuesm that the airfoil upper/lower surfaces are
+        #        intakes, and assumes that the airfoil upper/lower surfaces are
         #        equal to the canopy upper/lower surfaces
         section = self.sections.mass_properties()
         node_chords = self.chord_length(s_nodes)
-        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Dumb average
+        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
         T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
         u = self.section_orientation(s_mid_nodes)
         u_inv = np.linalg.inv(u)
@@ -1229,7 +1229,8 @@ class SimpleFoil:
         segment_origins = self.chord_xyz(s_mid_nodes, 0)
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
-            + segment_origins[None, ...])
+            + segment_origins[None, ...]
+        )
 
         # Scaling factors for converting 2D airfoils into 3D segments.
         # Approximates each segments' `chord * span` area as parallelograms.
@@ -1284,7 +1285,8 @@ class SimpleFoil:
             "volume_inertia": volume_J,
             "lower_area": lower_area,
             "lower_centroid": lower_centroid,
-            "lower_inertia": lower_J}
+            "lower_inertia": lower_J
+        }
 
         return mass_properties
 
