@@ -692,31 +692,27 @@ class ChordSurface:
         if pc.min() < 0 or pc.max() > 1:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
-        # FIXME? Written this way for clarity, but some terms are unused.
+        # FIXME? Written this way for clarity, but some terms may be unused.
         r_x = self.r_x(s)
         r_yz = self.r_yz(s)
         x = self.x(s)
+        yz = self.yz(s)
         c = self.c(s)
         torsion = self._planform_torsion(s)
         dihedral = self._arc_dihedral(s)
-        xhat_planform = torsion @ [1, 0, 0]
-        xhat_wing = dihedral @ torsion @ [1, 0, 0]
 
-        # Ugly, but supports all broadcastable shapes for `s` and `pc`
-        if flatten:  # Disregard dihedral (curvature in the yz-plane)
-            # FIXME: using `s` for `y` assumes the input values have been
-            #        correctly normalized to `b_flat == 2`, which requires
-            #        the `total_length(yz) == 2`
-            LE = (np.stack((x, s, np.zeros(s.shape)), axis=-1)
-                  + ((r_x * c)[..., np.newaxis] * xhat_planform))
-            xyz = LE - (pc * c)[..., np.newaxis] * xhat_planform - self.LE0
+        if flatten:
+            # FIXME: using `s` for `y_flat` assumes the input values have been
+            #        correctly normalized to `total_length(yz) == 2`
+            LE = np.stack((x, s, np.zeros(s.shape)), axis=-1)
+            xhat = torsion @ [1, 0, 0]
         else:
-            r = np.stack([r_x, r_yz, r_yz], axis=-1)
-            LE = (
-                np.concatenate((x[..., np.newaxis], self.yz(s)), axis=-1)
-                + np.einsum("...i,...,...i->...i", r, c, xhat_wing)
-            )
-            xyz = LE - (pc * c)[..., np.newaxis] * xhat_wing - self.LE0
+            LE = np.concatenate((x[..., np.newaxis], yz), axis=-1)
+            xhat = dihedral @ torsion @ [1, 0, 0]
+
+        r = np.stack([r_x, r_yz, r_yz], axis=-1)
+        LE += np.einsum("...i,...,...i->...i", r, c, xhat)
+        xyz = LE - (pc * c)[..., np.newaxis] * xhat - self.LE0
 
         return xyz
 
