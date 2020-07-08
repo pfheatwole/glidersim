@@ -711,18 +711,11 @@ class ChordSurface:
                   + ((r_x * c)[..., np.newaxis] * xhat_planform))
             xyz = LE - (pc * c)[..., np.newaxis] * xhat_planform - self.LE0
         else:
-            # First, assume the x(s) and yz(s) are the leading edge points
-            LE = np.concatenate((x[..., np.newaxis], self.yz(s)), axis=-1)
-
-            # Shift the leading edges forward along the section (local) x-axes
-            # until the y- and z-coordinates of the r_yz(s) reference points
-            # lie on the yz(s) curve.
-            LE += (r_yz * c)[..., np.newaxis] * xhat_wing
-
-            # Residual adjustment so the r_x(s) reference points lie on x(s).
-            LE[..., 0] += (r_x - r_yz) * c * xhat_wing[..., 0]
-
-            # Compute the desired points on the chords and center them
+            r = np.stack([r_x, r_yz, r_yz], axis=-1)
+            LE = (
+                np.concatenate((x[..., np.newaxis], self.yz(s)), axis=-1)
+                + np.einsum("...i,...,...i->...i", r, c, xhat_wing)
+            )
             xyz = LE - (pc * c)[..., np.newaxis] * xhat_wing - self.LE0
 
         return xyz
