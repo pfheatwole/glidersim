@@ -31,10 +31,10 @@ class SimpleLineGeometry:
         by the length of the central chord.
     average_line_diameter : float [m^2]
         The average diameter of the connecting lines
-    line_drag_positions : array of float, shape (K,3) [m]
-        The mean location(s) of the connecting line surface area(s), normalized
-        by the length of the central chord.  If multiple positions are given,
-        the total line length will be divided between them evenly.
+    r_L2LE : array of float, shape (K,3) [m]
+        The averaged location(s) of the connecting line surface area(s),
+        normalized by the length of the central chord. If multiple positions
+        are given, the total line length will be divided between them evenly.
     Cd_lines : float
         The drag coefficient of the lines
     s_delta_start : float
@@ -87,7 +87,7 @@ class SimpleLineGeometry:
         kappa_a,
         total_line_length,
         average_line_diameter,
-        line_drag_positions,
+        r_L2LE,
         Cd_lines,
         s_delta_start,
         s_delta_max,
@@ -102,11 +102,11 @@ class SimpleLineGeometry:
         self.C = np.sqrt(kappa_z ** 2 + (kappa_C - kappa_x) ** 2)
 
         # `L` is an array of points where line drag is applied
-        r_L2R = np.atleast_2d(line_drag_positions)
-        if r_L2R.ndim != 2 or r_L2R.shape[-1] != 3:
-            raise ValueError("`line_drag_positions` is not a (K,3) array")
-        self._r_L2LE = r_L2R - self.canopy_origin(0)
-        self._S_lines = total_line_length * average_line_diameter / r_L2R.shape[0]
+        r_L2LE = np.atleast_2d(r_L2LE)
+        if r_L2LE.ndim != 2 or r_L2LE.shape[-1] != 3:
+            raise ValueError("`r_L2LE` is not a (K,3) array")
+        self._r_L2LE = r_L2LE
+        self._S_lines = total_line_length * average_line_diameter / r_L2LE.shape[0]
         self._Cd_lines = Cd_lines
 
         # Brakes

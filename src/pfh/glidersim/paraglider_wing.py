@@ -218,8 +218,10 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
+        # FIXME: (1) duplicates `self.control_points`
+        #        (2) only used to get the shapes of the control point arrays
         foil_cps = self.force_estimator.control_points()
-        line_cps = self.c_0 * self.lines.control_points(delta_a)
+        line_cps = self.c_0 * self.lines.control_points()
 
         # FIXME: uses "magic" indexing established in `self.control_points()`
         K_foil = foil_cps.shape[0]
@@ -316,9 +318,9 @@ class ParagliderWing:
             The control points in ParagliderWing coordinates
         """
         r_LE2R = self.c_0 * self.lines.canopy_origin(delta_a)
-        foil_cps = self.force_estimator.control_points() + r_LE2R
-        line_cps = self.c_0 * self.lines.control_points(delta_a)
-        return np.vstack((foil_cps, line_cps))
+        foil_cps = self.force_estimator.control_points()
+        line_cps = self.lines.control_points() * self.c_0
+        return np.vstack((foil_cps, line_cps)) + r_LE2R
 
     def mass_properties(self, rho_air, delta_a=0):
         """

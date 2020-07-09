@@ -289,8 +289,8 @@ def build_hook3():
         "kappa_a": 0.15 / chord_root,  # ref: "Hook 3 technical specs", pg 2
         "total_line_length": 213 / chord_root,  # ref: "Hook 3 technical specs", pg 2
         "average_line_diameter": 1e-3,  # Blind guess
-        "line_drag_positions": np.array([[-0.5 * chord_root, -1.75, -5],
-                                         [-0.5 * chord_root,  1.75, -5]]) / chord_root,
+        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
+                            [-0.5 * chord_root,  1.75, 1.75]]) / chord_root,
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
     }
 
