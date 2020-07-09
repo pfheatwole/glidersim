@@ -688,13 +688,13 @@ def main():
 
     K = len(times)
     if np.isscalar(delta_a):
-        LE0 = model.glider.wing.c_0 * model.glider.wing.lines.canopy_origin(delta_a)
+        r_LE2R = -model.glider.wing.r_R2LE(delta_a)
     else:
-        LE0 = model.glider.wing.c_0 * model.glider.wing.lines.canopy_origin(delta_a(times))
+        r_LE2R = -model.glider.wing.r_R2LE(delta_a(times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_LE0 = path["r_R2O"] + orientation.quaternion_rotate(q_e2b, LE0)
-    v_LE0 = path["v_R2e"] + orientation.quaternion_rotate(
-        q_e2b, np.cross(path["omega_b2e"], LE0)
+    r_LE2O = path["r_R2O"] + orientation.quaternion_rotate(q_e2b, r_LE2R)
+    v_LE2O = path["v_R2e"] + orientation.quaternion_rotate(
+        q_e2b, np.cross(path["omega_b2e"], r_LE2R)
     )
     v_frd = orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
 
@@ -746,13 +746,13 @@ def main():
     ax.invert_zaxis()
     lpp = 0.25  # Line-plotting period [sec]
     for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
-        p1, p2 = path["r_R2O"][t], r_LE0[t]  # Risers -> wing central LE
+        p1, p2 = path["r_R2O"][t], r_LE2O[t]  # Risers -> wing central LE
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
 
         p1, p2 = path["r_R2O"][t], r_P2O[t]  # Risers -> payload
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
     ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
-    ax.plot(r_LE0.T[0], r_LE0.T[1], r_LE0.T[2], label="LE0")
+    ax.plot(r_LE2O.T[0], r_LE2O.T[1], r_LE2O.T[2], label="LE0")
     ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
     ax.legend()
     gsim.plots._set_axes_equal(ax)

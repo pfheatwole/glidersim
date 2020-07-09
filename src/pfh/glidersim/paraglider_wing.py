@@ -286,7 +286,7 @@ class ParagliderWing:
         float [rad]
             The angle of attack where the section pitching moments sum to zero.
         """
-        r_CP2R = self.control_points(delta_a)  # riser -> control points
+        r_CP2R = self.control_points(delta_a) - self.r_R2LE(delta_a)
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
@@ -314,20 +314,38 @@ class ParagliderWing:
 
         Returns
         -------
-        cps : array of floats, shape (K,3) [meters]
-            The control points in ParagliderWing coordinates
+        r_CP2LE : array of floats, shape (K,3) [meters]
+            The control points in frd coordinates
         """
-        r_LE2R = self.c_0 * self.lines.canopy_origin(delta_a)
+        r_LE2R = self.c_0 * self.lines.r_R2LE(delta_a)
         foil_cps = self.force_estimator.control_points()
         line_cps = self.lines.control_points() * self.c_0
-        return np.vstack((foil_cps, line_cps)) + r_LE2R
+        return np.vstack((foil_cps, line_cps))
+
+    def r_R2LE(self, delta_a=0):
+        """
+        Compute the position of the riser midpoint `R` in frd coordinates.
+
+        Parameters
+        ----------
+        delta_a : array_like of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application. Default: 0
+
+        Returns
+        -------
+        r_R2LE : array of float, shape (N,3) [meters]
+            The riser midpoint `R` with respect to the canopy origin.
+        """
+        return self.lines.r_R2LE(delta_a) * self.c_0
 
     def mass_properties(self, rho_air, delta_a=0):
         """
-        Compute the inertial properties of the wing.
+        Compute the inertial properties of the wing about `R`.
 
         Includes terms for the solid mass, the enclosed air, and the apparent
         mass (which appears due to the inertial acceleration of the air).
+
+        FIXME: make the reference point a parameter?
 
         Parameters
         ----------
@@ -358,7 +376,7 @@ class ParagliderWing:
             A_R : array of float, shape (6,6)
                 The apparent inertia matrix of the volume about `R`
         """
-        r_LE2R = self.c_0 * self.lines.canopy_origin(delta_a)
+        r_LE2R = -self.r_R2LE(delta_a)
         mp = self._mass_properties.copy()
         mp["cm_solid"] = r_LE2R + mp["cm_solid"]
         mp["cm_air"] = r_LE2R + mp["cm_air"]

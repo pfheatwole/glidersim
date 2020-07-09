@@ -48,9 +48,11 @@ class Paraglider6a:
 
         Returns
         -------
-        FIXME: describe
+        r_CP2R : array of float, shape (N,3) [m]
+            The position of the control points with respect to `R`.
         """
-        wing_cps = self.wing.control_points(delta_a=delta_a)
+        r_LE2R = -self.wing.r_R2LE(delta_a)
+        wing_cps = self.wing.control_points(delta_a=delta_a) + r_LE2R
         payload_cps = self.payload.control_points(delta_w)
         return np.vstack((wing_cps, payload_cps))
 
@@ -1022,10 +1024,11 @@ class Paraglider9a:
         -------
         FIXME: describe
         """
+        r_LE2R = -self.wing.r_R2LE(delta_a)
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
         payload_cps = self.payload.control_points(delta_w)  # In payload frd
         C_b2p = orientation.euler_to_dcm(Theta_p2b).T
-        return np.vstack((wing_cps, C_b2p @ payload_cps))
+        return np.vstack((wing_cps + r_LE2R, C_b2p @ payload_cps))
 
     def accelerations(
         self,

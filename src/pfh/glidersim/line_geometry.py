@@ -119,9 +119,9 @@ class SimpleLineGeometry:
         self.K1 = -2 * delta_max / ((s_delta_max - s_delta_start) ** 3)
         self.K2 = 3 * delta_max / (s_delta_max - s_delta_start) ** 2
 
-    def canopy_origin(self, delta_a=0):
+    def r_R2LE(self, delta_a=0):
         """
-        Compute the origin of the FoilGeometry coordinate system in frd.
+        Compute the position of the riser midpoint `R` in frd coordinates.
 
         Parameters
         ----------
@@ -130,8 +130,10 @@ class SimpleLineGeometry:
 
         Returns
         -------
-        r_LE2R : array of float, shape (N,3) [meters]
-            The canopy origin in wing coordinates.
+        r_R2LE : array of float, shape (N,3) [unitless]
+            The riser midpoint `R` with respect to the canopy origin. As with
+            all other values in this class, these values are assumed to have
+            been normalized by the length of the central chord of the wing.
         """
         # The accelerator shortens the A lines, while C remains fixed
         delta_a = np.asarray(delta_a)
@@ -144,11 +146,10 @@ class SimpleLineGeometry:
         R_y = np.zeros_like(delta_a)
         R_z = np.sqrt(self.C ** 2 - (self.kappa_C - R_x) ** 2)
         r_R2LE = np.array([-R_x, R_y, R_z]).T
-        r_LE2R = -r_R2LE
-        return r_LE2R  # Normalized by the length of the central chord
+        return r_R2LE
 
-    def control_points(self, delta_a=0):
-        return self._r_L2LE + self.canopy_origin(delta_a)
+    def control_points(self):
+        return self._r_L2LE
 
     def delta_f(self, s, delta_bl, delta_br):
         """
