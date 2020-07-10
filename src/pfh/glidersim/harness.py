@@ -11,7 +11,7 @@ class Harness(abc.ABC):
     @abc.abstractmethod
     def control_points(self, delta_w):
         """
-        Compute the force control points for the harness model.
+        Compute the control points for the harness model dynamics.
 
         Parameters
         ----------
@@ -20,7 +20,10 @@ class Harness(abc.ABC):
 
         Returns
         -------
-        FIXME: describe
+        r_CP2R : float, shape (K,3) [m]
+            Control points relative to the riser midpoint `R`. Coordinates are
+            in payload frd, and `K` is the number of control points for the
+            harness model.
         """
 
     @abc.abstractmethod
@@ -107,7 +110,7 @@ class Spherical(Harness):
         self._kappa_w = kappa_w  # FIXME: Strange notation to match `kappa_a`
 
     def control_points(self, delta_w=0):
-        return np.array([0, delta_w * self._kappa_w, self._z_riser])
+        return np.array([[0, delta_w * self._kappa_w, self._z_riser]])
 
     def forces_and_moments(self, v_W2h, rho_air):
         v2 = (v_W2h ** 2).sum()
@@ -120,7 +123,7 @@ class Spherical(Harness):
         # Treats the mass as a uniform density solid sphere
         return {
             "mass": self._mass,
-            "cm": self.control_points(delta_w),
+            "cm": self.control_points(delta_w)[0],
             "J": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
             "J_apparent": np.zeros((3, 3)),
         }

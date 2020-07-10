@@ -149,6 +149,16 @@ class SimpleLineGeometry:
         return r_R2LE
 
     def control_points(self):
+        """
+        Compute the control points for the line geometry dynamics.
+
+        Returns
+        -------
+        r_CP2LE : float, shape (K,3) [m]
+            Control points relative to the central leading edge `LE`.
+            Coordinates are in canopy frd, and `K` is the number of points
+            being used to distribute the surface area of the lines.
+        """
         return self._r_L2LE
 
     def delta_f(self, s, delta_bl, delta_br):

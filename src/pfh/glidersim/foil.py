@@ -1647,7 +1647,16 @@ class ForceEstimator(abc.ABC):
     @property
     @abc.abstractmethod
     def control_points(self):
-        """The reference points for calculating the section forces"""
+        """
+        Compute the control points for the section aerodynamics.
+
+        Returns
+        -------
+        r_CP2LE : float, shape (K,3) [m]
+            Control points relative to the central leading edge `LE`.
+            Coordinates are in canopy frd, and `K` is the number of points
+            being used by the estimation method.
+        """
 
     class ConvergenceError(RuntimeError):
         """The estimator failed to converge on a solution."""
