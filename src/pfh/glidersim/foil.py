@@ -28,8 +28,8 @@ class EllipticalArc:
     parameters in a numpy `Polynomial`, although in that case the conversion
     is for numerical improvements, whereas this is for user convenience.
 
-    This class supports both "implicit" and "parametric" representations of an
-    ellipse. The implicit version returns the vertical component as a function
+    This class supports both "explicit" and "parametric" representations of an
+    ellipse. The explicit version returns the vertical component as a function
     of the horizontal coordinate, and the parametric version returns both the
     horizontal and vertical coordinates as a function of the parametric
     parameter.
@@ -37,9 +37,9 @@ class EllipticalArc:
     The parametric curve in this class is always parametrized by `t`. By
     setting `t_domain` you can constrain the curve to an elliptical arc.
 
-    For both the implicit and parametric forms, you can change the input domain
+    For both the explicit and parametric forms, you can change the input domain
     by setting `p_domain`, and they will be scaled automatically to map onto the
-    implicit (`x`) or parametric (`t`) parameter.
+    explicit (`x`) or parametric (`t`) parameter.
     """
 
     def __init__(
@@ -74,9 +74,9 @@ class EllipticalArc:
         t_domain : array of float, shape (2,), optional
             The domain of the internal parameter. Values from 0 to pi/2 are the
             first quadrant, pi/2 to pi are the second, etc.
-        kind : {'implicit', 'parametric'}, default: 'parametric'
+        kind : {'explicit', 'parametric'}, default: 'parametric'
             Specifies whether the class return `y = f(x)` or `<x, y> = f(p)`.
-            The implicit version returns coordinates of the second axis given
+            The explicit version returns coordinates of the second axis given
             coordinates of the first axis. The parametric version returns both
             x and y given a parametric coordinate.
         """
@@ -115,7 +115,7 @@ class EllipticalArc:
         p = np.asarray(p)
         t = self._transform(p, kind)
 
-        if kind == "implicit":  # the `p` are `x` in the external domain
+        if kind == "explicit":  # the `p` are `x` in the external domain
             vals = self.B * np.sin(t)  # Return `y = f(x)`
         else:  # the `p` are `t` in the external domain
             x = self.A * np.cos(t)
@@ -173,8 +173,8 @@ class EllipticalArc:
 
         """
 
-        if kind == "implicit":
-            # The implicit `y = f(x)` can be converted to `y = f(t)` by first
+        if kind == "explicit":
+            # The explicit `y = f(x)` can be converted to `y = f(t)` by first
             # changing the external domain to the internal `x` coordinates
             p0, p1 = self.p_domain
             x0, x1 = self.A * np.cos(self.t_domain)  # The internal domain of `x`
@@ -203,7 +203,7 @@ class EllipticalArc:
         For now, I'm never using `dy/dx` directly, so this always returns both
         derivatives separately to avoid divide-by-zero issues.
         """
-        if kind is None and self.kind == "implicit":
+        if kind is None and self.kind == "explicit":
             raise RuntimeError("Are you SURE you really want dy/dx?")
 
         p = np.asarray(p)
@@ -238,7 +238,7 @@ def elliptical_chord(root, tip):
     t_min = np.arcsin(taper)
 
     return EllipticalArc(
-        A / B, B=B, p_domain=[1, -1], t_domain=[t_min, np.pi - t_min], kind="implicit",
+        A / B, B=B, p_domain=[1, -1], t_domain=[t_min, np.pi - t_min], kind="explicit",
     )
 
 
