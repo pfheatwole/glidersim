@@ -1,4 +1,4 @@
-* Refactor `mesh_vertex_lists` to work on `upper/lower/airfoil`?
+* Should I rename the `control_points` functions `r_CP2LE`?
 
 * I'd love to demo the effect of assuming a fixed Reynolds number (eg,
   `1.5e6`) versus using their proper values. This is probably the most extreme
@@ -15,11 +15,12 @@
 
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
-  (ie, over what range can you treat it as having an aerodynamic center)
+  (ie, over what range can you treat it as having an aerodynamic center, and
+  what value would there be?)
 
 * Note to self: different airfoils can have significantly different pitching
   coefficients (eg, the NACA 24018 vs the LS(1)-0417), which should produce
-  significantly different equilibrium pitching angles. The arch of the wing
+  significantly different equilibrium pitching angles. The arc of the wing
   will likely give those different wings noticeably different dynamics in the
   presence of a cross-wind, and **may have a significant impact on how the
   wing respond to encountering a thermal during a turn**.
@@ -45,7 +46,7 @@ Packaging
 General
 =======
 
-* Vectorize `crossmat`?
+* Vectorize `util.crossmat`?
 
 * The control points need a redesign. I don't like stacking in them arrays
   since that requires "magic" indexing (remembering which rows belong to each
@@ -60,9 +61,12 @@ General
   its own "magic" indices.
 
 * I'm using `breakpoint()` a few places, which wasn't added until Python 3.7.
-  Should I set that as a hard dependency?
+  (Enables using `breakpoint()` to launch `PYTHONBREAKPOINT` instead of adding
+  `from IPython import embed` everywhere) Should I set python 3.7 that as
+  a hard dependency?
 
-* Define an `njit` wrapper that replaces `njit` with a noop (#NEXT)
+* Define an `njit` wrapper that replaces `njit` with a noop if numba isn't
+  installed
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
   Numba to warn me about it, at least. (see the error when defining
@@ -231,6 +235,55 @@ Low priority
 ChordSurface
 =============
 
+* Rename `_planform_torsion` and `_arc_dihedral`, for many reasons:
+
+  * They're intrinsic Euler pitch and roll angles, so `theta` and `gamma` are
+    more explicit. (I like that `gamma` doesn't conflict with the traditional
+    definition of wingtip dihedral `Gamma`. Hopefully makes them less likely
+    to be confused.)
+
+  * I'm avoiding  "planform" (ambiguous term, multiple definitions)
+
+  * These are more like "section dihedral", no "arc dihedral"
+
+  * The section roll is only defined by the arc because I've `gamma
+    = arctan(dz/dy)`, but in general you could have `gamma = 0` (for vertical
+    sections). The math doesn't require the section roll to remain orthogonal
+    to the yz-curve, so `arc_dihedral` is overly specific.
+
+* Eliminate `ChordSurface`? I've already eliminated it from my
+  paper. I would love to call it a planform, but that term is ambiguous
+  (multiple definitions). It would also eliminate a lot of superfluous
+  functions in `SimpleFoil` that just pass-through to `ChordSurface`; in
+  particular, properties like `AR`, `b_flat`, etc. There might be a good
+  reason to split the design curves from the implementation class (possibly
+  when adding a foil that supports deformations?), but for now it's
+  unnecessary clutter.
+
+* Review the calculation of the projected span `b` in `ChordSurface.__init__`.
+  Should I use the furthest extent of the wing tips (typically happens at the
+  leading edge if the wing has positive torsion and arc anhedral), or should
+  I use `ChordSurface.b = xyz(1, r_yz(1))[1]`?
+
+* Redefine the parameters in `foil.elliptical_arc`? This is a helper function
+  that defines an angle distribution as an `EllipticalArc` parametrized by
+  mean and maximum angles. This works for parafoil "arc" (not the same thing
+  as the more general elliptical "arc") as well as sweep.
+
+  And besides, I'm planning to use Euler angles (phi, theta, gamma) instead of
+  the ambiguous "anhedral" angle anyway, so "tip_anhedral" is poorly named
+  anyway.
+
+  Oh, hang on: if I'm planning to use this for sweep, that'd only be a single
+  function `x(s)`, so it'd be an "explicit" `EllipticalArc`. `x(s)` is
+  probably more like the `elliptical_chord`, except the parameter represents
+  `x` instead of `c`. Hrm. Well, probably still best to reparametrize
+  `elliptical_arc` in terms of `mean_angle` and `tip_angle`.
+
+* Should `ChordSurface` use the general form of the chord surface equation?
+  Maybe have another class that presents the simplified parametrization I'm
+  using for parafoil chord surfaces?
+
 * Should I make the reference curves parametric functions? From a modelling
   perspective, it would be convenient if the reference curves were "owned" by
   the `LineGeometry`; it would allow things like making `yz` a function of
@@ -249,6 +302,25 @@ ChordSurface
 FoilGeometry
 ============
 
+* Eliminate `Foil.chord_xyz` and add "chord" and "camber" to the `surface`
+  parameter in `Foil.surface_xyz`. More recent versions of my paper discusses
+  three surfaces (chords, camber lines, and section profiles); the code should
+  mirror that.
+
+  `Foil.chord_xyz` uses `pc` whereas the `surface_xyz` uses `sa`, but
+  otherwise the signatures should be compatible. Actually, I'm considering
+  using `r` for "position on the curve" to match `r_x` et al. So for the
+  chord, camber line, upper surface, and lower surface you'd have `0 <= r <=
+  1`, and for the combined profile you'd have `-1 <= r <= 1`.
+
+* Refactor `mesh_vertex_lists` to work on any of the surfaces (`{upper, lower,
+  airfoil, chord, camber}`)? Right now it just assumes you want both `upper`
+  and `lower`.
+
+* in `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in my
+  paper I'm referring to the airfoil as the unit-chord shape and "section
+  profile" for the scaled shape. Should I rename `airfoil` -> `profile`?
+
 * Should `FoilGeometry` be a parent class? Right now I only have SimpleFoil,
   but it'd be nice to be able to reference `FoilGeometry` and have it be
   a concrete thing in the code.
@@ -262,6 +334,10 @@ FoilGeometry
 
 FoilSections
 ============
+
+* Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
+  `C_d,f` to my "air intakes and skin friction drag" adjustments in
+  `FoilSections.Cd`
 
 * I need to review everywhere I talk about airfoil "thickness" and ensure I'm
   referring to "chordwise" or "camberwise" stations correctly. Some places
@@ -532,6 +608,25 @@ Phillips
 
 * Add a `control_point_section_indices` or somesuch to `Phillips`. Should
   return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
+
+* Review Phillips paper: he says not to use the spatial midpoints of the
+  segments for the control points, and that "a significant improvement in
+  accuracy for a given number of elements can be achieved", especially near
+  the tips by placing the control points at the midpoints of the cosine
+  distribution angle instead of the midpoints of the segments. Look into that?
+  (Then again, I've been using a linear distribution in `s`, so I'm already
+  deviating quite a lot from his recommendation anyway.)
+
+* Review `github/usaero/MachUpX`, commit `93ae2a7`: "Overcame singularity in
+  induced velocities by averaging the effective joint locations, thus forcing
+  continuity in the vortex sheet." Useful? He may just be talking about
+  discontinuities in the geometry, not the discontinuity at the wingtip.
+
+* In `Phillips`, a comment says it's modeling the chord areas as
+  parallelograms, but in general the leading and trailing edge lengths may be
+  different. Is a parallelogram a reasonable shape? (Would happen in the
+  presence of sweep and changing chord length; would also happen if I allowed
+  section yaw, but my parametrization design avoids that.)
 
 * By placing the boundary condition at `0.25c` instead of `0.75c` or similar,
   this method can produce infinite induced velocities as the number of
