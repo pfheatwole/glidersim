@@ -80,7 +80,7 @@ if __name__ == "__main__":
         sections=sections,
         b_flat=8,
     )
-    M_ref1 = wing1.chord_xyz(0, 0)
+    M_ref1 = wing1.surface_xyz(0, 0, surface="chord")
 
     # Elliptical
     chord_surface2 = gsim.foil.ChordSurface(
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         sections=sections,
         b_flat=8,
     )
-    M_ref2 = wing2.chord_xyz(0, 0.5)
+    M_ref2 = wing2.surface_xyz(0, 0.5, surface="chord")
 
     # Diagonal
     chord_surface3 = gsim.foil.ChordSurface(
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         sections=sections,
         b_flat=1,
     )
-    M_ref3 = wing3.chord_xyz(0, 0.0)
+    M_ref3 = wing3.surface_xyz(0, 0.0, surface="chord")
 
     # Triangle
     chord_surface4 = gsim.foil.ChordSurface(
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         sections=sections,
         b_flat=1,
     )
-    M_ref4 = wing4.chord_xyz(0, 0.0)
+    M_ref4 = wing4.surface_xyz(0, 0.0, surface="chord")
 
     # Diamond
     chord_surface5 = gsim.foil.ChordSurface(
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         sections=sections,
         b_flat=1,
     )
-    M_ref5 = wing5.chord_xyz(0, 0.0)
+    M_ref5 = wing5.surface_xyz(0, 0.0, surface="chord")
 
     wing, M_ref = wing1, M_ref1
     # wing, M_ref = wing2, M_ref2

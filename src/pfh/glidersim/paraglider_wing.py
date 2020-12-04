@@ -138,7 +138,8 @@ class ParagliderWing:
         # Assuming the arch is circular, find its radius and arc angle using
         # the quarter-chords of the central section and the wing tip. See
         # Barrows Figure:5 for a diagram.
-        r_tip2center = self.canopy.chord_xyz(1, 0.25) - self.canopy.chord_xyz(0, 0.25)
+        r_tip2center = (self.canopy.surface_xyz(1, 0.25, surface="chord")
+                        - self.canopy.surface_xyz(0, 0.25, surface="chord"))
         dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
         r = dz + r_tip2center[2]  # Arch radius
         theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle

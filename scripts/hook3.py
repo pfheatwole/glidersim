@@ -264,8 +264,12 @@ def build_hook3():
     print()
 
     # print("Drawing the canopy")
-    # gsim.plots.plot_foil(canopy, N_sections=131, flatten=False)
-    # gsim.plots.plot_foil(canopy, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="airfoil", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="airfoil", flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="chord", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="chord", flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="camber", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="camber", flatten=True)
     # gsim.plots.plot_foil_topdown(canopy, N_sections=51)
     # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 

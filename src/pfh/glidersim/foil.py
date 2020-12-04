@@ -1217,7 +1217,7 @@ class SimpleFoil:
         """
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
+        nodes = self.surface_xyz(s_nodes, 0.25, surface="chord")  # Segment endpoints
         section = self.sections._mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
@@ -1230,7 +1230,7 @@ class SimpleFoil:
             [*section["upper_centroid"], 0],
             [*section["area_centroid"], 0],
             [*section["lower_centroid"], 0]])
-        segment_origins = self.chord_xyz(s_mid_nodes, 0)
+        segment_origins = self.surface_xyz(s_mid_nodes, 0, surface="chord")
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + segment_origins[None, ...]
@@ -1728,11 +1728,11 @@ class Phillips(ForceEstimator):
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.foil.chord_xyz(self.s_nodes, 0.25)
+        self.nodes = self.foil.surface_xyz(self.s_nodes, 0.25, surface="chord")
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.foil.chord_xyz(self.s_cps, 0.25)
+        self.cps = self.foil.surface_xyz(self.s_cps, 0.25, surface="chord")
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
