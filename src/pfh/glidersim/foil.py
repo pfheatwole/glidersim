@@ -648,10 +648,10 @@ class ChordSurface:
             Rotation matrices encoding section orientation, where the columns
             are the section (local) x, y, and z coordinate axes.
         """
-        R = self._planform_torsion(s)
+        C_c2s = self._planform_torsion(s)
         if not flatten:
-            R = self._arc_dihedral(s) @ R
-        return R
+            C_c2s = self._arc_dihedral(s) @ C_c2s
+        return C_c2s
 
     def length(self, s):
         """
@@ -1129,8 +1129,8 @@ class SimpleFoil:
             (-coords_a[..., 0], np.zeros(coords_a.shape[:-1]), -coords_a[..., 1]),
             axis=-1,
         )
-        orientations = self.section_orientation(s, flatten)
-        surface = np.einsum("...ij,...j,...->...i", orientations, coords, c)
+        C_c2s = self.section_orientation(s, flatten)
+        surface = np.einsum("...ij,...j,...->...i", C_c2s, coords, c)
         return LE + surface
 
     def mass_properties(self, N=250):
