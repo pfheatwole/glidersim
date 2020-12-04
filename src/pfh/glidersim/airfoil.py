@@ -369,14 +369,14 @@ class AirfoilGeometry:
     ----------
     surface_curve : PchipInterpolator
         Profile xy-coordinates as a curve parametrized by the normalized
-        arc-length `-1 <= sa <= 1`, where `sa = 0` is the leading edge, `sa =
-        1` is the tip of the upper surface, and `sa = -1` is the tip of the
-        lower surface. Midpoints by length of the upper and lower surface
-        curves are given by `sa = 0.5` and `sa = -0.5`.
+        arc-length `-1 <= r <= 1`, where `r = 0` is the leading edge, `r = 1`
+        is the tip of the upper surface, and `r = -1` is the tip of the lower
+        surface. Midpoints by length of the upper and lower surface curves are
+        given by `r = 0.5` and `r = -0.5`.
     camber_curve : PchipInterpolator
         Mean camber curve xy-coordinates as a function of normalized arc-length
-        `0 <= pc <= 1`, where `pc = 0` is the leading edge, `pc = 1` is
-        the trailing edge, and `pc = 0.5` is the midpoint by length.
+        `0 <= r <= 1`, where `r = 0` is the leading edge, `r = 1` is
+        the trailing edge, and `r = 0.5` is the midpoint by length.
     convention : {"perpendicular", "vertical"}
         Whether the airfoil thickness is measured perpendicular to the mean
         camber line or vertically (perpendicular to the chord).
@@ -475,31 +475,31 @@ class AirfoilGeometry:
             scale = 1
 
         # Parametrize by the normalized arc-length for each surface:
-        #   d <= d_LE  ->  -1 <= sa <= 0  <-  lower surface
-        #   d >= d_LE  ->   0 <= sa <= 1  <-  upper surface
-        sa = np.empty(d.shape)
+        #   d <= d_LE  ->  -1 <= r <= 0  <-  lower surface
+        #   d >= d_LE  ->   0 <= r <= 1  <-  upper surface
+        r = np.empty(d.shape)
         f = d <= d_LE
-        sa[f] = -1 + d[f] / d_LE
-        sa[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
-        surface = PchipInterpolator(sa, points, extrapolate=False)
+        r[f] = -1 + d[f] / d_LE
+        r[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
+        surface = PchipInterpolator(r, points, extrapolate=False)
 
         # Estimate the mean camber curve and thickness distribution as
         # functions of the normalized arc-length of the mean camber line.
         # FIXME: Crude, ignores convention
         N = 300
-        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
-        xyu = surface(sa)
-        xyl = surface(-sa)
+        r = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= r <= 1`
+        xyu = surface(r)
+        xyl = surface(-r)
         xyc = (xyu + xyl) / 2
         t = np.linalg.norm(xyu - xyl, axis=1)
-        pc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
-        pc /= pc[-1]
-        camber = PchipInterpolator(pc, (xyu + xyl) / 2, extrapolate=False)
-        thickness = PchipInterpolator(pc, t, extrapolate=False)
+        r = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
+        r /= r[-1]
+        camber = PchipInterpolator(r, (xyu + xyl) / 2, extrapolate=False)
+        thickness = PchipInterpolator(r, t, extrapolate=False)
 
         return cls(surface, camber, thickness, convention, theta, scale)
 
-    def _mass_properties(self, sa_upper=0, sa_lower=0, N=200):
+    def _mass_properties(self, r_upper=0, r_lower=0, N=200):
         """
         Calculate the inertial properties for the curves and planar area.
 
@@ -514,9 +514,9 @@ class AirfoilGeometry:
 
         Parameters
         ----------
-        sa_upper, sa_lower : float
+        r_upper, r_lower : float
             The starting coordinates of the upper and lower surfaces. Requires
-            that `-1 <= sa_lower <= sa_upper, 1`.
+            that `-1 <= r_lower <= r_upper, 1`.
         N : integer
             The number of chordwise sample points. Used to create the vertical
             strips for calculating the area, and for creating line segments of
@@ -567,19 +567,19 @@ class AirfoilGeometry:
         >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
         >>> inertia_frd = C @ inertia_acs @ C
         """
-        if sa_lower < -1:
-            raise ValueError("Required: sa_lower >= -1")
-        if sa_lower > sa_upper:
-            raise ValueError("Required: sa_lower <= sa_upper")
-        if sa_upper > 1:
-            raise ValueError("Required: sa_upper <= 1")
+        if r_lower < -1:
+            raise ValueError("Required: r_lower >= -1")
+        if r_lower > r_upper:
+            raise ValueError("Required: r_lower <= r_upper")
+        if r_upper > 1:
+            raise ValueError("Required: r_upper <= 1")
 
         # -------------------------------------------------------------------
         # 1. Area calculations
 
-        sa = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= sa <= 1`
-        top = self.surface_curve(sa).T  # Top half (above sa = 0)
-        bottom = self.surface_curve(-sa).T  # Bottom half (below sa = 0)
+        r = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= r <= 1`
+        top = self.surface_curve(r).T  # Top half (above r = 0)
+        bottom = self.surface_curve(-r).T  # Bottom half (below r = 0)
         Tx, Ty = top[0], top[1]
         Bx, By = bottom[0], bottom[1]
 
@@ -609,8 +609,8 @@ class AirfoilGeometry:
         # -------------------------------------------------------------------
         # 2. Surface line calculations
 
-        su = np.linspace(sa_upper, 1, N)
-        sl = np.linspace(sa_lower, -1, N)
+        su = np.linspace(r_upper, 1, N)
+        sl = np.linspace(r_lower, -1, N)
         upper = self.surface_curve(su).T
         lower = self.surface_curve(sl).T
 
@@ -667,13 +667,13 @@ class AirfoilGeometry:
 
         return properties
 
-    def surface_curve(self, sa):
+    def surface_curve(self, r):
         """
         Compute points on the surface curve.
 
         Parameters
         ----------
-        sa : array_like of float, shape (N,)
+        r : array_like of float, shape (N,)
             The curve parameter from -1..1, with -1 the lower surface trailing
             edge, 0 is the leading edge, and +1 is the upper surface trailing
             edge
@@ -681,79 +681,79 @@ class AirfoilGeometry:
         Returns
         -------
         points : array of float, shape (N, 2)
-            The (x, y) coordinates of points on the airfoil at `sa`.
+            The (x, y) coordinates of points on the airfoil at `r`.
         """
-        return self._surface_curve(sa)
+        return self._surface_curve(r)
 
-    def surface_curve_tangent(self, sa):
+    def surface_curve_tangent(self, r):
         """
         Compute the tangent unit vector at points on the surface curve.
 
         Parameters
         ----------
-        sa : array_like of float
+        r : array_like of float
             The surface curve parameter.
 
         Returns
         -------
         dxdy : array, shape (N, 2)
             The unit tangent lines at the specified points, oriented with
-            increasing `sa`, so the tangents trace from the lower surface to
+            increasing `r`, so the tangents trace from the lower surface to
             the upper surface.
         """
-        dxdy = self._surface_curve.derivative()(sa).T
+        dxdy = self._surface_curve.derivative()(r).T
         dxdy /= np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
-    def surface_curve_normal(self, sa):
+    def surface_curve_normal(self, r):
         """
         Compute the normal unit vector at points on the surface curve.
 
         Parameters
         ----------
-        sa : array_like of float
+        r : array_like of float
             The surface curve parameter.
 
         Returns
         -------
         dxdy : array, shape (N, 2)
             The unit normal vectors at the specified points, oriented with
-            increasing `sa`, so the normals point "out" of the airfoil.
+            increasing `r`, so the normals point "out" of the airfoil.
         """
-        dxdy = (self._surface_curve.derivative()(sa) * [1, -1]).T
+        dxdy = (self._surface_curve.derivative()(r) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
-    def camber_curve(self, pc):
+    def camber_curve(self, r):
         """
         Compute points on the camber curve.
 
         Parameters
         ----------
-        pc : array_like of float [percentage]
-            Fractional position on the camber line, where `0 <= pc <= 1`
+        r : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= r <= 1`
 
         Returns
         -------
         array of float, shape (N, 2)
             The xy coordinate pairs of the camber line.
         """
-        return self._camber_curve(pc)
+        return self._camber_curve(r)
 
-    def thickness(self, pc):
+    def thickness(self, r):
         """
         Compute airfoil thickness.
 
         Parameters
         ----------
-        pc : array_like of float [percentage]
-            Fractional position on the camber line, where `0 <= pc <= 1`
+        r : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= r <= 1`
 
         Returns
         -------
         thickness : array_like of float
         """
-        return self._thickness(pc)
+        return self._thickness(r)
 
 
 class NACA(AirfoilGeometry):
@@ -857,12 +857,12 @@ class NACA(AirfoilGeometry):
         du = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyu.T), axis=0))]
         dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyl.T), axis=0))]
         dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
-        pc = dc / dc[-1]
         surface_xyz = np.r_[xyl[::-1], xyu[1:]]
-        sa = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
-        surface_curve = PchipInterpolator(sa, surface_xyz, extrapolate=False)
-        camber_curve = PchipInterpolator(pc, xyc, extrapolate=False)
-        thickness = PchipInterpolator(pc, 2 * self._yt(x), extrapolate=False)
+        r = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
+        surface_curve = PchipInterpolator(r, surface_xyz, extrapolate=False)
+        r = dc / dc[-1]
+        camber_curve = PchipInterpolator(r, xyc, extrapolate=False)
+        thickness = PchipInterpolator(r, 2 * self._yt(x), extrapolate=False)
         super().__init__(surface_curve, camber_curve, thickness, convention)
 
     def _yt(self, x):

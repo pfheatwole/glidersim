@@ -230,9 +230,9 @@ plt.show()
 # the bottom surface at all, which doesn't make sense. No, I think it should be
 # relative to the thickness as measured by the camber line.
 airfoil = gsim.airfoil.NACA(23015)
-sa = np.linspace(0, 1, 2000)
-points_upper = airfoil.surface_curve(sa)
-points_lower = airfoil.surface_curve(-sa)
+r = np.linspace(0, 1, 2000)
+points_upper = airfoil.surface_curve(r)
+points_lower = airfoil.surface_curve(-r)
 points_camber = (points_upper + points_lower) / 2
 thicknesses = points_upper.T[1] - points_lower.T[1]
 # HP = h / magical_thickest_point  # Thickness change as a percentage

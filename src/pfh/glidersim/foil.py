@@ -353,7 +353,7 @@ class SimpleIntakes:
     """
     Defines the upper and lower surface coordinates as constant along the span.
 
-    This version currently uses explicit `sa_upper` and `sa_lower` in airfoil
+    This version currently uses explicit `r_upper` and `r_lower` in airfoil
     coordinates, but other parametrizations might be the intake midpoint and
     width (where "width" might be in the airfoil `s`, or as a percentage of the
     chord) or `c_upper` and `c_lower` as points on the chord.
@@ -362,29 +362,29 @@ class SimpleIntakes:
     ----------
     s_end: float
         Section index. Air intakes are present between +/- `s_end`.
-    sa_upper, sa_lower : float
+    r_upper, r_lower : float
         The starting coordinates of the upper and lower surface of the
         parafoil, given in airfoil surface coordinates. These are used to
         define air intakes, and for determining the inertial properties of the
         upper and lower surfaces.
 
-        The airfoil coordinates use `s = 0` for the leading edge, `s = 1` for
-        trailing edge of the curve above the chord, and `s = -1` for the
+        The airfoil coordinates use `r = 0` for the leading edge, `r = 1` for
+        trailing edge of the curve above the chord, and `r = -1` for the
         trailing edge of the curve below the chord, so these choices must
-        follow `-1 <= sa_lower <= sa_upper <= 1`.
+        follow `-1 <= r_lower <= r_upper <= 1`.
     """
 
-    def __init__(self, s_end, sa_upper, sa_lower):
+    def __init__(self, s_end, r_upper, r_lower):
         # FIXME: support more types of definition:
         #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
         #  2. midpoint (in airfoil coordinates) and width
         #  3. Upper and lower cuts as a fraction of the chord (the "Paraglider
         #     Design Manual" does it this way).
         self.s_end = s_end
-        self.sa_upper = sa_upper
-        self.sa_lower = sa_lower
+        self.r_upper = r_upper
+        self.r_lower = r_lower
 
-    def __call__(self, s, sa, surface):
+    def __call__(self, s, r, surface):
         """
         Convert parafoil surface coordinates into airfoil coordinates.
 
@@ -392,8 +392,8 @@ class SimpleIntakes:
         ----------
         s : array_like of float
             Section index.
-        sa : array_like of float
-            Parafoil surface coordinate, where `0 <= sa <= 1`, with `0`
+        r : array_like of float
+            Parafoil surface coordinate, where `0 <= r <= 1`, with `0`
             being the leading edge, and `1` being the trailing edge.
         surface : {"upper", "lower"}
             Which surface.
@@ -404,22 +404,22 @@ class SimpleIntakes:
             The normalized (unscaled) airfoil coordinates.
         """
         s = np.asarray(s)
-        sa = np.asarray(sa)
+        r = np.asarray(r)
 
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if sa.min() < 0 or sa.max() > 1:
+        if r.min() < 0 or r.max() > 1:
             raise ValueError("Surface coordinates must be between 0 and 1.")
         if surface not in {"upper", "lower"}:
             raise ValueError("`surface` must be one of {'upper', 'lower'}")
 
         if surface == "upper":
-            values = self.sa_upper + sa * (1 - self.sa_upper)
+            values = self.r_upper + r * (1 - self.r_upper)
             values = np.broadcast_arrays(s, values)[1]
         else:
             # The lower surface extends forward on sections without intakes
-            starts = np.where(np.abs(s) < self.s_end, self.sa_lower, self.sa_upper)
-            values = starts + sa * (-1 - starts)
+            starts = np.where(np.abs(s) < self.s_end, self.r_lower, self.r_upper)
+            values = starts + r * (-1 - starts)
 
         return values
 
@@ -669,7 +669,7 @@ class ChordSurface:
         """
         return self.c(s)
 
-    def xyz(self, s, pc, flatten=False):
+    def xyz(self, s, r, flatten=False):
         """
         Compute the `xyz` coordinates of points on section chords.
 
@@ -677,19 +677,19 @@ class ChordSurface:
         ----------
         s : array_like of float, shape (N,)
             Section index
-        pc : float
-            Position on the chords as a percentage, where `pc = 0` is the
-            leading edge, and `pc = 1` is the trailing edge.
+        r : float
+            Position on the chords as a percentage, where `r = 0` is the
+            leading edge, and `r = 1` is the trailing edge.
         flatten : boolean
             Whether to flatten the chord surface by disregarding dihedral
             (curvature in the yz-plane). This is useful for inflatable wings,
             such as parafoils. Default: False.
         """
         s = np.asarray(s)
-        pc = np.asarray(pc)
+        r = np.asarray(r)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if pc.min() < 0 or pc.max() > 1:
+        if r.min() < 0 or r.max() > 1:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
         # FIXME? Written this way for clarity, but some terms may be unused.
@@ -710,9 +710,9 @@ class ChordSurface:
             LE = np.concatenate((x[..., np.newaxis], yz), axis=-1)
             xhat = dihedral @ torsion @ [1, 0, 0]
 
-        r = np.stack([r_x, r_yz, r_yz], axis=-1)
-        LE += np.einsum("...i,...,...i->...i", r, c, xhat)
-        xyz = LE - (pc * c)[..., np.newaxis] * xhat - self.LE0
+        R = np.stack([r_x, r_yz, r_yz], axis=-1)
+        LE += np.einsum("...i,...,...i->...i", R, c, xhat)
+        xyz = LE - (r * c)[..., np.newaxis] * xhat - self.LE0
 
         return xyz
 
@@ -741,15 +741,15 @@ class FoilSections:
         self.airfoil = airfoil
         self.intakes = intakes if intakes else self._no_intakes
 
-    def _no_intakes(self, s, sa, surface):
+    def _no_intakes(self, s, r, surface):
         # For foils with no air intakes the canopy upper and lower surfaces map
         # directly to the airfoil upper and lower surfaces, which were defined
         # by the airfoil leading edge.
         if surface == "lower":
-            sa = -sa
-        return np.broadcast_arrays(s, sa)[1]
+            r = -r
+        return np.broadcast_arrays(s, r)[1]
 
-    def surface_xz(self, s, sa, surface):
+    def surface_xz(self, s, r, surface):
         """
         Compute unscaled surface coordinates along section profiles.
 
@@ -761,13 +761,13 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        sa : array_like of float
+        r : array_like of float
             Surface or airfoil coordinates, depending on the value of `surface`.
         surface : {"upper", "lower", "airfoil"}
-            How to interpret the coordinates in `sa`. If "upper" or "lower",
-            then `sa` is treated as surface coordinates, which range from 0 to
+            How to interpret the coordinates in `r`. If "upper" or "lower",
+            then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
-            the intakes. If "airfoil", then `sa` is treated as raw airfoil
+            the intakes. If "airfoil", then `r` is treated as raw airfoil
             coordinates, which must range from -1 to +1, and map from the
             lower surface trailing edge to the upper surface trailing edge.
 
@@ -775,25 +775,25 @@ class FoilSections:
         -------
         array of float
             A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `sa`.
+            shape is determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
-        sa = np.asarray(sa)
+        r = np.asarray(r)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
         if surface not in {"upper", "lower", "airfoil"}:
             raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
-        if surface == "airfoil" and (sa.min() < -1 or sa.max() > 1):
+        if surface == "airfoil" and (r.min() < -1 or r.max() > 1):
             raise ValueError("Airfoil coordinates must be between -1 and 1.")
-        elif surface != "airfoil" and (sa.min() < 0 or sa.max() > 1):
+        elif surface != "airfoil" and (r.min() < 0 or r.max() > 1):
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
         if surface == "airfoil":
-            sa = np.broadcast_arrays(s, sa)[1]
+            r = np.broadcast_arrays(s, r)[1]
         else:
-            sa = self.intakes(s, sa, surface)
+            r = self.intakes(s, r, surface)
 
-        return self.airfoil.geometry.surface_curve(sa)  # Unscaled airfoil
+        return self.airfoil.geometry.surface_curve(r)  # Unscaled airfoil
 
     def Cl(self, s, delta_f, alpha, Re):
         """
@@ -898,7 +898,7 @@ class FoilSections:
         """
         return self.airfoil.coefficients.Cm(delta_f, alpha, Re)
 
-    def thickness(self, s, pc):
+    def thickness(self, s, r):
         """
         Compute section thickness.
 
@@ -909,15 +909,15 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        pc : array_like of float [percentage]
-            Fractional position on the camber line, where `0 <= pc <= 1`
+        r : array_like of float [percentage]
+            Fractional position on the camber line, where `0 <= r <= 1`
 
         Returns
         -------
         thickness : array_like of float
             The normalized section profile thicknesses.
         """
-        return self.airfoil.geometry.thickness(pc)
+        return self.airfoil.geometry.thickness(r)
 
     def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
@@ -1033,7 +1033,7 @@ class SimpleFoil:
         """
         return self._chords.length(s) * (self.b_flat / 2)
 
-    def chord_xyz(self, s, pc, flatten=False):
+    def chord_xyz(self, s, r, flatten=False):
         """
         Sample points on section chords in foil frd.
 
@@ -1041,15 +1041,15 @@ class SimpleFoil:
         ----------
         s : array_like of float, shape (N,)
             Section index
-        pc : float
-            Position on the chords as a percentage, where `pc = 0` is the
-            leading edge, and `pc = 1` is the trailing edge.
+        r : float
+            Position on the chords as a percentage, where `r = 0` is the
+            leading edge, and `r = 1` is the trailing edge.
         flatten : boolean
             Whether to flatten the chord surface by disregarding dihedral
             (curvature in the yz-plane). This is useful for inflatable wings,
             such as parafoils. Default: False.
         """
-        return self._chords.xyz(s, pc, flatten=flatten) * (self.b_flat / 2)
+        return self._chords.xyz(s, r, flatten=flatten) * (self.b_flat / 2)
 
     def section_orientation(self, s, flatten=False):
         """
@@ -1070,7 +1070,7 @@ class SimpleFoil:
         """
         return self._chords.orientation(s, flatten)
 
-    def section_thickness(self, s, pc):
+    def section_thickness(self, s, r):
         """
         Compute section thicknesses at chordwise stations.
 
@@ -1082,14 +1082,14 @@ class SimpleFoil:
         ----------
         s : array_like of float
             Section index.
-        pc : float
-            Position on the chords as a percentage, where `pc = 0` is the
-            leading edge, and `pc = 1` is the trailing edge.
+        r : float
+            Position on the chords as a percentage, where `r = 0` is the
+            leading edge, and `r = 1` is the trailing edge.
         """
-        # FIXME: does `pc` specify stations along the chord or the camber?
-        return self.sections.thickness(s, pc) * self.chord_length(s)
+        # FIXME: does `r` specify stations along the chord or the camber?
+        return self.sections.thickness(s, r) * self.chord_length(s)
 
-    def surface_xyz(self, s, sa, surface, flatten=False):
+    def surface_xyz(self, s, r, surface, flatten=False):
         """
         Sample points on section surfaces in foil frd.
 
@@ -1097,13 +1097,14 @@ class SimpleFoil:
         ----------
         s : array_like of float
             Section index.
-        sa : array_like of float
-            Surface or airfoil coordinates, depending on the value of `surface`.
+        r : array_like of float
+            Surface coordinate (normalized arc length). Meaning depends on the
+            value of `surface`.
         surface : {"upper", "lower", "airfoil"}
-            How to interpret the coordinates in `sa`. If "upper" or "lower",
-            then `sa` is treated as surface coordinates, which range from 0 to
+            How to interpret the coordinates in `r`. If "upper" or "lower",
+            then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
-            the intakes. If "airfoil", then `sa` is treated as raw airfoil
+            the intakes. If "airfoil", then `r` is treated as raw airfoil
             coordinates, which must range from -1 to +1, and map from the
             lower surface trailing edge to the upper surface trailing edge.
         flatten : boolean
@@ -1115,16 +1116,16 @@ class SimpleFoil:
         -------
         array of float
             A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `sa`.
+            shape is determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
-        sa = np.asarray(sa)
+        r = np.asarray(r)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
 
         r_LE2O = self.chord_xyz(s, 0, flatten=flatten)
         c = self.chord_length(s)
-        r_P2LE_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
+        r_P2LE_a = self.sections.surface_xz(s, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
             (-r_P2LE_a[..., 0], np.zeros(r_P2LE_a.shape[:-1]), -r_P2LE_a[..., 1]),
             axis=-1,
@@ -1284,7 +1285,7 @@ class SimpleFoil:
 
         return mass_properties
 
-    def mass_properties2(self, N_s=301, N_sa=301):
+    def mass_properties2(self, N_s=301, N_r=301):
         """
         Compute the quantities that control inertial behavior.
 
@@ -1297,7 +1298,7 @@ class SimpleFoil:
         ----------
         N_s : int
             The grid resolution over the section index.
-        N_sa : int
+        N_r : int
             The grid resolution over the surface coordinates.
 
         Returns
@@ -1358,7 +1359,7 @@ class SimpleFoil:
         # Note to self: the triangles are not symmetric about the xz-plane,
         # which produces non-zero terms that should have cancelled out. Would
         # need to reverse the left-right triangle directions over one semispan.
-        tu, tl = self._mesh_triangles(N_s, N_sa)
+        tu, tl = self._mesh_triangles(N_s, N_r)
 
         # Triangle and net surface areas
         u1, u2 = np.swapaxes(np.diff(tu, axis=1), 0, 1)
@@ -1386,35 +1387,35 @@ class SimpleFoil:
         # The volume calculation requires a closed mesh, so resample the
         # surface using the closed section profiles (ie, ignore air intakes).
         s = np.linspace(-1, 1, N_s)
-        sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
-        sa = np.concatenate((-sa[:0:-1], sa))
-        surface_vertices = self.surface_xyz(s[:, None], sa, "airfoil")
+        r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
+        r = np.concatenate((-r[:0:-1], r))
+        surface_vertices = self.surface_xyz(s[:, None], r, "airfoil")
 
         # Using Delaunay is too slow as the number of vertices increases.
-        S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_sa - 2), indexing='ij')
+        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_r - 2), indexing='ij')
         triangle_indices = np.concatenate(
             (
-                [[S, SA], [S + 1, SA + 1], [S + 1, SA]],
-                [[S, SA], [S, SA + 1], [S + 1, SA + 1]],
+                [[S, R], [S + 1, R + 1], [S + 1, R]],
+                [[S, R], [S, R + 1], [S + 1, R + 1]],
             ),
             axis=-2,
         )
         ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
-        surface_indices = np.ravel_multi_index(ti.T, (N_s, 2 * N_sa - 1)).T
+        surface_indices = np.ravel_multi_index(ti.T, (N_s, 2 * N_r - 1)).T
         surface_tris = surface_vertices.reshape(-1, 3)[surface_indices]
 
         # Add two meshes to close the wing tips so the volume is counted
         # correctly. Uses the 2D section profile to compute the triangulation.
         # If a wing tip has a closed trailing edge there will be coplanar
         # vertices, which `Delaunay` will discard automatically.
-        left_vertices = self.surface_xyz(-1, sa, "airfoil")
-        right_vertices = self.surface_xyz(1, sa, "airfoil")
+        left_vertices = self.surface_xyz(-1, r, "airfoil")
+        right_vertices = self.surface_xyz(1, r, "airfoil")
 
         # Verson 1: use scipy.spatial.Delaunay. This version will automatically
         # discard coplanar points if the trailing edge is closed.
         #
-        left_points = self.sections.surface_xz(-1, sa, 'airfoil')
-        right_points = self.sections.surface_xz(1, sa, 'airfoil')
+        left_points = self.sections.surface_xz(-1, r, 'airfoil')
+        right_points = self.sections.surface_xz(1, r, 'airfoil')
         left_tris = left_vertices[Delaunay(left_points).simplices]
         right_tris = right_vertices[Delaunay(right_points).simplices[:, ::-1]]
 
@@ -1422,11 +1423,11 @@ class SimpleFoil:
         # assumes the trailing edge is closed (reasonable for inflatable foils)
         # and discards the vertex at the upper surface trailing edge. This is
         # fine even if the trailing edge is not truly closed as long as it's
-        # _effectively_ closed and N_sa is reasonably large.
+        # _effectively_ closed and N_r is reasonably large.
         #
-        # ix = np.arange(N_sa - 2)
-        # upper_simplices = np.stack((2 * N_sa - 3 - ix, 2 * N_sa - 4 - ix, ix + 1)).T
-        # lower_simplices = np.stack((ix + 1, ix, 2 * N_sa - 3 - ix)).T
+        # ix = np.arange(N_r - 2)
+        # upper_simplices = np.stack((2 * N_r - 3 - ix, 2 * N_r - 4 - ix, ix + 1)).T
+        # lower_simplices = np.stack((ix + 1, ix, 2 * N_r - 3 - ix)).T
         # simplices = np.concatenate((upper_simplices, lower_simplices))
         # left_tris = left_vertices[simplices]
         # right_tris = right_vertices[simplices[:, ::-1]]
@@ -1467,7 +1468,7 @@ class SimpleFoil:
 
         return mass_properties
 
-    def _mesh_vertex_lists(self, N_s=131, N_sa=151, filename=None):
+    def _mesh_vertex_lists(self, N_s=131, N_r=151, filename=None):
         """
         Generate sets of triangle faces on the upper and lower surfaces.
 
@@ -1480,16 +1481,16 @@ class SimpleFoil:
         ----------
         N_s : int
             The grid resolution over the section index.
-        N_sa : int
+        N_r : int
             The grid resolution over the surface coordinates.
         filename : string, optional
             Save the outputs in a numpy `.npz` file.
 
         Returns
         -------
-        vertices_upper, vertices_lower : array of float, shape (N_s * N_sa, 3)
+        vertices_upper, vertices_lower : array of float, shape (N_s * N_r, 3)
             Vertices on the upper and lower surfaces.
-        simplices : array of int, shape (N_s * N_sa * 2, 3)
+        simplices : array of int, shape (N_s * N_r * 2, 3)
             Lists of vertex indices for each triangle. The same grid was used
             for both surfaces, so this array defines both meshes.
 
@@ -1528,26 +1529,26 @@ class SimpleFoil:
         """
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
-        sa = 1 - np.cos(np.linspace(0, np.pi / 2, N_sa))
+        r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
 
         # The lower surface goes right->left to ensure the normals point down,
         # which is important for computing the enclosed volume of air between
         # the two surfaces, and for 3D programs in general (which tend to
         # expect the normals to point "out" of the volume).
-        vu = self.surface_xyz(s[:, np.newaxis], sa, 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[::-1, np.newaxis], sa, 'lower').reshape(-1, 3)
+        vu = self.surface_xyz(s[:, np.newaxis], r, 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], r, 'lower').reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles).
-        S, SA = np.meshgrid(np.arange(N_s - 1), np.arange(N_sa - 1), indexing='ij')
+        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(N_r - 1), indexing='ij')
         triangle_indices = np.concatenate(
             (
-                [[S, SA], [S + 1, SA + 1], [S + 1, SA]],
-                [[S, SA], [S, SA + 1], [S + 1, SA + 1]],
+                [[S, R], [S + 1, R + 1], [S + 1, R]],
+                [[S, R], [S, R + 1], [S + 1, R + 1]],
             ),
             axis=-2,
         )
         ti = np.moveaxis(triangle_indices, (0, 1), (-2, -1)).reshape(-1, 3, 2)
-        simplices = np.ravel_multi_index(ti.T, (N_s, N_sa)).T
+        simplices = np.ravel_multi_index(ti.T, (N_s, N_r)).T
 
         if filename:
             np.savez_compressed(
@@ -1559,26 +1560,26 @@ class SimpleFoil:
 
         return vu, vl, simplices
 
-    def _mesh_triangles(self, N_s=131, N_sa=151, filename=None):
+    def _mesh_triangles(self, N_s=131, N_r=151, filename=None):
         """Generate triangle meshes over the upper and lower surfaces.
 
         Parameters
         ----------
         N_s : int
             The grid resolution over the section index.
-        N_sa : int
+        N_r : int
             The grid resolution over the surface coordinates.
         filename : string, optional
             Save the outputs in a numpy `.npz` file.
 
         Returns
         -------
-        tu, tl : array of float, shape ((N_s - 1) * (N_sa - 1) * 2, 3, 3)
+        tu, tl : array of float, shape ((N_s - 1) * (N_r - 1) * 2, 3, 3)
             Lists of vertex triplets that define the triangles on the upper
             and lower surfaces.
 
-            The shape warrants an explanation: the grid has `N_s * N_sa` points
-            for `(N_s - 1) * (N_sa - 1)` rectangles. Each rectangle requires
+            The shape warrants an explanation: the grid has `N_s * N_r` points
+            for `(N_s - 1) * (N_r - 1)` rectangles. Each rectangle requires
             2 triangles, each triangle has 3 vertices, and each vertex has
             3 coordinates (in frd).
 
@@ -1606,7 +1607,7 @@ class SimpleFoil:
            >>> Mesh.show(mesh_upper)
            >>> Mesh.show(mesh_lower)
         """
-        vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_sa=N_sa)
+        vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_r=N_r)
         triangles_upper = vu[fi]
         triangles_lower = vl[fi]
 

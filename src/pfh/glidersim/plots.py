@@ -83,15 +83,15 @@ def _create_3d_axes(figsize=(12, 12), dpi=96):
 
 
 def plot_airfoil_geo(foil_geo, N_points=200):
-    sa = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
-    upper = foil_geo.surface_curve(sa).T
-    lower = foil_geo.surface_curve(-sa).T
+    r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
+    upper = foil_geo.surface_curve(r).T
+    lower = foil_geo.surface_curve(-r).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75, label="upper surface")
     ax.plot(lower[0], lower[1], c="r", lw=0.75, label="lower surface")
 
-    pc = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
-    cc = foil_geo.camber_curve(pc).T
+    r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
+    cc = foil_geo.camber_curve(r).T
     ax.plot(
         cc[0],
         cc[1],
@@ -172,11 +172,11 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     else:
         independent_plot = False
 
-    sa = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
+    r = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
-        coords = foil.surface_xyz(s, sa, "lower", flatten=flatten).T
+        coords = foil.surface_xyz(s, r, "lower", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
-        coords = foil.surface_xyz(s, sa, "upper", flatten=flatten).T
+        coords = foil.surface_xyz(s, r, "upper", flatten=flatten).T
         ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
 
     s = np.linspace(-1, 1, N_sections)
