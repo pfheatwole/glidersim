@@ -671,7 +671,7 @@ class ChordSurface:
 
     def xyz(self, s, r, flatten=False):
         """
-        Compute the `xyz` coordinates of points on section chords.
+        Compute the coordinates of points on section chords in canopy frd.
 
         Parameters
         ----------
@@ -704,17 +704,18 @@ class ChordSurface:
         if flatten:
             # FIXME: using `s` for `y_flat` assumes the input values have been
             #        correctly normalized to `total_length(yz) == 2`
-            LE = np.stack((x, s, np.zeros(s.shape)), axis=-1)
+            r_RP2O = np.stack((x, s, np.zeros(s.shape)), axis=-1)
             xhat = torsion @ [1, 0, 0]
         else:
-            LE = np.concatenate((x[..., np.newaxis], yz), axis=-1)
+            r_RP2O = np.concatenate((x[..., np.newaxis], yz), axis=-1)
             xhat = dihedral @ torsion @ [1, 0, 0]
 
         R = np.stack([r_x, r_yz, r_yz], axis=-1)
-        LE += np.einsum("...i,...,...i->...i", R, c, xhat)
-        xyz = LE - (r * c)[..., np.newaxis] * xhat - self.LE0
+        r_LE2RP = np.einsum("...i,...,...i->...i", R, c, xhat)
+        r_P2LE = -(r * c)[..., np.newaxis] * xhat - self.LE0
+        r_P2O = r_P2LE + r_LE2RP + r_RP2O
 
-        return xyz
+        return r_P2O
 
 
 class FoilSections:
