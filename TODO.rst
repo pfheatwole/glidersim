@@ -1,3 +1,7 @@
+* I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
+  that term. It's more like the "parameter" of a parametric curve. When I read
+  "coordinates" I think xyz.
+
 * Should I rename the `control_points` functions `r_CP2LE`?
 
 * I'd love to demo the effect of assuming a fixed Reynolds number (eg,
