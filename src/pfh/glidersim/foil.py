@@ -1042,24 +1042,6 @@ class SimpleFoil:
         """
         return self._chords.length(s) * (self.b_flat / 2)
 
-    def chord_xyz(self, s, r, flatten=False):
-        """
-        Sample points on section chords in foil frd.
-
-        Parameters
-        ----------
-        s : array_like of float, shape (N,)
-            Section index
-        r : float
-            Position on the chords as a percentage, where `r = 0` is the
-            leading edge, and `r = 1` is the trailing edge.
-        flatten : boolean
-            Whether to flatten the chord surface by disregarding dihedral
-            (curvature in the yz-plane). This is useful for inflatable wings,
-            such as parafoils. Default: False.
-        """
-        return self._chords.xyz(s, r, flatten=flatten) * (self.b_flat / 2)
-
     def section_orientation(self, s, flatten=False):
         """
         Compute section coordinate axes as rotation matrices.
@@ -1132,7 +1114,6 @@ class SimpleFoil:
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
 
-        r_LE2O = self.chord_xyz(s, 0, flatten=flatten)
         c = self.chord_length(s)
         r_P2LE_a = self.sections.surface_xz(s, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
@@ -1141,6 +1122,7 @@ class SimpleFoil:
         )
         C_c2s = self.section_orientation(s, flatten)
         r_P2LE = np.einsum("...ij,...j,...->...i", C_c2s, r_P2LE_s, c)
+        r_LE2O = self._chords.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
         return r_P2LE + r_LE2O
 
     def mass_properties(self, N=250):
