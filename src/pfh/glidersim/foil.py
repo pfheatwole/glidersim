@@ -581,12 +581,13 @@ class ChordSurface:
         """
         s = np.linspace(-1, 1, 1000)
         c = self.length(s)  # Projected section lengths before torsion
-        lengths = (self._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
+        lengths = (self._section_pitch(s)[..., 0] * c[:, np.newaxis]).T[0]
         return scipy.integrate.simps(lengths, s) * self.b_flat / 2
 
-    def _planform_torsion(self, s):
+    def _section_pitch(self, s):
         """
-        Compute the planform torsion (rotations about the planform y-axis).
+        Compute the section pitch DCM (rotations about the planform y-axis).
+        This corresponds to "geometric torsion" in some texts.
 
         These angles are between the x-axis of a section and the x-axis of the
         central chord when the wing is flat.
@@ -595,7 +596,7 @@ class ChordSurface:
         ct, st = np.cos(thetas), np.sin(thetas)
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
-        torsion = np.array(
+        Theta = np.array(
             [[ ct, _0, st],  # noqa: E201
              [ _0, _1, _0],  # noqa: E201
              [-st, _0, ct]],
@@ -603,12 +604,13 @@ class ChordSurface:
         # fmt: on
 
         # Ensure the results are shaped like (*s.shape, 3, 3)
-        torsion = np.moveaxis(torsion, [0, 1], [-2, -1])
-        return torsion
+        Theta = np.moveaxis(Theta, [0, 1], [-2, -1])
+        return Theta
 
-    def _arc_dihedral(self, s):
+    def _section_roll(self, s):
         """
-        Compute the arc dihedral (rotations about the arc x-axis).
+        Compute the section roll DCM (rotations about the arc x-axis).
+        This corresponds to "section dihedral" in some texts.
 
         This rotation refers to the angle between the y-axis of a section and
         the y-axis of the central chord of the arc.
@@ -620,7 +622,7 @@ class ChordSurface:
         dzds /= K
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
-        dihedral = np.array(
+        Gamma = np.array(
             [[_1,   _0,    _0],  # noqa: E241
              [_0, dyds, -dzds],
              [_0, dzds, dyds]],
@@ -628,8 +630,8 @@ class ChordSurface:
         # fmt: on
 
         # Ensure the results are shaped like (*s.shape, 3, 3)
-        dihedral = np.moveaxis(dihedral, [0, 1], [-2, -1])
-        return dihedral
+        Gamma = np.moveaxis(Gamma, [0, 1], [-2, -1])
+        return Gamma
 
     def orientation(self, s, flatten=False):
         """
@@ -648,9 +650,9 @@ class ChordSurface:
             Rotation matrices encoding section orientation, where the columns
             are the section (local) x, y, and z coordinate axes.
         """
-        C_c2s = self._planform_torsion(s)
+        C_c2s = self._section_pitch(s)
         if not flatten:
-            C_c2s = self._arc_dihedral(s) @ C_c2s
+            C_c2s = self._section_roll(s) @ C_c2s
         return C_c2s
 
     def length(self, s):
@@ -698,17 +700,17 @@ class ChordSurface:
         x = self.x(s)
         yz = self.yz(s)
         c = self.c(s)
-        torsion = self._planform_torsion(s)
-        dihedral = self._arc_dihedral(s)
+        Theta = self._section_pitch(s)
+        Gamma = self._section_roll(s)
 
         if flatten:
             # FIXME: using `s` for `y_flat` assumes the input values have been
             #        correctly normalized to `total_length(yz) == 2`
             r_RP2O = np.stack((x, s, np.zeros(s.shape)), axis=-1)
-            xhat = torsion @ [1, 0, 0]
+            xhat = Theta @ [1, 0, 0]
         else:
             r_RP2O = np.concatenate((x[..., np.newaxis], yz), axis=-1)
-            xhat = dihedral @ torsion @ [1, 0, 0]
+            xhat = Gamma @ Theta @ [1, 0, 0]
 
         R = np.stack([r_x, r_yz, r_yz], axis=-1)
         r_LE2RP = np.einsum("...i,...,...i->...i", R, c, xhat)
