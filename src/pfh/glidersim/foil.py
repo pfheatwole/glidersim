@@ -1122,16 +1122,16 @@ class SimpleFoil:
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
 
-        LE = self.chord_xyz(s, 0, flatten=flatten)
+        r_LE2O = self.chord_xyz(s, 0, flatten=flatten)
         c = self.chord_length(s)
-        coords_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
-        coords = np.stack(
-            (-coords_a[..., 0], np.zeros(coords_a.shape[:-1]), -coords_a[..., 1]),
+        r_P2LE_a = self.sections.surface_xz(s, sa, surface)  # Unscaled airfoil
+        r_P2LE_s = np.stack(  # In section-local frd coordinates
+            (-r_P2LE_a[..., 0], np.zeros(r_P2LE_a.shape[:-1]), -r_P2LE_a[..., 1]),
             axis=-1,
         )
         C_c2s = self.section_orientation(s, flatten)
-        surface = np.einsum("...ij,...j,...->...i", C_c2s, coords, c)
-        return LE + surface
+        r_P2LE = np.einsum("...ij,...j,...->...i", C_c2s, r_P2LE_s, c)
+        return r_P2LE + r_LE2O
 
     def mass_properties(self, N=250):
         """
