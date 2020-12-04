@@ -129,6 +129,10 @@ Airfoil
 Geometry
 --------
 
+* Should I rename `surface_curve` to `profile_curve`? I've been using "surface"
+  a lot lately, for things like the chord surface and the mean camber surface.
+  It's become a general term that makes `surface_curve` ambiguous.
+
 * If my airfoil coefficients are parametrized by `delta_f`, should the airfoil
   geometry be as well? I don't like either option: currently I have the
   `AirfoilCoefficients` handling the interpolation over `delta_f` since it's
@@ -239,30 +243,18 @@ Low priority
 ChordSurface
 =============
 
-* Rename `_planform_torsion` and `_arc_dihedral`, for many reasons:
+* Eliminate `ChordSurface`. I've already eliminated it from my paper.
 
-  * They're intrinsic Euler pitch and roll angles, so `theta` and `gamma` are
-    more explicit. (I like that `gamma` doesn't conflict with the traditional
-    definition of wingtip dihedral `Gamma`. Hopefully makes them less likely
-    to be confused.)
+  First of all, the name isn't very clear. I would love to call it a planform,
+  but that term is ambiguous (multiple definitions). Also, if you plotted the
+  chord surface it wouldn't communicate information about section roll, so
+  it's not clear why the `ChordSurface` owns that.
 
-  * I'm avoiding  "planform" (ambiguous term, multiple definitions)
-
-  * These are more like "section dihedral", no "arc dihedral"
-
-  * The section roll is only defined by the arc because I've `gamma
-    = arctan(dz/dy)`, but in general you could have `gamma = 0` (for vertical
-    sections). The math doesn't require the section roll to remain orthogonal
-    to the yz-curve, so `arc_dihedral` is overly specific.
-
-* Eliminate `ChordSurface`? I've already eliminated it from my
-  paper. I would love to call it a planform, but that term is ambiguous
-  (multiple definitions). It would also eliminate a lot of superfluous
-  functions in `SimpleFoil` that just pass-through to `ChordSurface`; in
-  particular, properties like `AR`, `b_flat`, etc. There might be a good
-  reason to split the design curves from the implementation class (possibly
-  when adding a foil that supports deformations?), but for now it's
-  unnecessary clutter.
+  Second, in terms of implementation: it creates a lot of pass-through
+  functions (properties) in `SimpleFoil` for questionable gain. Would probably
+  need a redesign anyway if I ever wanted to support ribs; the design curves
+  are the idealized target of the inflated wing, and don't contain the
+  information necessary to compute the flattened geometry.
 
 * Review the calculation of the projected span `b` in `ChordSurface.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
@@ -294,9 +286,6 @@ ChordSurface
   `delta_a` (ie, let the `LineGeometry` own `yz`), approximate "piloting with
   the C's" control, etc. See branch `WIP_parametric_chords` for a mockup (and
   a discussion of the limitations).
-
-* Should I use the notation `r_x` and `r_yz` for the chord ratios when the
-  notation `r_A2B` always indicates vectors? (Focus being the use of "r".)
 
 * Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
   max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
@@ -339,21 +328,6 @@ FoilGeometry
 FoilSections
 ============
 
-* Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
-  `C_d,f` to my "air intakes and skin friction drag" adjustments in
-  `FoilSections.Cd`
-
-* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
-  referring to "chordwise" or "camberwise" stations correctly. Some places
-  I mention "chordwise" stations, but glancing at the code it actually looks
-  like I'm computing `pc` as stations along the mean **camber** line.
-
-* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
-  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
-  index I don't seen an obvious way around it.
-
-* Add profile interpolation to `FoilSections`?
-
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
   not been scaled by the chord length, etc.
@@ -362,14 +336,35 @@ FoilSections
   `ChordSurface` and `FoilSections`, both of which define units that are
   scaled by the span of the foil"
 
+
+Geometry
+--------
+
+* Add profile interpolation to `FoilSections`?
+
+* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
+  referring to "chordwise" or "camberwise" stations correctly. Some places
+  I mention "chordwise" stations, but glancing at the code it actually looks
+  like I'm computing `pc` as stations along the mean **camber** line.
+
 * Who should be responsible for sanity checking the parameters for foil
   surface coordinates? For example, `FoilSections.surface_xz` could do it, or
   it could punt it downstream to the air intake functions (meaning each intake
   implementation should duplicate the sanity checking code).
 
+* Reconsider the design/purpose of `surface_xz`. The name implies that the
+  points are in foil frd (thus xyz, not just xy), but they're actually just
+  normal airfoil xy-coordinates. I could make it transform to frd, but there's
+  only one user of that: `SimpleFoil.surface_xyz`, which can do it itself
+  easily enough.
+
+  I was probably trying to maintain interface compatibility with
+  `AirfoilGeometry`, but all the `FoilSections` functions require a section
+  index anyway, so I'm not sure what I was going for.
+
 
 Intakes
--------
+^^^^^^^
 
 * Design review the air `intakes`. Possibly reconsider the name "intakes":
   this concept doesn't *require* that `s_upper != s_lower`; it simply means
@@ -378,6 +373,19 @@ Intakes
   lower portion of the majority of the section profiles.
 
 * Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
+
+
+Coefficients
+------------
+
+* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
+  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
+  index I don't seen an obvious way around it.
+
+* Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
+  `C_d,f` to my "air intakes and skin friction drag" adjustments in
+  `FoilSections.Cd`
+
 
 
 Parafoil
