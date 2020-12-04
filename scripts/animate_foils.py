@@ -70,13 +70,13 @@ def repeat(config, T, fps):
 def SEQS_sweep_chord_lengths(T, fps):
     """Sweep chord_length over a rectangular wing."""
     seq1 = [
-        sweep_scalar("chord_length", .3, .5, T / 2, fps, False),
+        sweep_scalar("c", .3, .5, T / 2, fps, False),
     ]
     seq2 = [
-        sweep_scalar("chord_length", .5, .1, T, fps, False),
+        sweep_scalar("c", .5, .1, T, fps, False),
     ]
     seq3 = [
-        sweep_scalar("chord_length", .1, .3, T / 2, fps, False),
+        sweep_scalar("c", .1, .3, T / 2, fps, False),
     ]
     return (seq1, T / 2), (seq2, T), (seq3, T / 2)
 
@@ -85,12 +85,12 @@ def SEQS_sweep_linear_chord_ratios(T, fps):
     def f1(vmin, vmax, tip, T, fps, reverse):
         for c0 in sweep(vmin, vmax, T, fps, reverse):
             m = c0 - tip
-            yield {"chord_length": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
+            yield {"c": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
 
     def f2(vstart, vstop, c0, T, fps, reverse):
         for tip in sweep(vstart, vstop, T, fps, reverse):
             m = c0 - tip
-            yield {"chord_length": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
+            yield {"c": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
 
     seq0 = [
         sweep_scalar("r_x", 0.5, 1, T / 2, fps, False)
@@ -112,7 +112,7 @@ def SEQS_sweep_elliptical_chord_ratios(T, fps):
 
     def f(vmin, vmax, tip, T, fps, reverse):
         for c0 in sweep(vmin, vmax, T, fps, reverse):
-            yield {"chord_length": f"elliptical_chord({c0:4.3g}, {tip:4.3g})"}
+            yield {"c": f"elliptical_chord({c0:4.3g}, {tip:4.3g})"}
 
     seq1 = [
         f(.11, .7, .1, T, fps, False),
@@ -174,7 +174,7 @@ def SEQS_sweep_xrx_triangle(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    base = {"chord_length": "lambda s: 0.5 * (1 - abs(s))"}
+    base = {"c": "lambda s: 0.5 * (1 - abs(s))"}
 
     seq1a = [
         repeat({**base, "x": "0"}, T * 0.75, fps),
@@ -212,7 +212,7 @@ def SEQS_sweep_xrx_elliptical(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    base = {"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}
+    base = {"c": "elliptical_chord(root=0.5, tip=0.1)"}
     seq1a = [
         repeat({**base, "x": "0"}, T, fps),
         sweep_scalar("r_x", 0.5, 1, T, fps, True),
@@ -247,7 +247,7 @@ def SEQS_sweep_elliptical_anhedral(T, fps):
         for mar in sweep(vstart * 2 + 1, vstop, T, fps, reverse):
             yield {"yz": f"elliptical_arc({ma:<#5.2f}, {mar:<#5.2f})"}
 
-    base = {"chord_length": "elliptical_chord(root=0.5, tip=0.1)"}
+    base = {"c": "elliptical_chord(root=0.5, tip=0.1)"}
     seq1a = [
         repeat(base, T, fps),
         f1(1, 44, T, fps, False),
@@ -270,7 +270,7 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - (s**2))"}
 
     base = {
-        "chord_length": "elliptical_chord(root=0.5, tip=0.1)",
+        "c": "elliptical_chord(root=0.5, tip=0.1)",
         "yz": "elliptical_arc(30, 85)",
     }
 
@@ -297,20 +297,20 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
 def SEQS_sweep_torsion(T, fps):
     def f1(start, peak_start, peak_stop, exponent, T, fps):
         for peak in sweep(peak_start, peak_stop, T, fps=fps, reverse=False):
-            yield {"torsion": f"PT(start={start}, peak={peak:<#6.3f}, exponent={exponent})"}
+            yield {"theta": f"PT(start={start}, peak={peak:<#6.3f}, exponent={exponent})"}
 
     def f2(s_start, s_stop, peak, exponent, T, fps):
         for start in sweep(s_start, s_stop, T, fps=fps):
-            yield {"torsion": f"PT(start={start:<#6.3f}, peak={peak}, exponent={exponent})"}
+            yield {"theta": f"PT(start={start:<#6.3f}, peak={peak}, exponent={exponent})"}
 
     seq1 = [f1(0, 0, 25, 2, T, fps)]
     seq2 = [f2(0, 0.8, 25, 2, T, fps)]
     seq3a = [
-        repeat({"torsion": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
+        repeat({"theta": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
         sweep_scalar("r_x", 0.5, 1, T / 2, fps, True)
     ]
     seq3b = [
-        repeat({"torsion": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
+        repeat({"theta": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
         sweep_scalar("r_x", 0.5, 0, T / 2, fps, True)
     ]
     seq4 = [f1(0, 25, 0, 2, T, fps)]
@@ -449,8 +449,8 @@ if __name__ == "__main__":
         "x": "0",
         "r_yz": "1.00",
         "yz": "FlatYZ()",
-        "chord_length": "0.3",
-        "torsion": "0",
+        "c": "0.3",
+        "theta": "0",
         "center": "False",
     }
 
