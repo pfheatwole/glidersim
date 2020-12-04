@@ -764,7 +764,7 @@ class FoilSections:
             Section index.
         r : array_like of float
             Surface or airfoil coordinates, depending on the value of `surface`.
-        surface : {"upper", "lower", "airfoil"}
+        surface : {"chord", "camber", "upper", "lower", "airfoil"}
             How to interpret the coordinates in `r`. If "upper" or "lower",
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
@@ -780,21 +780,29 @@ class FoilSections:
         """
         s = np.asarray(s)
         r = np.asarray(r)
+        valid_surfaces = {"chord", "camber", "upper", "lower", "airfoil"}
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if surface not in {"upper", "lower", "airfoil"}:
-            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
+        if surface not in valid_surfaces:
+            raise ValueError(f"`surface` must be one of {valid_surfaces}")
         if surface == "airfoil" and (r.min() < -1 or r.max() > 1):
             raise ValueError("Airfoil coordinates must be between -1 and 1.")
         elif surface != "airfoil" and (r.min() < 0 or r.max() > 1):
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
-        if surface == "airfoil":
-            r = np.broadcast_arrays(s, r)[1]
-        else:
+        if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
+            r_P2LE = self.airfoil.geometry.surface_curve(r)
+        else:
+            r = np.broadcast_arrays(s, r)[1]
+            if surface == "chord":
+                r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
+            elif surface == "camber":
+                r_P2LE = self.airfoil.geometry.camber_curve(r)
+            elif surface == "airfoil":
+                r_P2LE = self.airfoil.geometry.surface_curve(r)
 
-        return self.airfoil.geometry.surface_curve(r)  # Unscaled airfoil
+        return r_P2LE
 
     def Cl(self, s, delta_f, alpha, Re):
         """
