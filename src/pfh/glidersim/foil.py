@@ -1109,7 +1109,7 @@ class SimpleFoil:
         r : array_like of float
             Surface coordinate (normalized arc length). Meaning depends on the
             value of `surface`.
-        surface : {"upper", "lower", "airfoil"}
+        surface : {"chord", "camber", "upper", "lower", "airfoil"}
             How to interpret the coordinates in `r`. If "upper" or "lower",
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
