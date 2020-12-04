@@ -456,7 +456,7 @@ class ChordSurface:
     r_x : float or callable
         A ratio from 0 to 1 that defines what location on each chord is located
         at the x-coordinate defined by `x`. This can be a constant or a
-        function of the section index. For example, `xy_r = 1` says that `x` is
+        function of the section index. For example, `r_x = 1` says that `x` is
         specifying the x-coordinate of the trailing edge.
     x : float or callable
         The x-coordinates of each section as a function of the section index.
