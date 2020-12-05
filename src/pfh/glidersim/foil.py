@@ -229,7 +229,7 @@ def elliptical_chord(root, tip):
     -------
     EllipticalArc
         A function `chord_length(s)` where `-1 <= s <= 1`, (suitable for use
-        with `ChordSurface`).
+        with `SectionLayout`).
     """
 
     taper = tip / root
@@ -264,7 +264,7 @@ def elliptical_arc(mean_anhedral, tip_anhedral=None):
     -------
     EllipticalArc
         A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
-        arc length `2` (suitable for use with `ChordSurface`).
+        arc length `2` (suitable for use with `SectionLayout`).
     """
     if tip_anhedral is None:  # Assume circular
         tip_anhedral = 2 * mean_anhedral
@@ -439,14 +439,14 @@ class FlatYZ:
 
 # ---------------------------------------------------------------------------
 
-class ChordSurface:
+class SectionLayout:
     """
     FIXME: docstring. Describe the geometry.
 
     All input values must be normalized by `b_flat = 2`. Output values can be
     scaled as needed to achieve a given `b`, `b_flat`, `S`, or `S_flat`.
 
-    Conceptually, this surface is a design target: an idealized goal to produce
+    Conceptually, this specifies a design target: an idealized goal to produce
     with a physical foil. Rigid foils can create this surface exactly, but
     flexible wings, like parafoils, can only approximate this shape through
     the internal structure of cells.
@@ -758,7 +758,7 @@ class FoilSections:
 
         These are unscaled since the FoilSections only defines the normalized
         airfoil geometry and coefficients. The Foil scales, translates, and
-        orients these with the chord data it gets from the ChordSurface.
+        orients these with the chord data it gets from the SectionLayout.
 
         Parameters
         ----------
@@ -948,7 +948,7 @@ class SimpleFoil:
 
     def __init__(
         self,
-        chords,
+        layout,
         sections,
         b=None,
         b_flat=None,
@@ -958,15 +958,15 @@ class SimpleFoil:
 
         Parameters
         ----------
-        chords : ChordSurface
+        layout : SectionLayout
             FIXME: docstring
         sections : FoilSections
             The geometry and coefficients for the section profiles.
         b, b_flat : float
             The arched and flattened spans of the chords. Specify only one.
-            These function as scaling factors for the ChordSurface.
+            These function as scaling factors for the SectionLayout.
         """
-        self._chords = chords
+        self._layout = layout
         self.sections = sections
 
         if b is not None and b_flat is not None:
@@ -986,7 +986,7 @@ class SimpleFoil:
     @b.setter
     def b(self, new_b):
         self._b = new_b
-        self._b_flat = new_b * self._chords.b_flat / self._chords.b
+        self._b_flat = new_b * self._layout.b_flat / self._layout.b
 
     @property
     def b_flat(self):
@@ -996,7 +996,7 @@ class SimpleFoil:
     @b_flat.setter
     def b_flat(self, new_b_flat):
         self._b_flat = new_b_flat
-        self._b = new_b_flat * self._chords.b / self._chords.b_flat
+        self._b = new_b_flat * self._layout.b / self._layout.b_flat
 
     @property
     def AR(self):
@@ -1016,7 +1016,7 @@ class SimpleFoil:
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane.
         """
-        return self._chords.S * (self.b_flat / 2) ** 2
+        return self._layout.S * (self.b_flat / 2) ** 2
 
     @property
     def S_flat(self):
@@ -1026,7 +1026,7 @@ class SimpleFoil:
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane.
         """
-        return self._chords.S_flat * (self.b_flat / 2) ** 2
+        return self._layout.S_flat * (self.b_flat / 2) ** 2
 
     def chord_length(self, s):
         """
@@ -1042,7 +1042,7 @@ class SimpleFoil:
         array_like of float
             The section chord lengths.
         """
-        return self._chords.length(s) * (self.b_flat / 2)
+        return self._layout.length(s) * (self.b_flat / 2)
 
     def section_orientation(self, s, flatten=False):
         """
@@ -1061,7 +1061,7 @@ class SimpleFoil:
             Rotation matrices encoding section orientation, where the columns
             are the section (local) x, y, and z coordinate axes.
         """
-        return self._chords.orientation(s, flatten)
+        return self._layout.orientation(s, flatten)
 
     def section_thickness(self, s, r):
         """
@@ -1124,7 +1124,7 @@ class SimpleFoil:
         )
         C_c2s = self.section_orientation(s, flatten)
         r_P2LE = np.einsum("...ij,...j,...->...i", C_c2s, r_P2LE_s, c)
-        r_LE2O = self._chords.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
+        r_LE2O = self._layout.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
         return r_P2LE + r_LE2O
 
     def mass_properties(self, N=250):

@@ -229,7 +229,7 @@ def build_hook3():
     # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
     theta = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    chord_surface = gsim.foil.ChordSurface(
+    layout = gsim.foil.SectionLayout(
         r_x=0.75,
         x=0,
         r_yz=1.00,
@@ -245,7 +245,7 @@ def build_hook3():
     )
 
     canopy = gsim.foil.SimpleFoil(
-        chords=chord_surface,
+        layout=layout,
         sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span

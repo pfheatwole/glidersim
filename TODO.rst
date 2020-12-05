@@ -240,26 +240,13 @@ Low priority
   airfoils though, conceptually. Very elegant.
 
 
-ChordSurface
+SectionLayout
 =============
 
-* Eliminate `ChordSurface`. I've already eliminated it from my paper.
-
-  First of all, the name isn't very clear. I would love to call it a planform,
-  but that term is ambiguous (multiple definitions). Also, if you plotted the
-  chord surface it wouldn't communicate information about section roll, so
-  it's not clear why the `ChordSurface` owns that.
-
-  Second, in terms of implementation: it creates a lot of pass-through
-  functions (properties) in `SimpleFoil` for questionable gain. Would probably
-  need a redesign anyway if I ever wanted to support ribs; the design curves
-  are the idealized target of the inflated wing, and don't contain the
-  information necessary to compute the flattened geometry.
-
-* Review the calculation of the projected span `b` in `ChordSurface.__init__`.
+* Review the calculation of the projected span `b` in `SectionLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
   leading edge if the wing has positive torsion and arc anhedral), or should
-  I use `ChordSurface.b = xyz(1, r_yz(1))[1]`?
+  I use `SectionLayout.b = xyz(1, r_yz(1))[1]`?
 
 * Redefine the parameters in `foil.elliptical_arc`? This is a helper function
   that defines an angle distribution as an `EllipticalArc` parametrized by
@@ -276,7 +263,7 @@ ChordSurface
   `x` instead of `c`. Hrm. Well, probably still best to reparametrize
   `elliptical_arc` in terms of `mean_angle` and `tip_angle`.
 
-* Should `ChordSurface` use the general form of the chord surface equation?
+* Should `SectionLayout` use the general form of the chord surface equation?
   Maybe have another class that presents the simplified parametrization I'm
   using for parafoil chord surfaces?
 
@@ -333,7 +320,7 @@ FoilSections
   not been scaled by the chord length, etc.
 
   Heck, I need to document the entire stack: "a Foil is a combination of
-  `ChordSurface` and `FoilSections`, both of which define units that are
+  `SectionLayout` and `FoilSections`, both of which define units that are
   scaled by the span of the foil"
 
 
@@ -398,7 +385,7 @@ Parafoil
 Geometry
 --------
 
-* The `ChordSurface` requires the values to be proportional to `b_flat == 2`?
+* The `SectionLayout` requires the values to be proportional to `b_flat == 2`?
   **What if you don't know `b_flat`? Do you need to compute the total length
   of `yz` and re-normalize to that?** (I think I'm missing something here...
   As long as everything is proportional, who cares? I'll need to look for
@@ -438,7 +425,7 @@ Inertia
 Cells
 ^^^^^
 
-This is a catch-all group. Right now I'm using the idealized `ChordSurface`
+This is a catch-all group. Right now I'm using the idealized `SectionLayout`
 directly, but real parafoils are comprised of cells, where the ribs provide
 internal structure and attempt to produce the desired airfoil cross-sections,
 but deformations (billowing, etc) cause deviations from that ideal shape.
@@ -482,7 +469,7 @@ Some considerations:
 * Try to anticipate some of the effects of billowing. For example, compar the
   performance of a normal `24018` to a 15% increased thickness `24018` using
   XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
-  anticipated deviations compared to the idealized `ChordSurface`. (decreased
+  anticipated deviations compared to the idealized `SectionLayout`. (decreased
   lift/drag ratio, etc)
 
 * How a cell compresses during inflation depends on the shape of the parafoil
@@ -494,7 +481,7 @@ Deformations
 * To warp the trailing edge, could you warp the mean camber line instead of
   the surfaces themselves, then constrain to maintain constant curve length?
 
-* Starting with the `ChordSurface`, how hard would it be to warp the central
+* Starting with the `SectionLayout`, how hard would it be to warp the central
   sections to produce a "weight shift" effect?
 
 * Is it a fools errand to support lifting-line methods in the presence of
