@@ -580,7 +580,7 @@ class SectionLayout:
         section chords projected onto the xy-plane.
         """
         s = np.linspace(-1, 1, 1000)
-        c = self.length(s)  # Projected section lengths before torsion
+        c = self.c(s)
         lengths = (self._section_pitch(s)[..., 0] * c[:, np.newaxis]).T[0]
         return scipy.integrate.simps(lengths, s) * self.b_flat / 2
 
@@ -654,22 +654,6 @@ class SectionLayout:
         if not flatten:
             C_c2s = self._section_roll(s) @ C_c2s
         return C_c2s
-
-    def length(self, s):
-        """
-        Compute section chord lengths.
-
-        Parameters
-        ----------
-        s : array_like of float, shape (N,)
-            Section index
-
-        Returns
-        -------
-        array_like of float, shape (N,)
-            The length of the section chord.
-        """
-        return self.c(s)
 
     def xyz(self, s, r, flatten=False):
         """
@@ -1030,19 +1014,19 @@ class SimpleFoil:
 
     def chord_length(self, s):
         """
-        Compute chord lengths.
+        Compute section chord lengths.
 
         Parameters
         ----------
-        s : array_like of float
+        s : array_like of float, shape (N,)
             Section index
 
         Returns
         -------
-        array_like of float
-            The section chord lengths.
+        array_like of float, shape (N,)
+            The length of the section chord.
         """
-        return self._layout.length(s) * (self.b_flat / 2)
+        return self._layout.c(s) * (self.b_flat / 2)
 
     def section_orientation(self, s, flatten=False):
         """
