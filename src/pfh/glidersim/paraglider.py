@@ -1145,6 +1145,7 @@ class Paraglider9a:
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload about `R`
@@ -1158,7 +1159,7 @@ class Paraglider9a:
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
         Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
-        J_b = (
+        J_b2R = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
@@ -1169,7 +1170,7 @@ class Paraglider9a:
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
-        J_p = pmp["J"] + pmp["mass"] * Dp
+        J_p2R = pmp["J"] + pmp["mass"] * Dp
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1240,70 +1241,68 @@ class Paraglider9a:
         # internal force on the risers, `F_R` (in body frd).
 
         # Compute the real mass inertias
-        p_B2e = m_b * v_B2e
-        p_P2e = m_p * v_P2e
-        h_R_b = m_b * cross3(r_B2R, v_R2e) + J_b @ omega_b2e
-        h_R_p = m_p * cross3(r_P2R, C_p2b @ v_R2e) + J_p @ omega_p2e
+        p_b2e = m_b * v_B2e
+        p_p2e = m_p * v_P2e
+        h_b2R = m_b * cross3(r_B2R, v_R2e) + J_b2R @ omega_b2e
+        h_p2R = m_p * cross3(r_P2R, C_p2b @ v_R2e) + J_p2R @ omega_p2e
 
         # Compute the apparent mass inertias (Barrows Eq:16 and Eq:24)
-        M_a = wmp["A_R"][:3, :3]
-        J_a = wmp["A_R"][3:, 3:]
+        M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
+        J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
         S2 = np.diag([0, 1, 0])
         S_PC2RC = crossmat(wmp["r_PC2RC"])
         S_RC2R = crossmat(wmp["r_RC2R"])
-        p_a = M_a @ (
+        p_a2e = M_a @ (
             v_R2e
             - cross3(wmp["r_RC2R"], omega_b2e)
             - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
         )
-        h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
+        h_a2R = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
 
         # Build the system matrices. A1 and A2 are the forces and moments on
         # the body, A3 and A4 are the forces and moments on the payload. The
         # vector of unknowns `x` is: [a_R2e, alpha_b2e, alpha_p2e, F_R]
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
-        A2 = [m_b * crossmat(r_B2R), J_b, Z3, Z3]
+        A2 = [m_b * crossmat(r_B2R), J_b2R, Z3, Z3]
         A3 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
-        A4 = [m_p * crossmat(r_P2R) @ C_p2b, Z3, J_p, Z3]
+        A4 = [m_p * crossmat(r_P2R) @ C_p2b, Z3, J_p2R, Z3]
         A = np.block([A1, A2, A3, A4])
         A[:6, :6] += wmp["A_R"]  # Include the apparent mass
+
+        omega_b2p = omega_b2e - C_p2b.T @ omega_p2e  # in body coordinates
 
         B1 = (
             F_wing_aero
             + F_wing_weight
-            - m_b * cross3(omega_b2e, v_R2e)
-            - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
+            - cross3(omega_b2e, p_b2e)
 
             # Apparent inertial force (Barrows Eq:61)
-            - cross3(omega_b2e, p_a)
+            - cross3(omega_b2e, p_a2e)
         )
         B2 = (
             M_wing
             - M_R
-            - m_b * cross3(cross3(omega_b2e, r_B2R), v_R2e)
-            - m_b * cross3(r_B2R, cross3(omega_b2e, v_R2e))
-            - cross3(omega_b2e, J_b @ omega_b2e)
-            - cross3(v_R2e, p_B2e)
+            - cross3(v_R2e, p_b2e)
+            - cross3(omega_b2e, h_b2R)
 
             # Apparent inertial moment (Barrows Eq:64)
-            - cross3(v_R2e, p_a)
-            - cross3(omega_b2e, h_a)
+            - cross3(v_R2e, p_a2e)
+            - cross3(omega_b2e, h_a2R)
             + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
         )
         B3 = (
             F_p_aero
             + F_p_weight
-            - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
-            - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
+            - m_p * C_p2b @ cross3(omega_b2p, v_R2e)
+            - cross3(omega_p2e, p_p2e)
         )
         B4 = (
             M_p
             + C_p2b @ M_R
-            - m_p * cross3(cross3(omega_p2e, r_P2R), C_p2b @ v_R2e)
-            - m_p * cross3(r_P2R, C_p2b @ cross3(omega_b2e, v_R2e))
-            - cross3(omega_p2e, J_p @ omega_p2e)
-            - cross3(C_p2b @ v_R2e, p_P2e)
+            - cross3(C_p2b @ v_R2e, p_p2e)
+            - m_p * cross3(r_P2R, C_p2b @ cross3(omega_b2p, v_R2e))
+            - cross3(omega_p2e, h_p2R)
         )
         B = np.r_[B1, B2, B3, B4]
 
@@ -1637,7 +1636,7 @@ class Paraglider9b(Paraglider9a):
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
-        J_b = (  # Inertia of the body about `B`
+        J_b2B = (  # Inertia of the body about `B`
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
@@ -1647,7 +1646,7 @@ class Paraglider9b(Paraglider9a):
         pmp = self.payload.mass_properties(delta_w)
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
-        J_p = pmp["J"]  # Inertia of the payload about `P`
+        J_p2P = pmp["J"]  # Inertia of the payload about `P`
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1720,8 +1719,8 @@ class Paraglider9b(Paraglider9a):
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
         A2 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
-        A3 = [Z3, J_b, Z3, -crossmat(r_B2R)]
-        A4 = [Z3, Z3, J_p, crossmat(r_P2R) @ C_p2b]
+        A3 = [Z3, J_b2B, Z3, -crossmat(r_B2R)]
+        A4 = [Z3, Z3, J_p2P, crossmat(r_P2R) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
 
         B1 = (
@@ -1736,8 +1735,8 @@ class Paraglider9b(Paraglider9a):
             - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
         )
-        B3 = M_wing - M_R - cross3(omega_b2e, J_b @ omega_b2e)
-        B4 = M_p + C_p2b @ M_R - cross3(omega_p2e, J_p @ omega_p2e)
+        B3 = M_wing - M_R - cross3(omega_b2e, J_b2B @ omega_b2e)
+        B4 = M_p + C_p2b @ M_R - cross3(omega_p2e, J_p2P @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
