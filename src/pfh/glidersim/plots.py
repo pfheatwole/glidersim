@@ -164,7 +164,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def plot_foil(foil, N_sections=21, N_points=50, surface="airfoils", flatten=False, ax=None):
+def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False, ax=None):
     """Plot a FoilGeometry in 3D."""
     if ax is None:
         fig, ax = _create_3d_axes()
@@ -172,6 +172,7 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoils", flatten=Fals
     else:
         independent_plot = False
 
+    valid_surfaces = {"airfoil", "chord", "camber"}
     r = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
         if surface == "airfoil":
@@ -185,6 +186,8 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoils", flatten=Fals
         elif surface == "camber":
             coords = foil.surface_xyz(s, r, "camber", flatten=flatten).T
             ax.plot(coords[0], coords[1], coords[2], c="k", lw=0.5)
+        else:
+            raise ValueError(f"`surface` must be one of {valid_surfaces}")
 
     s = np.linspace(-1, 1, N_sections)
     LE = foil.surface_xyz(s, 0, surface="chord", flatten=flatten).T
