@@ -282,8 +282,9 @@ class Paraglider6a:
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e = derivatives[:3]
-        alpha_b2e = derivatives[3:]
+        a_R2e = derivatives[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_R2e, alpha_b2e, ref
 
@@ -752,7 +753,7 @@ class Paraglider6b(Paraglider6a):
 
         derivatives = np.linalg.solve(A, B)
         a_B2e = derivatives[:3]  # In frame F_b
-        alpha_b2e = derivatives[3:]
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
         a_R2e = a_B2e - np.cross(alpha_b2e, r_B2R)  # In frame F_b
         a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
 
@@ -975,8 +976,9 @@ class Paraglider6c(Paraglider6a):
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e = derivatives[:3]
-        alpha_b2e = derivatives[3:]
+        a_R2e = derivatives[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_R2e, alpha_b2e, ref
 
@@ -1307,9 +1309,10 @@ class Paraglider9a:
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
-        a_R2e = x[:3]
-        alpha_b2e = x[3:6]
-        alpha_p2e = x[6:9]
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_R = x[9:]  # For debugging
 
         # embed()
@@ -1740,9 +1743,10 @@ class Paraglider9b(Paraglider9a):
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
-        a_R2e = x[:3]
-        alpha_b2e = x[3:6]
-        alpha_p2e = x[6:9]
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_R = x[9:]  # For debugging
 
         # embed()
