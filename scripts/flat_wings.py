@@ -68,7 +68,7 @@ if __name__ == "__main__":
     sections = gsim.foil.FoilSections(airfoil=airfoil)
 
     # Straight
-    chord_surface1 = gsim.foil.ChordSurface(
+    layout1 = gsim.foil.SectionLayout(
         c=0.25,
         r_x=0,
         x=0,
@@ -76,14 +76,14 @@ if __name__ == "__main__":
         yz=gsim.foil.FlatYZ(),
     )
     wing1 = gsim.foil.SimpleFoil(
-        chords=chord_surface1,
+        layout=layout1,
         sections=sections,
         b_flat=8,
     )
-    M_ref1 = wing1.chord_xyz(0, 0)
+    M_ref1 = wing1.surface_xyz(0, 0, surface="chord")
 
     # Elliptical
-    chord_surface2 = gsim.foil.ChordSurface(
+    layout2 = gsim.foil.SectionLayout(
         c=gsim.foil.elliptical_chord(0.25, 0.1),
         r_x=0.5,
         x=0,
@@ -91,14 +91,14 @@ if __name__ == "__main__":
         yz=gsim.foil.FlatYZ(),
     )
     wing2 = gsim.foil.SimpleFoil(
-        chords=chord_surface2,
+        layout=layout2,
         sections=sections,
         b_flat=8,
     )
-    M_ref2 = wing2.chord_xyz(0, 0.5)
+    M_ref2 = wing2.surface_xyz(0, 0.5, surface="chord")
 
     # Diagonal
-    chord_surface3 = gsim.foil.ChordSurface(
+    layout3 = gsim.foil.SectionLayout(
         c=0.5,
         r_x=0.5,
         x=lambda s: -np.abs(s),
@@ -106,14 +106,14 @@ if __name__ == "__main__":
         yz=gsim.foil.FlatYZ(),
     )
     wing3 = gsim.foil.SimpleFoil(
-        chords=chord_surface3,
+        layout=layout3,
         sections=sections,
         b_flat=1,
     )
-    M_ref3 = wing3.chord_xyz(0, 0.0)
+    M_ref3 = wing3.surface_xyz(0, 0.0, surface="chord")
 
     # Triangle
-    chord_surface4 = gsim.foil.ChordSurface(
+    layout4 = gsim.foil.SectionLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=1.0,
         x=0,
@@ -121,14 +121,14 @@ if __name__ == "__main__":
         yz=gsim.foil.FlatYZ(),
     )
     wing4 = gsim.foil.SimpleFoil(
-        chords=chord_surface4,
+        layout=layout4,
         sections=sections,
         b_flat=1,
     )
-    M_ref4 = wing4.chord_xyz(0, 0.0)
+    M_ref4 = wing4.surface_xyz(0, 0.0, surface="chord")
 
     # Diamond
-    chord_surface5 = gsim.foil.ChordSurface(
+    layout5 = gsim.foil.SectionLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=0.5,
         x=0,
@@ -136,11 +136,11 @@ if __name__ == "__main__":
         yz=gsim.foil.FlatYZ(),
     )
     wing5 = gsim.foil.SimpleFoil(
-        chords=chord_surface5,
+        layout=layout5,
         sections=sections,
         b_flat=1,
     )
-    M_ref5 = wing5.chord_xyz(0, 0.0)
+    M_ref5 = wing5.surface_xyz(0, 0.0, surface="chord")
 
     wing, M_ref = wing1, M_ref1
     # wing, M_ref = wing2, M_ref2

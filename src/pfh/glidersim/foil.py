@@ -229,7 +229,7 @@ def elliptical_chord(root, tip):
     -------
     EllipticalArc
         A function `chord_length(s)` where `-1 <= s <= 1`, (suitable for use
-        with `ChordSurface`).
+        with `SectionLayout`).
     """
 
     taper = tip / root
@@ -264,7 +264,7 @@ def elliptical_arc(mean_anhedral, tip_anhedral=None):
     -------
     EllipticalArc
         A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
-        arc length `2` (suitable for use with `ChordSurface`).
+        arc length `2` (suitable for use with `SectionLayout`).
     """
     if tip_anhedral is None:  # Assume circular
         tip_anhedral = 2 * mean_anhedral
@@ -439,14 +439,14 @@ class FlatYZ:
 
 # ---------------------------------------------------------------------------
 
-class ChordSurface:
+class SectionLayout:
     """
     FIXME: docstring. Describe the geometry.
 
     All input values must be normalized by `b_flat = 2`. Output values can be
     scaled as needed to achieve a given `b`, `b_flat`, `S`, or `S_flat`.
 
-    Conceptually, this surface is a design target: an idealized goal to produce
+    Conceptually, this specifies a design target: an idealized goal to produce
     with a physical foil. Rigid foils can create this surface exactly, but
     flexible wings, like parafoils, can only approximate this shape through
     the internal structure of cells.
@@ -580,13 +580,14 @@ class ChordSurface:
         section chords projected onto the xy-plane.
         """
         s = np.linspace(-1, 1, 1000)
-        c = self.length(s)  # Projected section lengths before torsion
-        lengths = (self._planform_torsion(s)[..., 0] * c[:, np.newaxis]).T[0]
+        c = self.c(s)
+        lengths = (self._section_pitch(s)[..., 0] * c[:, np.newaxis]).T[0]
         return scipy.integrate.simps(lengths, s) * self.b_flat / 2
 
-    def _planform_torsion(self, s):
+    def _section_pitch(self, s):
         """
-        Compute the planform torsion (rotations about the planform y-axis).
+        Compute the section pitch DCM (rotations about the planform y-axis).
+        This corresponds to "geometric torsion" in some texts.
 
         These angles are between the x-axis of a section and the x-axis of the
         central chord when the wing is flat.
@@ -595,7 +596,7 @@ class ChordSurface:
         ct, st = np.cos(thetas), np.sin(thetas)
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
-        torsion = np.array(
+        Theta = np.array(
             [[ ct, _0, st],  # noqa: E201
              [ _0, _1, _0],  # noqa: E201
              [-st, _0, ct]],
@@ -603,12 +604,13 @@ class ChordSurface:
         # fmt: on
 
         # Ensure the results are shaped like (*s.shape, 3, 3)
-        torsion = np.moveaxis(torsion, [0, 1], [-2, -1])
-        return torsion
+        Theta = np.moveaxis(Theta, [0, 1], [-2, -1])
+        return Theta
 
-    def _arc_dihedral(self, s):
+    def _section_roll(self, s):
         """
-        Compute the arc dihedral (rotations about the arc x-axis).
+        Compute the section roll DCM (rotations about the arc x-axis).
+        This corresponds to "section dihedral" in some texts.
 
         This rotation refers to the angle between the y-axis of a section and
         the y-axis of the central chord of the arc.
@@ -620,7 +622,7 @@ class ChordSurface:
         dzds /= K
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))
         # fmt: off
-        dihedral = np.array(
+        Gamma = np.array(
             [[_1,   _0,    _0],  # noqa: E241
              [_0, dyds, -dzds],
              [_0, dzds, dyds]],
@@ -628,8 +630,8 @@ class ChordSurface:
         # fmt: on
 
         # Ensure the results are shaped like (*s.shape, 3, 3)
-        dihedral = np.moveaxis(dihedral, [0, 1], [-2, -1])
-        return dihedral
+        Gamma = np.moveaxis(Gamma, [0, 1], [-2, -1])
+        return Gamma
 
     def orientation(self, s, flatten=False):
         """
@@ -648,30 +650,14 @@ class ChordSurface:
             Rotation matrices encoding section orientation, where the columns
             are the section (local) x, y, and z coordinate axes.
         """
-        C_c2s = self._planform_torsion(s)
+        C_c2s = self._section_pitch(s)
         if not flatten:
-            C_c2s = self._arc_dihedral(s) @ C_c2s
+            C_c2s = self._section_roll(s) @ C_c2s
         return C_c2s
-
-    def length(self, s):
-        """
-        Compute section chord lengths.
-
-        Parameters
-        ----------
-        s : array_like of float, shape (N,)
-            Section index
-
-        Returns
-        -------
-        array_like of float, shape (N,)
-            The length of the section chord.
-        """
-        return self.c(s)
 
     def xyz(self, s, r, flatten=False):
         """
-        Compute the `xyz` coordinates of points on section chords.
+        Compute the coordinates of points on section chords in canopy frd.
 
         Parameters
         ----------
@@ -698,23 +684,24 @@ class ChordSurface:
         x = self.x(s)
         yz = self.yz(s)
         c = self.c(s)
-        torsion = self._planform_torsion(s)
-        dihedral = self._arc_dihedral(s)
+        Theta = self._section_pitch(s)
+        Gamma = self._section_roll(s)
 
         if flatten:
             # FIXME: using `s` for `y_flat` assumes the input values have been
             #        correctly normalized to `total_length(yz) == 2`
-            LE = np.stack((x, s, np.zeros(s.shape)), axis=-1)
-            xhat = torsion @ [1, 0, 0]
+            r_RP2O = np.stack((x, s, np.zeros(s.shape)), axis=-1)
+            xhat = Theta @ [1, 0, 0]
         else:
-            LE = np.concatenate((x[..., np.newaxis], yz), axis=-1)
-            xhat = dihedral @ torsion @ [1, 0, 0]
+            r_RP2O = np.concatenate((x[..., np.newaxis], yz), axis=-1)
+            xhat = Gamma @ Theta @ [1, 0, 0]
 
         R = np.stack([r_x, r_yz, r_yz], axis=-1)
-        LE += np.einsum("...i,...,...i->...i", R, c, xhat)
-        xyz = LE - (r * c)[..., np.newaxis] * xhat - self.LE0
+        r_LE2RP = np.einsum("...i,...,...i->...i", R, c, xhat)
+        r_P2LE = -(r * c)[..., np.newaxis] * xhat - self.LE0
+        r_P2O = r_P2LE + r_LE2RP + r_RP2O
 
-        return xyz
+        return r_P2O
 
 
 class FoilSections:
@@ -755,7 +742,7 @@ class FoilSections:
 
         These are unscaled since the FoilSections only defines the normalized
         airfoil geometry and coefficients. The Foil scales, translates, and
-        orients these with the chord data it gets from the ChordSurface.
+        orients these with the chord data it gets from the SectionLayout.
 
         Parameters
         ----------
@@ -763,7 +750,7 @@ class FoilSections:
             Section index.
         r : array_like of float
             Surface or airfoil coordinates, depending on the value of `surface`.
-        surface : {"upper", "lower", "airfoil"}
+        surface : {"chord", "camber", "upper", "lower", "airfoil"}
             How to interpret the coordinates in `r`. If "upper" or "lower",
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
@@ -779,21 +766,29 @@ class FoilSections:
         """
         s = np.asarray(s)
         r = np.asarray(r)
+        valid_surfaces = {"chord", "camber", "upper", "lower", "airfoil"}
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
-        if surface not in {"upper", "lower", "airfoil"}:
-            raise ValueError("`surface` must be one of {'upper', 'lower', 'airfoil'}")
+        if surface not in valid_surfaces:
+            raise ValueError(f"`surface` must be one of {valid_surfaces}")
         if surface == "airfoil" and (r.min() < -1 or r.max() > 1):
             raise ValueError("Airfoil coordinates must be between -1 and 1.")
         elif surface != "airfoil" and (r.min() < 0 or r.max() > 1):
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
-        if surface == "airfoil":
-            r = np.broadcast_arrays(s, r)[1]
-        else:
+        if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
+            r_P2LE = self.airfoil.geometry.surface_curve(r)
+        else:
+            r = np.broadcast_arrays(s, r)[1]
+            if surface == "chord":
+                r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
+            elif surface == "camber":
+                r_P2LE = self.airfoil.geometry.camber_curve(r)
+            elif surface == "airfoil":
+                r_P2LE = self.airfoil.geometry.surface_curve(r)
 
-        return self.airfoil.geometry.surface_curve(r)  # Unscaled airfoil
+        return r_P2LE
 
     def Cl(self, s, delta_f, alpha, Re):
         """
@@ -937,7 +932,7 @@ class SimpleFoil:
 
     def __init__(
         self,
-        chords,
+        layout,
         sections,
         b=None,
         b_flat=None,
@@ -947,15 +942,15 @@ class SimpleFoil:
 
         Parameters
         ----------
-        chords : ChordSurface
+        layout : SectionLayout
             FIXME: docstring
         sections : FoilSections
             The geometry and coefficients for the section profiles.
         b, b_flat : float
             The arched and flattened spans of the chords. Specify only one.
-            These function as scaling factors for the ChordSurface.
+            These function as scaling factors for the SectionLayout.
         """
-        self._chords = chords
+        self._layout = layout
         self.sections = sections
 
         if b is not None and b_flat is not None:
@@ -975,7 +970,7 @@ class SimpleFoil:
     @b.setter
     def b(self, new_b):
         self._b = new_b
-        self._b_flat = new_b * self._chords.b_flat / self._chords.b
+        self._b_flat = new_b * self._layout.b_flat / self._layout.b
 
     @property
     def b_flat(self):
@@ -985,7 +980,7 @@ class SimpleFoil:
     @b_flat.setter
     def b_flat(self, new_b_flat):
         self._b_flat = new_b_flat
-        self._b = new_b_flat * self._chords.b / self._chords.b_flat
+        self._b = new_b_flat * self._layout.b / self._layout.b_flat
 
     @property
     def AR(self):
@@ -1005,7 +1000,7 @@ class SimpleFoil:
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane.
         """
-        return self._chords.S * (self.b_flat / 2) ** 2
+        return self._layout.S * (self.b_flat / 2) ** 2
 
     @property
     def S_flat(self):
@@ -1015,41 +1010,23 @@ class SimpleFoil:
         This is the conventional definition using the area traced out by the
         section chords projected onto the xy-plane.
         """
-        return self._chords.S_flat * (self.b_flat / 2) ** 2
+        return self._layout.S_flat * (self.b_flat / 2) ** 2
 
     def chord_length(self, s):
         """
-        Compute chord lengths.
-
-        Parameters
-        ----------
-        s : array_like of float
-            Section index
-
-        Returns
-        -------
-        array_like of float
-            The section chord lengths.
-        """
-        return self._chords.length(s) * (self.b_flat / 2)
-
-    def chord_xyz(self, s, r, flatten=False):
-        """
-        Sample points on section chords in foil frd.
+        Compute section chord lengths.
 
         Parameters
         ----------
         s : array_like of float, shape (N,)
             Section index
-        r : float
-            Position on the chords as a percentage, where `r = 0` is the
-            leading edge, and `r = 1` is the trailing edge.
-        flatten : boolean
-            Whether to flatten the chord surface by disregarding dihedral
-            (curvature in the yz-plane). This is useful for inflatable wings,
-            such as parafoils. Default: False.
+
+        Returns
+        -------
+        array_like of float, shape (N,)
+            The length of the section chord.
         """
-        return self._chords.xyz(s, r, flatten=flatten) * (self.b_flat / 2)
+        return self._layout.c(s) * (self.b_flat / 2)
 
     def section_orientation(self, s, flatten=False):
         """
@@ -1068,7 +1045,7 @@ class SimpleFoil:
             Rotation matrices encoding section orientation, where the columns
             are the section (local) x, y, and z coordinate axes.
         """
-        return self._chords.orientation(s, flatten)
+        return self._layout.orientation(s, flatten)
 
     def section_thickness(self, s, r):
         """
@@ -1100,7 +1077,7 @@ class SimpleFoil:
         r : array_like of float
             Surface coordinate (normalized arc length). Meaning depends on the
             value of `surface`.
-        surface : {"upper", "lower", "airfoil"}
+        surface : {"chord", "camber", "upper", "lower", "airfoil"}
             How to interpret the coordinates in `r`. If "upper" or "lower",
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
@@ -1123,7 +1100,6 @@ class SimpleFoil:
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
 
-        r_LE2O = self.chord_xyz(s, 0, flatten=flatten)
         c = self.chord_length(s)
         r_P2LE_a = self.sections.surface_xz(s, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
@@ -1132,6 +1108,7 @@ class SimpleFoil:
         )
         C_c2s = self.section_orientation(s, flatten)
         r_P2LE = np.einsum("...ij,...j,...->...i", C_c2s, r_P2LE_s, c)
+        r_LE2O = self._layout.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
         return r_P2LE + r_LE2O
 
     def mass_properties(self, N=250):
@@ -1208,7 +1185,7 @@ class SimpleFoil:
         """
         s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
         s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.chord_xyz(s_nodes, 0.25)  # Segment endpoints
+        nodes = self.surface_xyz(s_nodes, 0.25, surface="chord")  # Segment endpoints
         section = self.sections._mass_properties()
         node_chords = self.chord_length(s_nodes)
         chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
@@ -1221,7 +1198,7 @@ class SimpleFoil:
             [*section["upper_centroid"], 0],
             [*section["area_centroid"], 0],
             [*section["lower_centroid"], 0]])
-        segment_origins = self.chord_xyz(s_mid_nodes, 0)
+        segment_origins = self.surface_xyz(s_mid_nodes, 0, surface="chord")
         segment_upper_cm, segment_volume_cm, segment_lower_cm = (
             np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
             + segment_origins[None, ...]
@@ -1719,11 +1696,11 @@ class Phillips(ForceEstimator):
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.foil.chord_xyz(self.s_nodes, 0.25)
+        self.nodes = self.foil.surface_xyz(self.s_nodes, 0.25, surface="chord")
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.foil.chord_xyz(self.s_cps, 0.25)
+        self.cps = self.foil.surface_xyz(self.s_cps, 0.25, surface="chord")
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]

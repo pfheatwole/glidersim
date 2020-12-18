@@ -1,18 +1,7 @@
-* I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
-  that term. It's more like the "parameter" of a parametric curve. When I read
-  "coordinates" I think xyz.
+* Refactor the simulator into a proper module
 
-* Should I rename the `control_points` functions `r_CP2LE`?
-
-* I'd love to demo the effect of assuming a fixed Reynolds number (eg,
-  `1.5e6`) versus using their proper values. This is probably the most extreme
-  during a turn. Maybe I could plot the range of values for fast straight
-  flight versus a slow turn?
-
-  Also, how does the performance of the wing change when ridge soaring into
-  the wind with brakes compare to straight flight without brakes? The
-  airspeed's of the different equilibriums are different, but by how much?
-  Less than a factor of two, I think.
+* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
+  a bug because I used `r_LE2R` instead of a vague function name.)
 
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
@@ -50,6 +39,10 @@ Packaging
 General
 =======
 
+* I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
+  that term. It's more like the "parameter" of a parametric curve. When I read
+  "coordinates" I think xyz.
+
 * Vectorize `util.crossmat`?
 
 * The control points need a redesign. I don't like stacking in them arrays
@@ -84,6 +77,11 @@ General
 
 Plots
 -----
+
+* In `plots.plot_foil` I have a `surface` parameter. Should I use `airfoil` or
+  `profile` for the profile surface? I'm using `airfoil` but in a way that
+  contradicts its use in `surface_xyz` (`plot_foil(surface='airfoil')`
+  actually plots the 'upper' and 'lower' surfaces).
 
 * I'd sure like it if the 3D plots could use a figsize that wasn't square (it
   wastes too much space). I think it's because `_set_axes_equal` uses
@@ -128,6 +126,10 @@ Airfoil
 
 Geometry
 --------
+
+* Should I rename `surface_curve` to `profile_curve`? I've been using "surface"
+  a lot lately, for things like the chord surface and the mean camber surface.
+  It's become a general term that makes `surface_curve` ambiguous.
 
 * If my airfoil coefficients are parametrized by `delta_f`, should the airfoil
   geometry be as well? I don't like either option: currently I have the
@@ -236,38 +238,38 @@ Low priority
   airfoils though, conceptually. Very elegant.
 
 
-ChordSurface
+SectionLayout
 =============
 
-* Rename `_planform_torsion` and `_arc_dihedral`, for many reasons:
-
-  * They're intrinsic Euler pitch and roll angles, so `theta` and `gamma` are
-    more explicit. (I like that `gamma` doesn't conflict with the traditional
-    definition of wingtip dihedral `Gamma`. Hopefully makes them less likely
-    to be confused.)
-
-  * I'm avoiding  "planform" (ambiguous term, multiple definitions)
-
-  * These are more like "section dihedral", no "arc dihedral"
-
-  * The section roll is only defined by the arc because I've `gamma
-    = arctan(dz/dy)`, but in general you could have `gamma = 0` (for vertical
-    sections). The math doesn't require the section roll to remain orthogonal
-    to the yz-curve, so `arc_dihedral` is overly specific.
-
-* Eliminate `ChordSurface`? I've already eliminated it from my
-  paper. I would love to call it a planform, but that term is ambiguous
-  (multiple definitions). It would also eliminate a lot of superfluous
-  functions in `SimpleFoil` that just pass-through to `ChordSurface`; in
-  particular, properties like `AR`, `b_flat`, etc. There might be a good
-  reason to split the design curves from the implementation class (possibly
-  when adding a foil that supports deformations?), but for now it's
-  unnecessary clutter.
-
-* Review the calculation of the projected span `b` in `ChordSurface.__init__`.
+* Review the calculation of the projected span `b` in `SectionLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
   leading edge if the wing has positive torsion and arc anhedral), or should
-  I use `ChordSurface.b = xyz(1, r_yz(1))[1]`?
+  I use `SectionLayout.b = xyz(1, r_yz(1))[1] - xyz(-1, r_yz(-1))[1]`?
+
+* Should `SectionLayout` use the general form of the chord surface equation?
+  Maybe have another class that presents the simplified parametrization I'm
+  using for parafoil chord surfaces?
+
+* Should I make the reference curves parametric functions? From a modelling
+  perspective, it would be convenient if the reference curves were "owned" by
+  the `LineGeometry`; it would allow things like making `yz` a function of
+  `delta_a` (ie, let the `LineGeometry` own `yz`), approximate "piloting with
+  the C's" control, etc. See branch `WIP_parametric_chords` for a mockup (and
+  a discussion of the limitations).
+
+
+Parametric functions
+--------------------
+
+* Add `taper` as an alternative parameter in `elliptical_chord`
+
+* Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
+  max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
+  relatively easy to approximate from pictures.
+
+* I don't like requiring `yz` to be a functor that provides a `derivative`
+  method. I originally did it to match the `scipy` interpolator API
+  (`PchipInterpolator` in particular), but it's just awkward.
 
 * Redefine the parameters in `foil.elliptical_arc`? This is a helper function
   that defines an angle distribution as an `EllipticalArc` parametrized by
@@ -283,24 +285,6 @@ ChordSurface
   probably more like the `elliptical_chord`, except the parameter represents
   `x` instead of `c`. Hrm. Well, probably still best to reparametrize
   `elliptical_arc` in terms of `mean_angle` and `tip_angle`.
-
-* Should `ChordSurface` use the general form of the chord surface equation?
-  Maybe have another class that presents the simplified parametrization I'm
-  using for parafoil chord surfaces?
-
-* Should I make the reference curves parametric functions? From a modelling
-  perspective, it would be convenient if the reference curves were "owned" by
-  the `LineGeometry`; it would allow things like making `yz` a function of
-  `delta_a` (ie, let the `LineGeometry` own `yz`), approximate "piloting with
-  the C's" control, etc. See branch `WIP_parametric_chords` for a mockup (and
-  a discussion of the limitations).
-
-* Should I use the notation `r_x` and `r_yz` for the chord ratios when the
-  notation `r_A2B` always indicates vectors? (Focus being the use of "r".)
-
-* Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
-  max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
-  relatively easy to approximate from pictures.
 
 
 FoilGeometry
@@ -339,37 +323,55 @@ FoilGeometry
 FoilSections
 ============
 
-* Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
-  `C_d,f` to my "air intakes and skin friction drag" adjustments in
-  `FoilSections.Cd`
+* Rename `FoilSections` to `SectionAirfoils`?
 
-* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
-  referring to "chordwise" or "camberwise" stations correctly. Some places
-  I mention "chordwise" stations, but glancing at the code it actually looks
-  like I'm computing `pc` as stations along the mean **camber** line.
+  I considered `SectionProfiles`, but I've been using "airfoil" for the
+  normalized unit chord version and "profile" for the scaled version. These
+  aren't scaled.
 
-* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
-  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
-  index I don't seen an obvious way around it.
-
-* Add profile interpolation to `FoilSections`?
+  Hm. I'm not crazy about "claiming" such a generic name (this particular
+  class assumes a constant airfoil, other's could interpolate), but I've
+  already done that with `SectionLayout`, so for now I'll ignore the issue.
 
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
   not been scaled by the chord length, etc.
 
   Heck, I need to document the entire stack: "a Foil is a combination of
-  `ChordSurface` and `FoilSections`, both of which define units that are
+  `SectionLayout` and `FoilSections`, both of which define units that are
   scaled by the span of the foil"
+
+
+Geometry
+--------
+
+* Add profile interpolation to `FoilSections`? If you could use the actual
+  profiles then `plot_foil` could use the new `surface_xyz` to plot the actual
+  braking surface.
+
+* I need to review everywhere I talk about airfoil "thickness" and ensure I'm
+  referring to "chordwise" or "camberwise" stations correctly. Some places
+  I mention "chordwise" stations, but glancing at the code it actually looks
+  like I'm computing `pc` as stations along the mean **camber** line.
 
 * Who should be responsible for sanity checking the parameters for foil
   surface coordinates? For example, `FoilSections.surface_xz` could do it, or
   it could punt it downstream to the air intake functions (meaning each intake
   implementation should duplicate the sanity checking code).
 
+* Reconsider the design/purpose of `surface_xz`. The name implies that the
+  points are in foil frd (thus xyz, not just xy), but they're actually just
+  normal airfoil xy-coordinates. I could make it transform to frd, but there's
+  only one user of that: `SimpleFoil.surface_xyz`, which can do it itself
+  easily enough.
+
+  I was probably trying to maintain interface compatibility with
+  `AirfoilGeometry`, but all the `FoilSections` functions require a section
+  index anyway, so I'm not sure what I was going for.
+
 
 Intakes
--------
+^^^^^^^
 
 * Design review the air `intakes`. Possibly reconsider the name "intakes":
   this concept doesn't *require* that `s_upper != s_lower`; it simply means
@@ -378,6 +380,19 @@ Intakes
   lower portion of the majority of the section profiles.
 
 * Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
+
+
+Coefficients
+------------
+
+* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
+  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
+  index I don't seen an obvious way around it.
+
+* Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
+  `C_d,f` to my "air intakes and skin friction drag" adjustments in
+  `FoilSections.Cd`
+
 
 
 Parafoil
@@ -390,7 +405,7 @@ Parafoil
 Geometry
 --------
 
-* The `ChordSurface` requires the values to be proportional to `b_flat == 2`?
+* The `SectionLayout` requires the values to be proportional to `b_flat == 2`?
   **What if you don't know `b_flat`? Do you need to compute the total length
   of `yz` and re-normalize to that?** (I think I'm missing something here...
   As long as everything is proportional, who cares? I'll need to look for
@@ -409,11 +424,15 @@ Geometry
 Inertia
 ^^^^^^^
 
-* The new mesh-based `SimpleFoil.mass_properties` uses triangles which are not
-  symmetric outwards from the central section, so small numerical differences
-  produce significantly non-zero Ixy/Iyz terms in the inertia tensors. Once
-  I fix this I should also remove the manual symmetry corrections in
-  `ParagliderWing.__init__`.
+* The new mesh-based `SimpleFoil.mass_properties2` uses triangles which are
+  not symmetric outwards from the central section, so small numerical
+  differences produce significantly non-zero Ixy/Iyz terms in the inertia
+  tensors. Once I fix this I should also remove the manual symmetry
+  corrections in `ParagliderWing.__init__`.
+
+* Rename `Au` (upper area) to `au`? I've been trying to reserve uppercase for
+  points/matrices, lowercase for scalars/vectors. (I think I did that because
+  I used lowercase for individual triangles and uppercase for the sum.)
 
 * Mark `AirfoilGeometry.mass_properties` and `SimpleFoil.mass_properties` as
   deprecated. Probably best to move it to a separate branch. Still useful for
@@ -430,7 +449,7 @@ Inertia
 Cells
 ^^^^^
 
-This is a catch-all group. Right now I'm using the idealized `ChordSurface`
+This is a catch-all group. Right now I'm using the idealized `SectionLayout`
 directly, but real parafoils are comprised of cells, where the ribs provide
 internal structure and attempt to produce the desired airfoil cross-sections,
 but deformations (billowing, etc) cause deviations from that ideal shape.
@@ -474,7 +493,7 @@ Some considerations:
 * Try to anticipate some of the effects of billowing. For example, compar the
   performance of a normal `24018` to a 15% increased thickness `24018` using
   XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
-  anticipated deviations compared to the idealized `ChordSurface`. (decreased
+  anticipated deviations compared to the idealized `SectionLayout`. (decreased
   lift/drag ratio, etc)
 
 * How a cell compresses during inflation depends on the shape of the parafoil
@@ -486,7 +505,7 @@ Deformations
 * To warp the trailing edge, could you warp the mean camber line instead of
   the surfaces themselves, then constrain to maintain constant curve length?
 
-* Starting with the `ChordSurface`, how hard would it be to warp the central
+* Starting with the `SectionLayout`, how hard would it be to warp the central
   sections to produce a "weight shift" effect?
 
 * Is it a fools errand to support lifting-line methods in the presence of
@@ -753,6 +772,8 @@ LineGeometry
 ParagliderWing
 ==============
 
+* Make a
+
 * Do speed bars on real wings decrease the length of all lines, or just those
   in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
@@ -980,8 +1001,18 @@ Simulator
   the brake, speedbar, and wind values).
 
 
-Scenario Design
----------------
+Scenarios
+---------
+
+* I'd love to demo the effect of assuming a fixed Reynolds number (eg,
+  `1.5e6`) versus using their proper values. This is probably the most extreme
+  during a turn. Maybe I could plot the range of values for fast straight
+  flight versus a slow turn?
+
+  Also, how does the performance of the wing change when ridge soaring into
+  the wind with brakes compare to straight flight without brakes? The
+  airspeed's of the different equilibriums are different, but by how much?
+  Less than a factor of two, I think.
 
 * Design a set of flight scenarios that demonstrate wing behavior under
   different wind models and control inputs.

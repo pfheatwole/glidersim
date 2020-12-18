@@ -229,7 +229,7 @@ def build_hook3():
     # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
     theta = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    chord_surface = gsim.foil.ChordSurface(
+    layout = gsim.foil.SectionLayout(
         r_x=0.75,
         x=0,
         r_yz=1.00,
@@ -245,7 +245,7 @@ def build_hook3():
     )
 
     canopy = gsim.foil.SimpleFoil(
-        chords=chord_surface,
+        layout=layout,
         sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
@@ -264,8 +264,12 @@ def build_hook3():
     print()
 
     # print("Drawing the canopy")
-    # gsim.plots.plot_foil(canopy, N_sections=131, flatten=False)
-    # gsim.plots.plot_foil(canopy, N_sections=71, flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="airfoil", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="airfoil", flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="chord", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="chord", flatten=True)
+    # gsim.plots.plot_foil(canopy, N_sections=131, surface="camber", flatten=False)
+    # gsim.plots.plot_foil(canopy, N_sections=71, surface="camber", flatten=True)
     # gsim.plots.plot_foil_topdown(canopy, N_sections=51)
     # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 

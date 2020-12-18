@@ -164,7 +164,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     plt.show()
 
 
-def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
+def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False, ax=None):
     """Plot a FoilGeometry in 3D."""
     if ax is None:
         fig, ax = _create_3d_axes()
@@ -172,17 +172,27 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     else:
         independent_plot = False
 
+    valid_surfaces = {"airfoil", "chord", "camber"}
     r = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
     for s in np.linspace(-1, 1, N_sections):
-        coords = foil.surface_xyz(s, r, "lower", flatten=flatten).T
-        ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
-        coords = foil.surface_xyz(s, r, "upper", flatten=flatten).T
-        ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
+        if surface == "airfoil":
+            coords = foil.surface_xyz(s, r, "lower", flatten=flatten).T
+            ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
+            coords = foil.surface_xyz(s, r, "upper", flatten=flatten).T
+            ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
+        elif surface == "chord":
+            coords = foil.surface_xyz(s, r, "chord", flatten=flatten).T
+            ax.plot(coords[0], coords[1], coords[2], c="k", lw=0.5)
+        elif surface == "camber":
+            coords = foil.surface_xyz(s, r, "camber", flatten=flatten).T
+            ax.plot(coords[0], coords[1], coords[2], c="k", lw=0.5)
+        else:
+            raise ValueError(f"`surface` must be one of {valid_surfaces}")
 
     s = np.linspace(-1, 1, N_sections)
-    LE = foil.chord_xyz(s, 0, flatten=flatten).T
-    c4 = foil.chord_xyz(s, 0.25, flatten=flatten).T
-    TE = foil.chord_xyz(s, 1, flatten=flatten).T
+    LE = foil.surface_xyz(s, 0, surface="chord", flatten=flatten).T
+    c4 = foil.surface_xyz(s, 0.25, surface="chord", flatten=flatten).T
+    TE = foil.surface_xyz(s, 1, surface="chord", flatten=flatten).T
     ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
@@ -202,7 +212,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = foil.chord_xyz(s, foil._chords.r_x(s))
+    xyz = foil.surface_xyz(s, foil._layout.r_x(s), surface="chord")
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -212,7 +222,7 @@ def plot_foil(foil, N_sections=21, N_points=50, flatten=False, ax=None):
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = foil.chord_xyz(s, foil._chords.r_yz(s))
+    xyz = foil.surface_xyz(s, foil._layout.r_yz(s), surface="chord")
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
@@ -259,15 +269,15 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0,
     )
 
     for s in np.linspace(-1, 1, N_sections):
-        LE = foil.chord_xyz(s, 0, flatten=flatten)
-        TE = foil.chord_xyz(s, 1, flatten=flatten)
+        LE = foil.surface_xyz(s, 0, surface="chord", flatten=flatten)
+        TE = foil.surface_xyz(s, 1, surface="chord", flatten=flatten)
         coords = np.stack((LE, TE))
         coords = (R @ coords.T).T
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
     s = np.linspace(-1, 1, N_sections)
-    LE = (R @ foil.chord_xyz(s, 0, flatten=flatten).T).T
-    TE = (R @ foil.chord_xyz(s, 1, flatten=flatten).T).T
+    LE = (R @ foil.surface_xyz(s, 0, surface="chord", flatten=flatten).T).T
+    TE = (R @ foil.surface_xyz(s, 1, surface="chord", flatten=flatten).T).T
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
@@ -309,7 +319,8 @@ def plot_paraglider_wing(
     orientations = wing.canopy.section_orientation(s)
     p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
          + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
-    p = np.einsum("Sij,Sj->Si", orientations, p.T) + wing.canopy.chord_xyz(s, 0)
+    p = (np.einsum("Sij,Sj->Si", orientations, p.T)
+         + wing.canopy.surface_xyz(s, 0, surface="chord"))
     ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
 
     if independent_plot:

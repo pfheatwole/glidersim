@@ -367,10 +367,10 @@ def foil_generator(base_config, sequences, fps=60):
             params = {}  # The `exec`uted result
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
-            chord_surface = gsim.foil.ChordSurface(**params)
+            layout = gsim.foil.SectionLayout(**params)
             yield config, gsim.foil.SimpleFoil(
+                layout=layout,
                 sections=FoilSections(airfoil=Airfoil(None, NACA(24018))),
-                chords=chord_surface,
                 b_flat=10,
             )
             n += 1
@@ -399,13 +399,14 @@ from pfh.glidersim.airfoil import Airfoil, NACA
 from pfh.glidersim.foil import (
     elliptical_arc,
     elliptical_chord,
-    SimpleFoil,
     FlatYZ,
-    FoilSections,
     PolynomialTorsion as PT,
+    SectionLayout,
+    FoilSections,
+    SimpleFoil,
 )
 
-chord_surface = ChordSurface(
+layout = SectionLayout(
   """
 
     maxlen = max(len(k) for k in config.keys())  # For aligning the "="
@@ -415,7 +416,7 @@ chord_surface = ChordSurface(
 
 foil = gsim.foil.SimpleFoil(
     sections=FoilSections(Airfoil(None, NACA(24018)),
-    chords=chord_surface,
+    layout=layout,
     b_flat=10,
 )
 
