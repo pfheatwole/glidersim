@@ -571,21 +571,20 @@ def main():
     delta_bl = 0.0
     delta_br = 0.0
     delta_w = 0.0
-    # delta_a = linear_control([(0, 0), (3, 0.75)])
-    # delta_bl = linear_control([(0, 0), (3, 0.75)])
-    # delta_br = linear_control([(0, 0), (3, 0.75)])
     T = 60
 
     # Scenario: short right turn
     # delta_a = 0.0
     # delta_bl = 0.0
-    # delta_br = linear_control([(2, 0), (1, 0.80), (5, None), (2, 0)])
+    # delta_br = linear_control([(5, 0), (1, 0.80), (5, None), (2, 0)])
+    # delta_w = linear_control([(2, 0), (3, 0.80),])
     # T = 20
 
     # Scenario: continuous right turn
     # delta_a = 0.0
     # delta_bl = 0.0
-    # delta_br = linear_control([(2, 0), (3, 0.75),])
+    # delta_br = linear_control([(10, 0), (3, 0.5),])
+    # delta_w = linear_control([(2, 0), (2, 1.00),])
     # T = 60
 
     # Scenario: speedbar off-on-off
@@ -614,7 +613,7 @@ def main():
 
     # Scenario: multiple figure-8
     # delta_a = 0.0
-    # duration = 25  # Seconds per half-cycle
+    # duration = 30  # Seconds per half-cycle
     # N_cycles = 2  # Total number of full cycles
     # on = [(2.0, 0.75), (duration - 2.0, None)]  # Braking on
     # off = [(1.0, 0), (duration - 1.0, None)]  # Braking off
