@@ -736,6 +736,8 @@ def main():
     t_stop = time.perf_counter()
     print(f"\nTotal time: {t_stop - t_start:.2f}\n")
 
+    print("Final state:", path[-1])
+
     # -----------------------------------------------------------------------
     # Plots
 
