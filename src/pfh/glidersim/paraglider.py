@@ -1031,7 +1031,7 @@ class Paraglider9a:
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
         payload_cps = self.payload.control_points(delta_w)  # In payload frd
         C_b2p = orientation.euler_to_dcm(Theta_p2b).T
-        return np.vstack((wing_cps + r_LE2R, C_b2p @ payload_cps))
+        return np.vstack((wing_cps + r_LE2R, (C_b2p @ payload_cps.T).T))
 
     def accelerations(
         self,
