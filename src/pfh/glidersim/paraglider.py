@@ -188,19 +188,19 @@ class Paraglider6a:
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2R_wing = r_CP2R[:-1]
         r_CP2R_payload = r_CP2R[-1]
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -208,7 +208,7 @@ class Paraglider6a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -218,7 +218,7 @@ class Paraglider6a:
         M_wing += cross3(wmp["cm_solid"], F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -508,11 +508,11 @@ class Paraglider6a:
             alpha_eq = self.wing.equilibrium_alpha(
                 delta_a, delta_b, v_eq, rho_air, alpha_0=np.rad2deg(alpha_0), reference_solution=solution,
             )
-            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            v_W2CP = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_a, delta_b, delta_b, v_W2b, rho_air, solution,
+                delta_a, delta_b, delta_b, v_W2CP, rho_air, solution,
             )
-            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
+            dF_p, dM_p = self.payload.forces_and_moments(v_W2CP, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
             F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
 
@@ -687,19 +687,19 @@ class Paraglider6b(Paraglider6a):
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -707,7 +707,7 @@ class Paraglider6b(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -716,7 +716,7 @@ class Paraglider6b(Paraglider6a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -911,19 +911,19 @@ class Paraglider6c(Paraglider6a):
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -931,7 +931,7 @@ class Paraglider6c(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -940,7 +940,7 @@ class Paraglider6c(Paraglider6a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1189,14 +1189,14 @@ class Paraglider9a:
         v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2R_b - r_B2R)
         v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2R_p - r_P2R)
 
-        v_W2b_b = v_W2e[:-1] - v_CP2e_b
-        v_W2p_p = C_p2b @ v_W2e[-1] - v_CP2e_p
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = C_p2b @ v_W2e[-1] - v_CP2e_p
 
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1204,7 +1204,7 @@ class Paraglider9a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1214,7 +1214,7 @@ class Paraglider9a:
         M_wing += cross3(wmp["cm_solid"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1666,14 +1666,14 @@ class Paraglider9b(Paraglider9a):
         v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2B_b)
         v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2P_p)
 
-        v_W2b_b = v_W2e[:-1] - v_CP2e_b
-        v_W2p_p = C_p2b @ v_W2e[-1] - v_CP2e_p
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = C_p2b @ v_W2e[-1] - v_CP2e_p
 
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1681,7 +1681,7 @@ class Paraglider9b(Paraglider9a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1691,7 +1691,7 @@ class Paraglider9b(Paraglider9a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
