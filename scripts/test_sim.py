@@ -256,7 +256,7 @@ class Dynamics9a:
     #        the coordinate systems embedded in those frames.
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
-        ("q_p2b", float, (4,)),  # Orientation: payload/body
+        ("q_p2e", float, (4,)),  # Orientation: payload/earth
         ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
         ("omega_p2e", float, (3,)),  # Angular velocity of the payload in payload frd
         ("r_R2O", float, (3,)),  # The position of `R` in ned
@@ -314,7 +314,7 @@ class Dynamics9a:
         # FIXME: hack that runs after each integration step. Assumes it can
         #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
-        state["q_p2b"] /= np.sqrt((state["q_p2b"] ** 2).sum())  # Normalize
+        state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
     def dynamics(self, t, y, params):
         """
@@ -340,8 +340,10 @@ class Dynamics9a:
             The array of N state component derivatives
         """
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
-        q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
-        Theta_p2b = orientation.quaternion_to_euler(x["q_p2b"])
+        q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
+        Theta_p2b = orientation.quaternion_to_euler(
+            orientation.quaternion_product(x["q_p2e"], q_e2b)
+        )
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
@@ -379,10 +381,7 @@ class Dynamics9a:
         # fmt: on
         q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-        C_p2b = orientation.quaternion_to_dcm(x["q_p2b"])
-        omega_p2b = x["omega_p2e"] - C_p2b @ x["omega_b2e"]
-
-        P, Q, R = omega_p2b
+        P, Q, R = x["omega_p2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -390,11 +389,11 @@ class Dynamics9a:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_p2b_dot = 0.5 * Omega @ x["q_p2b"]
+        q_p2e_dot = 0.5 * Omega @ x["q_p2e"]
 
         x_dot = np.empty(1, self.state_dtype)
         x_dot["q_b2e"] = q_b2e_dot
-        x_dot["q_p2b"] = q_p2b_dot
+        x_dot["q_p2e"] = q_p2e_dot
         x_dot["omega_b2e"] = alpha_b2e
         x_dot["omega_p2e"] = alpha_p2e
         x_dot["r_R2O"] = x["v_R2e"]
@@ -543,7 +542,8 @@ def main():
     q_b2e_9a = orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
     state_9a = np.empty(1, dtype=Dynamics9a.state_dtype)
     state_9a["q_b2e"] = q_b2e_9a
-    state_9a["q_p2b"] = orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
+    q_p2b_9a = orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
+    state_9a["q_p2e"] = orientation.quaternion_product(q_p2b_9a, q_b2e_9a)
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
@@ -697,14 +697,26 @@ def main():
     )
     v_frd = orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
 
-    if "q_p2b" in path.dtype.names:  # 9 DoF model
-        q_p2e = np.asarray([orientation.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
-        Theta_p2b = orientation.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
-        Theta_p2e = orientation.quaternion_to_euler(q_p2e)  # FIXME: verify!
+    if "q_p2e" in path.dtype.names:  # 9 DoF model
+        # q_p2e = np.asarray([orientation.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
+        # Theta_p2b = orientation.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
+        # Theta_p2e = orientation.quaternion_to_euler(q_p2e)  # FIXME: verify!
+
+        # FIXME: vectorize `orientation.quaternion_product`
+        q_b2p = [
+            orientation.quaternion_product(
+                path["q_b2e"][k],
+                path["q_p2e"][k] * [-1, 1, 1, 1],
+            )
+            for k in range(K)
+        ]
+
+        # FIXME: assumes the payload has only one control point (r_P2R^p)
         r_P2O = path["r_R2O"] + orientation.quaternion_rotate(
             q_e2b,
             orientation.quaternion_rotate(
-                path["q_p2b"] * [1, -1, -1, -1], model.glider.payload.control_points(),
+                q_b2p,
+                model.glider.payload.control_points(),
             ),
         )
     else:  # 6 DoF model
