@@ -1225,7 +1225,7 @@ class Paraglider9a:
 
         # Moment at the connection point `R` modeled as a spring+damper system
         M_R = np.zeros(3)
-        omega_p2b = omega_p2e - C_p2b @ omega_b2e  # FIXME: body or payload axes?
+        omega_p2b = C_b2p @ omega_p2e - omega_b2e
         M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
         M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
@@ -1626,6 +1626,7 @@ class Paraglider9b(Paraglider9a):
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
@@ -1702,7 +1703,7 @@ class Paraglider9b(Paraglider9a):
 
         # Moment at the connection point `R` modeled as a spring+damper system
         M_R = np.zeros(3)
-        omega_p2b = omega_p2e - C_p2b @ omega_b2e
+        omega_p2b = C_b2p @ omega_p2e - omega_b2e
         M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
         M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
         M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
