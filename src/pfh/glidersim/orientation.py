@@ -44,6 +44,7 @@ def dcm_to_euler(dcm):
     euler : array of float, shape (3,) [radians]
         The [phi, theta, gamma] of a yaw-pitch-roll sequence.
     """
+    # ref: Stevens Eq:1.3-11, pg12 (26)
     phi = np.arctan2(dcm[1, 2], dcm[2, 2])
     theta = -np.arcsin(dcm[0, 2])
     gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
