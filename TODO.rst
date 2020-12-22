@@ -1,3 +1,7 @@
+* It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
+  moment. It's fine for small displacements, but doesn't make sense for larger
+  deviations.
+
 * Refactor the simulator into a proper module
 
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
@@ -41,7 +45,7 @@ General
 
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
   that term. It's more like the "parameter" of a parametric curve. When I read
-  "coordinates" I think xyz.
+  "coordinates" I think `xyz`.
 
 * Vectorize `util.crossmat`?
 
@@ -62,7 +66,7 @@ General
   `from IPython import embed` everywhere) Should I set python 3.7 that as
   a hard dependency?
 
-* Define an `njit` wrapper that replaces `njit` with a noop if numba isn't
+* Define an `njit` wrapper that replaces `njit` with a noop if Numba isn't
   installed
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
@@ -83,8 +87,8 @@ Plots
   contradicts its use in `surface_xyz` (`plot_foil(surface='airfoil')`
   actually plots the 'upper' and 'lower' surfaces).
 
-* I'd sure like it if the 3D plots could use a figsize that wasn't square (it
-  wastes too much space). I think it's because `_set_axes_equal` uses
+* I'd sure like it if the 3D plots could use a `figsize` that wasn't square
+  (it wastes too much space). I think it's because `_set_axes_equal` uses
   a radius, and all axes must contain that sphere. **Can you keep the equal
   scaling property with different axes lengths?**
 
@@ -230,8 +234,7 @@ Low priority
   distance along the entire surface, `s` is the linear distance along each
   upper or lower surface) Suppose a user wanted to step along the curve in
   equal steps; they'd need to convert those equally spaced `d` into `s`, which
-  is weird since the upper and lower surfaces use different spacings for
-  `s`...
+  is weird since the upper and lower surfaces use different spacings for `s`.
 
 * Add Joukowski airfoil builders? Those are typically defined in terms of
   their surface coordinates, not mean camber and thickness curves. Neat
@@ -394,7 +397,6 @@ Coefficients
   `FoilSections.Cd`
 
 
-
 Parafoil
 ========
 
@@ -446,6 +448,7 @@ Inertia
   `mesh_vertex_lists` to work on {"upper", "lower", "airfoil"} and add
   a different function that outputs the wing mesh to a file.
 
+
 Cells
 ^^^^^
 
@@ -472,11 +475,6 @@ here:
   you can't just use the "flattened" values; the cell widths themselves
   change.
 
-* Rewrite `mass_properties` to account for billowing. Since it currently uses
-  the inertia of the nominal airfoil the current design would require
-  recomputing the inertias for each of the distorted airfoils. Probably easier
-  to just use voxels for the arbitrary final geometry.
-
 Some considerations:
 
 * I'd like to at least try to maintain the surface areas during billowing; you
@@ -490,7 +488,7 @@ Some considerations:
   seems like it should be a linear function, so I *think* the lower and upper
   surfaces should both be correct, but it's worth checking.
 
-* Try to anticipate some of the effects of billowing. For example, compar the
+* Try to anticipate some of the effects of billowing. For example, compare the
   performance of a normal `24018` to a 15% increased thickness `24018` using
   XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
   anticipated deviations compared to the idealized `SectionLayout`. (decreased
@@ -498,6 +496,7 @@ Some considerations:
 
 * How a cell compresses during inflation depends on the shape of the parafoil
   (line loadings, etc). (ref: `altmann2019FluidStructureInteractionAnalysis`)
+
 
 Deformations
 ^^^^^^^^^^^^
@@ -590,8 +589,8 @@ Low Priority
   of the wing. It's more in-line with what you'd use for classical aerodynamic
   analysis, and it's essential constant regardless of load.
 
-  For my hook3 approximation, `Theta_eq = 3`. Rotating the foil before
-  projecting changed `S` by `0.15%`, so it's not a big deal.
+  For my Hook3ish, `Theta_eq = 3`. Rotating the foil before projecting changed
+  `S` by `0.15%`, so it's not a big deal.
 
 
 Coefficient Estimation
@@ -625,7 +624,6 @@ Coefficient Estimation
   Sec:6.5.7, "Stability and control derivative calculation".
 
 
-
 Phillips
 ^^^^^^^^
 
@@ -656,7 +654,7 @@ Phillips
   sections increases. This is mostly a problem since it means `alpha` at the
   wing tips `alpha` can go to infinity, which produces `nan` for the lift
   coefficients. For an example that triggers this, change the arc anhedral for
-  the "Hook3-ish" from 33/67 degrees to 10/21 degrees and apply brakes; even
+  the Hook3ish from 33/67 degrees to 10/21 degrees and apply brakes; even
   though the flatter wing seems "easier" conceptually, the particularities of
   the geometry and lift curve causes failure for any reasonable number of
   segments.
@@ -771,8 +769,6 @@ LineGeometry
 
 ParagliderWing
 ==============
-
-* Make a
 
 * Do speed bars on real wings decrease the length of all lines, or just those
   in the central sections? If they're unequal, you'd expect the arcs to
@@ -912,8 +908,8 @@ Models
   rotation rate `omega0` and you go from 0 to 100% accelerator, `omega1
   = inv(J_delta1) @ J_delta0 @ omega0`
 
-  Crazy: for the Hook3, a +5deg/s roll rate would turn into +5.77deg/s roll and
-  +4.3deg/s yaw. That's a surprisingly big yaw effect.
+  Crazy: for the Hook3ish, a +5deg/s roll rate would turn into +5.77deg/s roll
+  and +4.3deg/s yaw. That's a surprisingly big yaw effect.
 
   Also, consider where the energy from your legs dispersed into the system.
   It'll either have accelerated the wing, or lifted the payload mass (most
