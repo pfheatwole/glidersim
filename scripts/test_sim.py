@@ -501,16 +501,16 @@ def main():
     # -----------------------------------------------------------------------
     # Define the initial state for both models
 
-    # Precomputed equilibrium states in body coordinates
+    # Precomputed equilibrium states
     equilibrium_6a = {
-        "Theta_b2e": [0, np.deg2rad(2.1676), 0],
-        "v_R2e": [9.8783, 0, 1.2173],
+        "Theta_b2e": [0, np.deg2rad(2.170), 0],
+        "v_R2e": [9.8595, 0, 1.2184],  # In Earth coordinates (ned)
     }
 
     equilibrium_9a = {
-        "Theta_b2e": [0, np.deg2rad(2.6173), 0],
+        "Theta_b2e": [0, np.deg2rad(2.6169), 0],
         "Theta_p2b": [0, np.deg2rad(-4.588), 0],
-        "v_R2e": [9.739, 0, 1.1916],
+        "v_R2e": [9.7167, 0, 1.1938],  # In Earth coordinates (ned)
     }
 
     # Optional: recompute the equilibrium state
