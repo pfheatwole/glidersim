@@ -1754,3 +1754,327 @@ class Paraglider9b(Paraglider9a):
         # 1/0
 
         return a_R2e, alpha_b2e, alpha_p2e, ref
+
+
+class Paraglider9c(Paraglider9a):
+    """
+    A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
+    and the harness, with the connection modelled by spring-damper dynamics.
+
+    Similar to Paraglider9a, this version uses the riser connection midpoint
+    `R` as the reference point for both the body and the payload, and includes
+    the effects of apparent mass. Unlike Paraglider9a, this model computes
+    \dot{omega_p2b} instead of \dot{omega_p2e} and converts.
+
+    Unfortunately it also appears to be broken; at least, it doesn't agree with
+    Paraglider9a or Paraglider9b, which are mathematically less complicated so
+    I tend to believe them. See the end of `accelerations` for a discussion.
+
+    Also, note that it computes everything in body frd and converts omega_p2e
+    back to payload frd at the very end.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
+    """
+
+    def __init__(self, *args, **kwargs):
+        print("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("\n     Warning: Paraglider9c is broken!")
+        print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n")
+        # See the FIXME at the end of `accelerations`
+        super().__init__(*args, **kwargs)
+
+    def accelerations(
+        self,
+        v_R2e,
+        omega_b2e,
+        omega_p2e,
+        Theta_p2b,
+        g,
+        rho_air,
+        delta_a=0,
+        delta_bl=0,
+        delta_br=0,
+        delta_w=0,
+        v_W2e=None,
+        r_CP2R=None,
+        reference_solution=None,
+    ):
+        """
+        Compute the translational and angular accelerations about the center of mass.
+
+        FIXME: the input sanitation is messy
+        FIXME: review the docstring
+
+        Parameters
+        ----------
+        v_R2e : array of float, shape (3,) [m/s]
+            Translational velocity of `R` in body frd coordinates, where `R` is
+            the midpoint between the two riser connection points.
+        omega_b2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in body frd coordinates.
+        omega_p2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the payload, in payload frd coordinates.
+        Theta_p2b : array of float, shape (3,) [radians]
+            The [phi, theta, gamma] of a yaw-pitch-roll sequence that encodes
+            the relative orientation of the payload with respect to the body.
+        g : array of float, shape (3,) [m/s^s]
+            The gravity vector in body frd
+        rho_air : float [kg/m^3]
+            The ambient air density
+        delta_a : float [percentage]
+            The fraction of maximum accelerator
+        delta_bl : float [percentage]
+            The fraction of maximum left brake
+        delta_br : float [percentage]
+            The fraction of maximum right brake
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+            The wind relative to the earth, in body frd coordinates. If it is a
+            single vector, then the wind is uniform everywhere on the wing. If
+            it is an ndarray, then it is the wind at each control point.
+        r_CP2R : ndarray of float, shape (K,3) [m] (optional)
+            Position vectors of the control points, in body frd coordinates.
+            These are optional if the wind field is uniform, but for
+            non-uniform wind fields the simulator used these coordinates to
+            determine the wind vectors at each control point.
+
+            FIXME: This docstring is wrong; they are useful if delta_a != 0,
+            they have nothing to do with wind field uniformity. And really, why
+            do I even have both `r_CP2R` and `delta_a` as inputs? The only
+            purpose of `delta_a` is to compute the r_CP2R. Using `delta_a`
+            alone would be the more intuitive, but would incur extra
+            computation time for finding the control points; the only point of
+            `r_CP2R` is to avoid recomputing them.
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        a_R2e : array of float, shape (3,) [m/s^2]
+            Translational acceleration of `R` in body frd coordinates.
+        alpha_b2e : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the body, in body frd coordinates.
+        alpha_p2e : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the payload, in payload frd coordinates.
+        solution : dictionary
+            FIXME: docstring. See `Phillips.__call__`
+
+        Notes
+        -----
+        There are two use cases:
+         1. Uniform global wind across the wing (v_W2e.shape == (3,))
+         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
+
+        If the wind is locally uniform across the wing, then the simulator
+        can pass the wind vector with no knowledge of the control points.
+        If the wind is non-uniform across the wing, then the simulator will
+        need the control point coordinates in order to query the global wind
+        field; for the non-uniform case, the control points are a required
+        parameter to eliminate their redundant computation.
+        """
+        if v_W2e is None:
+            v_W2e = np.array([0, 0, 0])
+        else:
+            v_W2e = np.asarray(v_W2e)
+        if v_W2e.ndim > 1 and r_CP2R is None:
+            # FIXME: needs a design review. The idea was that if `v_W2e` is
+            #        given for each individual control point, then require the
+            #        values of those control points to ensure they match the
+            #        current state of the wing (including the current control
+            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
+            #        never liked this design.
+            raise ValueError("Control point relative winds require r_CP2R")
+        if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
+            raise ValueError("Different number of wind and r_CP2R vectors")
+        if r_CP2R is None:
+            r_CP2R = self.control_points(Theta_p2b, delta_a)
+
+        v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
+
+        v_R2e = np.asarray(v_R2e)
+        if v_R2e.shape != (3,):
+            raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+
+        C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
+        omega_p2e = C_b2p @ omega_p2e  # Dynamics9a uses `p`, this model uses `b`
+
+        # -------------------------------------------------------------------
+        # Compute the inertia properties of the body and payload
+        wmp = self.wing.mass_properties(rho_air, delta_a)
+        m_b = wmp["m_solid"] + wmp["m_air"]
+        r_B2R = (  # Center of mass of the body in body frd
+            wmp["m_solid"] * wmp["cm_solid"]
+            + wmp["m_air"] * wmp["cm_air"]
+        ) / m_b
+        r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
+        r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
+        Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
+        Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
+        J_b2R = (
+            wmp["J_solid"]
+            + wmp["m_solid"] * Dwsm
+            + wmp["J_air"]
+            + wmp["m_air"] * Dwea
+        )
+
+        pmp = self.payload.mass_properties(delta_w)
+        m_p = pmp["mass"]
+        r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
+        Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
+        J_p2R = pmp["J"] + pmp["mass"] * Dp  # Inertia of the payload about `R` in payload frd
+
+        r_P2R = C_b2p @ r_P2R  # In body frd
+        J_p2R = C_b2p @ J_p2R @ C_p2b  # In body frd
+
+        # -------------------------------------------------------------------
+        # Compute the relative wind vectors for each control point.
+        #
+        # All vectors are in body frd
+
+        omega_p2b = omega_p2e - omega_b2e
+        omega_b2p = -omega_p2b
+        v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
+        v_P2e = v_R2e + cross3(omega_p2e, r_P2R)
+
+        # FIXME: "magic" indexing established by `self.control_points`
+        r_CP2R_b = r_CP2R[:-1]
+        r_CP2R_p = r_CP2R[-1]
+
+        v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2R_b - r_B2R)
+        v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2R_p - r_P2R)
+
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = v_W2e[-1] - v_CP2e_p
+
+        # -------------------------------------------------------------------
+        # Forces and moments of the wing in body frd
+        try:
+            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
+            )
+        except Exception:
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
+            # embed()
+            # 1/0
+            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
+            )
+
+        F_wing_aero = dF_wing_aero.sum(axis=0)
+        F_wing_weight = wmp["m_solid"] * g
+        M_wing = dM_wing_aero.sum(axis=0)
+        M_wing += cross3(r_CP2R_b, dF_wing_aero).sum(axis=0)
+        M_wing += cross3(wmp["cm_solid"], F_wing_weight)
+
+        # Forces and moments of the payload in payload frd
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(C_p2b @ v_W2CP_p, rho_air)
+        dF_p_aero = np.atleast_2d(C_b2p @ dF_p_aero)
+        dM_p_aero = np.atleast_2d(C_b2p @ dM_p_aero)
+        F_p_aero = dF_p_aero.sum(axis=0)
+        F_p_weight = pmp["mass"] * g
+        M_p = dM_p_aero.sum(axis=0)
+        M_p += cross3(r_CP2R_p, dF_p_aero).sum(axis=0)
+        M_p += cross3(r_P2R, F_p_weight)
+
+        # Moment at the connection point `R` modeled as a spring+damper system
+        M_R = np.zeros(3)
+        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
+        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
+        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
+        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
+        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
+        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+
+        # ------------------------------------------------------------------
+        # Build a system of equations by equating the time derivatives of the
+        # translation and angular momentum (with respect to the Earth) of the
+        # body and payload to the forces and moments on the body and payload.
+        #
+        # The four unknown vectors are the time derivatives of `v_R2e`,
+        # `omega_b2e` (in body frd), `omega_p2e` (in payload frd), and the
+        # internal force on the risers, `F_R` (in body frd).
+
+        # Compute the real mass inertias
+        p_b2e = m_b * v_B2e
+        p_p2e = m_p * v_P2e
+        h_b2R = m_b * cross3(r_B2R, v_R2e) + J_b2R @ omega_b2e
+        h_p2R = m_p * cross3(r_P2R, v_R2e) + J_p2R @ omega_p2e
+
+        I3, Z3 = np.eye(3), np.zeros((3, 3))
+        A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
+        A2 = [m_b * crossmat(r_B2R), J_b2R, Z3, Z3]
+        A3 = [m_p * I3, -m_p * crossmat(r_P2R), -m_p * crossmat(r_P2R), -I3]
+        A4 = [m_p * crossmat(r_P2R), J_p2R, J_p2R, Z3]
+        A = np.block([A1, A2, A3, A4])
+
+        B1 = (
+            F_wing_aero
+            + F_wing_weight
+            - cross3(omega_b2e, p_b2e)
+        )
+        B2 = (
+            M_wing
+            - M_R
+            - cross3(v_R2e, p_b2e)
+            - cross3(omega_b2e, h_b2R)
+        )
+        B3 = (
+            F_p_aero
+            + F_p_weight
+            - m_p * cross3(omega_b2p, v_R2e)
+            - m_p * cross3(cross3(omega_b2p, omega_b2e), r_P2R)
+            # - m_p * cross3(cross3(omega_b2p, omega_p2e), r_P2R)  # equivalent
+            - cross3(omega_p2e, p_p2e)
+        )
+        B4 = (
+            M_p
+            + M_R
+            - cross3(v_R2e, p_p2e)
+            - m_p * cross3(r_P2R, cross3(omega_b2p, v_R2e))
+            - cross3(omega_b2p, J_p2R @ omega_p2e)
+            - cross3(omega_p2e, h_p2R)
+        )
+        B = np.r_[B1, B2, B3, B4]
+
+        x = np.linalg.solve(A, B)
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frame F_b and F_e
+        alpha_p2b = x[6:9]  # In frame F_b
+        F_R = x[9:]  # For debugging
+
+        # These are all equivalent to compute dot{omega}_p2e^b in frame F_p?
+        alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
+        # alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2p, omega_b2e)
+        # alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2p, omega_p2e)
+
+        # FIXME: I think this model is broken at this point.
+        #
+        # If you start 9a/9b/9c at equilibrium (omega_b2e=0 and omega_p2e=0)
+        # but instantaneous hard right brake, you'll see the first time step
+        # matches exactly, but at the second step they start to diverge.
+        # Specifically, a_R2e, omega_b2e, and F_R all match exactly for all
+        # three models, but alpha_p2e here doesn't agree with 9a/9b. The
+        # pitching acceleration matches, but rolling and yawing do not.
+        #
+        # The 9a/9b models are more straightforward to derive, and they agree
+        # exactly, so I'm inclined to believe them.
+        #
+        # So the question remains: is alpha_p2b here correct (which I think it
+        # is, since a_R2e/omega_b2e/F_R all match 9a/9b exactly), and if so,
+        # what am I missing when computing alpha_p2e?
+
+        alpha_p2e = C_p2b @ alpha_p2e  # In frame F_p and F_e
+
+        # embed()
+        # 1/0
+
+        return a_R2e, alpha_b2e, alpha_p2e, ref

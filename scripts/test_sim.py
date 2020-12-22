@@ -495,6 +495,7 @@ def main():
     glider_6c = gsim.paraglider.Paraglider6c(wing, harness)
     glider_9a = gsim.paraglider.Paraglider9a(wing, harness)
     glider_9b = gsim.paraglider.Paraglider9b(wing, harness)
+    # glider_9c = gsim.paraglider.Paraglider9c(wing, harness)  # FIXME: BROKEN!
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
@@ -650,6 +651,7 @@ def main():
     model_6c = Dynamics6a(glider_6c, *common_args)
     model_9a = Dynamics9a(glider_9a, *common_args)
     model_9b = Dynamics9a(glider_9b, *common_args)
+    # model_9c = Dynamics9a(glider_9c, *common_args)
 
     # Choose which model to run
     state0, model = state_6a, model_6a
@@ -657,6 +659,7 @@ def main():
     # state0, model = state_6a, model_6c  # Same state as model_6a
     # state0, model = state_9a, model_9a
     # state0, model = state_9a, model_9b  # Same state as model_9a
+    # state0, model = state_9a, model_9c  # Same state as model_9a
 
     # embed()
     # 1/0
