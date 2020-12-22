@@ -506,7 +506,12 @@ class Paraglider6a:
 
         for _ in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, v_eq, rho_air, alpha_0=np.rad2deg(alpha_0), reference_solution=solution,
+                delta_a,
+                delta_b,
+                v_eq,
+                rho_air,
+                alpha_0=np.rad2deg(alpha_0),
+                reference_solution=solution,
             )
             v_W2CP = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
@@ -699,7 +704,12 @@ class Paraglider6b(Paraglider6a):
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1196,7 +1206,12 @@ class Paraglider9a:
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1682,7 +1697,12 @@ class Paraglider9b(Paraglider9a):
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1965,7 +1985,12 @@ class Paraglider9c(Paraglider9a):
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
