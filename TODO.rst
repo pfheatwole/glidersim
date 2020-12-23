@@ -750,6 +750,9 @@ BrakeGeometry
 Harness
 =======
 
+* Should `delta_w` move the control point, or just the cm? Weight shift is
+  mostly "inside" the harness.
+
 * Redefine the `SphericalHarness` to use the radius, not the projected area.
   The projected area is not a common way to define a sphere; using the radius
   just just makes more sense.

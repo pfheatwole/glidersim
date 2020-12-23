@@ -155,7 +155,7 @@ class Paraglider6a:
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -659,7 +659,7 @@ class Paraglider6b(Paraglider6a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -888,7 +888,7 @@ class Paraglider6c(Paraglider6a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -1148,7 +1148,7 @@ class Paraglider9a:
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p2b, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
@@ -1640,7 +1640,7 @@ class Paraglider9b(Paraglider9a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p2b, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
@@ -1913,7 +1913,7 @@ class Paraglider9c(Paraglider9a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p2b, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
