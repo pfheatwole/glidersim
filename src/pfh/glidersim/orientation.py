@@ -90,8 +90,21 @@ def quaternion_to_dcm(q):
 
 
 def quaternion_to_euler(q):
-    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles."""
+    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles.
+
+    Parameters
+    ----------
+    q : array_like of float, shape (K,4)
+        The components of the quaternion(s)
+
+    Returns
+    -------
+    v : array_like of float, shape (K,3)
+        The [roll, pitch, yaw] angles (phi, theta, gamma) of a Tait-Bryan
+        yaw-pitch-roll sequence.
+    """
     # assert np.isclose(np.linalg.norm(q), 1)
+    q = np.asarray(q)
     w, x, y, z = q.T
 
     # ref: Merwe, Eq:B.5:7, p363 (382)
