@@ -342,7 +342,7 @@ class Dynamics9a:
         x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
-            orientation.quaternion_product(x["q_p2e"], q_e2b)
+            orientation.quaternion_product(q_e2b, x["q_p2e"])
         )
 
         delta_a = self.delta_a(t)
@@ -544,7 +544,7 @@ def main():
     state_9a = np.empty(1, dtype=Dynamics9a.state_dtype)
     state_9a["q_b2e"] = q_b2e_9a
     q_p2b_9a = orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
-    state_9a["q_p2e"] = orientation.quaternion_product(q_p2b_9a, q_b2e_9a)
+    state_9a["q_p2e"] = orientation.quaternion_product(q_b2e_9a, q_p2b_9a)
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
@@ -701,15 +701,11 @@ def main():
     v_frd = orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
 
     if "q_p2e" in path.dtype.names:  # 9 DoF model
-        # q_p2e = np.asarray([orientation.quaternion_product(path["q_b2e"][k], path["q_p2b"][k]) for k in range(K)])
-        # Theta_p2b = orientation.quaternion_to_euler(path["q_p2b"])  # [phi, theta, gamma]
-        # Theta_p2e = orientation.quaternion_to_euler(q_p2e)  # FIXME: verify!
-
         # FIXME: vectorize `orientation.quaternion_product`
         q_b2p = [
             orientation.quaternion_product(
-                path["q_b2e"][k],
                 path["q_p2e"][k] * [-1, 1, 1, 1],
+                path["q_b2e"][k],
             )
             for k in range(K)
         ]
