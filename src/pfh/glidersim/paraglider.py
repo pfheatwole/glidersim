@@ -1808,14 +1808,6 @@ class Paraglider9c(Paraglider9a):
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
     """
-
-    def __init__(self, *args, **kwargs):
-        print("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("\n     Warning: Paraglider9c is broken!")
-        print("\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n")
-        # See the FIXME at the end of `accelerations`
-        super().__init__(*args, **kwargs)
-
     def accelerations(
         self,
         v_R2e,
@@ -2080,32 +2072,13 @@ class Paraglider9c(Paraglider9a):
         x = np.linalg.solve(A, B)
         a_R2e = x[:3]  # In frame F_b
         a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
-        alpha_b2e = x[3:6]  # In frame F_b and F_e
-        alpha_p2b = x[6:9]  # In frame F_b
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2b = x[6:9]  # In frames F_b and F_p
         F_R = x[9:]  # For debugging
 
-        # These are all equivalent to compute dot{omega}_p2e^b in frame F_p?
+        # Dynamics9a expects `^p dot{omega}_{p/e}^p`
         alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
-        # alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2p, omega_b2e)
-        # alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2p, omega_p2e)
-
-        # FIXME: I think this model is broken at this point.
-        #
-        # If you start 9a/9b/9c at equilibrium (omega_b2e=0 and omega_p2e=0)
-        # but instantaneous hard right brake, you'll see the first time step
-        # matches exactly, but at the second step they start to diverge.
-        # Specifically, a_R2e, omega_b2e, and F_R all match exactly for all
-        # three models, but alpha_p2e here doesn't agree with 9a/9b. The
-        # pitching acceleration matches, but rolling and yawing do not.
-        #
-        # The 9a/9b models are more straightforward to derive, and they agree
-        # exactly, so I'm inclined to believe them.
-        #
-        # So the question remains: is alpha_p2b here correct (which I think it
-        # is, since a_R2e/omega_b2e/F_R all match 9a/9b exactly), and if so,
-        # what am I missing when computing alpha_p2e?
-
-        alpha_p2e = C_p2b @ alpha_p2e  # In frame F_p and F_e
+        alpha_p2e = C_p2b @ alpha_p2e  # In frames F_p and F_e
 
         # embed()
         # 1/0
