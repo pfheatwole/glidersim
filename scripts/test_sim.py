@@ -709,6 +709,7 @@ def main():
             )
             for k in range(K)
         ]
+        q_b2p = np.asarray(q_b2p)
 
         # FIXME: assumes the payload has only one control point (r_P2R^p)
         r_P2O = path["r_R2O"] + orientation.quaternion_rotate(
@@ -718,13 +719,18 @@ def main():
                 model.glider.payload.control_points(),
             ),
         )
+
+        q_p2b = q_b2p * [-1, 1, 1, 1]
+        Theta_p2b = orientation.quaternion_to_euler(q_p2b)
+        Theta_p2e = orientation.quaternion_to_euler(path["q_p2e"])
+
     else:  # 6 DoF model
         r_P2O = path["r_R2O"] + orientation.quaternion_rotate(
             q_e2b, model.glider.payload.control_points(),
         )
 
     # Euler derivatives (Stevens Eq:1.4-4)
-    Theta_b2e = orientation.quaternion_to_euler(path["q_b2e"])  # [phi, theta, gamma]
+    Theta_b2e = orientation.quaternion_to_euler(path["q_b2e"])
     _0, _1 = np.zeros(K), np.ones(K)
     sp, st, sg = np.sin(Theta_b2e.T)
     cp, ct, cg = np.cos(Theta_b2e.T)
