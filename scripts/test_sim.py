@@ -504,13 +504,13 @@ def main():
     # Precomputed equilibrium states
     equilibrium_6a = {
         "Theta_b2e": [0, np.deg2rad(2.170), 0],
-        "v_R2e": [9.8595, 0, 1.2184],  # In Earth coordinates (ned)
+        "v_R2e": [9.8595, 0, 1.2184],  # In body coordinates (frd)
     }
 
     equilibrium_9a = {
         "Theta_b2e": [0, np.deg2rad(2.6169), 0],
         "Theta_p2b": [0, np.deg2rad(-4.588), 0],
-        "v_R2e": [9.7167, 0, 1.1938],  # In Earth coordinates (ned)
+        "v_R2e": [9.7167, 0, 1.1938],  # In body coordinates (frd)
     }
 
     # Optional: recompute the equilibrium state
