@@ -18,7 +18,6 @@ import pfh.glidersim as gsim
 
 
 class CircularThermal:
-
     def __init__(self, px, py, mag, radius5, t_start=0):
         """
         Parameters
@@ -32,12 +31,12 @@ class CircularThermal:
         """
         self.c = np.array([px, py])
         self.mag = mag
-        self.R = -radius5**2 / np.log(0.05)
+        self.R = -(radius5 ** 2) / np.log(0.05)
         self.t_start = t_start
 
     def __call__(self, t, r):
         # `t` is time, `r` is 3D position in ned coordinates
-        d2 = ((self.c - r[..., :2])**2).sum(axis=1)
+        d2 = ((self.c - r[..., :2]) ** 2).sum(axis=1)
         wind = np.zeros(r.shape)
         if t > self.t_start:
             wind[..., 2] = self.mag * np.exp(-d2 / self.R)
@@ -49,6 +48,7 @@ class HorizontalShear:
     Increasing vertical wind when traveling north. Transitions from 0 to `mag`
     as a sigmoid function. The transition is stretch using `smooth`.
     """
+
     def __init__(self, x_start, mag, smooth, t_start):
         self.x_start = x_start
         self.mag = mag
@@ -70,6 +70,7 @@ class LateralGust:
     """
     Adds an east-west gust. Linear rampump.
     """
+
     def __init__(self, t_start, t_ramp, t_duration, mag):
         t0 = 0
         t1 = t_start  # Start the ramp-up
@@ -122,7 +123,11 @@ def main():
     # Build the glider
     wing = hook3.build_hook3()
     harness = gsim.harness.Spherical(
-        mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1,
+        mass=75,
+        z_riser=0.5,
+        S=0.55,
+        CD=0.8,
+        kappa_w=0.1,
     )
     glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
     glider_6b = gsim.paraglider.Paraglider6b(wing, harness)
@@ -133,9 +138,8 @@ def main():
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
-    # Define the initial state for both models
+    # Define the initial states for both models from precomputed equilibriums
 
-    # Precomputed equilibrium states
     equilibrium_6a = {
         "Theta_b2e": [0, np.deg2rad(2.170), 0],
         "v_R2e": [9.8595, 0, 1.2184],  # In body coordinates (frd)
@@ -171,7 +175,8 @@ def main():
     state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
     state_6a["r_R2O"] = [0, 0, 0]
     state_6a["v_R2e"] = gsim.orientation.quaternion_rotate(
-        q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
+        q_b2e_6a * [-1, 1, 1, 1],
+        equilibrium_6a["v_R2e"],
     )
 
     q_b2e_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
@@ -183,7 +188,8 @@ def main():
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
     state_9a["v_R2e"] = gsim.orientation.quaternion_rotate(
-        q_b2e_9a * [-1, 1, 1, 1], equilibrium_9a["v_R2e"],
+        q_b2e_9a * [-1, 1, 1, 1],
+        equilibrium_9a["v_R2e"],
     )
 
     # Optional: arbitrary modifications:
@@ -360,7 +366,8 @@ def main():
 
     else:  # 6 DoF model
         r_P2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(
-            q_e2b, model.glider.payload.control_points(),
+            q_e2b,
+            model.glider.payload.control_points(),
         )
 
     # Euler derivatives (Stevens Eq:1.4-4)
@@ -393,19 +400,19 @@ def main():
 
     # 3D Plot: Position over time
     fig = plt.figure(figsize=(12, 12))
-    ax = plt.gca(projection='3d')
+    ax = plt.gca(projection="3d")
     ax.invert_yaxis()
     ax.invert_zaxis()
     lpp = 0.25  # Line-plotting period [sec]
     for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
         p1, p2 = path["r_R2O"][t], r_LE2O[t]  # Risers -> wing central LE
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
 
         p1, p2 = path["r_R2O"][t], r_P2O[t]  # Risers -> payload
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c='k')
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
     ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
     ax.plot(r_LE2O.T[0], r_LE2O.T[1], r_LE2O.T[2], label="LE0")
-    ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c='r')
+    ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c="r")
     ax.legend()
     gsim.plots._set_axes_equal(ax)
     # plt.show()
