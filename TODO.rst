@@ -816,6 +816,10 @@ Wing mass properties
   `Paraglider` be responsible for including it in the center of mass
   calculations?
 
+* `mass_properties` should take the reference point for the apparent mass as
+  a parameter. Using `R` is fine for most models, but models that use other
+  points (like the wing center of mass) can't use apparent mass.
+
 
 Wing mass moment
 ----------------
@@ -834,6 +838,11 @@ contribution is (probably?) negligible.
 
 Paraglider
 ==========
+
+* I don't like integrating `omega_b2e` and `omega_p2e` separately. Seems like
+  `Theta_p2b` (and by extension, the rest of the model dynamics) would
+  accumulate error more slowly if it used `omega_p2b` (relative motion)
+  instead of `omega_p2e`, but I could be wrong.
 
 * Fix the "magic layout" for the control points in the paraglider models
 
