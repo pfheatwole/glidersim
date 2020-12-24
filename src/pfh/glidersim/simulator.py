@@ -15,8 +15,6 @@ from pfh.glidersim import orientation
 class Dynamics6a:
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
-    # FIXME: I dislike this notation. It confuses the reference frames with
-    #        the coordinate systems embedded in those frames.
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
         ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
@@ -158,8 +156,6 @@ class Dynamics6a:
 class Dynamics9a:
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
-    # FIXME: I dislike this notation. It confuses the reference frames with
-    #        the coordinate systems embedded in those frames.
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
         ("q_p2e", float, (4,)),  # Orientation: payload/earth
