@@ -398,10 +398,11 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         print(f"\n--- Simulation failed: {type(e).__name__}:", e)
     except KeyboardInterrupt:
         print("\n--- Simulation interrupted. ---")
-    finally:
-        if k < num_steps:  # Truncate if the simulation did not complete
-            times = times[:k]
-            path = path[:k]
+
+    # Truncate if the simulation did not complete
+    if k < num_steps:
+        times = times[:k]
+        path = path[:k]
 
     print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
 
