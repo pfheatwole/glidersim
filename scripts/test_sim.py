@@ -380,15 +380,7 @@ def main():
     T = np.moveaxis(T, -1, 0)
     Theta_b2e_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
 
-    print("\nRe-running the dynamics to get the accelerations")
-    N = len(times)
-    derivatives = np.empty((N,), dtype=model.state_dtype)
-    params = {"solution": None}  # Is modified by `model.dynamics`
-    pf = path.view(float).reshape((N, -1))  # Ugly hack...
-    for n in range(N):
-        print(f"\r{n}/{N}", end="")
-        derivatives[n] = model.dynamics(times[n], pf[n], params).view(model.state_dtype)
-    print()
+    derivatives = gsim.simulator.recompute_derivatives(model, times, path)
 
     t_stop = time.perf_counter()
     print(f"\nTotal time: {t_stop - t_start:.2f}\n")
