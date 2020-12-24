@@ -1008,11 +1008,18 @@ class Paraglider9a:
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    kappa_R : array of float, shape (3,), optional
+        Spring-damper coefficients for Theta_p2b (force as a linear function
+        of angular displacement).
+    kappa_R_dot : array of float, shape (3,), optional
+        Spring-damper coefficients for the derivative of Theta_p2b
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing, payload, kappa_R=[0, 0, 0], kappa_R_dot=[0, 0, 0]):
         self.wing = wing
         self.payload = payload
+        self._kappa_R = np.asarray(kappa_R[:])
+        self._kappa_R_dot = np.asarray(kappa_R_dot[:])
 
     def control_points(self, Theta_p2b, delta_a=0, delta_w=0):
         """
@@ -1239,14 +1246,8 @@ class Paraglider9a:
         M_p += cross3(pmp["cm"], F_p_weight)
 
         # Moment at the connection point `R` modeled as a spring+damper system
-        M_R = np.zeros(3)
         omega_p2b = C_b2p @ omega_p2e - omega_b2e
-        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -1730,14 +1731,8 @@ class Paraglider9b(Paraglider9a):
         M_p += cross3(pmp["cm"] - r_P2R, F_p_weight)
 
         # Moment at the connection point `R` modeled as a spring+damper system
-        M_R = np.zeros(3)
         omega_p2b = C_b2p @ omega_p2e - omega_b2e
-        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -2010,13 +2005,7 @@ class Paraglider9c(Paraglider9a):
         M_p += cross3(r_P2R, F_p_weight)
 
         # Moment at the connection point `R` modeled as a spring+damper system
-        M_R = np.zeros(3)
-        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the

@@ -129,12 +129,37 @@ def main():
         CD=0.8,
         kappa_w=0.1,
     )
+
+    # 6 DoF models
     glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
     glider_6b = gsim.paraglider.Paraglider6b(wing, harness)
     glider_6c = gsim.paraglider.Paraglider6c(wing, harness)
-    glider_9a = gsim.paraglider.Paraglider9a(wing, harness)
-    glider_9b = gsim.paraglider.Paraglider9b(wing, harness)
-    glider_9c = gsim.paraglider.Paraglider9c(wing, harness)
+
+    # Coefficients for the spring-damper connection (9DoF models)
+    # FIXME: naming?
+    kappa_R = [-100, 0, -10]  # Coefficients for Theta_p2b
+    kappa_R_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
+
+    # 9 DoF models
+    glider_9a = gsim.paraglider.Paraglider9a(
+        wing,
+        harness,
+        kappa_R=kappa_R,
+        kappa_R_dot=kappa_R_dot
+    )
+    glider_9b = gsim.paraglider.Paraglider9b(
+        wing,
+        harness,
+        kappa_R=kappa_R,
+        kappa_R_dot=kappa_R_dot
+    )
+    glider_9c = gsim.paraglider.Paraglider9c(
+        wing,
+        harness,
+        kappa_R=kappa_R,
+        kappa_R_dot=kappa_R_dot
+    )
+
     rho_air = 1.2
 
     # -----------------------------------------------------------------------
