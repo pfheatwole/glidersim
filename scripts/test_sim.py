@@ -120,7 +120,7 @@ def linear_control(pairs):
 
 
 def main():
-    # Build the glider
+    # Build a set of glider models from a common base configuration
     wing = hook3.build_hook3()
     harness = gsim.harness.Spherical(
         mass=75,
@@ -129,11 +129,16 @@ def main():
         CD=0.8,
         kappa_w=0.1,
     )
+    use_apparent_mass = True
 
     # 6 DoF models
-    glider_6a = gsim.paraglider.Paraglider6a(wing, harness)
-    glider_6b = gsim.paraglider.Paraglider6b(wing, harness)
-    glider_6c = gsim.paraglider.Paraglider6c(wing, harness)
+    glider_6a = gsim.paraglider.Paraglider6a(
+        wing,
+        harness,
+        use_apparent_mass=use_apparent_mass,
+    )
+    glider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
+    glider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
 
     # Coefficients for the spring-damper connection (9DoF models)
     # FIXME: naming?
@@ -145,19 +150,22 @@ def main():
         wing,
         harness,
         kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot
+        kappa_R_dot=kappa_R_dot,
+        use_apparent_mass=use_apparent_mass,
     )
     glider_9b = gsim.paraglider.Paraglider9b(
         wing,
         harness,
         kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot
+        kappa_R_dot=kappa_R_dot,
+        # No apparent mass
     )
     glider_9c = gsim.paraglider.Paraglider9c(
         wing,
         harness,
         kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot
+        kappa_R_dot=kappa_R_dot,
+        use_apparent_mass=use_apparent_mass,
     )
 
     rho_air = 1.2
