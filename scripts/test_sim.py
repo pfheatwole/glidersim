@@ -307,20 +307,6 @@ def main():
     # -----------------------------------------------------------------------
     # Run the simulation
 
-    Theta_b2e = gsim.orientation.quaternion_to_euler(state0["q_b2e"])
-
-    print("Preparing the simulation.")
-    print("Initial state:")
-    print("  Theta_b2e:", np.rad2deg(Theta_b2e).round(4))
-    if "q_p2b" in state0.dtype.names:
-        Theta_p2b = gsim.orientation.quaternion_to_euler(state0["q_p2b"])[0]
-        print("  Theta_p2b:", np.rad2deg(Theta_p2b).round(4))
-    print("  omega_b2e:", state0["omega_b2e"][0].round(4))
-    if "omega_p2e" in state0.dtype.names:
-        print("  omega_p2e:", state0["omega_p2e"][0].round(4))
-    print("      r_R2O:", state0["r_R2O"][0].round(4))
-    print("      v_R2e:", state0["v_R2e"][0].round(4))
-
     t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
     times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)

@@ -345,6 +345,22 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     path : array of `model.state_dtype`, shape (K+1,)
         The state trajectory.
     """
+
+    Theta_b2e = orientation.quaternion_to_euler(state0["q_b2e"])[0]
+
+    print("\nPreparing the simulation...\n")
+    print("Initial state:")
+    print("  Theta_b2e:", np.rad2deg(Theta_b2e).round(4))
+    if "q_p2b" in state0.dtype.names:
+        Theta_p2b = orientation.quaternion_to_euler(state0["q_p2b"])[0]
+        print("  Theta_p2b:", np.rad2deg(Theta_p2b).round(4))
+    print("  omega_b2e:", state0["omega_b2e"][0].round(4))
+    if "omega_p2e" in state0.dtype.names:
+        print("  omega_p2e:", state0["omega_p2e"][0].round(4))
+    print("      r_R2O:", state0["r_R2O"][0].round(4))
+    print("      v_R2e:", state0["v_R2e"][0].round(4))
+    print()
+
     num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
     times = np.zeros(num_steps)  # The simulation times
     path = np.empty(num_steps, dtype=model.state_dtype)
@@ -358,7 +374,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     t_start = time.perf_counter()
     msg = ""
     k = 1  # Number of completed states (including the initial state)
-    print("\nRunning the simulation.")
+    print("Running the simulation...")
     try:
         while solver.successful() and k < num_steps:
             if k % 25 == 0:  # Update every 25 iterations
