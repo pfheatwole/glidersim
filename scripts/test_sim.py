@@ -11,8 +11,6 @@ from scipy.interpolate import interp1d
 
 import hook3
 import pfh.glidersim as gsim
-from pfh.glidersim import orientation
-from pfh.glidersim import simulator
 
 
 # ---------------------------------------------------------------------------
@@ -167,24 +165,24 @@ def main():
     #     rho_air=1.2,
     # )
 
-    q_b2e_6a = orientation.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
-    state_6a = np.empty(1, dtype=simulator.Dynamics6a.state_dtype)
+    q_b2e_6a = gsim.orientation.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
+    state_6a = np.empty(1, dtype=gsim.simulator.Dynamics6a.state_dtype)
     state_6a["q_b2e"] = q_b2e_6a
     state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
     state_6a["r_R2O"] = [0, 0, 0]
-    state_6a["v_R2e"] = orientation.quaternion_rotate(
+    state_6a["v_R2e"] = gsim.orientation.quaternion_rotate(
         q_b2e_6a * [-1, 1, 1, 1], equilibrium_6a["v_R2e"],
     )
 
-    q_b2e_9a = orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
-    state_9a = np.empty(1, dtype=simulator.Dynamics9a.state_dtype)
+    q_b2e_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
+    state_9a = np.empty(1, dtype=gsim.simulator.Dynamics9a.state_dtype)
     state_9a["q_b2e"] = q_b2e_9a
-    q_p2b_9a = orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
-    state_9a["q_p2e"] = orientation.quaternion_product(q_b2e_9a, q_p2b_9a)
+    q_p2b_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
+    state_9a["q_p2e"] = gsim.orientation.quaternion_product(q_b2e_9a, q_p2b_9a)
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
     state_9a["r_R2O"] = [0, 0, 0]
-    state_9a["v_R2e"] = orientation.quaternion_rotate(
+    state_9a["v_R2e"] = gsim.orientation.quaternion_rotate(
         q_b2e_9a * [-1, 1, 1, 1], equilibrium_9a["v_R2e"],
     )
 
@@ -282,12 +280,12 @@ def main():
     # Build the dynamics models
 
     common_args = (rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
-    model_6a = simulator.Dynamics6a(glider_6a, *common_args)
-    model_6b = simulator.Dynamics6a(glider_6b, *common_args)
-    model_6c = simulator.Dynamics6a(glider_6c, *common_args)
-    model_9a = simulator.Dynamics9a(glider_9a, *common_args)
-    model_9b = simulator.Dynamics9a(glider_9b, *common_args)
-    model_9c = simulator.Dynamics9a(glider_9c, *common_args)
+    model_6a = gsim.simulator.Dynamics6a(glider_6a, *common_args)
+    model_6b = gsim.simulator.Dynamics6a(glider_6b, *common_args)
+    model_6c = gsim.simulator.Dynamics6a(glider_6c, *common_args)
+    model_9a = gsim.simulator.Dynamics9a(glider_9a, *common_args)
+    model_9b = gsim.simulator.Dynamics9a(glider_9b, *common_args)
+    model_9c = gsim.simulator.Dynamics9a(glider_9c, *common_args)
 
     # Choose which model to run
     state0, model = state_6a, model_6a
@@ -303,13 +301,13 @@ def main():
     # -----------------------------------------------------------------------
     # Run the simulation
 
-    Theta_b2e = orientation.quaternion_to_euler(state0["q_b2e"])
+    Theta_b2e = gsim.orientation.quaternion_to_euler(state0["q_b2e"])
 
     print("Preparing the simulation.")
     print("Initial state:")
     print("  Theta_b2e:", np.rad2deg(Theta_b2e).round(4))
     if "q_p2b" in state0.dtype.names:
-        Theta_p2b = orientation.quaternion_to_euler(state0["q_p2b"])[0]
+        Theta_p2b = gsim.orientation.quaternion_to_euler(state0["q_p2b"])[0]
         print("  Theta_p2b:", np.rad2deg(Theta_p2b).round(4))
     print("  omega_b2e:", state0["omega_b2e"][0].round(4))
     if "omega_p2e" in state0.dtype.names:
@@ -319,7 +317,7 @@ def main():
 
     t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
-    times, path = simulator.simulate(model, state0, dt=dt, T=T)
+    times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
@@ -330,16 +328,16 @@ def main():
     else:
         r_LE2R = -model.glider.wing.r_R2LE(delta_a(times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_LE2O = path["r_R2O"] + orientation.quaternion_rotate(q_e2b, r_LE2R)
-    v_LE2O = path["v_R2e"] + orientation.quaternion_rotate(
+    r_LE2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2R)
+    v_LE2O = path["v_R2e"] + gsim.orientation.quaternion_rotate(
         q_e2b, np.cross(path["omega_b2e"], r_LE2R)
     )
-    v_frd = orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
+    v_frd = gsim.orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
 
     if "q_p2e" in path.dtype.names:  # 9 DoF model
-        # FIXME: vectorize `orientation.quaternion_product`
+        # FIXME: vectorize `gsim.orientation.quaternion_product`
         q_b2p = [
-            orientation.quaternion_product(
+            gsim.orientation.quaternion_product(
                 path["q_p2e"][k] * [-1, 1, 1, 1],
                 path["q_b2e"][k],
             )
@@ -348,25 +346,25 @@ def main():
         q_b2p = np.asarray(q_b2p)
 
         # FIXME: assumes the payload has only one control point (r_P2R^p)
-        r_P2O = path["r_R2O"] + orientation.quaternion_rotate(
+        r_P2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(
             q_e2b,
-            orientation.quaternion_rotate(
+            gsim.orientation.quaternion_rotate(
                 q_b2p,
                 model.glider.payload.control_points(),
             ),
         )
 
         q_p2b = q_b2p * [-1, 1, 1, 1]
-        Theta_p2b = orientation.quaternion_to_euler(q_p2b)
-        Theta_p2e = orientation.quaternion_to_euler(path["q_p2e"])
+        Theta_p2b = gsim.orientation.quaternion_to_euler(q_p2b)
+        Theta_p2e = gsim.orientation.quaternion_to_euler(path["q_p2e"])
 
     else:  # 6 DoF model
-        r_P2O = path["r_R2O"] + orientation.quaternion_rotate(
+        r_P2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(
             q_e2b, model.glider.payload.control_points(),
         )
 
     # Euler derivatives (Stevens Eq:1.4-4)
-    Theta_b2e = orientation.quaternion_to_euler(path["q_b2e"])
+    Theta_b2e = gsim.orientation.quaternion_to_euler(path["q_b2e"])
     _0, _1 = np.zeros(K), np.ones(K)
     sp, st, sg = np.sin(Theta_b2e.T)
     cp, ct, cg = np.cos(Theta_b2e.T)
