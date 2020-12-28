@@ -66,11 +66,11 @@ class ParagliderWing:
         Rl = r_S2LE - cmp["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
-        J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
+        J_s2S = J_upper + m_upper * Du + J_lower + m_lower * Dl
         self._mass_properties = {
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
-            "J_solid": J_solid,
+            "J_s2S": J_s2S,
             "m_air": cmp["volume"],  # Normalized by unit air density
             "cm_air": cmp["volume_centroid"],  # In canopy coordinates
             "J_air": cmp["volume_inertia"],  # Normalized by unit air density
@@ -364,7 +364,7 @@ class ParagliderWing:
                 Vector from the canopy origin to the solid mass centroid
             r_S2R : array of float, shape (3,) [m]
                 Vector from the reference point to the solid mass centroid
-            J_solid : array of float, shape (3,3) [kg m^2]
+            J_s2S : array of float, shape (3,3) [kg m^2]
                 The moment of inertia matrix of the solid mass about its cm
             m_air : float [kg m^3]
                 The enclosed air mass.

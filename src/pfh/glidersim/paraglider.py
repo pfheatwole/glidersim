@@ -180,7 +180,7 @@ class Paraglider6a:
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
         J_wing2R = (
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
@@ -690,7 +690,7 @@ class Paraglider6b(Paraglider6a):
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
@@ -922,7 +922,7 @@ class Paraglider6c(Paraglider6a):
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
@@ -1203,7 +1203,7 @@ class Paraglider9a:
         D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         J_b2R = (
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
@@ -1700,7 +1700,7 @@ class Paraglider9b(Paraglider9a):
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         J_b2B = (  # Inertia of the body about `B`
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
@@ -1968,7 +1968,7 @@ class Paraglider9c(Paraglider9a):
         D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         J_b2R = (
-            wmp["J_solid"]
+            wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
