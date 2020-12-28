@@ -59,17 +59,17 @@ class ParagliderWing:
         J_upper = cmp["upper_inertia"] * self.rho_upper
         J_lower = cmp["lower_inertia"] * self.rho_lower
         m_solid = m_upper + m_lower
-        cm_solid = (
+        r_S2LE = (
             m_upper * cmp["upper_centroid"] + m_lower * cmp["lower_centroid"]
         ) / m_solid
-        Ru = cm_solid - cmp["upper_centroid"]
-        Rl = cm_solid - cmp["lower_centroid"]
+        Ru = r_S2LE - cmp["upper_centroid"]
+        Rl = r_S2LE - cmp["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
         J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
         self._mass_properties = {
             "m_solid": m_solid,
-            "cm_solid": cm_solid,  # In canopy coordinates
+            "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_solid": J_solid,
             "m_air": cmp["volume"],  # Normalized by unit air density
             "cm_air": cmp["volume_centroid"],  # In canopy coordinates
@@ -360,8 +360,10 @@ class ParagliderWing:
         dictionary
             m_solid : float [kg]
                 The solid mass of the wing
-            cm_solid : array of float, shape (3,) [m]
-                The solid mass centroid
+            r_S2LE : array of float, shape (3,) [m]
+                Vector from the canopy origin to the solid mass centroid
+            r_S2R : array of float, shape (3,) [m]
+                Vector from the reference point to the solid mass centroid
             J_solid : array of float, shape (3,3) [kg m^2]
                 The moment of inertia matrix of the solid mass about its cm
             m_air : float [kg m^3]
@@ -379,7 +381,7 @@ class ParagliderWing:
         """
         r_LE2R = -self.r_R2LE(delta_a)
         mp = self._mass_properties.copy()
-        mp["cm_solid"] = r_LE2R + mp["cm_solid"]
+        mp["r_S2R"] = r_LE2R + mp["r_S2LE"]
         mp["cm_air"] = r_LE2R + mp["cm_air"]
         mp["m_air"] = mp["m_air"] * rho_air
         mp["J_air"] = mp["J_air"] * rho_air

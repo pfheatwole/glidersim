@@ -169,19 +169,19 @@ class Paraglider6a:
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
-        r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
+        r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
         r_P2R = pmp["cm"]  # Displacement of the payload mass
-        Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
+        D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
         J_wing2R = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -217,7 +217,7 @@ class Paraglider6a:
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2R_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
@@ -679,19 +679,19 @@ class Paraglider6b(Paraglider6a):
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
-        r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
+        r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
-        Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
+        D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -731,7 +731,7 @@ class Paraglider6b(Paraglider6a):
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
@@ -911,19 +911,19 @@ class Paraglider6c(Paraglider6a):
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
-        r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
+        r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
-        Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
+        D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -958,7 +958,7 @@ class Paraglider6c(Paraglider6a):
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
@@ -1195,16 +1195,16 @@ class Paraglider9a:
         wmp = self.wing.mass_properties(rho_air, delta_a)
         m_b = wmp["m_solid"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
         ) / m_b
-        r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
+        r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
-        Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
+        D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         J_b2R = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -1257,7 +1257,7 @@ class Paraglider9a:
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2R_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
@@ -1692,16 +1692,16 @@ class Paraglider9b(Paraglider9a):
         wmp = self.wing.mass_properties(rho_air, delta_a)
         m_b = wmp["m_solid"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
         ) / m_b
-        r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
+        r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
-        Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
+        D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         J_b2B = (  # Inertia of the body about `B`
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -1753,7 +1753,7 @@ class Paraglider9b(Paraglider9a):
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
@@ -1960,16 +1960,16 @@ class Paraglider9c(Paraglider9a):
         wmp = self.wing.mass_properties(rho_air, delta_a)
         m_b = wmp["m_solid"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
-            wmp["m_solid"] * wmp["cm_solid"]
+            wmp["m_solid"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["cm_air"]
         ) / m_b
-        r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
+        r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
-        Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
+        D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         J_b2R = (
             wmp["J_solid"]
-            + wmp["m_solid"] * Dwsm
+            + wmp["m_solid"] * D_s
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
@@ -2027,7 +2027,7 @@ class Paraglider9c(Paraglider9a):
         F_wing_weight = wmp["m_solid"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2R_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["cm_solid"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.forces_and_moments(C_p2b @ v_W2CP_p, rho_air)
