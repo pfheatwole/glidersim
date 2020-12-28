@@ -122,8 +122,7 @@ class Spherical(Harness):
     def mass_properties(self, delta_w=0):
         # Treats the mass as a uniform density solid sphere
         return {
-            "mass": self._mass,
-            "cm": self.control_points(delta_w)[0],
-            "J": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
-            "J_apparent": np.zeros((3, 3)),
+            "m_p": self._mass,
+            "r_P2R": self.control_points(delta_w)[0],
+            "J_p2P": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
         }
