@@ -374,7 +374,7 @@ class ParagliderWing:
                 Vector to the pitch center from the roll center
             r_RC2R : array of float, shape (3,) [m]
                 Vector to the roll center from the riser connection point
-            A_R : array of float, shape (6,6)
+            A_a2R : array of float, shape (6,6)
                 The apparent inertia matrix of the volume about `R`
         """
         r_LE2R = -self.r_R2LE(delta_a)
@@ -391,7 +391,7 @@ class ParagliderWing:
         S_PC2RC = crossmat(ai["r_PC2RC"])
         S_RC2R = crossmat(r_RC2R)
         Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
-        J_R = (  # Barrows Eq:25
+        J_a2R = (  # Barrows Eq:25
             ai["I"]
             - S_RC2R @ ai["M"] @ S_RC2R
             - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
@@ -399,12 +399,12 @@ class ParagliderWing:
             - Q.T
         )
         MC = -ai["M"] @ (S_RC2R + S_PC2RC @ S2)
-        A_R = np.block([[ai["M"], MC], [MC.T, J_R]])  # Barrows Eq:27
+        A_a2R = np.block([[ai["M"], MC], [MC.T, J_a2R]])  # Barrows Eq:27
 
         # The vectors to the roll and pitch centers are required to compute the
         # apparent inertias. See Barrows Eq:16 and Eq:24.
         mp["r_RC2R"] = r_RC2R
         mp["r_PC2RC"] = ai["r_PC2RC"]
-        mp["A_R"] = A_R * rho_air
+        mp["A_a2R"] = A_a2R * rho_air
 
         return mp

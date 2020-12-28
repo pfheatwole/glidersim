@@ -261,8 +261,8 @@ class Paraglider6a:
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
-            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
-            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
             S_RC2R = crossmat(wmp["r_RC2R"])
@@ -274,7 +274,7 @@ class Paraglider6a:
             h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
             )
-            A += wmp["A_R"]  # Incorporate the apparent inertia
+            A += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
@@ -1325,8 +1325,8 @@ class Paraglider9a:
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
-            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
-            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
             S_RC2R = crossmat(wmp["r_RC2R"])
@@ -1338,7 +1338,7 @@ class Paraglider9a:
             h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
             )
-            A[:6, :6] += wmp["A_R"]  # Incorporate the apparent inertia
+            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
@@ -2095,8 +2095,8 @@ class Paraglider9c(Paraglider9a):
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
-            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
-            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
             S_RC2R = crossmat(wmp["r_RC2R"])
@@ -2108,7 +2108,7 @@ class Paraglider9c(Paraglider9a):
             h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
             )
-            A[:6, :6] += wmp["A_R"]  # Incorporate the apparent inertia
+            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
