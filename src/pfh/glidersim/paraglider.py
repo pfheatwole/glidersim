@@ -170,20 +170,20 @@ class Paraglider6a:
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
         r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
-        r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
+        r_V2R = wmp["r_V2R"]  # Displacement of the wing enclosed air
         r_P2R = pmp["cm"]  # Displacement of the payload mass
         D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
-        Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
+        D_v = (r_V2R @ r_V2R) * np.eye(3) - np.outer(r_V2R, r_V2R)
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
         J_wing2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
         J_p2R = (pmp["J"] + pmp["mass"] * Dp)
 
@@ -680,20 +680,20 @@ class Paraglider6b(Paraglider6a):
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
         r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
-        r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
+        r_V2B = wmp["r_V2R"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
-        Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
+        D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
         J_p2B = (pmp["J"] + pmp["mass"] * Dp)
 
@@ -912,20 +912,20 @@ class Paraglider6c(Paraglider6a):
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["mass"] * pmp["cm"]
         ) / m_b
         r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
-        r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
+        r_V2B = wmp["r_V2R"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
-        Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
+        D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
         J_p2B = (pmp["J"] + pmp["mass"] * Dp)
 
@@ -1196,24 +1196,24 @@ class Paraglider9a:
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
         r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
-        r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
+        r_V2R = wmp["r_V2R"]  # Displacement of the wing enclosed air
         D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
-        Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
+        D_v = (r_V2R @ r_V2R) * np.eye(3) - np.outer(r_V2R, r_V2R)
         J_b2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
 
         pmp = self.payload.mass_properties(delta_w)
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
-        J_p2R = pmp["J"] + pmp["mass"] * Dp
+        J_p2R = pmp["J"] + pmp["mass"] * D_p
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1693,17 +1693,17 @@ class Paraglider9b(Paraglider9a):
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
         r_S2B = wmp["r_S2R"] - r_B2R  # Displacement of the wing solid mass
-        r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
+        r_V2B = wmp["r_V2R"] - r_B2R  # Displacement of the wing enclosed air
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
-        Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
+        D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
         J_b2B = (  # Inertia of the body about `B`
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
 
         pmp = self.payload.mass_properties(delta_w)
@@ -1961,17 +1961,17 @@ class Paraglider9c(Paraglider9a):
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2R = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2R"]
-            + wmp["m_air"] * wmp["cm_air"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
         r_S2R = wmp["r_S2R"]  # Displacement of the wing solid mass
-        r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
+        r_V2R = wmp["r_V2R"]  # Displacement of the wing enclosed air
         D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
-        Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
+        D_v = (r_V2R @ r_V2R) * np.eye(3) - np.outer(r_V2R, r_V2R)
         J_b2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_air"]
-            + wmp["m_air"] * Dwea
+            + wmp["m_air"] * D_v
         )
 
         pmp = self.payload.mass_properties(delta_w)

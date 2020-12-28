@@ -72,7 +72,7 @@ class ParagliderWing:
             "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_s2S": J_s2S,
             "m_air": cmp["volume"],  # Normalized by unit air density
-            "cm_air": cmp["volume_centroid"],  # In canopy coordinates
+            "r_V2LE": cmp["volume_centroid"],
             "J_air": cmp["volume_inertia"],  # Normalized by unit air density
         }
 
@@ -368,8 +368,8 @@ class ParagliderWing:
                 The moment of inertia matrix of the solid mass about its cm
             m_air : float [kg m^3]
                 The enclosed air mass.
-            cm_air : array of float, shape (3,) [m]
-                The air mass centroid
+            r_V2R : array of float, shape (3,) [m]
+                The volume centroid
             J_air : array of float, shape (3,3) [m^2]
                 The moment of inertia matrix of the enclosed air mass about its cm
             r_PC2RC : array of float, shape (3,) [m]
@@ -382,7 +382,7 @@ class ParagliderWing:
         r_LE2R = -self.r_R2LE(delta_a)
         mp = self._mass_properties.copy()
         mp["r_S2R"] = r_LE2R + mp["r_S2LE"]
-        mp["cm_air"] = r_LE2R + mp["cm_air"]
+        mp["r_V2R"] = mp["r_V2LE"] + r_LE2R
         mp["m_air"] = mp["m_air"] * rho_air
         mp["J_air"] = mp["J_air"] * rho_air
 
