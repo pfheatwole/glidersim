@@ -58,17 +58,17 @@ class ParagliderWing:
         m_lower = cmp["lower_area"] * self.rho_lower
         J_upper = cmp["upper_inertia"] * self.rho_upper
         J_lower = cmp["lower_inertia"] * self.rho_lower
-        m_solid = m_upper + m_lower
-        r_S2LE = (
+        m_s = m_upper + m_lower  # Solid mass
+        r_S2LE = (  # Solid mass centroid
             m_upper * cmp["upper_centroid"] + m_lower * cmp["lower_centroid"]
-        ) / m_solid
+        ) / m_s
         Ru = r_S2LE - cmp["upper_centroid"]
         Rl = r_S2LE - cmp["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
         J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
         self._mass_properties = {
-            "m_solid": m_solid,
+            "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_solid": J_solid,
             "m_air": cmp["volume"],  # Normalized by unit air density
@@ -358,7 +358,7 @@ class ParagliderWing:
         Returns
         -------
         dictionary
-            m_solid : float [kg]
+            m_s : float [kg]
                 The solid mass of the wing
             r_S2LE : array of float, shape (3,) [m]
                 Vector from the canopy origin to the solid mass centroid
