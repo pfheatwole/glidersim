@@ -142,7 +142,6 @@ class Paraglider6a:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        # FIXME: design review names. `w` is overloaded ("wind" and "wing")
         if v_W2e is None:
             v_W2e = np.array([0, 0, 0])
         else:
@@ -653,7 +652,6 @@ class Paraglider6b(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        # FIXME: design review names. `w` is overloaded ("wind" and "wing")
         if v_W2e is None:
             v_W2e = np.array([0, 0, 0])
         else:
@@ -886,7 +884,6 @@ class Paraglider6c(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        # FIXME: design review names. `w` is overloaded ("wind" and "wing")
         if v_W2e is None:
             v_W2e = np.array([0, 0, 0])
         else:
