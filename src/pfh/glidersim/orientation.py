@@ -44,6 +44,7 @@ def dcm_to_euler(dcm):
     euler : array of float, shape (3,) [radians]
         The [phi, theta, gamma] of a yaw-pitch-roll sequence.
     """
+    # ref: Stevens Eq:1.3-11, pg12 (26)
     phi = np.arctan2(dcm[1, 2], dcm[2, 2])
     theta = -np.arcsin(dcm[0, 2])
     gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
@@ -89,8 +90,21 @@ def quaternion_to_dcm(q):
 
 
 def quaternion_to_euler(q):
-    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles."""
+    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles.
+
+    Parameters
+    ----------
+    q : array_like of float, shape (K,4)
+        The components of the quaternion(s)
+
+    Returns
+    -------
+    v : array_like of float, shape (K,3)
+        The [roll, pitch, yaw] angles (phi, theta, gamma) of a Tait-Bryan
+        yaw-pitch-roll sequence.
+    """
     # assert np.isclose(np.linalg.norm(q), 1)
+    q = np.asarray(q)
     w, x, y, z = q.T
 
     # ref: Merwe, Eq:B.5:7, p363 (382)

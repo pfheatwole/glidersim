@@ -24,11 +24,14 @@ class Paraglider6a:
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    use_apparent_mass : bool, optional
+        Whether to estimate the effects of apparent inertia. Default: True
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing, payload, *, use_apparent_mass=True):
         self.wing = wing
         self.payload = payload
+        self.use_apparent_mass = use_apparent_mass
 
     def control_points(self, delta_a=0, delta_w=0):
         """
@@ -155,7 +158,7 @@ class Paraglider6a:
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -165,42 +168,42 @@ class Paraglider6a:
         # Compute the inertia matrices about the riser connection midpoint `R`
         wmp = self.wing.mass_properties(rho_air, delta_a)
         pmp = self.payload.mass_properties(delta_w)
-        m_B = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
+        m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
-        ) / m_B
+        ) / m_b
         r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
         r_P2R = pmp["cm"]  # Displacement of the payload mass
         Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
-        J_wing = (
+        J_wing2R = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
-        J_p = (pmp["J"] + pmp["mass"] * Dp)
+        J_p2R = (pmp["J"] + pmp["mass"] * Dp)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2R_wing = r_CP2R[:-1]
         r_CP2R_payload = r_CP2R[-1]
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -208,7 +211,7 @@ class Paraglider6a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -218,7 +221,7 @@ class Paraglider6a:
         M_wing += cross3(wmp["cm_solid"], F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -233,58 +236,61 @@ class Paraglider6a:
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum to the forces and moments.
 
-        J = J_wing + J_p  # Real mass inertia matrix about `R`
-
-        # Compute the real mass inertias
+        # Compute the real mass momentums
+        J_b2R = J_wing2R + J_p2R  # Real mass inertia matrix about `R`
         v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
-        p_B2e = m_B * v_B2e  # Linear momentum
-        h_R = J @ omega_b2e + m_B * cross3(r_B2R, v_R2e)  # Angular momentum
+        p_B2e = m_b * v_B2e  # Linear momentum
+        h_b2R = J_b2R @ omega_b2e + m_b * cross3(r_B2R, v_R2e)  # Angular momentum
 
-        # Compute the apparent mass inertias (Barrows Eq:16 and Eq:24)
-        M_a = wmp["A_R"][:3, :3]
-        J_a = wmp["A_R"][3:, 3:]
-        S2 = np.diag([0, 1, 0])
-        S_PC2RC = crossmat(wmp["r_PC2RC"])
-        S_RC2R = crossmat(wmp["r_RC2R"])
-        p_a = M_a @ (
-            v_R2e
-            - cross3(wmp["r_RC2R"], omega_b2e)
-            - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
-        )
-        h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
-
-        # Build the system matrices
-        A1 = [m_B * np.eye(3), -m_B * crossmat(r_B2R)]
-        A2 = [m_B * crossmat(r_B2R), J]
+        # Build the system matrices for the real mass
+        A1 = [m_b * np.eye(3), -m_b * crossmat(r_B2R)]
+        A2 = [m_b * crossmat(r_B2R), J_b2R]
         A = np.block([A1, A2])
-        A += wmp["A_R"]  # Include the apparent mass
-
         B1 = (
             F_wing_aero
             + F_wing_weight
             + F_p_aero
             + F_p_weight
             - cross3(omega_b2e, p_B2e)
-
-            # Apparent inertial force (Barrows Eq:61)
-            - cross3(omega_b2e, p_a)
         )
         B2 = (  # ref: Hughes Eq:13, pg 58 (67)
             M_wing
             + M_p
             - cross3(v_R2e, p_B2e)
-            - cross3(omega_b2e, h_R)
-
-            # Apparent inertial moment (Barrows Eq:64)
-            - cross3(v_R2e, p_a)
-            - cross3(omega_b2e, h_a)
-            + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+            - cross3(omega_b2e, h_b2R)
         )
+
+        if self.use_apparent_mass:
+            # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
+            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
+            S_PC2RC = crossmat(wmp["r_PC2RC"])
+            S_RC2R = crossmat(wmp["r_RC2R"])
+            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
+                v_R2e
+                - cross3(wmp["r_RC2R"], omega_b2e)
+                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            )
+            h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
+                (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+            )
+            A += wmp["A_R"]  # Incorporate the apparent inertia
+            B1 += (  # Apparent inertial force (Barrows Eq:61)
+                -cross3(omega_b2e, p_a2e)
+            )
+            B2 += (  # Apparent inertial moment (Barrows Eq:64)
+                -cross3(v_R2e, p_a2e)
+                - cross3(omega_b2e, h_a2R)
+                + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+            )
+
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_R2e = derivatives[:3]
-        alpha_b2e = derivatives[3:]
+        a_R2e = derivatives[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_R2e, alpha_b2e, ref
 
@@ -506,13 +512,18 @@ class Paraglider6a:
 
         for _ in range(N_iter):
             alpha_eq = self.wing.equilibrium_alpha(
-                delta_a, delta_b, v_eq, rho_air, alpha_0=np.rad2deg(alpha_0), reference_solution=solution,
+                delta_a,
+                delta_b,
+                v_eq,
+                rho_air,
+                alpha_0=np.rad2deg(alpha_0),
+                reference_solution=solution,
             )
-            v_W2b = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
+            v_W2CP = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
             dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_a, delta_b, delta_b, v_W2b, rho_air, solution,
+                delta_a, delta_b, delta_b, v_W2CP, rho_air, solution,
             )
-            dF_p, dM_p = self.payload.forces_and_moments(v_W2b, rho_air)
+            dF_p, dM_p = self.payload.forces_and_moments(v_W2CP, rho_air)
             F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
             F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
 
@@ -557,6 +568,10 @@ class Paraglider6b(Paraglider6a):
         the harness should include the pilot mass.
     """
 
+    def __init__(self, wing, payload):
+        self.wing = wing
+        self.payload = payload
+
     def accelerations(
         self,
         v_R2e,
@@ -654,7 +669,7 @@ class Paraglider6b(Paraglider6a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -664,42 +679,47 @@ class Paraglider6b(Paraglider6a):
         # Compute the inertia matrices about the glider cm
         wmp = self.wing.mass_properties(rho_air, delta_a)
         pmp = self.payload.mass_properties(delta_w)
-        m_B = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
+        m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
-        ) / m_B
+        ) / m_b
         r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
         Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
-        J_wing = (
+        J_wing2B = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
-        J_p = (pmp["J"] + pmp["mass"] * Dp)
+        J_p2B = (pmp["J"] + pmp["mass"] * Dp)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -707,7 +727,7 @@ class Paraglider6b(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -716,7 +736,7 @@ class Paraglider6b(Paraglider6a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -731,10 +751,14 @@ class Paraglider6b(Paraglider6a):
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum to the net forces and moments.
 
-        J = J_wing + J_p  # Total inertia matrix about `B`
+        # Compute the real mass inertias
+        J_b2B = J_wing2B + J_p2B  # Total inertia matrix about `B`
+        v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
+        p_b2e = m_b * v_B2e  # Linear momentum
+        h_b2B = J_b2B @ omega_b2e  # Angular momentum
 
-        A1 = [m_B * np.eye(3), np.zeros((3, 3))]
-        A2 = [np.zeros((3, 3)), J]
+        A1 = [m_b * np.eye(3), np.zeros((3, 3))]
+        A2 = [np.zeros((3, 3)), J_b2B]
         A = np.block([A1, A2])
 
         B1 = (
@@ -742,19 +766,16 @@ class Paraglider6b(Paraglider6a):
             + F_wing_weight
             + F_p_aero
             + F_p_weight
+            - cross3(omega_b2e, p_b2e)
         )
-        B2 = M_wing + M_p - np.cross(omega_b2e, J @ omega_b2e)
+        B2 = M_wing + M_p - np.cross(omega_b2e, h_b2B)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_B2e = derivatives[:3]
-        alpha_b2e = derivatives[3:]
-        a_R2e = (
-            a_B2e
-            - np.cross(alpha_b2e, r_B2R)
-            - cross3(omega_b2e, v_R2e)
-            - cross3(omega_b2e, cross3(omega_b2e, r_B2R))
-        )
+        a_B2e = derivatives[:3]  # In frame F_b
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
+        a_R2e = a_B2e - np.cross(alpha_b2e, r_B2R)  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
 
         return a_R2e, alpha_b2e, ref
 
@@ -780,6 +801,10 @@ class Paraglider6c(Paraglider6a):
         the harness should include the pilot mass.
     """
 
+    def __init__(self, wing, payload):
+        self.wing = wing
+        self.payload = payload
+
     def accelerations(
         self,
         v_R2e,
@@ -877,7 +902,7 @@ class Paraglider6c(Paraglider6a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(delta_a)
+            r_CP2R = self.control_points(delta_a, delta_w)
 
         v_R2e = np.asarray(v_R2e)
         if v_R2e.shape != (3,):
@@ -887,42 +912,42 @@ class Paraglider6c(Paraglider6a):
         # Compute the inertia matrices about the glider cm
         wmp = self.wing.mass_properties(rho_air, delta_a)
         pmp = self.payload.mass_properties(delta_w)
-        m_B = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
+        m_b = wmp["m_solid"] + wmp["m_air"] + pmp["mass"]
         r_B2R = (  # Center of mass of the body system
             wmp["m_solid"] * wmp["cm_solid"]
             + wmp["m_air"] * wmp["cm_air"]
             + pmp["mass"] * pmp["cm"]
-        ) / m_B
+        ) / m_b
         r_wsm2B = wmp["cm_solid"] - r_B2R  # Displacement of the wing solid mass
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         r_P2B = pmp["cm"] - r_B2R  # Displacement of the payload mass
         Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
         Dp = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
-        J_wing = (
+        J_wing2B = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
             + wmp["m_air"] * Dwea
         )
-        J_p = (pmp["J"] + pmp["mass"] * Dp)
+        J_p2B = (pmp["J"] + pmp["mass"] * Dp)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
         v_CP2e = v_R2e + cross3(omega_b2e, r_CP2R)
-        v_W2b = v_W2e - v_CP2e
+        v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
         r_CP2B_wing = r_CP2R[:-1] - r_B2R
         r_CP2B_payload = r_CP2R[-1] - r_B2R
-        v_W2b_wing = v_W2b[:-1]
-        v_W2b_payload = v_W2b[-1]
+        v_W2CP_wing = v_W2CP[:-1]
+        v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air, reference_solution,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -930,7 +955,7 @@ class Paraglider6c(Paraglider6a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_wing, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_solid"] * g
@@ -939,7 +964,7 @@ class Paraglider6c(Paraglider6a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2b_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -954,28 +979,30 @@ class Paraglider6c(Paraglider6a):
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum to the net forces and moments.
 
-        J = J_wing + J_p  # Total inertia matrix about `B`
-
-        A1 = [m_B * np.eye(3), np.zeros((3, 3))]
-        A2 = [np.zeros((3, 3)), J]
-        A = np.block([A1, A2])
-
+        # Compute the real mass inertias
+        J_b2B = J_wing2B + J_p2B  # Total inertia matrix about `B`
         v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
+        p_b2e = m_b * v_B2e  # Linear momentum
+        h_b2B = J_b2B @ omega_b2e  # Angular momentum
+
+        A1 = [m_b * np.eye(3), -m_b * crossmat(r_B2R)]
+        A2 = [np.zeros((3, 3)), J_b2B]
+        A = np.block([A1, A2])
 
         B1 = (
             F_wing_aero
             + F_wing_weight
             + F_p_aero
             + F_p_weight
-            - m_B * cross3(omega_b2e, v_B2e)
+            - cross3(omega_b2e, p_b2e)
         )
-        B2 = M_wing + M_p - np.cross(omega_b2e, J @ omega_b2e)
+        B2 = M_wing + M_p - np.cross(omega_b2e, h_b2B)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
-        a_B2e = derivatives[:3]
-        alpha_b2e = derivatives[3:]
-        a_R2e = a_B2e - cross3(alpha_b2e, r_B2R)
+        a_R2e = derivatives[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_R2e, alpha_b2e, ref
 
@@ -995,11 +1022,29 @@ class Paraglider9a:
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    kappa_R : array of float, shape (3,), optional
+        Spring-damper coefficients for Theta_p2b (force as a linear function
+        of angular displacement).
+    kappa_R_dot : array of float, shape (3,), optional
+        Spring-damper coefficients for the derivative of Theta_p2b
+    use_apparent_mass : bool, optional
+        Whether to estimate the effects of apparent inertia. Default: True
     """
 
-    def __init__(self, wing, payload):
+    def __init__(
+        self,
+        wing,
+        payload,
+        kappa_R=[0, 0, 0],
+        kappa_R_dot=[0, 0, 0],
+        *,
+        use_apparent_mass=True,
+    ):
         self.wing = wing
         self.payload = payload
+        self._kappa_R = np.asarray(kappa_R[:])
+        self._kappa_R_dot = np.asarray(kappa_R_dot[:])
+        self.use_apparent_mass = use_apparent_mass
 
     def control_points(self, Theta_p2b, delta_a=0, delta_w=0):
         """
@@ -1028,7 +1073,7 @@ class Paraglider9a:
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
         payload_cps = self.payload.control_points(delta_w)  # In payload frd
         C_b2p = orientation.euler_to_dcm(Theta_p2b).T
-        return np.vstack((wing_cps + r_LE2R, C_b2p @ payload_cps))
+        return np.vstack((wing_cps + r_LE2R, (C_b2p @ payload_cps.T).T))
 
     def accelerations(
         self,
@@ -1135,7 +1180,7 @@ class Paraglider9a:
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p2b, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
@@ -1144,6 +1189,9 @@ class Paraglider9a:
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
+        omega_p2b = C_b2p @ omega_p2e - omega_b2e  # In body frd
+        omega_b2p = -omega_p2b
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload about `R`
@@ -1157,7 +1205,7 @@ class Paraglider9a:
         r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
         Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
         Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
-        J_b = (
+        J_b2R = (
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
@@ -1168,7 +1216,7 @@ class Paraglider9a:
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]
         Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
-        J_p = pmp["J"] + pmp["mass"] * Dp
+        J_p2R = pmp["J"] + pmp["mass"] * Dp
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1185,14 +1233,19 @@ class Paraglider9a:
         v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2R_b - r_B2R)
         v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2R_p - r_P2R)
 
-        v_W2b_b = v_W2e[:-1] - v_CP2e_b
-        v_W2p_p = C_p2b @ v_W2e[-1] - v_CP2e_p
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = C_p2b @ v_W2e[-1] - v_CP2e_p
 
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1200,7 +1253,7 @@ class Paraglider9a:
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1210,7 +1263,7 @@ class Paraglider9a:
         M_wing += cross3(wmp["cm_solid"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1220,14 +1273,7 @@ class Paraglider9a:
         M_p += cross3(pmp["cm"], F_p_weight)
 
         # Moment at the connection point `R` modeled as a spring+damper system
-        M_R = np.zeros(3)
-        omega_p2b = omega_p2e - C_p2b @ omega_b2e  # FIXME: body or payload axes?
-        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -1239,77 +1285,77 @@ class Paraglider9a:
         # internal force on the risers, `F_R` (in body frd).
 
         # Compute the real mass inertias
-        p_B2e = m_b * v_B2e
-        p_P2e = m_p * v_P2e
-        h_R_b = m_b * cross3(r_B2R, v_R2e) + J_b @ omega_b2e
-        h_R_p = m_p * cross3(r_P2R, C_p2b @ v_R2e) + J_p @ omega_p2e
+        p_b2e = m_b * v_B2e
+        p_p2e = m_p * v_P2e
+        h_b2R = m_b * cross3(r_B2R, v_R2e) + J_b2R @ omega_b2e
+        h_p2R = m_p * cross3(r_P2R, C_p2b @ v_R2e) + J_p2R @ omega_p2e
 
-        # Compute the apparent mass inertias (Barrows Eq:16 and Eq:24)
-        M_a = wmp["A_R"][:3, :3]
-        J_a = wmp["A_R"][3:, 3:]
-        S2 = np.diag([0, 1, 0])
-        S_PC2RC = crossmat(wmp["r_PC2RC"])
-        S_RC2R = crossmat(wmp["r_RC2R"])
-        p_a = M_a @ (
-            v_R2e
-            - cross3(wmp["r_RC2R"], omega_b2e)
-            - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
-        )
-        h_a = (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a @ omega_b2e
-
-        # Build the system matrices. A1 and A2 are the forces and moments on
-        # the body, A3 and A4 are the forces and moments on the payload. The
-        # vector of unknowns `x` is: [a_R2e, alpha_b2e, alpha_p2e, F_R]
+        # Build the system matrices for the real mass. A1 and A2 are the forces
+        # and moments on the body, A3 and A4 are the forces and moments on the
+        # payload. The unknowns are [a_R2e^b, alpha_b2e^b, alpha_p2e^p, F_R^b].
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
-        A2 = [m_b * crossmat(r_B2R), J_b, Z3, Z3]
+        A2 = [m_b * crossmat(r_B2R), J_b2R, Z3, Z3]
         A3 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
-        A4 = [m_p * crossmat(r_P2R) @ C_p2b, Z3, J_p, Z3]
+        A4 = [m_p * crossmat(r_P2R) @ C_p2b, Z3, J_p2R, Z3]
         A = np.block([A1, A2, A3, A4])
-        A[:6, :6] += wmp["A_R"]  # Include the apparent mass
 
         B1 = (
             F_wing_aero
             + F_wing_weight
-            - m_b * cross3(omega_b2e, v_R2e)
-            - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2R))
-
-            # Apparent inertial force (Barrows Eq:61)
-            - cross3(omega_b2e, p_a)
+            - cross3(omega_b2e, p_b2e)
         )
         B2 = (
             M_wing
             - M_R
-            - m_b * cross3(cross3(omega_b2e, r_B2R), v_R2e)
-            - m_b * cross3(r_B2R, cross3(omega_b2e, v_R2e))
-            - cross3(omega_b2e, J_b @ omega_b2e)
-            - cross3(v_R2e, p_B2e)
-
-            # Apparent inertial moment (Barrows Eq:64)
-            - cross3(v_R2e, p_a)
-            - cross3(omega_b2e, h_a)
-            + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+            - cross3(v_R2e, p_b2e)
+            - cross3(omega_b2e, h_b2R)
         )
         B3 = (
             F_p_aero
             + F_p_weight
-            - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
-            - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
+            - m_p * C_p2b @ cross3(omega_b2p, v_R2e)
+            - cross3(omega_p2e, p_p2e)
         )
         B4 = (
             M_p
             + C_p2b @ M_R
-            - m_p * cross3(cross3(omega_p2e, r_P2R), C_p2b @ v_R2e)
-            - m_p * cross3(r_P2R, C_p2b @ cross3(omega_b2e, v_R2e))
-            - cross3(omega_p2e, J_p @ omega_p2e)
-            - cross3(C_p2b @ v_R2e, p_P2e)
+            - cross3(C_p2b @ v_R2e, p_p2e)
+            - m_p * cross3(r_P2R, C_p2b @ cross3(omega_b2p, v_R2e))
+            - cross3(omega_p2e, h_p2R)
         )
         B = np.r_[B1, B2, B3, B4]
 
+        if self.use_apparent_mass:
+            # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
+            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
+            S_PC2RC = crossmat(wmp["r_PC2RC"])
+            S_RC2R = crossmat(wmp["r_RC2R"])
+            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
+                v_R2e
+                - cross3(wmp["r_RC2R"], omega_b2e)
+                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            )
+            h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
+                (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+            )
+            A[:6, :6] += wmp["A_R"]  # Incorporate the apparent inertia
+            B1 += (  # Apparent inertial force (Barrows Eq:61)
+                -cross3(omega_b2e, p_a2e)
+            )
+            B2 += (  # Apparent inertial moment (Barrows Eq:64)
+                -cross3(v_R2e, p_a2e)
+                - cross3(omega_b2e, h_a2R)
+                + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+            )
+
         x = np.linalg.solve(A, B)
-        a_R2e = x[:3]
-        alpha_b2e = x[3:6]
-        alpha_p2e = x[6:9]
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_R = x[9:]  # For debugging
 
         # embed()
@@ -1371,7 +1417,7 @@ class Paraglider9a:
         """
         state_dtype = [
             ("q_b2e", float, (4,)),  # Orientation: body/earth
-            ("q_p2b", float, (4,)),  # Orientation: payload/body
+            ("q_p2e", float, (4,)),  # Orientation: payload/earth
             ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
             ("omega_p2e", float, (3,)),  # Angular velocity of the payload in payload frd
             ("v_R2e", float, (3,)),  # The velocity of `R` in ned
@@ -1379,7 +1425,11 @@ class Paraglider9a:
 
         def dynamics(t, state, kwargs):
             x = state.view(state_dtype)[0]
-            Theta_p2b = orientation.quaternion_to_euler(x["q_p2b"])
+            q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
+            Theta_p2b = orientation.quaternion_to_euler(
+                orientation.quaternion_product(x["q_p2e"], q_e2b)
+            )
+
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 x["v_R2e"],
                 x["omega_b2e"],
@@ -1399,9 +1449,8 @@ class Paraglider9a:
             # fmt: on
             q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
 
-            omega_b2e = orientation.quaternion_rotate(x["q_p2b"], x["omega_b2e"])
-            omega_p2b = x["omega_p2e"] - omega_b2e
-            P, Q, R = omega_p2b
+            omega_p2e = x["omega_p2e"]
+            P, Q, R = omega_p2e
             # fmt: off
             Omega = np.array([
                 [0, -P, -Q, -R],
@@ -1409,11 +1458,11 @@ class Paraglider9a:
                 [Q, -R,  0,  P],
                 [R,  Q, -P,  0]])
             # fmt: on
-            q_p2b_dot = 0.5 * Omega @ x["q_p2b"]
+            q_p2e_dot = 0.5 * Omega @ x["q_p2e"]
 
             x_dot = np.empty(1, state_dtype)
             x_dot["q_b2e"] = q_b2e_dot
-            x_dot["q_p2b"] = q_p2b_dot
+            x_dot["q_p2e"] = q_p2e_dot
             x_dot["omega_b2e"] = alpha_b2e
             x_dot["omega_p2e"] = alpha_p2e
             x_dot["v_R2e"] = a_R2e
@@ -1422,7 +1471,7 @@ class Paraglider9a:
 
         state = np.empty(1, state_dtype)
         state["q_b2e"] = orientation.euler_to_quaternion([0, theta_0, 0])
-        state["q_p2b"] = state["q_b2e"] * [1, -1, -1, -1]  # Payload aligned to gravity (straight down)  # FIXME: add theta_p_0
+        state["q_p2e"] = [1, 0, 0, 0]  # Payload aligned to gravity (straight down)  # FIXME: add theta_p_0
         state["omega_b2e"] = [0, 0, 0]
         state["omega_p2e"] = [0, 0, 0]
         state["v_R2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
@@ -1441,12 +1490,17 @@ class Paraglider9a:
 
         while True:
             state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
-            state["q_p2b"] /= np.sqrt((state["q_p2b"] ** 2).sum())
+            state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())
             solver.set_initial_value(state.view(float))
-            state = solver.integrate(0.25).view(state_dtype)
+            state = solver.integrate(1).view(state_dtype)
             state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
             state["omega_p2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            Theta_p2b = orientation.quaternion_to_euler(state["q_p2b"][0])
+
+            q_e2b = state["q_b2e"][0] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
+            Theta_p2b = orientation.quaternion_to_euler(
+                orientation.quaternion_product(state["q_p2e"][0], q_e2b)
+            )
+
             a_R2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
                 state["v_R2e"][0],
                 state["omega_b2e"][0],
@@ -1476,7 +1530,7 @@ class Paraglider9a:
             "gamma_b": gamma_b,
             "glide_ratio": 1 / np.tan(gamma_b),
             "Theta_b2e": Theta_b2e,
-            "Theta_p2b": orientation.quaternion_to_euler(state["q_p2b"]),
+            "Theta_p2b": Theta_p2b,
             "v_R2e": state["v_R2e"],
             "reference_solution": dynamics_kwargs["reference_solution"],
         }
@@ -1507,7 +1561,18 @@ class Paraglider9b(Paraglider9a):
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    kappa_R : array of float, shape (3,), optional
+        Spring-damper coefficients for Theta_p2b (force as a linear function
+        of angular displacement).
+    kappa_R_dot : array of float, shape (3,), optional
+        Spring-damper coefficients for the derivative of Theta_p2b
     """
+
+    def __init__(self, wing, payload, kappa_R=[0, 0, 0], kappa_R_dot=[0, 0, 0]):
+        self.wing = wing
+        self.payload = payload
+        self._kappa_R = np.asarray(kappa_R[:])
+        self._kappa_R_dot = np.asarray(kappa_R_dot[:])
 
     def accelerations(
         self,
@@ -1614,7 +1679,7 @@ class Paraglider9b(Paraglider9a):
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
             raise ValueError("Different number of wind and r_CP2R vectors")
         if r_CP2R is None:
-            r_CP2R = self.control_points(Theta_p2b, delta_a)
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
 
         v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
 
@@ -1623,6 +1688,7 @@ class Paraglider9b(Paraglider9a):
             raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
@@ -1636,7 +1702,7 @@ class Paraglider9b(Paraglider9a):
         r_wea2B = wmp["cm_air"] - r_B2R  # Displacement of the wing enclosed air
         Dwsm = (r_wsm2B @ r_wsm2B) * np.eye(3) - np.outer(r_wsm2B, r_wsm2B)
         Dwea = (r_wea2B @ r_wea2B) * np.eye(3) - np.outer(r_wea2B, r_wea2B)
-        J_b = (  # Inertia of the body about `B`
+        J_b2B = (  # Inertia of the body about `B`
             wmp["J_solid"]
             + wmp["m_solid"] * Dwsm
             + wmp["J_air"]
@@ -1646,7 +1712,7 @@ class Paraglider9b(Paraglider9a):
         pmp = self.payload.mass_properties(delta_w)
         m_p = pmp["mass"]
         r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
-        J_p = pmp["J"]  # Inertia of the payload about `P`
+        J_p2P = pmp["J"]  # Inertia of the payload about `P`
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1663,14 +1729,19 @@ class Paraglider9b(Paraglider9a):
         v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2B_b)
         v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2P_p)
 
-        v_W2b_b = v_W2e[:-1] - v_CP2e_b
-        v_W2p_p = C_p2b @ v_W2e[-1] - v_CP2e_p
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = C_p2b @ v_W2e[-1] - v_CP2e_p
 
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
             )
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
@@ -1678,7 +1749,7 @@ class Paraglider9b(Paraglider9a):
             # embed()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
-                delta_a, delta_bl, delta_br, v_W2b_b, rho_air,
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1688,7 +1759,7 @@ class Paraglider9b(Paraglider9a):
         M_wing += cross3(wmp["cm_solid"] - r_B2R, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2p_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1698,14 +1769,8 @@ class Paraglider9b(Paraglider9a):
         M_p += cross3(pmp["cm"] - r_P2R, F_p_weight)
 
         # Moment at the connection point `R` modeled as a spring+damper system
-        M_R = np.zeros(3)
-        omega_p2b = omega_p2e - C_p2b @ omega_b2e
-        M_R[0] += -100.0 * Theta_p2b[0]  # Roll restoring force
-        M_R[1] += -0.0 * Theta_p2b[1]  # Pitch restoring force
-        M_R[2] += -10.0 * Theta_p2b[2]  # Yaw restoring force
-        M_R[0] += -50.0 * omega_p2b[0]  # Roll dampening
-        M_R[1] += -5.0 * omega_p2b[1]  # Pitch dampening
-        M_R[2] += -50.0 * omega_p2b[2]  # Yaw dampening
+        omega_p2b = C_b2p @ omega_p2e - omega_b2e
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -1719,8 +1784,8 @@ class Paraglider9b(Paraglider9a):
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
         A2 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2R), -C_p2b]
-        A3 = [Z3, J_b, Z3, -crossmat(r_B2R)]
-        A4 = [Z3, Z3, J_p, crossmat(r_P2R) @ C_p2b]
+        A3 = [Z3, J_b2B, Z3, -crossmat(r_B2R)]
+        A4 = [Z3, Z3, J_p2P, crossmat(r_P2R) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
 
         B1 = (
@@ -1735,15 +1800,337 @@ class Paraglider9b(Paraglider9a):
             - m_p * C_p2b @ cross3(omega_b2e, v_R2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2R))
         )
-        B3 = M_wing - M_R - cross3(omega_b2e, J_b @ omega_b2e)
-        B4 = M_p + C_p2b @ M_R - cross3(omega_p2e, J_p @ omega_p2e)
+        B3 = M_wing - M_R - cross3(omega_b2e, J_b2B @ omega_b2e)
+        B4 = M_p + C_p2b @ M_R - cross3(omega_p2e, J_p2P @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
-        a_R2e = x[:3]
-        alpha_b2e = x[3:6]
-        alpha_p2e = x[6:9]
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_R = x[9:]  # For debugging
+
+        # embed()
+        # 1/0
+
+        return a_R2e, alpha_b2e, alpha_p2e, ref
+
+
+class Paraglider9c(Paraglider9a):
+    """
+    A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
+    and the harness, with the connection modelled by spring-damper dynamics.
+
+    Similar to Paraglider9a, this version uses the riser connection midpoint
+    `R` as the reference point for both the body and the payload, and includes
+    the effects of apparent mass. Unlike Paraglider9a, this model computes
+    \dot{omega_p2b} instead of \dot{omega_p2e} and converts.
+
+    Unfortunately it also appears to be broken; at least, it doesn't agree with
+    Paraglider9a or Paraglider9b, which are mathematically less complicated so
+    I tend to believe them. See the end of `accelerations` for a discussion.
+
+    Also, note that it computes everything in body frd and converts omega_p2e
+    back to payload frd at the very end.
+
+    Parameters
+    ----------
+    wing : ParagliderWing
+    payload : Harness
+        This uses a `Harness`, but since there is no model for the pilot
+        the harness should include the pilot mass.
+    """
+    def accelerations(
+        self,
+        v_R2e,
+        omega_b2e,
+        omega_p2e,
+        Theta_p2b,
+        g,
+        rho_air,
+        delta_a=0,
+        delta_bl=0,
+        delta_br=0,
+        delta_w=0,
+        v_W2e=None,
+        r_CP2R=None,
+        reference_solution=None,
+    ):
+        """
+        Compute the translational and angular accelerations about the center of mass.
+
+        FIXME: the input sanitation is messy
+        FIXME: review the docstring
+
+        Parameters
+        ----------
+        v_R2e : array of float, shape (3,) [m/s]
+            Translational velocity of `R` in body frd coordinates, where `R` is
+            the midpoint between the two riser connection points.
+        omega_b2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in body frd coordinates.
+        omega_p2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the payload, in payload frd coordinates.
+        Theta_p2b : array of float, shape (3,) [radians]
+            The [phi, theta, gamma] of a yaw-pitch-roll sequence that encodes
+            the relative orientation of the payload with respect to the body.
+        g : array of float, shape (3,) [m/s^s]
+            The gravity vector in body frd
+        rho_air : float [kg/m^3]
+            The ambient air density
+        delta_a : float [percentage]
+            The fraction of maximum accelerator
+        delta_bl : float [percentage]
+            The fraction of maximum left brake
+        delta_br : float [percentage]
+            The fraction of maximum right brake
+        delta_w : float [percentage]
+            The fraction of weight shift, from -1 (left) to +1 (right)
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+            The wind relative to the earth, in body frd coordinates. If it is a
+            single vector, then the wind is uniform everywhere on the wing. If
+            it is an ndarray, then it is the wind at each control point.
+        r_CP2R : ndarray of float, shape (K,3) [m] (optional)
+            Position vectors of the control points, in body frd coordinates.
+            These are optional if the wind field is uniform, but for
+            non-uniform wind fields the simulator used these coordinates to
+            determine the wind vectors at each control point.
+
+            FIXME: This docstring is wrong; they are useful if delta_a != 0,
+            they have nothing to do with wind field uniformity. And really, why
+            do I even have both `r_CP2R` and `delta_a` as inputs? The only
+            purpose of `delta_a` is to compute the r_CP2R. Using `delta_a`
+            alone would be the more intuitive, but would incur extra
+            computation time for finding the control points; the only point of
+            `r_CP2R` is to avoid recomputing them.
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        a_R2e : array of float, shape (3,) [m/s^2]
+            Translational acceleration of `R` in body frd coordinates.
+        alpha_b2e : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the body, in body frd coordinates.
+        alpha_p2e : array of float, shape (3,) [rad/s^2]
+            Angular acceleration of the payload, in payload frd coordinates.
+        solution : dictionary
+            FIXME: docstring. See `Phillips.__call__`
+
+        Notes
+        -----
+        There are two use cases:
+         1. Uniform global wind across the wing (v_W2e.shape == (3,))
+         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
+
+        If the wind is locally uniform across the wing, then the simulator
+        can pass the wind vector with no knowledge of the control points.
+        If the wind is non-uniform across the wing, then the simulator will
+        need the control point coordinates in order to query the global wind
+        field; for the non-uniform case, the control points are a required
+        parameter to eliminate their redundant computation.
+        """
+        if v_W2e is None:
+            v_W2e = np.array([0, 0, 0])
+        else:
+            v_W2e = np.asarray(v_W2e)
+        if v_W2e.ndim > 1 and r_CP2R is None:
+            # FIXME: needs a design review. The idea was that if `v_W2e` is
+            #        given for each individual control point, then require the
+            #        values of those control points to ensure they match the
+            #        current state of the wing (including the current control
+            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
+            #        never liked this design.
+            raise ValueError("Control point relative winds require r_CP2R")
+        if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2R.shape[0]:
+            raise ValueError("Different number of wind and r_CP2R vectors")
+        if r_CP2R is None:
+            r_CP2R = self.control_points(Theta_p2b, delta_a, delta_w)
+
+        v_W2e = np.broadcast_to(v_W2e, r_CP2R.shape)
+
+        v_R2e = np.asarray(v_R2e)
+        if v_R2e.shape != (3,):
+            raise ValueError("v_R2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+
+        C_p2b = orientation.euler_to_dcm(Theta_p2b)
+        C_b2p = C_p2b.T
+        omega_p2e = C_b2p @ omega_p2e  # Dynamics9a uses `p`, this model uses `b`
+
+        # -------------------------------------------------------------------
+        # Compute the inertia properties of the body and payload
+        wmp = self.wing.mass_properties(rho_air, delta_a)
+        m_b = wmp["m_solid"] + wmp["m_air"]
+        r_B2R = (  # Center of mass of the body in body frd
+            wmp["m_solid"] * wmp["cm_solid"]
+            + wmp["m_air"] * wmp["cm_air"]
+        ) / m_b
+        r_wsm2R = wmp["cm_solid"]  # Displacement of the wing solid mass
+        r_wea2R = wmp["cm_air"]  # Displacement of the wing enclosed air
+        Dwsm = (r_wsm2R @ r_wsm2R) * np.eye(3) - np.outer(r_wsm2R, r_wsm2R)
+        Dwea = (r_wea2R @ r_wea2R) * np.eye(3) - np.outer(r_wea2R, r_wea2R)
+        J_b2R = (
+            wmp["J_solid"]
+            + wmp["m_solid"] * Dwsm
+            + wmp["J_air"]
+            + wmp["m_air"] * Dwea
+        )
+
+        pmp = self.payload.mass_properties(delta_w)
+        m_p = pmp["mass"]
+        r_P2R = pmp["cm"]  # Center of mass of the payload in payload frd
+        Dp = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
+        J_p2R = pmp["J"] + pmp["mass"] * Dp  # Inertia of the payload about `R` in payload frd
+
+        r_P2R = C_b2p @ r_P2R  # In body frd
+        J_p2R = C_b2p @ J_p2R @ C_p2b  # In body frd
+
+        # -------------------------------------------------------------------
+        # Compute the relative wind vectors for each control point.
+        #
+        # All vectors are in body frd
+
+        omega_p2b = omega_p2e - omega_b2e
+        omega_b2p = -omega_p2b
+        v_B2e = v_R2e + cross3(omega_b2e, r_B2R)
+        v_P2e = v_R2e + cross3(omega_p2e, r_P2R)
+
+        # FIXME: "magic" indexing established by `self.control_points`
+        r_CP2R_b = r_CP2R[:-1]
+        r_CP2R_p = r_CP2R[-1]
+
+        v_CP2e_b = v_B2e + cross3(omega_b2e, r_CP2R_b - r_B2R)
+        v_CP2e_p = v_P2e + cross3(omega_p2e, r_CP2R_p - r_P2R)
+
+        v_W2CP_b = v_W2e[:-1] - v_CP2e_b
+        v_W2CP_p = v_W2e[-1] - v_CP2e_p
+
+        # -------------------------------------------------------------------
+        # Forces and moments of the wing in body frd
+        try:
+            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
+                reference_solution,
+            )
+        except Exception:
+            # Maybe it can't recover once Gamma is jacked?
+            print("\nBonk! Retrying with the default reference solution")
+            # embed()
+            # 1/0
+            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
+            )
+
+        F_wing_aero = dF_wing_aero.sum(axis=0)
+        F_wing_weight = wmp["m_solid"] * g
+        M_wing = dM_wing_aero.sum(axis=0)
+        M_wing += cross3(r_CP2R_b, dF_wing_aero).sum(axis=0)
+        M_wing += cross3(wmp["cm_solid"], F_wing_weight)
+
+        # Forces and moments of the payload in payload frd
+        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(C_p2b @ v_W2CP_p, rho_air)
+        dF_p_aero = np.atleast_2d(C_b2p @ dF_p_aero)
+        dM_p_aero = np.atleast_2d(C_b2p @ dM_p_aero)
+        F_p_aero = dF_p_aero.sum(axis=0)
+        F_p_weight = pmp["mass"] * g
+        M_p = dM_p_aero.sum(axis=0)
+        M_p += cross3(r_CP2R_p, dF_p_aero).sum(axis=0)
+        M_p += cross3(r_P2R, F_p_weight)
+
+        # Moment at the connection point `R` modeled as a spring+damper system
+        M_R = Theta_p2b * self._kappa_R + omega_p2b * self._kappa_R_dot
+
+        # ------------------------------------------------------------------
+        # Build a system of equations by equating the time derivatives of the
+        # translation and angular momentum (with respect to the Earth) of the
+        # body and payload to the forces and moments on the body and payload.
+        #
+        # The four unknown vectors are the time derivatives of `v_R2e^b`,
+        # `omega_b2e^b`, `omega_p2e^p`, and the internal force on the risers,
+        # `F_R^b`. All derivatives are from the body frame.
+
+        # Compute the real mass inertias
+        p_b2e = m_b * v_B2e
+        p_p2e = m_p * v_P2e
+        h_b2R = m_b * cross3(r_B2R, v_R2e) + J_b2R @ omega_b2e
+        h_p2R = m_p * cross3(r_P2R, v_R2e) + J_p2R @ omega_p2e
+
+        I3, Z3 = np.eye(3), np.zeros((3, 3))
+        A1 = [m_b * I3, -m_b * crossmat(r_B2R), Z3, I3]
+        A2 = [m_b * crossmat(r_B2R), J_b2R, Z3, Z3]
+        A3 = [m_p * I3, -m_p * crossmat(r_P2R), -m_p * crossmat(r_P2R), -I3]
+        A4 = [m_p * crossmat(r_P2R), J_p2R, J_p2R, Z3]
+        A = np.block([A1, A2, A3, A4])
+
+        B1 = (
+            F_wing_aero
+            + F_wing_weight
+            - cross3(omega_b2e, p_b2e)
+        )
+        B2 = (
+            M_wing
+            - M_R
+            - cross3(v_R2e, p_b2e)
+            - cross3(omega_b2e, h_b2R)
+        )
+        B3 = (
+            F_p_aero
+            + F_p_weight
+            - m_p * cross3(omega_b2p, v_R2e)
+            - m_p * cross3(cross3(omega_b2p, omega_b2e), r_P2R)
+            # - m_p * cross3(cross3(omega_b2p, omega_p2e), r_P2R)  # equivalent
+            - cross3(omega_p2e, p_p2e)
+        )
+        B4 = (
+            M_p
+            + M_R
+            - cross3(v_R2e, p_p2e)
+            - m_p * cross3(r_P2R, cross3(omega_b2p, v_R2e))
+            - cross3(omega_b2p, J_p2R @ omega_p2e)
+            - cross3(omega_p2e, h_p2R)
+        )
+        B = np.r_[B1, B2, B3, B4]
+
+        if self.use_apparent_mass:
+            # Extract M_a and J_a2R from A_a2R (Barrows Eq:27)
+            M_a = wmp["A_R"][:3, :3]  # Apparent mass matrix
+            J_a2R = wmp["A_R"][3:, 3:]  # Apparent angular inertia matrix
+            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
+            S_PC2RC = crossmat(wmp["r_PC2RC"])
+            S_RC2R = crossmat(wmp["r_RC2R"])
+            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
+                v_R2e
+                - cross3(wmp["r_RC2R"], omega_b2e)
+                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            )
+            h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
+                (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+            )
+            A[:6, :6] += wmp["A_R"]  # Incorporate the apparent inertia
+            B1 += (  # Apparent inertial force (Barrows Eq:61)
+                -cross3(omega_b2e, p_a2e)
+            )
+            B2 += (  # Apparent inertial moment (Barrows Eq:64)
+                -cross3(v_R2e, p_a2e)
+                - cross3(omega_b2e, h_a2R)
+                + cross3(v_R2e, M_a @ v_R2e)  # Remove the steady-state term
+            )
+
+        x = np.linalg.solve(A, B)
+        a_R2e = x[:3]  # In frame F_b
+        a_R2e += cross3(omega_b2e, v_R2e)  # In frame F_e
+        alpha_b2e = x[3:6]  # In frames F_b and F_e
+        alpha_p2b = x[6:9]  # In frames F_b and F_p
+        F_R = x[9:]  # For debugging
+
+        # Dynamics9a expects `^p dot{omega}_{p/e}^p`
+        alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
+        alpha_p2e = C_p2b @ alpha_p2e  # In frames F_p and F_e
 
         # embed()
         # 1/0
