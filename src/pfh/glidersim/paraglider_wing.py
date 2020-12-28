@@ -40,9 +40,9 @@ class ParagliderWing:
         self.force_estimator = force_estimator
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
 
-        # Compute the mass properties in canopy coordinates
-        # pmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        pmp = self.canopy.mass_properties2(101, 101)
+        # Compute the canopy mass properties in canopy coordinates
+        # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
+        cmp = self.canopy.mass_properties2(101, 101)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
@@ -51,19 +51,19 @@ class ParagliderWing:
         # gain. If I start using asymmetric geometries then I'll change this.)
         print("Applying manual symmetry corrections to the canopy inertia...")
         for k in ("upper", "volume", "lower"):
-            pmp[k + "_centroid"][1] = 0
-            pmp[k + "_inertia"][[0, 1, 1, 2], [1, 0, 2, 1]] = 0
+            cmp[k + "_centroid"][1] = 0
+            cmp[k + "_inertia"][[0, 1, 1, 2], [1, 0, 2, 1]] = 0
 
-        m_upper = pmp["upper_area"] * self.rho_upper
-        m_lower = pmp["lower_area"] * self.rho_lower
-        J_upper = pmp["upper_inertia"] * self.rho_upper
-        J_lower = pmp["lower_inertia"] * self.rho_lower
+        m_upper = cmp["upper_area"] * self.rho_upper
+        m_lower = cmp["lower_area"] * self.rho_lower
+        J_upper = cmp["upper_inertia"] * self.rho_upper
+        J_lower = cmp["lower_inertia"] * self.rho_lower
         m_solid = m_upper + m_lower
         cm_solid = (
-            m_upper * pmp["upper_centroid"] + m_lower * pmp["lower_centroid"]
+            m_upper * cmp["upper_centroid"] + m_lower * cmp["lower_centroid"]
         ) / m_solid
-        Ru = cm_solid - pmp["upper_centroid"]
-        Rl = cm_solid - pmp["lower_centroid"]
+        Ru = cm_solid - cmp["upper_centroid"]
+        Rl = cm_solid - cmp["lower_centroid"]
         Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
         Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
         J_solid = J_upper + m_upper * Du + J_lower + m_lower * Dl
@@ -71,9 +71,9 @@ class ParagliderWing:
             "m_solid": m_solid,
             "cm_solid": cm_solid,  # In canopy coordinates
             "J_solid": J_solid,
-            "m_air": pmp["volume"],  # Normalized by unit air density
-            "cm_air": pmp["volume_centroid"],  # In canopy coordinates
-            "J_air": pmp["volume_inertia"],  # Normalized by unit air density
+            "m_air": cmp["volume"],  # Normalized by unit air density
+            "cm_air": cmp["volume_centroid"],  # In canopy coordinates
+            "J_air": cmp["volume_inertia"],  # Normalized by unit air density
         }
 
         self._compute_apparent_masses()
