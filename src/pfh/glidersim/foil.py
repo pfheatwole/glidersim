@@ -1353,10 +1353,10 @@ class SimpleFoil:
         Cl = np.einsum("N,Ni->i", al, cl) / Al
 
         # Surface area inertia tensors
-        cov_au = np.einsum("N,Ni,Nj->ij", au, cu, cu)
-        cov_al = np.einsum("N,Ni,Nj->ij", al, cl, cl)
-        Ju = np.trace(cov_au) * np.eye(3) - cov_au
-        Jl = np.trace(cov_al) * np.eye(3) - cov_al
+        cov_au = np.einsum("N,Ni,Nj->ij", au, cu - Cu, cu - Cu)
+        cov_al = np.einsum("N,Ni,Nj->ij", al, cl - Cl, cl - Cl)
+        J_u2U = np.trace(cov_au) * np.eye(3) - cov_au
+        J_l2L = np.trace(cov_al) * np.eye(3) - cov_al
 
         # -------------------------------------------------------------------
         # Volumes
@@ -1420,27 +1420,28 @@ class SimpleFoil:
         Cv = np.einsum("N,Ni->i", v, cv) / V
 
         # Volume inertia tensors
-        cov_canonical = np.full((3,3), 1 / 120) + np.eye(3) / 120
+        cov_canonical = np.full((3, 3), 1 / 120) + np.eye(3) / 120
         cov_v = np.einsum(
-            "N,Nji,jk,Nkl->il",
+            "N,Nji,jk,Nkl->il",  # A[n] = tris[n].T
             np.linalg.det(tris),
             tris,
             cov_canonical,
             tris,
             optimize=True,
         )
-        Jv = np.eye(3) * np.trace(cov_v) - cov_v
+        J_v2LE = np.eye(3) * np.trace(cov_v) - cov_v
+        J_v2V = J_v2LE - V * ((Cv @ Cv) * np.eye(3) - np.outer(Cv, Cv))
 
         mass_properties = {
             "upper_area": Au,
             "upper_centroid": Cu,
-            "upper_inertia": Ju,
+            "upper_inertia": J_u2U,
             "volume": V,
             "volume_centroid": Cv,
-            "volume_inertia": Jv,
+            "volume_inertia": J_v2V,
             "lower_area": Al,
             "lower_centroid": Cl,
-            "lower_inertia": Jl,
+            "lower_inertia": J_l2L,
         }
 
         return mass_properties
