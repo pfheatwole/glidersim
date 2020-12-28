@@ -56,17 +56,17 @@ class ParagliderWing:
 
         m_upper = cmp["upper_area"] * self.rho_upper
         m_lower = cmp["lower_area"] * self.rho_lower
-        J_upper = cmp["upper_inertia"] * self.rho_upper
-        J_lower = cmp["lower_inertia"] * self.rho_lower
+        J_u2U = cmp["upper_inertia"] * self.rho_upper
+        J_l2L = cmp["lower_inertia"] * self.rho_lower
         m_s = m_upper + m_lower  # Solid mass
         r_S2LE = (  # Solid mass centroid
             m_upper * cmp["upper_centroid"] + m_lower * cmp["lower_centroid"]
         ) / m_s
-        Ru = r_S2LE - cmp["upper_centroid"]
-        Rl = r_S2LE - cmp["lower_centroid"]
-        Du = (Ru @ Ru) * np.eye(3) - np.outer(Ru, Ru)
-        Dl = (Rl @ Rl) * np.eye(3) - np.outer(Rl, Rl)
-        J_s2S = J_upper + m_upper * Du + J_lower + m_lower * Dl
+        r_S2U = r_S2LE - cmp["upper_centroid"]
+        r_S2L = r_S2LE - cmp["lower_centroid"]
+        D_u = (r_S2U @ r_S2U) * np.eye(3) - np.outer(r_S2U, r_S2U)
+        D_l = (r_S2L @ r_S2L) * np.eye(3) - np.outer(r_S2L, r_S2L)
+        J_s2S = J_u2U + m_upper * D_u + J_l2L + m_lower * D_l
         self._mass_properties = {
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
