@@ -31,18 +31,27 @@ class ParagliderWing:
     """
 
     def __init__(
-        self, lines, canopy, rho_upper, rho_lower, force_estimator,
+        self,
+        lines,
+        canopy,
+        N_cells=1,
+        rho_upper=0,
+        rho_lower=0,
+        rho_ribs=0,
+        force_estimator=None,
     ):
         self.lines = lines
         self.canopy = canopy
+        self.N_cells = N_cells
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
+        self.rho_ribs = rho_ribs
         self.force_estimator = force_estimator
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
 
         # Compute the canopy mass properties in canopy coordinates
         # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        cmp = self.canopy.mass_properties2(101, 101)
+        cmp = self.canopy.mass_properties2(N_s=101, N_r=101, N_cells=N_cells)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
@@ -56,17 +65,26 @@ class ParagliderWing:
 
         m_upper = cmp["upper_area"] * self.rho_upper
         m_lower = cmp["lower_area"] * self.rho_lower
+        m_rib = cmp["rib_area"] * self.rho_ribs
         J_u2U = cmp["upper_inertia"] * self.rho_upper
         J_l2L = cmp["lower_inertia"] * self.rho_lower
-        m_s = m_upper + m_lower  # Solid mass
+        J_rib2RIB = cmp["rib_inertia"] * self.rho_ribs
+        m_s = m_upper + m_lower + m_rib  # Solid mass
         r_S2LE = (  # Solid mass centroid
-            m_upper * cmp["upper_centroid"] + m_lower * cmp["lower_centroid"]
+            m_upper * cmp["upper_centroid"]
+            + m_lower * cmp["lower_centroid"]
+            + m_rib * cmp["rib_centroid"]
         ) / m_s
         r_S2U = r_S2LE - cmp["upper_centroid"]
         r_S2L = r_S2LE - cmp["lower_centroid"]
+        r_S2RIB = r_S2LE - cmp["rib_centroid"]
         D_u = (r_S2U @ r_S2U) * np.eye(3) - np.outer(r_S2U, r_S2U)
         D_l = (r_S2L @ r_S2L) * np.eye(3) - np.outer(r_S2L, r_S2L)
-        J_s2S = J_u2U + m_upper * D_u + J_l2L + m_lower * D_l
+        D_rib = (r_S2RIB @ r_S2RIB) * np.eye(3) - np.outer(r_S2RIB, r_S2RIB)
+        J_u2S = J_u2U + m_upper * D_u
+        J_l2S = J_l2L + m_lower * D_l
+        J_rib2S = J_rib2RIB + m_rib * D_rib
+        J_s2S = J_u2S + J_l2S + J_rib2S
         self._mass_properties = {
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates

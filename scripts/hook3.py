@@ -317,8 +317,10 @@ def build_hook3():
     wing = gsim.paraglider_wing.ParagliderWing(
         lines=lines,
         canopy=canopy,
+        N_cells=52,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
+        rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
         force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
     )
 
