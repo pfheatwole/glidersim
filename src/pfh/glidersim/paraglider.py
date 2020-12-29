@@ -182,7 +182,7 @@ class Paraglider6a:
         J_wing2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
         J_p2R = (pmp["J_p2P"] + pmp["m_p"] * D_p)
@@ -692,7 +692,7 @@ class Paraglider6b(Paraglider6a):
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
         J_p2B = (pmp["J_p2P"] + pmp["m_p"] * D_p)
@@ -924,7 +924,7 @@ class Paraglider6c(Paraglider6a):
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
         J_p2B = (pmp["J_p2P"] + pmp["m_p"] * D_p)
@@ -1205,7 +1205,7 @@ class Paraglider9a:
         J_b2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
 
@@ -1702,7 +1702,7 @@ class Paraglider9b(Paraglider9a):
         J_b2B = (  # Inertia of the body about `B`
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
 
@@ -1970,7 +1970,7 @@ class Paraglider9c(Paraglider9a):
         J_b2R = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
-            + wmp["J_air"]
+            + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
 

@@ -71,9 +71,9 @@ class ParagliderWing:
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_s2S": J_s2S,
-            "m_air": cmp["volume"],  # Normalized by unit air density
+            "v": cmp["volume"],
             "r_V2LE": cmp["volume_centroid"],
-            "J_air": cmp["volume_inertia"],  # Normalized by unit air density
+            "J_v2V": cmp["volume_inertia"],
         }
 
         self._compute_apparent_masses()
@@ -366,12 +366,14 @@ class ParagliderWing:
                 Vector from the reference point to the solid mass centroid
             J_s2S : array of float, shape (3,3) [kg m^2]
                 The moment of inertia matrix of the solid mass about its cm
+            v : float [m^3]
+                The enclosed volume
+            r_V2R : array of float, shape (3,) [m]
+                Vector from the reference point to the volume centroid V
+            J_v2V : array of float, shape (3,3) [m^2]
+                The moment of inertia matrix of the volume about its centroid
             m_air : float [kg m^3]
                 The enclosed air mass.
-            r_V2R : array of float, shape (3,) [m]
-                The volume centroid
-            J_air : array of float, shape (3,3) [m^2]
-                The moment of inertia matrix of the enclosed air mass about its cm
             r_PC2RC : array of float, shape (3,) [m]
                 Vector to the pitch center from the roll center
             r_RC2R : array of float, shape (3,) [m]
@@ -381,10 +383,9 @@ class ParagliderWing:
         """
         r_LE2R = -self.r_R2LE(delta_a)
         mp = self._mass_properties.copy()
-        mp["r_S2R"] = r_LE2R + mp["r_S2LE"]
+        mp["r_S2R"] = mp["r_S2LE"] + r_LE2R
         mp["r_V2R"] = mp["r_V2LE"] + r_LE2R
-        mp["m_air"] = mp["m_air"] * rho_air
-        mp["J_air"] = mp["J_air"] * rho_air
+        mp["m_air"] = mp["v"] * rho_air
 
         # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
         ai = self._apparent_inertia  # Dictionary of precomputed values
