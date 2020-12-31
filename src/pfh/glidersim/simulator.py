@@ -18,8 +18,8 @@ class Dynamics6a:
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
         ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
-        ("r_R2O", float, (3,)),  # The position of `R` in ned
-        ("v_R2e", float, (3,)),  # The velocity of `R` in ned
+        ("r_RM2O", float, (3,)),  # The position of `RM` in ned
+        ("v_RM2e", float, (3,)),  # The velocity of `RM` in ned
     ]
 
     def __init__(
@@ -109,12 +109,12 @@ class Dynamics6a:
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2R = self.glider.control_points(delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_R2O"] + orientation.quaternion_rotate(q_e2b, r_CP2R)
+        r_CP2RM = self.glider.control_points(delta_a, delta_w)  # In body frd
+        r_CP2O = x["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_R2e, alpha_b2e, solution = self.glider.accelerations(
-            orientation.quaternion_rotate(x["q_b2e"], x["v_R2e"]),
+        a_RM2e, alpha_b2e, solution = self.glider.accelerations(
+            orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
             x["omega_b2e"],
             orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
             rho_air=self.rho_air(t),
@@ -123,7 +123,7 @@ class Dynamics6a:
             delta_br=self.delta_br(t),
             delta_w=delta_w,
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
-            r_CP2R=r_CP2R,
+            r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
 
@@ -143,8 +143,8 @@ class Dynamics6a:
 
         x_dot = np.empty(1, self.state_dtype)
         x_dot["q_b2e"] = q_dot
-        x_dot["r_R2O"] = x["v_R2e"]
-        x_dot["v_R2e"] = orientation.quaternion_rotate(q_e2b, a_R2e)
+        x_dot["r_RM2O"] = x["v_RM2e"]
+        x_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
         x_dot["omega_b2e"] = alpha_b2e
 
         # Use the solution as the reference_solution at the next time step
@@ -161,8 +161,8 @@ class Dynamics9a:
         ("q_p2e", float, (4,)),  # Orientation: payload/earth
         ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
         ("omega_p2e", float, (3,)),  # Angular velocity of the payload in payload frd
-        ("r_R2O", float, (3,)),  # The position of `R` in ned
-        ("v_R2e", float, (3,)),  # The velocity of `R` in ned
+        ("r_RM2O", float, (3,)),  # The position of `RM` in ned
+        ("v_RM2e", float, (3,)),  # The velocity of `RM` in ned
     ]
 
     def __init__(
@@ -256,12 +256,12 @@ class Dynamics9a:
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2R = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_R2O"] + orientation.quaternion_rotate(q_e2b, r_CP2R)
+        r_CP2RM = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
+        r_CP2O = x["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_R2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
-            orientation.quaternion_rotate(x["q_b2e"], x["v_R2e"]),
+        a_RM2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
+            orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
             x["omega_b2e"],
             x["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
@@ -272,7 +272,7 @@ class Dynamics9a:
             delta_br=self.delta_br(t),
             delta_w=delta_w,
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
-            r_CP2R=r_CP2R,
+            r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
 
@@ -305,8 +305,8 @@ class Dynamics9a:
         x_dot["q_p2e"] = q_p2e_dot
         x_dot["omega_b2e"] = alpha_b2e
         x_dot["omega_p2e"] = alpha_p2e
-        x_dot["r_R2O"] = x["v_R2e"]
-        x_dot["v_R2e"] = orientation.quaternion_rotate(q_e2b, a_R2e)
+        x_dot["r_RM2O"] = x["v_RM2e"]
+        x_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
@@ -357,8 +357,8 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     print("  omega_b2e:", state0["omega_b2e"][0].round(4))
     if "omega_p2e" in state0.dtype.names:
         print("  omega_p2e:", state0["omega_p2e"][0].round(4))
-    print("      r_R2O:", state0["r_R2O"][0].round(4))
-    print("      v_R2e:", state0["v_R2e"][0].round(4))
+    print("      r_RM2O:", state0["r_RM2O"][0].round(4))
+    print("      v_RM2e:", state0["v_RM2e"][0].round(4))
     print()
 
     num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
