@@ -21,7 +21,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
         "Theta_b2e": [0, np.deg2rad(3), 0],
-        "v_R2e": [10, 0, 1],
+        "v_RM2e": [10, 0, 1],
         "reference_solution": None,
     }
     print("Calculating equilibrium states over the range of accelerator")
@@ -33,7 +33,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
                 delta_b=0,
                 alpha_0=equilibrium["alpha_b"],
                 theta_0=equilibrium["Theta_b2e"][1],
-                v_0=np.linalg.norm(equilibrium["v_R2e"]),
+                v_0=np.linalg.norm(equilibrium["v_RM2e"]),
                 rho_air=1.2,
                 reference_solution=equilibrium["reference_solution"],
             )
@@ -49,7 +49,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
         "Theta_b2e": [0, np.deg2rad(3), 0],
-        "v_R2e": [10, 0, 1],
+        "v_RM2e": [10, 0, 1],
         "reference_solution": None,
     }
     print("Calculating equilibrium states over the range of brake")
@@ -61,7 +61,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
                 delta_b=db,
                 alpha_0=equilibrium["alpha_b"],
                 theta_0=equilibrium["Theta_b2e"][1],
-                v_0=np.linalg.norm(equilibrium["v_R2e"]),
+                v_0=np.linalg.norm(equilibrium["v_RM2e"]),
                 rho_air=1.2,
                 reference_solution=equilibrium["reference_solution"],
             )
@@ -77,10 +77,10 @@ def plot_polar_curve(glider, N=21, approximate=True):
     Theta_b2e_b = np.asarray([e["Theta_b2e"] for e in eqs_b])
     q_e2b_a = orientation.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
     q_e2b_b = orientation.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
-    v_R2e_a = [e["v_R2e"] for e in eqs_a]
-    v_R2e_b = [e["v_R2e"] for e in eqs_b]
-    v_R2e_a = orientation.quaternion_rotate(q_e2b_a, v_R2e_a)
-    v_R2e_b = orientation.quaternion_rotate(q_e2b_b, v_R2e_b)
+    v_RM2e_a = [e["v_RM2e"] for e in eqs_a]
+    v_RM2e_b = [e["v_RM2e"] for e in eqs_b]
+    v_RM2e_a = orientation.quaternion_rotate(q_e2b_a, v_RM2e_a)
+    v_RM2e_b = orientation.quaternion_rotate(q_e2b_b, v_RM2e_b)
 
     # -----------------------------------------------------------------------
     # Plot the curves
@@ -95,8 +95,8 @@ def plot_polar_curve(glider, N=21, approximate=True):
     ax[0, 0].set_ylabel("alpha_b [deg]")
 
     # Vertical versus horizontal airspeed
-    ax[0, 1].plot(v_R2e_a.T[0], v_R2e_a.T[2], "g")
-    ax[0, 1].plot(v_R2e_b.T[0], v_R2e_b.T[2], "r")
+    ax[0, 1].plot(v_RM2e_a.T[0], v_RM2e_a.T[2], "g")
+    ax[0, 1].plot(v_RM2e_b.T[0], v_RM2e_b.T[2], "r")
     ax[0, 1].set_aspect("equal")
     ax[0, 1].set_xlim(0, 25)
     ax[0, 1].set_ylim(0, 8)
@@ -117,8 +117,8 @@ def plot_polar_curve(glider, N=21, approximate=True):
     # Glide ratio
     GR_a = [e["glide_ratio"] for e in eqs_a]
     GR_b = [e["glide_ratio"] for e in eqs_b]
-    ax[1, 1].plot(v_R2e_a.T[0], GR_a, "g")
-    ax[1, 1].plot(v_R2e_b.T[0], GR_b, "r")
+    ax[1, 1].plot(v_RM2e_a.T[0], GR_a, "g")
+    ax[1, 1].plot(v_RM2e_b.T[0], GR_b, "r")
     ax[1, 1].set_xlim(0, 25)
     ax[1, 1].set_xlabel("Horizontal airspeed [m/s]")
     ax[1, 1].set_ylabel("Glide ratio")
@@ -371,19 +371,19 @@ if __name__ == "__main__":
     # Compute the residual acceleration at the given equilibrium state
     q_b2e = orientation.euler_to_quaternion(eq["Theta_b2e"])
     q_e2b = q_b2e * [-1, 1, 1, 1]
-    v_R2e = orientation.quaternion_rotate(q_e2b, eq["v_R2e"])
+    v_RM2e = orientation.quaternion_rotate(q_e2b, eq["v_RM2e"])
 
     # For the `Paraglider6a` model
-    a_R2e, alpha_b2e, _ = glider.accelerations(
-        v_R2e=eq["v_R2e"],
+    a_RM2e, alpha_b2e, _ = glider.accelerations(
+        v_RM2e=eq["v_RM2e"],
         omega_b2e=[0, 0, 0],
         g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
         rho_air=1.2,
         reference_solution=eq["reference_solution"],
     )
     # For the `Paraglider9a` model
-    # a_R2e, alpha_b2e, alpha_p2b, _ = glider.accelerations(
-    #     v_R2e=eq["v_R2e"],
+    # a_RM2e, alpha_b2e, alpha_p2b, _ = glider.accelerations(
+    #     v_RM2e=eq["v_RM2e"],
     #     omega_b2e=[0, 0, 0],
     #     omega_p2e=[0, 0, 0],
     #     Theta_p2b=eq["Theta_p2b"],
@@ -397,11 +397,11 @@ if __name__ == "__main__":
     print(f"  theta_b:     {np.rad2deg(eq['Theta_b2e'][1]):>6.3f} [deg]")
     print(f"  Glide angle: {np.rad2deg(eq['gamma_b']):>6.3f} [deg]")
     print(f"  Glide ratio: {eq['glide_ratio']:>6.3f}")
-    print(f"  Glide speed: {np.linalg.norm(v_R2e):>6.3f}")
+    print(f"  Glide speed: {np.linalg.norm(v_RM2e):>6.3f}")
     print()
     print("For verification of the equilibrium state:")
-    print(f"  v_R2e:       {v_R2e.round(4)}")
-    print(f"  a_R2e:       {a_R2e.round(4)}")
+    print(f"  v_RM2e:      {v_RM2e.round(4)}")
+    print(f"  a_RM2e:      {a_RM2e.round(4)}")
     print(f"  alpha_b2e:   {np.rad2deg(alpha_b2e).round(4)}")
 
     print("\n<pausing before polar curves>\n")

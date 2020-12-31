@@ -142,29 +142,29 @@ def main():
 
     # Coefficients for the spring-damper connection (9DoF models)
     # FIXME: naming?
-    kappa_R = [-100, 0, -10]  # Coefficients for Theta_p2b
-    kappa_R_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
+    kappa_RM = [-100, 0, -10]  # Coefficients for Theta_p2b
+    kappa_RM_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
 
     # 9 DoF models
     glider_9a = gsim.paraglider.Paraglider9a(
         wing,
         harness,
-        kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot,
+        kappa_RM=kappa_RM,
+        kappa_RM_dot=kappa_RM_dot,
         use_apparent_mass=use_apparent_mass,
     )
     glider_9b = gsim.paraglider.Paraglider9b(
         wing,
         harness,
-        kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot,
+        kappa_RM=kappa_RM,
+        kappa_RM_dot=kappa_RM_dot,
         # No apparent mass
     )
     glider_9c = gsim.paraglider.Paraglider9c(
         wing,
         harness,
-        kappa_R=kappa_R,
-        kappa_R_dot=kappa_R_dot,
+        kappa_RM=kappa_RM,
+        kappa_RM_dot=kappa_RM_dot,
         use_apparent_mass=use_apparent_mass,
     )
 
@@ -175,13 +175,13 @@ def main():
 
     equilibrium_6a = {
         "Theta_b2e": [0, np.deg2rad(2.170), 0],
-        "v_R2e": [9.8595, 0, 1.2184],  # In body coordinates (frd)
+        "v_RM2e": [9.8595, 0, 1.2184],  # In body coordinates (frd)
     }
 
     equilibrium_9a = {
         "Theta_b2e": [0, np.deg2rad(2.6169), 0],
         "Theta_p2b": [0, np.deg2rad(-4.588), 0],
-        "v_R2e": [9.7167, 0, 1.1938],  # In body coordinates (frd)
+        "v_RM2e": [9.7167, 0, 1.1938],  # In body coordinates (frd)
     }
 
     # Optional: recompute the equilibrium state
@@ -206,10 +206,10 @@ def main():
     state_6a = np.empty(1, dtype=gsim.simulator.Dynamics6a.state_dtype)
     state_6a["q_b2e"] = q_b2e_6a
     state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
-    state_6a["r_R2O"] = [0, 0, 0]
-    state_6a["v_R2e"] = gsim.orientation.quaternion_rotate(
+    state_6a["r_RM2O"] = [0, 0, 0]
+    state_6a["v_RM2e"] = gsim.orientation.quaternion_rotate(
         q_b2e_6a * [-1, 1, 1, 1],
-        equilibrium_6a["v_R2e"],
+        equilibrium_6a["v_RM2e"],
     )
 
     q_b2e_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
@@ -219,10 +219,10 @@ def main():
     state_9a["q_p2e"] = gsim.orientation.quaternion_product(q_b2e_9a, q_p2b_9a)
     state_9a["omega_b2e"] = [0, 0, 0]
     state_9a["omega_p2e"] = [0, 0, 0]
-    state_9a["r_R2O"] = [0, 0, 0]
-    state_9a["v_R2e"] = gsim.orientation.quaternion_rotate(
+    state_9a["r_RM2O"] = [0, 0, 0]
+    state_9a["v_RM2e"] = gsim.orientation.quaternion_rotate(
         q_b2e_9a * [-1, 1, 1, 1],
-        equilibrium_9a["v_R2e"],
+        equilibrium_9a["v_RM2e"],
     )
 
     # Optional: arbitrary modifications:
@@ -349,15 +349,15 @@ def main():
 
     K = len(times)
     if np.isscalar(delta_a):
-        r_LE2R = -model.glider.wing.r_R2LE(delta_a)
+        r_LE2RM = -model.glider.wing.r_RM2LE(delta_a)
     else:
-        r_LE2R = -model.glider.wing.r_R2LE(delta_a(times))
+        r_LE2RM = -model.glider.wing.r_RM2LE(delta_a(times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_LE2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2R)
-    v_LE2O = path["v_R2e"] + gsim.orientation.quaternion_rotate(
-        q_e2b, np.cross(path["omega_b2e"], r_LE2R)
+    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
+    v_LE2O = path["v_RM2e"] + gsim.orientation.quaternion_rotate(
+        q_e2b, np.cross(path["omega_b2e"], r_LE2RM)
     )
-    v_frd = gsim.orientation.quaternion_rotate(path["q_b2e"], path["v_R2e"])
+    v_frd = gsim.orientation.quaternion_rotate(path["q_b2e"], path["v_RM2e"])
 
     if "q_p2e" in path.dtype.names:  # 9 DoF model
         # FIXME: vectorize `gsim.orientation.quaternion_product`
@@ -370,8 +370,8 @@ def main():
         ]
         q_b2p = np.asarray(q_b2p)
 
-        # FIXME: assumes the payload has only one control point (r_P2R^p)
-        r_P2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(
+        # FIXME: assumes the payload has only one control point (r_P2RM^p)
+        r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
             q_e2b,
             gsim.orientation.quaternion_rotate(
                 q_b2p,
@@ -384,7 +384,7 @@ def main():
         Theta_p2e = gsim.orientation.quaternion_to_euler(path["q_p2e"])
 
     else:  # 6 DoF model
-        r_P2O = path["r_R2O"] + gsim.orientation.quaternion_rotate(
+        r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
             q_e2b,
             model.glider.payload.control_points(),
         )
@@ -416,12 +416,12 @@ def main():
     ax.invert_zaxis()
     lpp = 0.25  # Line-plotting period [sec]
     for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
-        p1, p2 = path["r_R2O"][t], r_LE2O[t]  # Risers -> wing central LE
+        p1, p2 = path["r_RM2O"][t], r_LE2O[t]  # Risers -> wing central LE
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
 
-        p1, p2 = path["r_R2O"][t], r_P2O[t]  # Risers -> payload
+        p1, p2 = path["r_RM2O"][t], r_P2O[t]  # Risers -> payload
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
-    ax.plot(path["r_R2O"].T[0], path["r_R2O"].T[1], path["r_R2O"].T[2], label="risers")
+    ax.plot(path["r_RM2O"].T[0], path["r_RM2O"].T[1], path["r_RM2O"].T[2], label="risers")
     ax.plot(r_LE2O.T[0], r_LE2O.T[1], r_LE2O.T[2], label="LE0")
     ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c="r")
     ax.legend()

@@ -27,7 +27,7 @@ class ParagliderWing:
     -----
     The ParagliderWing coordinate axes are parallel to the canopy axes, but the
     origin is translated from `LE`, the central leading edge of the canopy, to
-    `R`, the midpoint between the two riser connections.
+    `RM`, the midpoint between the two riser connections.
     """
 
     def __init__(
@@ -115,7 +115,7 @@ class ParagliderWing:
           * circular confluence point: `c` is now `C`
           * arc semi-angle: `Theta` is now `theta`
           * radius: `R` is now `r`
-          * origin: `o` is now `R` (the riser connection point)
+          * origin: `o` is now `RM` (the riser connection point)
 
         Dynamics models that want to incorporate these effects can use
         equations 16, 24, 61, and 64 (making sure to remove the steady-state
@@ -180,7 +180,8 @@ class ParagliderWing:
         # arch with fore-and-aft (yz) and lateral (xz) planes of symmetry.
         # The roll center, pitch center, and the "confluence point" all lie on
         # the z-axis of the idealized circular arch. The rest of the derivation
-        # requires that the origin `R` lies in the xz-plane of symmetry.
+        # requires that the "origin" (the riser midpoint `RM`, in this case)
+        # lies in the xz-plane of symmetry.
         z_PC2C = -r * np.sin(theta) / theta  # Barrows Eq:44
         z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r ** 2)  # Barrows Eq:50
         z_PC2RC = z_PC2C - z_RC2C
@@ -198,7 +199,7 @@ class ParagliderWing:
 
         # Save the precomputed values for use in `mass_properties`. The vectors
         # are defined with respect to `C` and the canopy origin (the central
-        # leading edge), but the final apparent inertia matrix is about `R`,
+        # leading edge), but the final apparent inertia matrix is about `RM`,
         # which depends on `delta_a`.
         r_C2LE = np.array([-0.5 * self.c_0, 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
@@ -305,14 +306,14 @@ class ParagliderWing:
         float [rad]
             The angle of attack where the section pitching moments sum to zero.
         """
-        r_CP2R = self.control_points(delta_a) - self.r_R2LE(delta_a)
+        r_CP2RM = self.control_points(delta_a) - self.r_RM2LE(delta_a)
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.forces_and_moments(
                 delta_a, delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
-            M = dM_wing.sum(axis=0) + cross3(r_CP2R, dF_wing).sum(axis=0)
+            M = dM_wing.sum(axis=0) + cross3(r_CP2RM, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
@@ -336,14 +337,14 @@ class ParagliderWing:
         r_CP2LE : array of floats, shape (K,3) [meters]
             The control points in frd coordinates
         """
-        r_LE2R = self.c_0 * self.lines.r_R2LE(delta_a)
+        r_LE2RM = self.c_0 * self.lines.r_RM2LE(delta_a)
         foil_cps = self.force_estimator.control_points()
         line_cps = self.lines.control_points() * self.c_0
         return np.vstack((foil_cps, line_cps))
 
-    def r_R2LE(self, delta_a=0):
+    def r_RM2LE(self, delta_a=0):
         """
-        Compute the position of the riser midpoint `R` in frd coordinates.
+        Compute the position of the riser midpoint `RM` in frd coordinates.
 
         Parameters
         ----------
@@ -352,14 +353,14 @@ class ParagliderWing:
 
         Returns
         -------
-        r_R2LE : array of float, shape (N,3) [meters]
-            The riser midpoint `R` with respect to the canopy origin.
+        r_RM2LE : array of float, shape (N,3) [meters]
+            The riser midpoint `RM` with respect to the canopy origin.
         """
-        return self.lines.r_R2LE(delta_a) * self.c_0
+        return self.lines.r_RM2LE(delta_a) * self.c_0
 
     def mass_properties(self, rho_air, delta_a=0):
         """
-        Compute the inertial properties of the wing about `R`.
+        Compute the inertial properties of the wing about `RM`.
 
         Includes terms for the solid mass, the enclosed air, and the apparent
         mass (which appears due to the inertial acceleration of the air).
@@ -380,13 +381,13 @@ class ParagliderWing:
                 The solid mass of the wing
             r_S2LE : array of float, shape (3,) [m]
                 Vector from the canopy origin to the solid mass centroid
-            r_S2R : array of float, shape (3,) [m]
+            r_S2RM : array of float, shape (3,) [m]
                 Vector from the reference point to the solid mass centroid
             J_s2S : array of float, shape (3,3) [kg m^2]
                 The moment of inertia matrix of the solid mass about its cm
             v : float [m^3]
                 The enclosed volume
-            r_V2R : array of float, shape (3,) [m]
+            r_V2RM : array of float, shape (3,) [m]
                 Vector from the reference point to the volume centroid V
             J_v2V : array of float, shape (3,3) [m^2]
                 The moment of inertia matrix of the volume about its centroid
@@ -394,38 +395,38 @@ class ParagliderWing:
                 The enclosed air mass.
             r_PC2RC : array of float, shape (3,) [m]
                 Vector to the pitch center from the roll center
-            r_RC2R : array of float, shape (3,) [m]
+            r_RC2RM : array of float, shape (3,) [m]
                 Vector to the roll center from the riser connection point
-            A_a2R : array of float, shape (6,6)
-                The apparent inertia matrix of the volume about `R`
+            A_a2RM : array of float, shape (6,6)
+                The apparent inertia matrix of the volume about `RM`
         """
-        r_LE2R = -self.r_R2LE(delta_a)
+        r_LE2RM = -self.r_RM2LE(delta_a)
         mp = self._mass_properties.copy()
-        mp["r_S2R"] = mp["r_S2LE"] + r_LE2R
-        mp["r_V2R"] = mp["r_V2LE"] + r_LE2R
+        mp["r_S2RM"] = mp["r_S2LE"] + r_LE2RM
+        mp["r_V2RM"] = mp["r_V2LE"] + r_LE2RM
         mp["m_air"] = mp["v"] * rho_air
 
-        # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
+        # Apparent moment of inertia matrix about `RM` (Barrows Eq:25)
         ai = self._apparent_inertia  # Dictionary of precomputed values
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
-        r_RC2R = r_LE2R + ai["r_RC2LE"]
+        r_RC2RM = r_LE2RM + ai["r_RC2LE"]
         S_PC2RC = crossmat(ai["r_PC2RC"])
-        S_RC2R = crossmat(r_RC2R)
-        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
-        J_a2R = (  # Barrows Eq:25
+        S_RC2RM = crossmat(r_RC2RM)
+        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2RM
+        J_a2RM = (  # Barrows Eq:25
             ai["I"]
-            - S_RC2R @ ai["M"] @ S_RC2R
+            - S_RC2RM @ ai["M"] @ S_RC2RM
             - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
             - Q
             - Q.T
         )
-        MC = -ai["M"] @ (S_RC2R + S_PC2RC @ S2)
-        A_a2R = np.block([[ai["M"], MC], [MC.T, J_a2R]])  # Barrows Eq:27
+        MC = -ai["M"] @ (S_RC2RM + S_PC2RC @ S2)
+        A_a2RM = np.block([[ai["M"], MC], [MC.T, J_a2RM]])  # Barrows Eq:27
 
         # The vectors to the roll and pitch centers are required to compute the
         # apparent inertias. See Barrows Eq:16 and Eq:24.
-        mp["r_RC2R"] = r_RC2R
+        mp["r_RC2RM"] = r_RC2RM
         mp["r_PC2RC"] = ai["r_PC2RC"]
-        mp["A_a2R"] = A_a2R * rho_air
+        mp["A_a2RM"] = A_a2RM * rho_air
 
         return mp

@@ -13,10 +13,10 @@ class SimpleLineGeometry:
     Parameters
     ----------
     kappa_x : float [percentage]
-        The absolute x-coordinate distance from `R` to the canopy origin,
+        The absolute x-coordinate distance from `RM` to the canopy origin,
         normalized by the length of the central chord.
     kappa_z : float [m]
-        The absolute z-coordinate distance from `R` to the canopy origin,
+        The absolute z-coordinate distance from `RM` to the canopy origin,
         normalized by the length of the central chord.
     kappa_A, kappa_C : float [percentage]
         The position of the A and C canopy connection points, normalized by the
@@ -119,9 +119,9 @@ class SimpleLineGeometry:
         self.K1 = -2 * delta_max / ((s_delta_max - s_delta_start) ** 3)
         self.K2 = 3 * delta_max / (s_delta_max - s_delta_start) ** 2
 
-    def r_R2LE(self, delta_a=0):
+    def r_RM2LE(self, delta_a=0):
         """
-        Compute the position of the riser midpoint `R` in frd coordinates.
+        Compute the position of the riser midpoint `RM` in body frd.
 
         Parameters
         ----------
@@ -130,23 +130,23 @@ class SimpleLineGeometry:
 
         Returns
         -------
-        r_R2LE : array of float, shape (N,3) [unitless]
-            The riser midpoint `R` with respect to the canopy origin. As with
+        r_RM2LE : array of float, shape (N,3) [unitless]
+            The riser midpoint `RM` with respect to the canopy origin. As with
             all other values in this class, these values are assumed to have
             been normalized by the length of the central chord of the wing.
         """
         # The accelerator shortens the A lines, while C remains fixed
         delta_a = np.asarray(delta_a)
-        R_x = (
+        RM_x = (
             (self.A - delta_a * self.kappa_a) ** 2
             - self.C ** 2
             - self.kappa_A ** 2
             + self.kappa_C ** 2
         ) / (2 * (self.kappa_C - self.kappa_A))
-        R_y = np.zeros_like(delta_a)
-        R_z = np.sqrt(self.C ** 2 - (self.kappa_C - R_x) ** 2)
-        r_R2LE = np.array([-R_x, R_y, R_z]).T
-        return r_R2LE
+        RM_y = np.zeros_like(delta_a)
+        RM_z = np.sqrt(self.C ** 2 - (self.kappa_C - RM_x) ** 2)
+        r_RM2LE = np.array([-RM_x, RM_y, RM_z]).T
+        return r_RM2LE
 
     def control_points(self):
         """

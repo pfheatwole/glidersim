@@ -20,8 +20,8 @@ class Harness(abc.ABC):
 
         Returns
         -------
-        r_CP2R : float, shape (K,3) [m]
-            Control points relative to the riser midpoint `R`. Coordinates are
+        r_CP2RM : float, shape (K,3) [m]
+            Control points relative to the riser midpoint `RM`. Coordinates are
             in payload frd, and `K` is the number of control points for the
             harness model.
         """
@@ -61,7 +61,7 @@ class Spherical(Harness):
     mass : float [kg]
         The mass of the harness
     z_riser : float [m]
-        The vertical distance from `R` to the harness center.
+        The vertical distance from `RM` to the harness center.
     S : float [m^2]
         The projected area of the sphere (ie, the area of a circle)
 
@@ -123,6 +123,6 @@ class Spherical(Harness):
         # Treats the mass as a uniform density solid sphere
         return {
             "m_p": self._mass,
-            "r_P2R": self.control_points(delta_w)[0],
+            "r_P2RM": self.control_points(delta_w)[0],
             "J_p2P": (2 / 5 * self._mass * self._S / np.pi) * np.eye(3),
         }

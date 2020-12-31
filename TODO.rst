@@ -5,7 +5,7 @@
 * Refactor the simulator into a proper module
 
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
-  a bug because I used `r_LE2R` instead of a vague function name.)
+  a bug because I used `r_LE2RM` instead of a vague function name.)
 
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
