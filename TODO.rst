@@ -805,9 +805,6 @@ ParagliderWing
 Wing mass properties
 --------------------
 
-* I don't like using `cm_solid` etc as vector names. Can I use something like
-  `r_S2R` for the solid mass centroid, `r_V2R` for the volume centroid, etc?
-
 * My implementation of Barrows needs a design review. The thickness parameter
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
   sure how to best translate for a paraglider wing.
@@ -817,8 +814,13 @@ Wing mass properties
   calculations?
 
 * `mass_properties` should take the reference point for the apparent mass as
-  a parameter. Using `R` is fine for most models, but models that use other
+  a parameter. It's only constraint should be that it lies in the xz-plane (to
+  allow using Barrows to compute the apparent mass.) Using `R = RM` is fine
+  for my primary models (6a and 9a), but models that use other reference
   points (like the wing center of mass) can't use apparent mass.
+
+  Related: I don't like that the paraglider dynamics models have to implement
+  the parallel axis theorem each time.
 
 
 Wing mass moment
