@@ -1032,8 +1032,8 @@ class Paraglider9a:
         self,
         wing,
         payload,
-        kappa_RM=[0, 0, 0],
-        kappa_RM_dot=[0, 0, 0],
+        kappa_RM=(0, 0, 0),
+        kappa_RM_dot=(0, 0, 0),
         *,
         use_apparent_mass=True,
     ):
@@ -1565,7 +1565,7 @@ class Paraglider9b(Paraglider9a):
         Spring-damper coefficients for the derivative of Theta_p2b
     """
 
-    def __init__(self, wing, payload, kappa_RM=[0, 0, 0], kappa_RM_dot=[0, 0, 0]):
+    def __init__(self, wing, payload, kappa_RM=(0, 0, 0), kappa_RM_dot=(0, 0, 0)):
         self.wing = wing
         self.payload = payload
         self._kappa_RM = np.asarray(kappa_RM[:])
