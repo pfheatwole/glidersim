@@ -7,8 +7,6 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import fsolve
 
-from IPython import embed
-
 import Airfoil
 import BrakeGeometry
 import Parafoil
@@ -309,7 +307,7 @@ def main():
     ax.invert_yaxis()
     plt.show()
 
-    embed()
+    breakpoint()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 from collections import ChainMap
 
-from IPython import embed  # noqa: F401
-
 import matplotlib.pyplot as plt
 from matplotlib import animation
 

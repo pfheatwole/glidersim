@@ -1,7 +1,5 @@
 """Demo how to load a set of airfoil `.dat` files using numpy."""
 
-from IPython import embed
-
 from pathlib import Path
 
 import numpy as np
@@ -39,4 +37,4 @@ if __name__ == "__main__":
         airfoils[key]['airfoil'] = airfoil
         gsim.plots.plot_airfoil_geo(airfoil)
 
-    embed()
+    breakpoint()

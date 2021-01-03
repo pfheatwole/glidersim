@@ -22,7 +22,6 @@ numba = "^0.52.0"
 matplotlib = "^3.3.3"
 
 [tool.poetry.dev-dependencies]
-ipython = "^7.19.0"
 flake8 = "^3.8.4"
 flake8-black = "^0.2.1"
 flake8-bugbear = "^20.11.1"

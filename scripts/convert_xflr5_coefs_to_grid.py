@@ -5,8 +5,6 @@
 # Important since the polars are easy to export with XFLR5, but slow to load
 # and evaluate with `LinearNDInterpolator`.
 
-from IPython import embed
-
 import numpy as np
 
 import pfh.glidersim as gsim
@@ -21,7 +19,7 @@ polars = coefs.polars
 print("Sampling the points onto a grid...")
 alphas = np.unique(polars["alpha"])
 Re = np.unique(polars["Re"])
-embed()
+breakpoint()
 
 if flapped:
     deltas = np.unique(polars["delta"])

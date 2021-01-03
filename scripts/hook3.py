@@ -1,5 +1,3 @@
-from IPython import embed
-
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -125,7 +123,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
 
     plt.show()
 
-    embed()
+    breakpoint()
 
 
 def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
@@ -191,7 +189,7 @@ def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
 
     fig.tight_layout()  # Prevent axes overlapping titles
     plt.show()
-    embed()
+    breakpoint()
 
 
 def build_hook3():
@@ -274,7 +272,7 @@ def build_hook3():
     # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 
     # print("\nPausing...")
-    # embed()
+    # breakpoint()
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
     # gsim.plots.plot_foil_topdown(canopy, N_sections=77)
@@ -346,7 +344,7 @@ if __name__ == "__main__":
     # plot_wing_coefficients(wing)
 
     print("\nFinished building the glider.\n")
-    # embed()
+    # breakpoint()
     # 1/0
 
     print("\nComputing the glider equilibrium state...")
@@ -405,7 +403,7 @@ if __name__ == "__main__":
     print(f"  alpha_b2e:   {np.rad2deg(alpha_b2e).round(4)}")
 
     print("\n<pausing before polar curves>\n")
-    embed()
+    breakpoint()
 
     input("Plot the polar curve?  Press any key")
     plot_polar_curve(glider, approximate=approximate)

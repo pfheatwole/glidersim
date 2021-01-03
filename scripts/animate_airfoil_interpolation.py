@@ -1,5 +1,3 @@
-from IPython import embed
-
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
@@ -82,7 +80,7 @@ def update(frame):
     return (ul1, cl1, ll1, ul2, ll2)
 
 
-# embed()
+# breakpoint()
 
 ani = animation.FuncAnimation(
     fig, update, frames=N_steps * 2, init_func=setup, blit=True, interval=20,
@@ -90,4 +88,4 @@ ani = animation.FuncAnimation(
 
 plt.show()
 print()
-# embed()
+# breakpoint()

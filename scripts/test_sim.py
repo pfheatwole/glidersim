@@ -1,7 +1,5 @@
 import time
 
-from IPython import embed
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
@@ -334,7 +332,7 @@ def main():
     # state0, model = state_9a, model_9b  # Same state as model_9a
     # state0, model = state_9a, model_9c  # Same state as model_9a
 
-    # embed()
+    # breakpoint()
     # 1/0
 
     # -----------------------------------------------------------------------
@@ -455,7 +453,7 @@ def main():
     ax[2].grid()
     plt.show()
 
-    embed()
+    breakpoint()
 
 
 if __name__ == "__main__":

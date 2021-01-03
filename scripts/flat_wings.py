@@ -1,5 +1,3 @@
-from IPython import embed
-
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -207,4 +205,4 @@ if __name__ == "__main__":
     v = fe._induced_velocities(u_inf)
     V, V_n, V_a, alphas = fe._local_velocities(-v_cp2w, solution["Gamma"], v)
 
-    embed()
+    breakpoint()

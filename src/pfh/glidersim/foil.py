@@ -1861,7 +1861,7 @@ class Phillips(ForceEstimator):
             J_true = self._J_finite(Gamma, delta_f, v_W2f, v, Re)
             if not np.allclose(J, J_true):
                 print("\n !!! The analytical Jacobian disagrees. Halting. !!!")
-                embed()
+                breakpoint()
 
         return J
 
@@ -2012,7 +2012,7 @@ class Phillips(ForceEstimator):
         }
 
         # print("\nFinished `Phillips.__call__`")
-        # embed()
+        # breakpoint()
 
         dF *= rho_air
         dM *= rho_air
