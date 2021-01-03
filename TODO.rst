@@ -1,8 +1,14 @@
+* Split `hook3.py` into a wing model, polar calculation code, and polar
+  plotting code. The package will have to include the airfoil data; need to
+  review how to get `pyproject.toml` to bundle that.
+
+
+* Review `scripts/flat_wings.py`. Depends on pandas, hard coded paths to
+  airfoil data, etc.
+
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
   moment. It's fine for small displacements, but doesn't make sense for larger
   deviations.
-
-* Refactor the simulator into a proper module
 
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
   a bug because I used `r_LE2RM` instead of a vague function name.)
@@ -23,25 +29,44 @@
   wing respond to encountering a thermal during a turn**.
 
 
-Packaging
-=========
+Development
+===========
 
-* Add a `README.rst`
 
-* Fill out `setup.cfg` more thoroughly
+Documentation
+-------------
 
-  * **Add a license** (https://choosealicense.com/)
+* Should docstring types be "array of" or "ndarray of"? I lean towards
+  "array", but would it be better to use the canonical name so sphinx can link
+  to the numpy datatype documentation?
 
-  * Add `author` and `author_email`? Required as a pair. Pity the email
-    address becomes public.
+* Lots of missing/incomplete docstrings, and particularly for modules.
 
-  * Verify the dependencies
+* Verify function docstrings match the signatures (`darglint` would be
+  helpful, if only it worked)
 
-* Replace `setup.cfg` with `pyproject.toml`? (ie, use `poetry`?)
+* I must make sure to point out how I'm handling section dihedral angles.
+  I made the conscious decision to allow step changes, even though it produces
+  overlap at panel boundaries (as in my version of Belloc's reference wing).
+  My assumption is that the small overlap is less important that getting the
+  panel quarter-chord lines correct. You could try to account for airfoil
+  thickness and round the dihedral angles at the panel boundaries, but if
+  you're allowing continuously curving reference curves you'll have this issue
+  anyway.
+
+* I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
+  A set of Jinja2 templates from
+  `<https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary>`_
+  control the `autosummary` output. I'd kind of like it if each module would
+  list its classes in the contents tree (left hand side of the `readthedocs`
+  theme). I tried to achieve that by overriding the `module.rst` template to
+  include the ``:toctree:`` directive to the ``.. autosummary::`` that's
+  building up the classes in the module, but that makes sphinx angry since it
+  generates duplicate stubs for those class definitions.
 
 
 General
-=======
+-------
 
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
   that term. It's more like the "parameter" of a parametric curve. When I read
@@ -61,11 +86,6 @@ General
   components gets higher, but for now I'll just make each class keep track of
   its own "magic" indices.
 
-* I'm using `breakpoint()` a few places, which wasn't added until Python 3.7.
-  (Enables using `breakpoint()` to launch `PYTHONBREAKPOINT` instead of adding
-  `from IPython import embed` everywhere) Should I set python 3.7 that as
-  a hard dependency?
-
 * Define an `njit` wrapper that replaces `njit` with a noop if Numba isn't
   installed
 
@@ -77,6 +97,27 @@ General
 
   * Do the wing+glider functions always parametrize like (<wing stuff>,
     <environment stuff>)? Can they?
+
+
+Low priority
+------------
+
+* Review function parameters for compatibility with `array_like` arguments.
+  (Broadcasting is useful together with `np.meshgrid`, etc.)
+
+* Do a performance comparison between `cross3` and the `np.cross`
+  implementation added to Numba `v0.46`. As of 2019-12-16, that function is
+  roughly 60% slower on small arrays, and nearly 8x slower on `10000x1000x3`
+  arrays.
+
+
+Packaging
+---------
+
+* Complete `README.rst`
+
+* Make `matplotlib` and `numba` optional dependencies? The goal is that it can
+  work standalone in installations like Blender's built-in interpreter.
 
 
 Plots
@@ -93,16 +134,48 @@ Plots
   scaling property with different axes lengths?**
 
 
-Low priority
-------------
+Testing
+-------
 
-* Review function parameters for compatibility with `array_like` arguments.
-  (Broadcasting is useful together with `np.meshgrid`, etc.)
+* What if the sensation of being "pushed out of a thermal" is a combination of
+  effects: the wing yawing away and a *decrease in centripetal acceleration*?
+  Maybe what's being interpreted as "being pushed out" is more a "lack of
+  being pulled in"? All you know is that if feels like you're deviating from
+  your desired course, that the radius of your turn is being increased.
 
-* Do a performance comparison between `cross3` and the `np.cross`
-  implementation added to Numba `v0.46`. As of 2019-12-16, that function is
-  roughly 60% slower on small arrays, and nearly 8x slower on `10000x1000x3`
-  arrays.
+  Oh, another interpretation: there is a reverse-pendulum after the initial
+  reaction: first you roll right, yaw left (into the thermal on your right) as
+  well as accelerating to your right, but then the wing snap quickly rolls
+  left once you're past the thermal. A pilot might interpret this delayed
+  roll-left motion as being pushed out?
+
+* Does my model demonstrate "control reversal" for small brake deflections?
+
+  * aka, "roll steering" instead of "skid steering"
+
+  * Tends to happen for flatter wings and/or as the angle of incidence becomes
+    more negative (ie, the equilibrium `theta`, in my case)
+
+    * It would be interesting to have a flat wing with the risers placed
+      forward of the c4 (thus a very negative `theta_eq` to observe this
+      behavior)
+
+  * ref: "Apsects of control for a parafoil and payload system", Slegers and
+    Costello, 2003
+
+* Finish reproducing "Wind Tunnel Investigation of a Rigid Paraglider
+  Reference Wing" (Belloc, 2015)
+
+  * Why don't my results match as well as in
+    `kulhanek2019IdentificationDegradationAerodynamic`? They use Phillips'
+    method just like I do! I'm guessing my airfoil data is junk.
+
+
+Tooling
+-------
+
+* Try using `darglint` as a `flake8` plugin. As of 2021-01-01 this wasn't
+  working well, needs review.
 
 
 Airfoil
@@ -1038,71 +1111,3 @@ Scenarios
   maneuver*. Not sure if you could capture this behavior using standard
   kernels for a Gaussian process; it might need an extra parameter akin to
   a "maneuver" variable.
-
-
-Documentation
-=============
-
-* Should docstring types be "array of" or "ndarray of"? I lean towards
-  "array", but would it be better to use the canonical name so sphinx can link
-  to the numpy datatype documentation?
-
-* Lots of missing/incomplete docstrings, and particularly for modules.
-
-* Verify function docstrings match the signatures
-
-* I must make sure to point out how I'm handling section dihedral angles.
-  I made the conscious decision to allow step changes, even though it produces
-  overlap at panel boundaries (as in my version of Belloc's reference wing).
-  My assumption is that the small overlap is less important that getting the
-  panel quarter-chord lines correct. You could try to account for airfoil
-  thickness and round the dihedral angles at the panel boundaries, but if
-  you're allowing continuously curving reference curves you'll have this issue
-  anyway.
-
-* I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
-  A set of Jinja2 templates from
-  `<https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary>`_
-  control the `autosummary` output. I'd kind of like it if each module would
-  list its classes in the contents tree (left hand side of the `readthedocs`
-  theme). I tried to achieve that by overriding the `module.rst` template to
-  include the ``:toctree:`` directive to the ``.. autosummary::`` that's
-  building up the classes in the module, but that makes sphinx angry since it
-  generates duplicate stubs for those class definitions.
-
-
-Testing
-=======
-
-* What if the sensation of being "pushed out of a thermal" is a combination of
-  effects: the wing yawing away and a *decrease in centripetal acceleration*?
-  Maybe what's being interpreted as "being pushed out" is more a "lack of
-  being pulled in"? All you know is that if feels like you're deviating from
-  your desired course, that the radius of your turn is being increased.
-
-  Oh, another interpretation: there is a reverse-pendulum after the initial
-  reaction: first you roll right, yaw left (into the thermal on your right) as
-  well as accelerating to your right, but then the wing snap quickly rolls
-  left once you're past the thermal. A pilot might interpret this delayed
-  roll-left motion as being pushed out?
-
-* Does my model demonstrate "control reversal" for small brake deflections?
-
-  * aka, "roll steering" instead of "skid steering"
-
-  * Tends to happen for flatter wings and/or as the angle of incidence becomes
-    more negative (ie, the equilibrium `theta`, in my case)
-
-    * It would be interesting to have a flat wing with the risers placed
-      forward of the c4 (thus a very negative `theta_eq` to observe this
-      behavior)
-
-  * ref: "Apsects of control for a parafoil and payload system", Slegers and
-    Costello, 2003
-
-* Finish reproducing "Wind Tunnel Investigation of a Rigid Paraglider
-  Reference Wing" (Belloc, 2015)
-
-  * Why don't my results match as well as in
-    `kulhanek2019IdentificationDegradationAerodynamic`? They use Phillips'
-    method just like I do! I'm guessing my airfoil data is junk.
