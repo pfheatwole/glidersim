@@ -1,4 +1,4 @@
-_autosummary/
-_build/
 __pycache__/
-pfh_glidersim.egg-info/
+dist/
+docs/source/_autosummary/
+docs/_build/
