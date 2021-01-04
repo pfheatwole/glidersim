@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -201,7 +203,9 @@ def build_hook3():
 
     print("Airfoil: NACA 24018, curving flap\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
-    airfoil_coefs = gsim.airfoil.GridCoefficients("polars/braking_NACA24018_Xtr0.25/gridded.csv")
+    polardir = Path(__file__).parent / "../src/pfh/glidersim/extras/airfoil_polars"
+    polarfile = polardir / "braking_NACA24018_Xtr0.25/gridded.csv"
+    airfoil_coefs = gsim.airfoil.GridCoefficients(polarfile)
     delta_max = np.deg2rad(13.37)  # FIXME: magic number
     airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
