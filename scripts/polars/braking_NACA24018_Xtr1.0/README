@@ -1,7 +1,0 @@
-These are from a crude utility that curved the trailing edge using two circles
-along the top edge (which maintained the length of the upper surface), and
-a quadratic Bezier along the lower surface (no attempt was made to maintain
-the lower surface length). The polars were generated with XFLR5, the `Cl` were
-smoothed using a 10th order polynomial (via `XFLR5Coefficients`), and
-resampled to produce a regular grid over the values (making them suitable for
-use with a `RegularGridInterpolator`).
