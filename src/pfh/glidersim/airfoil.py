@@ -23,6 +23,20 @@ from scipy.interpolate import PchipInterpolator
 from scipy.interpolate import RegularGridInterpolator
 
 
+__all__ = [
+    "Airfoil",
+    "AirfoilCoefficients",
+    "GridCoefficients",
+    "XFLR5Coefficients",
+    "AirfoilGeometry",
+    "NACA",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class Airfoil:
     """
     Dumb wrapper class to bundle AirfoilCoefficients with AirfoilGeometry.

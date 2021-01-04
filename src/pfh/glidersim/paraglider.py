@@ -8,6 +8,20 @@ from pfh.glidersim.util import cross3, crossmat
 import scipy.integrate
 
 
+__all__ = [
+    "Paraglider6a",
+    "Paraglider6b",
+    "Paraglider6c",
+    "Paraglider9a",
+    "Paraglider9b",
+    "Paraglider9c",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class Paraglider6a:
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion

@@ -7,6 +7,21 @@ import numpy as np
 from pfh.glidersim.util import _cross3, crossmat
 
 
+__all__ = [
+    "dcm_to_euler",
+    "euler_to_dcm",
+    "euler_to_quaternion",
+    "quaternion_to_dcm",
+    "quaternion_to_euler",
+    "quaternion_product",
+    "quaternion_rotate",
+]
+
+
+def __dir__():
+    return __all__
+
+
 def euler_to_dcm(euler):
     """
     Convert a set of yaw-pitch-role Tait-Bryan angles to a DCM.

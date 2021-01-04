@@ -8,6 +8,15 @@ from pfh.glidersim import foil
 from pfh.glidersim.util import cross3, crossmat
 
 
+__all__ = [
+    "ParagliderWing",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class ParagliderWing:
     """
     FIXME: add class docstring.

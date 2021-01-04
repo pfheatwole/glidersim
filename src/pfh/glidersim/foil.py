@@ -12,6 +12,25 @@ from scipy.spatial import Delaunay
 from pfh.glidersim.util import cross3
 
 
+__all__ = [
+    "EllipticalArc",
+    "elliptical_chord",
+    "elliptical_arc",
+    "PolynomialTorsion",
+    "SimpleIntakes",
+    "FlatYZ",
+    "SectionLayout",
+    "FoilSections",
+    "SimpleFoil",
+    "ForceEstimator",
+    "Phillips",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class EllipticalArc:
     """
     An arc segment from an ellipse.

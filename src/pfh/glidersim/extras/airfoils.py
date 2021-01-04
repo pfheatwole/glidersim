@@ -2,6 +2,14 @@ from pathlib import Path
 
 import pfh.glidersim as gsim
 
+__all__ = [
+    "load_airfoil",
+]
+
+
+def __dir__():
+    return __all__
+
 
 def load_airfoil():
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
