@@ -202,12 +202,8 @@ def build_hook3():
     # Airfoil
 
     print("Airfoil: NACA 24018, curving flap\n")
-    airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
-    polardir = Path(__file__).parent / "../src/pfh/glidersim/extras/airfoil_polars"
-    polarfile = polardir / "braking_NACA24018_Xtr0.25/gridded.csv"
-    airfoil_coefs = gsim.airfoil.GridCoefficients(polarfile)
+    airfoil = gsim.extras.airfoils.load_airfoil()  # WIP: placeholder
     delta_max = np.deg2rad(13.37)  # FIXME: magic number
-    airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
 
     # -----------------------------------------------------------------------
     # Parafoil: an approximate Niviuk Hook 3, size 23
