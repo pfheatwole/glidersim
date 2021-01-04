@@ -1,5 +1,3 @@
-from IPython import embed
-
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -132,7 +130,7 @@ plt.plot(
     lw=0.75
 )
 plt.show()
-embed()
+breakpoint()
 1 / 0
 
 # --------------------------------------------------------------------------

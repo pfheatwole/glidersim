@@ -1,0 +1,47 @@
+# ref: https://flake8.pycqa.org/en/latest/user/configuration.html
+#
+# Note: this violates the documentation since it uses inline comments in the
+# `ignore` and `select` lists, but it works and is cleaner.
+
+[flake8]
+
+ignore =
+  E203,  # whitespace before `:`
+  E501,  # maximum line length
+  W503,  # line break before binary operator
+
+select =
+  B,  # bugbear defaults
+  B9,  # bugbear's more "opionated" warnings
+  BLK,  # black formatting compatibility
+  D,  # docstrings
+  E,  # pycodestyle errors
+  F,  # pyflakes
+  I,  # imports
+  RST,  # reST docstrings
+  W,  # pycodestyle warnings
+  W504,  # newline after binary operator
+
+# Configure: bugbear
+# Rely B950 to encourage a length of 88
+max-line-length = 80
+
+# Configure flake8-docstrings
+docstring-convention = numpy
+
+# Configure: flake8-import=order
+application-import-names = pfh.glidersim
+import-order-style = google
+
+# Configure flake8-rst-docstrings
+rst-roles =
+  class,
+  func,
+  ref,
+rst-directives =
+  envvar,
+  exception,
+extend-ignore =
+  RST201,  # FIXME? numpydoc compatibility
+  RST301,  # FIXME? numpydoc compatibility
+  RST307,  # Sphinx compatibility (directives w/ arguments)

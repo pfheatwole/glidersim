@@ -1,7 +1,5 @@
 """FIXME: add module docstring."""
 
-from IPython import embed
-
 import numpy as np
 
 from pfh.glidersim import orientation
@@ -207,7 +205,7 @@ class Paraglider6a:
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
@@ -722,7 +720,7 @@ class Paraglider6b(Paraglider6a):
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
@@ -949,7 +947,7 @@ class Paraglider6c(Paraglider6a):
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
@@ -1247,7 +1245,7 @@ class Paraglider9a:
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
@@ -1355,7 +1353,7 @@ class Paraglider9a:
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
 
-        # embed()
+        # breakpoint()
         # 1/0
 
         return a_RM2e, alpha_b2e, alpha_p2e, ref
@@ -1743,7 +1741,7 @@ class Paraglider9b(Paraglider9a):
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
@@ -1808,7 +1806,7 @@ class Paraglider9b(Paraglider9a):
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
 
-        # embed()
+        # breakpoint()
         # 1/0
 
         return a_RM2e, alpha_b2e, alpha_p2e, ref
@@ -2017,7 +2015,7 @@ class Paraglider9c(Paraglider9a):
         except Exception:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # embed()
+            # breakpoint()
             # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
@@ -2129,7 +2127,7 @@ class Paraglider9c(Paraglider9a):
         alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
         alpha_p2e = C_p2b @ alpha_p2e  # In frames F_p and F_e
 
-        # embed()
+        # breakpoint()
         # 1/0
 
         return a_RM2e, alpha_b2e, alpha_p2e, ref
