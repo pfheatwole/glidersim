@@ -5,7 +5,7 @@ import numpy as np
 import pfh.glidersim as gsim
 
 __all__ = [
-    "load_airfoil",
+    "load_polar",
     "load_datfile",
     "load_datfile_set",
 ]
@@ -15,13 +15,22 @@ def __dir__():
     return __all__
 
 
-def load_airfoil():
-    airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
-    polarfile = Path(__file__).parent / "airfoils/braking_NACA24018_Xtr0.25/gridded.csv"
-    airfoil_coefs = gsim.airfoil.GridCoefficients(polarfile)
-    # delta_max = np.deg2rad(13.37)  # FIXME: magic number
-    airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
-    return airfoil
+def load_polar(polarname):
+    """
+    Load a gridded section polar from a bundled directory.
+
+    Parameters
+    ----------
+    polarname : string
+        The name of a directory in `pfh/glidersim/extras/airfoils/`.
+
+    Returns
+    -------
+    gsim.airfoil.AirfoilCoefficients
+    """
+    polarfile = Path(__file__).parent / "airfoils" / polarname / "gridded.csv"
+    polar = gsim.airfoil.GridCoefficients(polarfile)
+    return polar
 
 
 def load_datfile(

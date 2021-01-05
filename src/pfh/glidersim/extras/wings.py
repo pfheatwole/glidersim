@@ -11,7 +11,9 @@ def build_hook3():
     # Airfoil
 
     print("Airfoil: NACA 24018, curving flap\n")
-    airfoil = gsim.extras.airfoils.load_airfoil()  # WIP: placeholder
+    airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
+    airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
+    airfoil = gsim.airfoil.Airfoil(airfoil_coefs, airfoil_geo)
     delta_max = np.deg2rad(13.37)  # FIXME: magic number
 
     # -----------------------------------------------------------------------
