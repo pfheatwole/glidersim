@@ -93,8 +93,8 @@ def _create_3d_axes(figsize=(12, 12), dpi=96):
 
 def plot_airfoil_geo(foil_geo, N_points=200):
     r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
-    upper = foil_geo.surface_curve(r).T
-    lower = foil_geo.surface_curve(-r).T
+    upper = foil_geo.profile_curve(r).T
+    lower = foil_geo.profile_curve(-r).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75, label="upper surface")
     ax.plot(lower[0], lower[1], c="r", lw=0.75, label="lower surface")

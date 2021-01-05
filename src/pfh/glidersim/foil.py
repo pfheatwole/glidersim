@@ -382,7 +382,7 @@ class SimpleIntakes:
         Section index. Air intakes are present between +/- `s_end`.
     r_upper, r_lower : float
         The starting coordinates of the upper and lower surface of the
-        parafoil, given in airfoil surface coordinates. These are used to
+        parafoil, given in airfoil profile coordinates. These are used to
         define air intakes, and for determining the inertial properties of the
         upper and lower surfaces.
 
@@ -741,7 +741,7 @@ class FoilSections:
         functions of `s`.
     intakes : function, optional
         A function that defines the upper and lower intake positions in
-        airfoil surface coordinates as a function of the section index.
+        airfoil profile coordinates as a function of the section index.
     """
 
     def __init__(
@@ -781,14 +781,14 @@ class FoilSections:
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
             the intakes. If "airfoil", then `r` is treated as raw airfoil
-            coordinates, which must range from -1 to +1, and map from the
-            lower surface trailing edge to the upper surface trailing edge.
+            profile coordinates, which must range from -1 to +1, and map from
+            the lower surface trailing edge to the upper surface trailing edge.
 
         Returns
         -------
         array of float
-            A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `r`.
+            A set of points from the section surface in foil frd. The shape is
+            determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
         r = np.asarray(r)
@@ -804,7 +804,7 @@ class FoilSections:
 
         if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
-            r_P2LE = self.profiles.surface_curve(r)
+            r_P2LE = self.profiles.profile_curve(r)
         else:
             r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
@@ -812,7 +812,7 @@ class FoilSections:
             elif surface == "camber":
                 r_P2LE = self.profiles.camber_curve(r)
             elif surface == "airfoil":
-                r_P2LE = self.profiles.surface_curve(r)
+                r_P2LE = self.profiles.profile_curve(r)
 
         return r_P2LE
 
@@ -1118,8 +1118,8 @@ class SimpleFoil:
         Returns
         -------
         array of float
-            A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `r`.
+            Coordinates on the section surface in foil frd. The shape is
+            determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
         r = np.asarray(r)
@@ -1508,7 +1508,7 @@ class SimpleFoil:
         Generate sets of triangle faces on the upper and lower surfaces.
 
         Each triangle mesh is described by a set of vertices and a set of
-        "faces". The vertices are the surface coordiantes sampled on a
+        "faces". The vertices are the surface coordinates sampled on a
         rectilinear grid over the section indices and surface coordinates. The
         faces are the list of vertices that define the triangles.
 

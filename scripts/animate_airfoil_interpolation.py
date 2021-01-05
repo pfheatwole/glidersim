@@ -35,10 +35,10 @@ N_points = 300
 N_steps = 60 * 3
 
 r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2  # `0 <= r <= 1`
-xyu1 = airfoil1.surface_curve(r)
-xyu2 = airfoil2.surface_curve(r)
-xyl1 = airfoil1.surface_curve(-r)
-xyl2 = airfoil2.surface_curve(-r)
+xyu1 = airfoil1.profile_curve(r)
+xyu2 = airfoil2.profile_curve(r)
+xyl1 = airfoil1.profile_curve(-r)
+xyl2 = airfoil2.profile_curve(-r)
 xyc1 = airfoil1.camber_curve(r)
 xyc2 = airfoil2.camber_curve(r)
 t1 = airfoil1.thickness(r)

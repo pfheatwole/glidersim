@@ -366,7 +366,7 @@ class AirfoilGeometry:
 
     Parameters
     ----------
-    surface_curve : PchipInterpolator
+    profile_curve : PchipInterpolator
         Profile xy-coordinates as a curve parametrized by the normalized
         arc-length `-1 <= r <= 1`, where `r = 0` is the leading edge, `r = 1`
         is the tip of the upper surface, and `r = -1` is the tip of the lower
@@ -390,9 +390,9 @@ class AirfoilGeometry:
     """
 
     def __init__(
-        self, surface_curve, camber_curve, thickness, convention, theta=0, scale=1,
+        self, profile_curve, camber_curve, thickness, convention, theta=0, scale=1,
     ):
-        self._surface_curve = surface_curve
+        self._profile_curve = profile_curve
         self._camber_curve = camber_curve
         self._thickness = thickness
         self.convention = convention
@@ -480,15 +480,15 @@ class AirfoilGeometry:
         f = d <= d_LE
         r[f] = -1 + d[f] / d_LE
         r[~f] = (d[~f] - d_LE) / (d[-1] - d_LE)
-        surface = PchipInterpolator(r, points, extrapolate=False)
+        profile = PchipInterpolator(r, points, extrapolate=False)
 
         # Estimate the mean camber curve and thickness distribution as
         # functions of the normalized arc-length of the mean camber line.
         # FIXME: Crude, ignores convention
         N = 300
         r = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= r <= 1`
-        xyu = surface(r)
-        xyl = surface(-r)
+        xyu = profile(r)
+        xyl = profile(-r)
         xyc = (xyu + xyl) / 2
         t = np.linalg.norm(xyu - xyl, axis=1)
         r = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
@@ -496,7 +496,7 @@ class AirfoilGeometry:
         camber = PchipInterpolator(r, (xyu + xyl) / 2, extrapolate=False)
         thickness = PchipInterpolator(r, t, extrapolate=False)
 
-        return cls(surface, camber, thickness, convention, theta, scale)
+        return cls(profile, camber, thickness, convention, theta, scale)
 
     def _mass_properties(self, r_upper=0, r_lower=0, N=200):
         """
@@ -577,8 +577,8 @@ class AirfoilGeometry:
         # 1. Area calculations
 
         r = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= r <= 1`
-        top = self.surface_curve(r).T  # Top half (above r = 0)
-        bottom = self.surface_curve(-r).T  # Bottom half (below r = 0)
+        top = self.profile_curve(r).T  # Top half (above r = 0)
+        bottom = self.profile_curve(-r).T  # Bottom half (below r = 0)
         Tx, Ty = top[0], top[1]
         Bx, By = bottom[0], bottom[1]
 
@@ -610,8 +610,8 @@ class AirfoilGeometry:
 
         su = np.linspace(r_upper, 1, N)
         sl = np.linspace(r_lower, -1, N)
-        upper = self.surface_curve(su).T
-        lower = self.surface_curve(sl).T
+        upper = self.profile_curve(su).T
+        lower = self.profile_curve(sl).T
 
         # Line segment lengths and midpoints
         norm_U = np.linalg.norm(np.diff(upper), axis=0)  # Segment lengths
@@ -666,9 +666,9 @@ class AirfoilGeometry:
 
         return properties
 
-    def surface_curve(self, r):
+    def profile_curve(self, r):
         """
-        Compute points on the surface curve.
+        Compute points on the profile curve.
 
         Parameters
         ----------
@@ -682,16 +682,16 @@ class AirfoilGeometry:
         points : array of float, shape (N, 2)
             The (x, y) coordinates of points on the airfoil at `r`.
         """
-        return self._surface_curve(r)
+        return self._profile_curve(r)
 
-    def surface_curve_tangent(self, r):
+    def profile_curve_tangent(self, r):
         """
-        Compute the tangent unit vector at points on the surface curve.
+        Compute the tangent unit vector at points on the profile curve.
 
         Parameters
         ----------
         r : array_like of float
-            The surface curve parameter.
+            The profile curve parameter.
 
         Returns
         -------
@@ -700,18 +700,18 @@ class AirfoilGeometry:
             increasing `r`, so the tangents trace from the lower surface to
             the upper surface.
         """
-        dxdy = self._surface_curve.derivative()(r).T
+        dxdy = self._profile_curve.derivative()(r).T
         dxdy /= np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
-    def surface_curve_normal(self, r):
+    def profile_curve_normal(self, r):
         """
-        Compute the normal unit vector at points on the surface curve.
+        Compute the normal unit vector at points on the profile curve.
 
         Parameters
         ----------
         r : array_like of float
-            The surface curve parameter.
+            The profile curve parameter.
 
         Returns
         -------
@@ -719,7 +719,7 @@ class AirfoilGeometry:
             The unit normal vectors at the specified points, oriented with
             increasing `r`, so the normals point "out" of the airfoil.
         """
-        dxdy = (self._surface_curve.derivative()(r) * [1, -1]).T
+        dxdy = (self._profile_curve.derivative()(r) * [1, -1]).T
         dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
         return dxdy.T
 
@@ -858,11 +858,11 @@ class NACA(AirfoilGeometry):
         dc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xyc.T), axis=0))]
         surface_xyz = np.r_[xyl[::-1], xyu[1:]]
         r = np.r_[-dl[::-1] / dl[-1], du[1:] / du[-1]]
-        surface_curve = PchipInterpolator(r, surface_xyz, extrapolate=False)
+        profile_curve = PchipInterpolator(r, surface_xyz, extrapolate=False)
         r = dc / dc[-1]
         camber_curve = PchipInterpolator(r, xyc, extrapolate=False)
         thickness = PchipInterpolator(r, 2 * self._yt(x), extrapolate=False)
-        super().__init__(surface_curve, camber_curve, thickness, convention)
+        super().__init__(profile_curve, camber_curve, thickness, convention)
 
     def _yt(self, x):
         """
