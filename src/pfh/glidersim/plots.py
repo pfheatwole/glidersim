@@ -245,7 +245,7 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0, ax=None):
+def plot_foil_topdown(foil, N_sections=21, flatten=False, rotate=0, ax=None):
     """
     Plot a 3D foil in topdown projection.
 
@@ -254,8 +254,6 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0,
     foil : FoilGeometry
     N_sections : integer
         The number of spanwise sections to plot.
-    N_points : integer
-        The number of points per surface curve.
     flatten : bool
         Whether to flatten the arch (ignore dihedral).
     rotate : float [degrees]
