@@ -731,8 +731,14 @@ class FoilSections:
 
     Parameters
     ----------
-    airfoil : Airfoil
-        The airfoil that defines all section profiles.
+    profiles : AirfoilGeometry
+        The section profiles. This class currently assumes all sections have
+        the same, fixed airfoil. In the future the section profiles will be
+        functions of `s` and `delta_f`.
+    coefficients : AirfoilCoefficients
+        The section coefficients. This class currently assumes all sections
+        have the section coefficients. In the future the coefficients will be
+        functions of `s`.
     intakes : function, optional
         A function that defines the upper and lower intake positions in
         airfoil surface coordinates as a function of the section index.
@@ -740,10 +746,12 @@ class FoilSections:
 
     def __init__(
         self,
-        airfoil,
+        profiles,
+        coefficients=None,
         intakes=None,
     ):
-        self.airfoil = airfoil
+        self.profiles = profiles
+        self.coefficients = coefficients
         self.intakes = intakes if intakes else self._no_intakes
 
     def _no_intakes(self, s, r, surface):
@@ -796,15 +804,15 @@ class FoilSections:
 
         if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
-            r_P2LE = self.airfoil.geometry.surface_curve(r)
+            r_P2LE = self.profiles.surface_curve(r)
         else:
             r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
                 r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
             elif surface == "camber":
-                r_P2LE = self.airfoil.geometry.camber_curve(r)
+                r_P2LE = self.profiles.camber_curve(r)
             elif surface == "airfoil":
-                r_P2LE = self.airfoil.geometry.surface_curve(r)
+                r_P2LE = self.profiles.surface_curve(r)
 
         return r_P2LE
 
@@ -828,7 +836,7 @@ class FoilSections:
         -------
         Cl : float
         """
-        return self.airfoil.coefficients.Cl(delta_f, alpha, Re)
+        return self.coefficients.Cl(delta_f, alpha, Re)
 
     def Cl_alpha(self, s, delta_f, alpha, Re):
         """
@@ -850,7 +858,7 @@ class FoilSections:
         -------
         Cl_alpha : float
         """
-        return self.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
+        return self.coefficients.Cl_alpha(delta_f, alpha, Re)
 
     def Cd(self, s, delta_f, alpha, Re):
         """
@@ -872,7 +880,7 @@ class FoilSections:
         -------
         Cd : float
         """
-        Cd = self.airfoil.coefficients.Cd(delta_f, alpha, Re)
+        Cd = self.coefficients.Cd(delta_f, alpha, Re)
 
         # Additional drag from the air intakes
         #
@@ -909,7 +917,7 @@ class FoilSections:
         -------
         Cm : float
         """
-        return self.airfoil.coefficients.Cm(delta_f, alpha, Re)
+        return self.coefficients.Cm(delta_f, alpha, Re)
 
     def thickness(self, s, r):
         """
@@ -930,12 +938,12 @@ class FoilSections:
         thickness : array_like of float
             The normalized section profile thicknesses.
         """
-        return self.airfoil.geometry.thickness(r)
+        return self.profiles.thickness(r)
 
     def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
         # FIXME: I hate this. Also, should be a function of `s`
-        return self.airfoil.geometry._mass_properties()
+        return self.profiles._mass_properties()
 
 
 class SimpleFoil:

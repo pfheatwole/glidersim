@@ -23,7 +23,6 @@ import scipy.optimize
 
 
 __all__ = [
-    "Airfoil",
     "AirfoilCoefficients",
     "GridCoefficients",
     "XFLR5Coefficients",
@@ -34,19 +33,6 @@ __all__ = [
 
 def __dir__():
     return __all__
-
-
-class Airfoil:
-    """
-    Dumb wrapper class to bundle AirfoilCoefficients with AirfoilGeometry.
-
-    This class probably shouldn't exist, but was added during the design
-    exploration phase.
-    """
-
-    def __init__(self, coefficients, geometry=None):
-        self.coefficients = coefficients
-        self.geometry = geometry
 
 
 class AirfoilCoefficients(abc.ABC):
@@ -425,7 +411,7 @@ class AirfoilGeometry:
         the x-axis between 0 and 1.
 
         The input coordinates are treated as the "reference" airfoil. If the
-        user provides coefficient data to the `Airfoil` class, then it will be
+        user provides coefficient data to `FoilSections`, then it will be
         assumed that those coefficients were computed for the reference
         airfoil. If the reference coordinates are rotated and/or normalized by
         this function, the `theta` and `scale` properties allow those reference

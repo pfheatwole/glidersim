@@ -131,6 +131,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     N : integer
         The number of sample points per dimension
     """
+    raise RuntimeError("`plot_airfoil_coef` is currently broken")
 
     alpha = np.deg2rad(np.linspace(-10, 25, N))
     delta = np.deg2rad(np.linspace(0, 15, N))
