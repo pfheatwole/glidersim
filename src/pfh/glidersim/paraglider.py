@@ -1,11 +1,10 @@
 """FIXME: add module docstring."""
 
 import numpy as np
+import scipy.integrate
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3, crossmat
-
-import scipy.integrate
 
 
 __all__ = [

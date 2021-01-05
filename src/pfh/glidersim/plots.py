@@ -1,9 +1,6 @@
-import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
-
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
-
 import numpy as np
 
 

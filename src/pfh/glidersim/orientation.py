@@ -1,7 +1,6 @@
 """A scratchpad for orientation-related work."""
 
 from numba import float64, guvectorize
-
 import numpy as np
 
 from pfh.glidersim.util import _cross3, crossmat

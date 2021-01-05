@@ -4,7 +4,6 @@ import abc
 import warnings
 
 import numpy as np
-
 import scipy.interpolate
 import scipy.optimize
 from scipy.spatial import Delaunay

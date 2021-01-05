@@ -1,7 +1,6 @@
 """FIXME: add module docstring."""
 
 import numpy as np
-
 from scipy.optimize import root_scalar
 
 from pfh.glidersim import foil
