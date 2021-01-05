@@ -5,7 +5,6 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 import numpy as np
 from scipy.interpolate import interp1d
 
-import hook3
 import pfh.glidersim as gsim
 
 
@@ -117,7 +116,7 @@ def linear_control(pairs):
 
 def main():
     # Build a set of glider models from a common base configuration
-    wing = hook3.build_hook3()
+    wing = gsim.extras.wings.build_hook3()
     harness = gsim.harness.Spherical(
         mass=75,
         z_riser=0.5,
