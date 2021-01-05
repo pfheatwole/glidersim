@@ -93,8 +93,8 @@ def _create_3d_axes(figsize=(12, 12), dpi=96):
 
 def plot_airfoil_geo(foil_geo, N_points=200):
     r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
-    upper = foil_geo.surface_curve(r).T
-    lower = foil_geo.surface_curve(-r).T
+    upper = foil_geo.profile_curve(r).T
+    lower = foil_geo.profile_curve(-r).T
     fig, ax = plt.subplots()
     ax.plot(upper[0], upper[1], c="b", lw=0.75, label="upper surface")
     ax.plot(lower[0], lower[1], c="r", lw=0.75, label="lower surface")
@@ -131,6 +131,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
     N : integer
         The number of sample points per dimension
     """
+    raise RuntimeError("`plot_airfoil_coef` is currently broken")
 
     alpha = np.deg2rad(np.linspace(-10, 25, N))
     delta = np.deg2rad(np.linspace(0, 15, N))
@@ -244,7 +245,7 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0, ax=None):
+def plot_foil_topdown(foil, N_sections=21, flatten=False, rotate=0, ax=None):
     """
     Plot a 3D foil in topdown projection.
 
@@ -253,8 +254,6 @@ def plot_foil_topdown(foil, N_sections=21, N_points=50, flatten=False, rotate=0,
     foil : FoilGeometry
     N_sections : integer
         The number of spanwise sections to plot.
-    N_points : integer
-        The number of points per surface curve.
     flatten : bool
         Whether to flatten the arch (ignore dihedral).
     rotate : float [degrees]

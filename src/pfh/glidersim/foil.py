@@ -382,7 +382,7 @@ class SimpleIntakes:
         Section index. Air intakes are present between +/- `s_end`.
     r_upper, r_lower : float
         The starting coordinates of the upper and lower surface of the
-        parafoil, given in airfoil surface coordinates. These are used to
+        parafoil, given in airfoil profile coordinates. These are used to
         define air intakes, and for determining the inertial properties of the
         upper and lower surfaces.
 
@@ -731,19 +731,27 @@ class FoilSections:
 
     Parameters
     ----------
-    airfoil : Airfoil
-        The airfoil that defines all section profiles.
+    profiles : AirfoilGeometry
+        The section profiles. This class currently assumes all sections have
+        the same, fixed airfoil. In the future the section profiles will be
+        functions of `s` and `delta_f`.
+    coefficients : AirfoilCoefficients
+        The section coefficients. This class currently assumes all sections
+        have the section coefficients. In the future the coefficients will be
+        functions of `s`.
     intakes : function, optional
         A function that defines the upper and lower intake positions in
-        airfoil surface coordinates as a function of the section index.
+        airfoil profile coordinates as a function of the section index.
     """
 
     def __init__(
         self,
-        airfoil,
+        profiles,
+        coefficients=None,
         intakes=None,
     ):
-        self.airfoil = airfoil
+        self.profiles = profiles
+        self.coefficients = coefficients
         self.intakes = intakes if intakes else self._no_intakes
 
     def _no_intakes(self, s, r, surface):
@@ -773,14 +781,14 @@ class FoilSections:
             then `r` is treated as surface coordinates, which range from 0 to
             1, and specify points on the upper or lower surfaces, as defined by
             the intakes. If "airfoil", then `r` is treated as raw airfoil
-            coordinates, which must range from -1 to +1, and map from the
-            lower surface trailing edge to the upper surface trailing edge.
+            profile coordinates, which must range from -1 to +1, and map from
+            the lower surface trailing edge to the upper surface trailing edge.
 
         Returns
         -------
         array of float
-            A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `r`.
+            A set of points from the section surface in foil frd. The shape is
+            determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
         r = np.asarray(r)
@@ -796,15 +804,15 @@ class FoilSections:
 
         if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
-            r_P2LE = self.airfoil.geometry.surface_curve(r)
+            r_P2LE = self.profiles.profile_curve(r)
         else:
             r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
                 r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
             elif surface == "camber":
-                r_P2LE = self.airfoil.geometry.camber_curve(r)
+                r_P2LE = self.profiles.camber_curve(r)
             elif surface == "airfoil":
-                r_P2LE = self.airfoil.geometry.surface_curve(r)
+                r_P2LE = self.profiles.profile_curve(r)
 
         return r_P2LE
 
@@ -828,7 +836,7 @@ class FoilSections:
         -------
         Cl : float
         """
-        return self.airfoil.coefficients.Cl(delta_f, alpha, Re)
+        return self.coefficients.Cl(delta_f, alpha, Re)
 
     def Cl_alpha(self, s, delta_f, alpha, Re):
         """
@@ -850,7 +858,7 @@ class FoilSections:
         -------
         Cl_alpha : float
         """
-        return self.airfoil.coefficients.Cl_alpha(delta_f, alpha, Re)
+        return self.coefficients.Cl_alpha(delta_f, alpha, Re)
 
     def Cd(self, s, delta_f, alpha, Re):
         """
@@ -872,7 +880,7 @@ class FoilSections:
         -------
         Cd : float
         """
-        Cd = self.airfoil.coefficients.Cd(delta_f, alpha, Re)
+        Cd = self.coefficients.Cd(delta_f, alpha, Re)
 
         # Additional drag from the air intakes
         #
@@ -909,7 +917,7 @@ class FoilSections:
         -------
         Cm : float
         """
-        return self.airfoil.coefficients.Cm(delta_f, alpha, Re)
+        return self.coefficients.Cm(delta_f, alpha, Re)
 
     def thickness(self, s, r):
         """
@@ -930,12 +938,12 @@ class FoilSections:
         thickness : array_like of float
             The normalized section profile thicknesses.
         """
-        return self.airfoil.geometry.thickness(r)
+        return self.profiles.thickness(r)
 
     def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
         # FIXME: I hate this. Also, should be a function of `s`
-        return self.airfoil.geometry._mass_properties()
+        return self.profiles._mass_properties()
 
 
 class SimpleFoil:
@@ -1110,8 +1118,8 @@ class SimpleFoil:
         Returns
         -------
         array of float
-            A set of points from the surface of the airfoil in foil frd. The
-            shape is determined by standard numpy broadcasting of `s` and `r`.
+            Coordinates on the section surface in foil frd. The shape is
+            determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
         r = np.asarray(r)
@@ -1500,7 +1508,7 @@ class SimpleFoil:
         Generate sets of triangle faces on the upper and lower surfaces.
 
         Each triangle mesh is described by a set of vertices and a set of
-        "faces". The vertices are the surface coordiantes sampled on a
+        "faces". The vertices are the surface coordinates sampled on a
         rectilinear grid over the section indices and surface coordinates. The
         faces are the list of vertices that define the triangles.
 

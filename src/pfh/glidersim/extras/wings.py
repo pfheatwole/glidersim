@@ -11,7 +11,8 @@ def build_hook3():
     # Airfoil
 
     print("Airfoil: NACA 24018, curving flap\n")
-    airfoil = gsim.extras.airfoils.load_airfoil()  # WIP: placeholder
+    airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
+    airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
     delta_max = np.deg2rad(13.37)  # FIXME: magic number
 
     # -----------------------------------------------------------------------
@@ -47,7 +48,8 @@ def build_hook3():
 
     # FIXME: add the viscous drag modifiers?
     sections = gsim.foil.FoilSections(
-        airfoil=airfoil,
+        profiles=airfoil_geo,
+        coefficients=airfoil_coefs,
         intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 

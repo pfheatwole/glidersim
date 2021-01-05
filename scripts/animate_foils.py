@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import numpy as np
 
 import pfh.glidersim as gsim
-from pfh.glidersim.airfoil import Airfoil, NACA  # noqa: F401
+from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (  # noqa: F401
     elliptical_arc,
     elliptical_chord,
@@ -366,7 +366,7 @@ def foil_generator(base_config, sequences, fps=60):
             layout = gsim.foil.SectionLayout(**params)
             yield config, gsim.foil.SimpleFoil(
                 layout=layout,
-                sections=FoilSections(airfoil=Airfoil(None, NACA(24018))),
+                sections=FoilSections(profiles=NACA(24018)),
                 b_flat=10,
             )
             n += 1
@@ -391,7 +391,7 @@ def update(config_and_foil, axes):
         a.remove()
 
     code = """\
-from pfh.glidersim.airfoil import Airfoil, NACA
+from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (
     elliptical_arc,
     elliptical_chord,
@@ -411,7 +411,7 @@ layout = SectionLayout(
 )
 
 foil = gsim.foil.SimpleFoil(
-    sections=FoilSections(Airfoil(None, NACA(24018)),
+    sections=FoilSections(NACA(24018)),
     layout=layout,
     b_flat=10,
 )
