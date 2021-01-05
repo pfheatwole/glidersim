@@ -415,7 +415,7 @@ class AirfoilGeometry:
 
     @classmethod
     def from_points(
-        cls, points, convention, center=True, derotate=True, normalize=True,
+        cls, points, convention, center=False, derotate=False, normalize=False,
     ):
         """
         Construct an AirfoilGeometry from a set of airfoil xy-coordinates.
@@ -443,11 +443,11 @@ class AirfoilGeometry:
             Whether the airfoil thickness is measured perpendicular to the mean
             camber line or vertically (the y-axis distance).
         center : bool
-            Translate the curve leading edge to the origin. Default: True
+            Translate the curve leading edge to the origin. Default: False
         derotate : bool
-            Rotate the the chord parallel to the x-axis. Default: True
+            Rotate the the chord parallel to the x-axis. Default: False
         normalize : bool
-            Scale the curve so the chord is unit length. Default: True
+            Scale the curve so the chord is unit length. Default: False
 
         Returns
         -------
