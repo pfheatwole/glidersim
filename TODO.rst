@@ -1,10 +1,17 @@
-* Split `hook3.py` into a wing model, polar calculation code, and polar
-  plotting code. The package will have to include the airfoil data; need to
-  review how to get `pyproject.toml` to bundle that.
+* If users load airfoils with `extras/airfoils/load_datfile`, how does that
+  function return whether the airfoil uses `delta_f`, and if so what is its
+  `delta_max`?
+
+* Rename `delta_max` to `delta_f_max`, since `delta_f` is what
+  `AirfoilCoefficients` uses for trailing edge deflections.
 
 
 * Review `scripts/flat_wings.py`. Depends on pandas, hard coded paths to
-  airfoil data, etc.
+  airfoil data, etc. Maybe just delete it? If it's going to stick around it
+  should be more obvious that it's for checking `Phillips` against XFLR5.
+
+* Convert `convert_xflr5_coefs_to_grid.py` into a proper CLI tool. Probably
+  start by renaming it to `resample_xfoil_polars.py` or similar.
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
   moment. It's fine for small displacements, but doesn't make sense for larger
@@ -68,6 +75,8 @@ Documentation
 General
 -------
 
+* Replace `print` with `logging`
+
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
   that term. It's more like the "parameter" of a parametric curve. When I read
   "coordinates" I think `xyz`.
@@ -116,8 +125,11 @@ Packaging
 
 * Complete `README.rst`
 
-* Make `matplotlib` and `numba` optional dependencies? The goal is that it can
-  work standalone in installations like Blender's built-in interpreter.
+* Make `numba` a dev-only dependency by compiling the modules ahead of time.
+  See https://numba.readthedocs.io/en/stable/user/pycc.html
+
+* Make `matplotlib` an optional dependency. The goal is that it can work
+  standalone in installations like Blender's built-in interpreter.
 
 
 Plots
@@ -204,10 +216,6 @@ Airfoil
 Geometry
 --------
 
-* Should I rename `surface_curve` to `profile_curve`? I've been using "surface"
-  a lot lately, for things like the chord surface and the mean camber surface.
-  It's become a general term that makes `surface_curve` ambiguous.
-
 * If my airfoil coefficients are parametrized by `delta_f`, should the airfoil
   geometry be as well? I don't like either option: currently I have the
   `AirfoilCoefficients` handling the interpolation over `delta_f` since it's
@@ -260,10 +268,15 @@ Coefficients
   removing the tiny TE gap causes the pitching moment in particular to change
   dramatically.
 
-* An airfoil is a single entity, so I'm not a big fan of the fact that the
-  `AirfoilCoefficients` are parametrized by `delta_f`. Right now it does that
-  because it's computationally much faster to use a single
-  `LinearNDInterpolator` for the entire set, but it still seems a bit awkward.
+* Replace `AirfoilCoefficients` with `SectionCoefficients`. An airfoil is
+  conceptually a fixed geometry entity, and doesn't change (no brake
+  deflections). The section, however, is more general: a profile (which is
+  a function of `delta_f`) and its aerodynamic coefficients (also a function
+  of `delta_f`).
+
+  If you really wanted to build a `SectionCoefficients` from individual
+  airfoil polar files you could, but that should be the exception rather than
+  the rule. Don't let that "atypical" use case complicate the API.
 
 * It might be interesting if `GridCoefficients` automatically handled CSV
   files that lack `Re`. Maybe just print a warning that Reynolds values will
@@ -286,7 +299,7 @@ Low priority
 * Let `NACA` use its explicit curve definitions. I'll have to compute `x` as
   a function of arc-lengths, but beyond that use the actual functions instead
   of relying on interpolated estimates. The annoying part will be calculating
-  the `surface_curve_normal` and `surface_curve_tangent` functions.
+  the `profile_curve_normal` and `profile_curve_tangent` functions.
 
 * Rewrite `AirfoilGeometry.mass_properties` to handle rotated airfoils
   (meaning you can't just integrate over `y_upper - y_lower`). Not a high
@@ -366,6 +379,11 @@ Parametric functions
 FoilGeometry
 ============
 
+* I refer to `FoilGeometry` in several places, but there's only one:
+  `SimpleFoil`. There's no abstract base class anymore. Should there be? It'd
+  be nice to be able to reference `FoilGeometry` and have it be a concrete
+  thing in the code.
+
 * Eliminate `Foil.chord_xyz` and add "chord" and "camber" to the `surface`
   parameter in `Foil.surface_xyz`. More recent versions of my paper discusses
   three surfaces (chords, camber lines, and section profiles); the code should
@@ -381,13 +399,9 @@ FoilGeometry
   airfoil, chord, camber}`)? Right now it just assumes you want both `upper`
   and `lower`.
 
-* in `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in my
+* In `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in my
   paper I'm referring to the airfoil as the unit-chord shape and "section
   profile" for the scaled shape. Should I rename `airfoil` -> `profile`?
-
-* Should `FoilGeometry` be a parent class? Right now I only have SimpleFoil,
-  but it'd be nice to be able to reference `FoilGeometry` and have it be
-  a concrete thing in the code.
 
 * Should `S_flat`, `b`, etc really be class properties? Class properties don't
   support parameters, which means these break for parametric reference curves
@@ -399,16 +413,6 @@ FoilGeometry
 FoilSections
 ============
 
-* Rename `FoilSections` to `SectionAirfoils`?
-
-  I considered `SectionProfiles`, but I've been using "airfoil" for the
-  normalized unit chord version and "profile" for the scaled version. These
-  aren't scaled.
-
-  Hm. I'm not crazy about "claiming" such a generic name (this particular
-  class assumes a constant airfoil, other's could interpolate), but I've
-  already done that with `SectionLayout`, so for now I'll ignore the issue.
-
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
   not been scaled by the chord length, etc.
@@ -418,12 +422,15 @@ FoilSections
   scaled by the span of the foil"
 
 
-Geometry
+Profiles
 --------
 
-* Add profile interpolation to `FoilSections`? If you could use the actual
-  profiles then `plot_foil` could use the new `surface_xyz` to plot the actual
-  braking surface.
+* `FoilSections.profiles` should be an airfoil interpolator. I should be able
+  to load a set of datfiles and stick them in an airfoil interpolator that
+  produces the right section profiles as a function of `s, delta_f`.
+
+  Once this is done you could use the actual profiles then `plot_foil` could
+  use the new `surface_xyz` to plot the actual braking surface.
 
 * I need to review everywhere I talk about airfoil "thickness" and ensure I'm
   referring to "chordwise" or "camberwise" stations correctly. Some places
@@ -476,6 +483,7 @@ Parafoil
 * The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
   originally planning to create a `Parafoil` class which includes the cells
   and accounts for cell billowing).
+
 
 Geometry
 --------
