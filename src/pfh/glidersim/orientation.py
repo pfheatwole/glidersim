@@ -131,7 +131,7 @@ def quaternion_to_euler(q):
 
 
 @guvectorize([(float64[:], float64[:], float64[:])],
-             '(n),(m)->(m)', nopython=True)
+             '(n),(m)->(m)', nopython=True, cache=True)
 def quaternion_rotate(q, u, v):
     """Rotate a 3-vector using a quaternion.
 
