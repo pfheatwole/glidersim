@@ -8,6 +8,18 @@ import scipy.integrate
 from pfh.glidersim import orientation
 
 
+__all__ = [
+    "Dynamics6a",
+    "Dynamics9a",
+    "simulate",
+    "recompute_derivatives",
+]
+
+
+def __dir__():
+    return __all__
+
+
 # ---------------------------------------------------------------------------
 # Dynamics Models
 

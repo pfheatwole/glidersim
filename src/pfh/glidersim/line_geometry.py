@@ -3,6 +3,15 @@
 import numpy as np
 
 
+__all__ = [
+    "SimpleLineGeometry",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class SimpleLineGeometry:
     """
     FIXME: document the design.

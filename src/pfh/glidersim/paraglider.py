@@ -1,11 +1,24 @@
 """FIXME: add module docstring."""
 
 import numpy as np
+import scipy.integrate
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3, crossmat
 
-import scipy.integrate
+
+__all__ = [
+    "Paraglider6a",
+    "Paraglider6b",
+    "Paraglider6c",
+    "Paraglider9a",
+    "Paraglider9b",
+    "Paraglider9c",
+]
+
+
+def __dir__():
+    return __all__
 
 
 class Paraglider6a:

@@ -1,10 +1,20 @@
-import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection
-
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
-
 import numpy as np
+
+
+__all__ = [
+    "plot_airfoil_geo",
+    "plot_airfoil_coef",
+    "plot_foil",
+    "plot_foil_topdown",
+    "plot_paraglider_wing",
+]
+
+
+def __dir__():
+    return __all__
 
 
 def _set_axes_equal(ax):

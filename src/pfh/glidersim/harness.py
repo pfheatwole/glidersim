@@ -3,6 +3,16 @@ import abc
 import numpy as np
 
 
+__all__ = [
+    "Harness",
+    "Spherical",
+]
+
+
+def __dir__():
+    return __all__
+
+
 class Harness(abc.ABC):
     """
     FIXME: docstring

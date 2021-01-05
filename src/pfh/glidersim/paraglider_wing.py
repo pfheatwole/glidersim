@@ -1,11 +1,19 @@
 """FIXME: add module docstring."""
 
 import numpy as np
-
 from scipy.optimize import root_scalar
 
 from pfh.glidersim import foil
 from pfh.glidersim.util import cross3, crossmat
+
+
+__all__ = [
+    "ParagliderWing",
+]
+
+
+def __dir__():
+    return __all__
 
 
 class ParagliderWing:

@@ -1,21 +1,19 @@
 from collections import ChainMap
 
-import matplotlib.pyplot as plt
 from matplotlib import animation
-
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
-
 import numpy as np
 
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import Airfoil, NACA  # noqa: F401
 from pfh.glidersim.foil import (  # noqa: F401
+    elliptical_arc,
+    elliptical_chord,
     FlatYZ,
-    SimpleFoil,
     FoilSections,
     PolynomialTorsion as PT,
-    elliptical_chord,
-    elliptical_arc,
+    SimpleFoil,
 )
 
 

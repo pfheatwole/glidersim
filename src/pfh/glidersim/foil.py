@@ -4,12 +4,30 @@ import abc
 import warnings
 
 import numpy as np
-
 import scipy.interpolate
 import scipy.optimize
 from scipy.spatial import Delaunay
 
 from pfh.glidersim.util import cross3
+
+
+__all__ = [
+    "EllipticalArc",
+    "elliptical_chord",
+    "elliptical_arc",
+    "PolynomialTorsion",
+    "SimpleIntakes",
+    "FlatYZ",
+    "SectionLayout",
+    "FoilSections",
+    "SimpleFoil",
+    "ForceEstimator",
+    "Phillips",
+]
+
+
+def __dir__():
+    return __all__
 
 
 class EllipticalArc:

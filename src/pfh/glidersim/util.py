@@ -2,6 +2,18 @@ from numba import float64, guvectorize, njit
 import numpy as np
 
 
+__all__ = [
+    "trapz",
+    "cross3",
+    "_cross3",
+    "crossmat",
+]
+
+
+def __dir__():
+    return __all__
+
+
 @njit(cache=True)
 def trapz(y, dx):
     # Trapezoidal integrator with regularly spaced sample points

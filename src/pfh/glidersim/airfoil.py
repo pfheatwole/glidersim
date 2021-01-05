@@ -15,12 +15,25 @@ import re
 
 import numpy as np
 from numpy.lib import recfunctions as rfn
-
-import scipy.optimize
 from scipy.integrate import simps
 from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import PchipInterpolator
 from scipy.interpolate import RegularGridInterpolator
+import scipy.optimize
+
+
+__all__ = [
+    "Airfoil",
+    "AirfoilCoefficients",
+    "GridCoefficients",
+    "XFLR5Coefficients",
+    "AirfoilGeometry",
+    "NACA",
+]
+
+
+def __dir__():
+    return __all__
 
 
 class Airfoil:
