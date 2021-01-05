@@ -55,7 +55,7 @@ def load_datfile(
 
     Returns
     -------
-    airfoil : gsim.airfoil.AirfoilGeometry
+    gsim.airfoil.AirfoilGeometry
         The instantiated AirfoilGeometry object.
     """
     points = np.loadtxt(path, skiprows=1)
@@ -103,8 +103,9 @@ def load_datfile_set(
 
     Returns
     -------
-    airfoils : dict
-        A dictionary of {delta: gsim.airfoil.AirfoilGeometry} pairs.
+    dict
+        A dictionary of {delta: gsim.airfoil.AirfoilGeometry} pairs, where
+        `delta` is a `float`.
     """
     datdir = Path(directory)
     airfoils = {}
