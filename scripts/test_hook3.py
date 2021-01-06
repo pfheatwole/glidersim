@@ -9,10 +9,6 @@ if __name__ == "__main__":
 
     print("\n-------------------------------------------------------------\n")
 
-    # Note to self: the wing should weight 4.7kG in total; according to these
-    # specs, and the `rho_upper`/`rho_lower` embedded in ParagliderWing, the
-    # wing materials I'm accounting for total to 1.83kg, so there's a lot left
-    # in the lines, risers, ribs, etc.
     wing = gsim.extras.wings.build_hook3()
     harness = gsim.harness.Spherical(
         mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
@@ -20,14 +16,8 @@ if __name__ == "__main__":
     glider = gsim.paraglider.Paraglider6a(wing, harness)
     # glider = gsim.paraglider.Paraglider9a(wing, harness)
 
-    # print("Plotting the wing performance curves")
-    # plot_wing_coefficients(wing)
-
-    print("\nFinished building the glider.\n")
-    # breakpoint()
-    # 1/0
-
-    print("\nComputing the glider equilibrium state...")
+    print("Finished building the glider.\n")
+    print("\nComputing the glider equilibrium state...\n")
     eq = glider.equilibrium_state()
 
     # Compute the residual acceleration at the given equilibrium state
@@ -59,8 +49,7 @@ if __name__ == "__main__":
     print(f"  Glide ratio: {eq['glide_ratio']:>6.3f}")
     print(f"  Glide speed: {np.linalg.norm(v_RM2e):>6.3f}")
     print()
-    print("For verification of the equilibrium state:")
-    print(f"  v_RM2e:      {v_RM2e.round(4)}")
+    print("Verify accelerations at equilibrium:")
     print(f"  a_RM2e:      {a_RM2e.round(4)}")
     print(f"  alpha_b2e:   {np.rad2deg(alpha_b2e).round(4)}")
 
