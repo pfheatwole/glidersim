@@ -23,6 +23,7 @@ def build_hook3():
     S_flat, b_flat, AR_flat = 23, 11.15, 5.40
     SMC_flat = b_flat / AR_flat
     S, b, AR = 19.55, 8.84, 4.00
+    m_s = 4.7  # Solid mass [kg]
 
     c = gsim.foil.elliptical_chord(
         root=chord_root / (b_flat / 2),
@@ -132,5 +133,11 @@ def build_hook3():
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
         force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
     )
+
+    wmp = wing.mass_properties(rho_air=1.225)
+    print()
+    print("Canopy inertia:            [Target]")
+    print(f"  solid mass:     {wmp['m_s']:>6.3f}   [{m_s:>6.3f}]")
+    print()
 
     return wing
