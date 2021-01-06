@@ -168,34 +168,8 @@ def main():
     # -----------------------------------------------------------------------
     # Define the initial states for both models from precomputed equilibriums
 
-    equilibrium_6a = {
-        "Theta_b2e": [0, np.deg2rad(2.170), 0],
-        "v_RM2e": [9.8595, 0, 1.2184],  # In body coordinates (frd)
-    }
-
-    equilibrium_9a = {
-        "Theta_b2e": [0, np.deg2rad(2.6169), 0],
-        "Theta_p2b": [0, np.deg2rad(-4.588), 0],
-        "v_RM2e": [9.7167, 0, 1.1938],  # In body coordinates (frd)
-    }
-
-    # Optional: recompute the equilibrium state
-    # equilibrium_6a = glider_6a.equilibrium_state(
-    #     delta_a=0,
-    #     delta_b=0,
-    #     alpha_0=np.deg2rad(9),
-    #     theta_0=np.deg2rad(3),
-    #     v_0=10,
-    #     rho_air=1.2,
-    # )
-    # equilibrium_9a = glider_9a.equilibrium_state(
-    #     delta_a=0,
-    #     delta_b=0,
-    #     alpha_0=np.deg2rad(9),
-    #     theta_0=np.deg2rad(3),
-    #     v_0=10,
-    #     rho_air=1.2,
-    # )
+    equilibrium_6a = glider_6a.equilibrium_state()
+    equilibrium_9a = glider_9a.equilibrium_state()
 
     q_b2e_6a = gsim.orientation.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
     state_6a = np.empty(1, dtype=gsim.simulator.Dynamics6a.state_dtype)

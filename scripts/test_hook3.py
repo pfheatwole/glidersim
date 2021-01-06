@@ -28,23 +28,7 @@ if __name__ == "__main__":
     # 1/0
 
     print("\nComputing the glider equilibrium state...")
-
-    approximate = True
-    # approximate = False
-
-    if approximate:  # Option 1: fast, but only approximate
-        eqstate = glider.equilibrium_state2
-    else:  # Option 2: currently very slow, but more accurate
-        eqstate = glider.equilibrium_state
-
-    eq = eqstate(
-        delta_a=0.0,
-        delta_b=0.0,
-        alpha_0=np.deg2rad(9),
-        theta_0=np.deg2rad(3),
-        v_0=10,
-        rho_air=1.2,
-    )
+    eq = glider.equilibrium_state()
 
     # Compute the residual acceleration at the given equilibrium state
     q_b2e = orientation.euler_to_quaternion(eq["Theta_b2e"])
@@ -56,7 +40,6 @@ if __name__ == "__main__":
         v_RM2e=eq["v_RM2e"],
         omega_b2e=[0, 0, 0],
         g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
-        rho_air=1.2,
         reference_solution=eq["reference_solution"],
     )
     # For the `Paraglider9a` model
@@ -66,7 +49,6 @@ if __name__ == "__main__":
     #     omega_p2e=[0, 0, 0],
     #     Theta_p2b=eq["Theta_p2b"],
     #     g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
-    #     rho_air=1.2,
     #     reference_solution=eq["reference_solution"],
     # )
 
@@ -86,4 +68,4 @@ if __name__ == "__main__":
     breakpoint()
 
     input("Plot the polar curve?  Press any key")
-    gsim.extras.compute_polars.plot_polar_curve(glider, approximate=approximate)
+    gsim.extras.compute_polars.plot_polar_curve(glider)

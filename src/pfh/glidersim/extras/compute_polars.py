@@ -4,13 +4,10 @@ import numpy as np
 from pfh.glidersim import foil, orientation
 
 
-def plot_polar_curve(glider, rho_air=1.225, N=21, approximate=True):
+def plot_polar_curve(glider, rho_air=1.225, N=21):
     """Compute the equilibrium conditions and plot the polar curves."""
 
-    if approximate:  # Option 1: fast, but only approximate
-        eqstate = glider.equilibrium_state2
-    else:  # Option 2: currently very slow, but more accurate
-        eqstate = glider.equilibrium_state
+    eqstate = glider.equilibrium_state
 
     eqs_a = []
     delta_as = np.linspace(0, 1, N)
