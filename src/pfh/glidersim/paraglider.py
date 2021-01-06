@@ -81,7 +81,7 @@ class Paraglider6a:
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -110,7 +110,7 @@ class Paraglider6a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -154,10 +154,7 @@ class Paraglider6a:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -440,7 +437,7 @@ class Paraglider6b(Paraglider6a):
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -469,7 +466,7 @@ class Paraglider6b(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -511,10 +508,7 @@ class Paraglider6b(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -672,7 +666,7 @@ class Paraglider6c(Paraglider6a):
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -701,7 +695,7 @@ class Paraglider6c(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -743,10 +737,7 @@ class Paraglider6c(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -943,7 +934,7 @@ class Paraglider9a:
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -977,7 +968,7 @@ class Paraglider9a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1021,10 +1012,7 @@ class Paraglider9a:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -1373,7 +1361,7 @@ class Paraglider9b(Paraglider9a):
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -1407,7 +1395,7 @@ class Paraglider9b(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1451,10 +1439,7 @@ class Paraglider9b(Paraglider9a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -1640,7 +1625,7 @@ class Paraglider9c(Paraglider9a):
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -1674,7 +1659,7 @@ class Paraglider9c(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1718,10 +1703,7 @@ class Paraglider9c(Paraglider9a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
