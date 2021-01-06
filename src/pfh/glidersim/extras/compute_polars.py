@@ -4,7 +4,7 @@ import numpy as np
 from pfh.glidersim import foil, orientation
 
 
-def plot_polar_curve(glider, N=21, approximate=True):
+def plot_polar_curve(glider, rho_air=1.225, N=21, approximate=True):
     """Compute the equilibrium conditions and plot the polar curves."""
 
     if approximate:  # Option 1: fast, but only approximate
@@ -27,10 +27,10 @@ def plot_polar_curve(glider, N=21, approximate=True):
             equilibrium = eqstate(
                 delta_a=da,
                 delta_b=0,
+                rho_air=rho_air,
                 alpha_0=equilibrium["alpha_b"],
                 theta_0=equilibrium["Theta_b2e"][1],
                 v_0=np.linalg.norm(equilibrium["v_RM2e"]),
-                rho_air=1.2,
                 reference_solution=equilibrium["reference_solution"],
             )
         except foil.ForceEstimator.ConvergenceError:
@@ -58,7 +58,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
                 alpha_0=equilibrium["alpha_b"],
                 theta_0=equilibrium["Theta_b2e"][1],
                 v_0=np.linalg.norm(equilibrium["v_RM2e"]),
-                rho_air=1.2,
+                rho_air=rho_air,
                 reference_solution=equilibrium["reference_solution"],
             )
         except foil.ForceEstimator.ConvergenceError:
@@ -124,7 +124,7 @@ def plot_polar_curve(glider, N=21, approximate=True):
     breakpoint()
 
 
-def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.2):
+def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.225):
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None

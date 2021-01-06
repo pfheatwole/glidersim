@@ -163,7 +163,7 @@ def main():
         use_apparent_mass=use_apparent_mass,
     )
 
-    rho_air = 1.2
+    rho_air = 1.225
 
     # -----------------------------------------------------------------------
     # Define the initial states for both models from precomputed equilibriums

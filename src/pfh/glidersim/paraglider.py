@@ -75,7 +75,7 @@ class Paraglider6a:
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -99,8 +99,8 @@ class Paraglider6a:
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -587,7 +587,7 @@ class Paraglider6b(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -611,8 +611,8 @@ class Paraglider6b(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -819,7 +819,7 @@ class Paraglider6c(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -843,8 +843,8 @@ class Paraglider6c(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1090,7 +1090,7 @@ class Paraglider9a:
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -1119,8 +1119,8 @@ class Paraglider9a:
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1589,7 +1589,7 @@ class Paraglider9b(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -1618,8 +1618,8 @@ class Paraglider9b(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1856,7 +1856,7 @@ class Paraglider9c(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
+        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -1885,8 +1885,8 @@ class Paraglider9c(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
+        rho_air : float [kg/m^3], optional
+            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
