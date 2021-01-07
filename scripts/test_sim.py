@@ -116,7 +116,7 @@ def linear_control(pairs):
 
 def main():
     # Build a set of glider models from a common base configuration
-    wing = gsim.extras.wings.build_hook3()
+    wing = gsim.extras.wings.build_hook3(verbose=False)
     harness = gsim.harness.Spherical(
         mass=75,
         z_riser=0.5,
