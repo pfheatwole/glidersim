@@ -163,8 +163,6 @@ def main():
         use_apparent_mass=use_apparent_mass,
     )
 
-    rho_air = 1.225
-
     # -----------------------------------------------------------------------
     # Define the initial states for both models from precomputed equilibriums
 
@@ -202,12 +200,6 @@ def main():
     # Build a test scenario
     #
     # FIXME: move these into "scenario" functions
-
-    # Scenario: zero inputs
-    # delta_a = 0.00
-    # delta_bl = 0.0
-    # delta_br = 0.0
-    # T = 60
 
     # Scenario: constant inputs
     delta_a = 0.0
@@ -287,6 +279,8 @@ def main():
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
+    rho_air = 1.225
+
     common_args = (rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
     model_6a = gsim.simulator.Dynamics6a(glider_6a, *common_args)
     model_6b = gsim.simulator.Dynamics6a(glider_6b, *common_args)
@@ -302,9 +296,6 @@ def main():
     # state0, model = state_9a, model_9a
     # state0, model = state_9a, model_9b  # Same state as model_9a
     # state0, model = state_9a, model_9c  # Same state as model_9a
-
-    # breakpoint()
-    # 1/0
 
     # -----------------------------------------------------------------------
     # Run the simulation
@@ -395,24 +386,8 @@ def main():
     ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c="r")
     ax.legend()
     gsim.plots._set_axes_equal(ax)
-    # plt.show()
 
-    # Plot: velocity vs Time
-    # mag_v_LE0 = np.linalg.norm(v_LE0, axis=1)
-    # mag_v_frd = np.linalg.norm(v_frd, axis=1)
-    # ax = plt.gca()
-    # ax.plot(times, mag_v_LE0, marker='.', lw=0.75, label="v_LE0")
-    # ax.plot(times, mag_v_frd, marker='.', lw=0.75, label="v_frd")
-    # ax.set_ylim(0, max(mag_v_LE0.max(), mag_v_frd.max()) * 1.1)
-    # ax.legend()
-    # plt.show()
-
-    # Plot: omega vs Time
-    # plt.plot(times, np.rad2deg(path["omega_b2e"]))
-    # plt.ylabel("omega [deg]")
-    # plt.show()
-
-    fig, ax = plt.subplots(3)
+    fig, ax = plt.subplots(3, figsize=(10, 10))
     ax[0].plot(times, np.rad2deg(Theta_b2e))
     ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
     ax[2].plot(times, np.rad2deg(derivatives["omega_b2e"]))
@@ -422,6 +397,7 @@ def main():
     ax[0].grid()
     ax[1].grid()
     ax[2].grid()
+
     plt.show()
 
     breakpoint()
