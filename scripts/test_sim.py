@@ -13,17 +13,20 @@ import pfh.glidersim as gsim
 
 
 class CircularThermal:
+    """
+    Functor to create circular thermals at specific <x,y> coordinates.
+
+    Parameters
+    ----------
+    px, py : float [m]
+        The x and y coordinates of the thermal center
+    mag : float [m/s]
+        The magnitude of the thermal center
+    radius95 : float [m]
+        The distance from the center where the magnitude has dropped to 5%
+    """
+
     def __init__(self, px, py, mag, radius5, t_start=0):
-        """
-        Parameters
-        ----------
-        px, py : float [m]
-            The x and y coordinates of the thermal center
-        mag : float [m/s]
-            The magnitude of the thermal center
-        radius95 : float [m]
-            The distance from the center where the magnitude has dropped to 5%
-        """
         self.c = np.array([px, py])
         self.mag = mag
         self.R = -(radius5 ** 2) / np.log(0.05)
@@ -40,8 +43,21 @@ class CircularThermal:
 
 class HorizontalShear:
     """
-    Increasing vertical wind when traveling north. Transitions from 0 to `mag`
-    as a sigmoid function. The transition is stretch using `smooth`.
+    Functor to create increasing vertical wind when traveling north.
+
+    Transitions from 0 to `mag` as a sigmoid function. The transition is
+    stretch using `smooth`.
+
+    Parameters
+    ----------
+    x_start : float [m]
+        Northerly position to begin the sigmoid transition.
+    mag : float [m/s]
+        The peak vertical windspeed.
+    smooth : float
+        Scaling factor to stretch the transition. FIXME: explain (I forget!)
+    t_start : float [sec]
+        The time at which to enable this wind component.
     """
 
     def __init__(self, x_start, mag, smooth, t_start):
@@ -63,7 +79,18 @@ class HorizontalShear:
 
 class LateralGust:
     """
-    Adds an east-west gust. Linear rampump.
+    Functor to create a global east-to-west gust with linear ramps up and down.
+
+    Parameters
+    ----------
+    t_start : float [sec]
+        Time to start the ramp up.
+    t_ramp : float [sec]
+        Time duration for the linear ramps up/down to/from peak magnitude.
+    t_duration : float [sec]
+        Time to hold the maximum magnitude gust.
+    mag : float [m/s]
+        The peak gust magnitude.
     """
 
     def __init__(self, t_start, t_ramp, t_duration, mag):
@@ -87,7 +114,7 @@ class LateralGust:
 
 def linear_control(pairs):
     """
-    Helper funtion to build linear interpolators for control inputs.
+    Helper function to build linear interpolators for control inputs.
 
     The input is a sequence of tuples encoding  `(duration, value)`. An initial
     value can be set with a leading `(0, initial_value)` tuple. To "hold" a
