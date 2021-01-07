@@ -279,15 +279,21 @@ def main():
     # -----------------------------------------------------------------------
     # Build the dynamics models
 
-    rho_air = 1.225
+    common_args = {
+        "rho_air": 1.225,
+        "delta_a": delta_a,
+        "delta_bl": delta_bl,
+        "delta_br": delta_br,
+        "delta_w": delta_w,
+        "v_W2e": v_W2e,
+    }
 
-    common_args = (rho_air, delta_a, delta_bl, delta_br, delta_w, v_W2e)
-    model_6a = gsim.simulator.Dynamics6a(glider_6a, *common_args)
-    model_6b = gsim.simulator.Dynamics6a(glider_6b, *common_args)
-    model_6c = gsim.simulator.Dynamics6a(glider_6c, *common_args)
-    model_9a = gsim.simulator.Dynamics9a(glider_9a, *common_args)
-    model_9b = gsim.simulator.Dynamics9a(glider_9b, *common_args)
-    model_9c = gsim.simulator.Dynamics9a(glider_9c, *common_args)
+    model_6a = gsim.simulator.Dynamics6a(glider_6a, **common_args)
+    model_6b = gsim.simulator.Dynamics6a(glider_6b, **common_args)
+    model_6c = gsim.simulator.Dynamics6a(glider_6c, **common_args)
+    model_9a = gsim.simulator.Dynamics9a(glider_9a, **common_args)
+    model_9b = gsim.simulator.Dynamics9a(glider_9b, **common_args)
+    model_9c = gsim.simulator.Dynamics9a(glider_9c, **common_args)
 
     # Choose which model to run
     state0, model = state_6a, model_6a
