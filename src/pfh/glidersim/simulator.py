@@ -46,40 +46,19 @@ class Dynamics6a:
     ):
         self.glider = glider
 
-        if callable(rho_air):
-            self.rho_air = rho_air
-        elif np.isscalar(rho_air):
-            self.rho_air = lambda t: rho_air
-        else:
-            raise ValueError("`rho_air` must be a scalar or callable")
+        def _wrap(name, val):
+            if callable(val):
+                return val
+            elif np.isscalar(val):
+                return lambda t: val
+            else:
+                raise ValueError(f"`{name}` must be a scalar or callable")
 
-        if callable(delta_a):
-            self.delta_a = delta_a
-        elif np.isscalar(delta_a):
-            self.delta_a = lambda t: delta_a
-        else:
-            raise ValueError("`delta_a` must be a scalar or callable")
-
-        if callable(delta_bl):
-            self.delta_bl = delta_bl
-        elif np.isscalar(delta_bl):
-            self.delta_bl = lambda t: delta_bl
-        else:
-            raise ValueError("`delta_bl` must be a scalar or callable")
-
-        if callable(delta_br):
-            self.delta_br = delta_br
-        elif np.isscalar(delta_br):
-            self.delta_br = lambda t: delta_br
-        else:
-            raise ValueError("`delta_br` must be a scalar or callable")
-
-        if callable(delta_w):
-            self.delta_w = delta_w
-        elif np.isscalar(delta_w):
-            self.delta_w = lambda t: delta_w
-        else:
-            raise ValueError("`delta_w` must be a scalar or callable")
+        self.rho_air = _wrap("rho_air", rho_air)
+        self.delta_a = _wrap("delta_a", delta_a)
+        self.delta_bl = _wrap("delta_bl", delta_bl)
+        self.delta_br = _wrap("delta_br", delta_br)
+        self.delta_w = _wrap("delta_w", delta_w)
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
@@ -189,40 +168,19 @@ class Dynamics9a:
     ):
         self.glider = glider
 
-        if callable(rho_air):
-            self.rho_air = rho_air
-        elif np.isscalar(rho_air):
-            self.rho_air = lambda t: rho_air
-        else:
-            raise ValueError("`rho_air` must be a scalar or callable")
+        def _wrap(name, val):
+            if callable(val):
+                return val
+            elif np.isscalar(val):
+                return lambda t: val
+            else:
+                raise ValueError(f"`{name}` must be a scalar or callable")
 
-        if callable(delta_a):
-            self.delta_a = delta_a
-        elif np.isscalar(delta_a):
-            self.delta_a = lambda t: delta_a
-        else:
-            raise ValueError("`delta_a` must be a scalar or callable")
-
-        if callable(delta_bl):
-            self.delta_bl = delta_bl
-        elif np.isscalar(delta_bl):
-            self.delta_bl = lambda t: delta_bl
-        else:
-            raise ValueError("`delta_bl` must be a scalar or callable")
-
-        if callable(delta_br):
-            self.delta_br = delta_br
-        elif np.isscalar(delta_br):
-            self.delta_br = lambda t: delta_br
-        else:
-            raise ValueError("`delta_br` must be a scalar or callable")
-
-        if callable(delta_w):
-            self.delta_w = delta_w
-        elif np.isscalar(delta_w):
-            self.delta_w = lambda t: delta_w
-        else:
-            raise ValueError("`delta_w` must be a scalar or callable")
+        self.rho_air = _wrap("rho_air", rho_air)
+        self.delta_a = _wrap("delta_a", delta_a)
+        self.delta_bl = _wrap("delta_bl", delta_bl)
+        self.delta_br = _wrap("delta_br", delta_br)
+        self.delta_w = _wrap("delta_w", delta_w)
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
