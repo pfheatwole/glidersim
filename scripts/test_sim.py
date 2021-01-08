@@ -3,143 +3,13 @@ import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 import numpy as np
-from scipy.interpolate import interp1d
 
 import pfh.glidersim as gsim
-
-
-# ---------------------------------------------------------------------------
-# Simple wind "models"
-
-
-class CircularThermal:
-    """
-    Functor to create circular thermals at specific <x,y> coordinates.
-
-    Parameters
-    ----------
-    px, py : float [m]
-        The x and y coordinates of the thermal center
-    mag : float [m/s]
-        The magnitude of the thermal center
-    radius95 : float [m]
-        The distance from the center where the magnitude has dropped to 5%
-    """
-
-    def __init__(self, px, py, mag, radius5, t_start=0):
-        self.c = np.array([px, py])
-        self.mag = mag
-        self.R = -(radius5 ** 2) / np.log(0.05)
-        self.t_start = t_start
-
-    def __call__(self, t, r):
-        # `t` is time, `r` is 3D position in ned coordinates
-        d2 = ((self.c - r[..., :2]) ** 2).sum(axis=1)
-        wind = np.zeros(r.shape)
-        if t > self.t_start:
-            wind[..., 2] = self.mag * np.exp(-d2 / self.R)
-        return wind
-
-
-class HorizontalShear:
-    """
-    Functor to create increasing vertical wind when traveling north.
-
-    Transitions from 0 to `mag` as a sigmoid function. The transition is
-    stretch using `smooth`.
-
-    Parameters
-    ----------
-    x_start : float [m]
-        Northerly position to begin the sigmoid transition.
-    mag : float [m/s]
-        The peak vertical windspeed.
-    smooth : float
-        Scaling factor to stretch the transition. FIXME: explain (I forget!)
-    t_start : float [sec]
-        The time at which to enable this wind component.
-    """
-
-    def __init__(self, x_start, mag, smooth, t_start):
-        self.x_start = x_start
-        self.mag = mag
-        self.smooth = smooth
-        self.t_start = t_start
-
-    def __call__(self, t, r):
-        # `t` is time, `r` is 3D position in ned coordinates
-        d = r[..., 0] - self.x_start
-        wind = np.zeros(r.shape)
-        if t > self.t_start:
-            wind[..., 2] = (  # Sigmoid
-                self.mag * np.exp(d / self.smooth) / (np.exp(d / self.smooth) + 1)
-            )
-        return wind
-
-
-class LateralGust:
-    """
-    Functor to create a global east-to-west gust with linear ramps up and down.
-
-    Parameters
-    ----------
-    t_start : float [sec]
-        Time to start the ramp up.
-    t_ramp : float [sec]
-        Time duration for the linear ramps up/down to/from peak magnitude.
-    t_duration : float [sec]
-        Time to hold the maximum magnitude gust.
-    mag : float [m/s]
-        The peak gust magnitude.
-    """
-
-    def __init__(self, t_start, t_ramp, t_duration, mag):
-        t0 = 0
-        t1 = t_start  # Start the ramp-up
-        t2 = t1 + t_ramp  # Start the hold
-        t3 = t2 + t_duration  # Start the ramp-down
-        t4 = t3 + t_ramp  # Finish the ramp down
-        times = [t0, t1, t2, t3, t4]
-        values = [0, 0, mag, mag, 0]
-        self._func = interp1d(times, values, bounds_error=False, fill_value=0)
-
-    def __call__(self, t, r):
-        wind = np.zeros(r.shape)
-        wind[..., 1] = self._func(t)
-        return wind
+from pfh.glidersim.extras import simulation
 
 
 # ---------------------------------------------------------------------------
 # Build a set "scenario" inputs
-
-
-def linear_control(pairs):
-    """
-    Helper function to build linear interpolators for control inputs.
-
-    The input is a sequence of tuples encoding  `(duration, value)`. An initial
-    value can be set with a leading `(0, initial_value)` tuple. To "hold" a
-    value, use `None` to repeat the previous value.
-
-    For example, to ramp from 0 to 0.5 over the initial 15 seconds, then
-    transition to 0.75 over a period of 2 seconds, hold for 10 seconds, then
-    decrease to 0 over 10 seconds:
-
-        pairs = [(15, 0.5), (2, 0.75), (10, None), (10, 0)]
-
-    Parameters
-    ----------
-    pairs : list of 2-tuples of float
-        Each tuple is (duration, value).
-    """
-    durations = np.array([t[0] for t in pairs])
-    values = [t[1] for t in pairs]
-    assert all(durations >= 0)
-    for n, v in enumerate(values):  # Use `None` for "hold previous value"
-        values[n] = v if v is not None else values[n - 1]
-    times = np.cumsum(durations)
-    c = interp1d(times, values, fill_value=(values[0], values[-1]), bounds_error=False)
-    return c
 
 
 def zero_controls(T=20):
@@ -158,7 +28,7 @@ def symmetric_brakes_fast_on():
     """Scenario: zero_inputs."""
     t_start = 2
     t_rise = 0.5
-    braking = linear_control([(t_start, 0), (t_rise, 1)])
+    braking = simulation.linear_control([(t_start, 0), (t_rise, 1)])
     inputs = {
         "delta_a": 0,
         "delta_bl": braking,
@@ -176,7 +46,7 @@ def symmetric_brakes_fast_off():
     t_rise = 3
     t_hold = 10
     t_fall = 0.5
-    braking = linear_control([(t_start, 0), (t_rise, 1), (t_hold, None), (t_fall, 0)])
+    braking = simulation.linear_control([(t_start, 0), (t_rise, 1), (t_hold, None), (t_fall, 0)])
     inputs = {
         "delta_a": 0,
         "delta_bl": braking,
@@ -194,7 +64,7 @@ def symmetric_brakes_fast_on_off():
     t_rise = 2
     t_hold = 2
     t_fall = 0.5
-    braking = linear_control([
+    braking = simulation.linear_control([
         (t_start, 0),
         (t_rise, 1),
         (t_hold, None),
@@ -222,7 +92,7 @@ def short_right_turn_without_weightshift():
     inputs = {
         "delta_a": 0,
         "delta_bl": 0,
-        "delta_br": linear_control([
+        "delta_br": simulation.linear_control([
             (t_start, 0),
             (t_rise, mag),
             (t_hold, None),
@@ -247,13 +117,13 @@ def short_right_turn_with_weightshift():
     inputs = {
         "delta_a": 0,
         "delta_bl": 0,
-        "delta_br": linear_control([
+        "delta_br": simulation.linear_control([
             (t_start + t_warmup, 0),
             (t_rise, mag),
             (t_hold, None),
             (t_fall, 0),
         ]),
-        "delta_w": linear_control([(t_start, 0), (2, 0.75)]),
+        "delta_w": simulation.linear_control([(t_start, 0), (2, 0.75)]),
         "v_W2e": None,
     }
     T = t_start + t_rise + t_hold + t_fall + t_settle
@@ -266,7 +136,7 @@ def continuous_right_turn_without_weightshift(mag=0.75, T=60):
     inputs = {
         "delta_a": 0,
         "delta_bl": 0,
-        "delta_br": linear_control([(t_start, 0), (3, mag)]),
+        "delta_br": simulation.linear_control([(t_start, 0), (3, mag)]),
         "delta_w": 0,
         "v_W2e": None,
     }
@@ -282,8 +152,8 @@ def continuous_right_turn_with_weightshift(mag=0.75):
     inputs = {
         "delta_a": 0,
         "delta_bl": 0,
-        "delta_br": linear_control([(t_start + t_rise + t_warmup, 0), (t_rise, mag)]),
-        "delta_w": linear_control([(t_start, 0), (t_rise, 1.00)]),
+        "delta_br": simulation.linear_control([(t_start + t_rise + t_warmup, 0), (t_rise, mag)]),
+        "delta_w": simulation.linear_control([(t_start, 0), (t_rise, 1.00)]),
         "v_W2e": None,
     }
     T = 60
@@ -308,7 +178,7 @@ def thermal_zero_controls(py=0, mag=-3, radius5=10):
         "delta_bl": 0,
         "delta_br": 0,
         "delta_w": 0,
-        "v_W2e": CircularThermal(
+        "v_W2e": simulation.CircularThermal(
             px=10 * 10,  # At 10m/s, roughly 10 seconds in
             py=py,
             mag=mag,
@@ -338,10 +208,10 @@ def centered_thermal_with_symmetric_brake(py=0, mag=-3, radius5=10):
     mag = 0.75
     inputs = {
         "delta_a": 0,
-        "delta_bl": linear_control([(t_start, 0), (t_rise, mag)]),
-        "delta_br": linear_control([(t_start, 0), (t_rise, mag)]),
+        "delta_bl": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
+        "delta_br": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
         "delta_w": 0,
-        "v_W2e": CircularThermal(
+        "v_W2e": simulation.CircularThermal(
             px=10 * 10,  # At 10m/s, roughly 10 seconds in
             py=py,
             mag=mag,
@@ -373,8 +243,8 @@ def centered_thermal_with_accelerator(py=0, mag=-3, radius5=10):
         "delta_a": 0,
         "delta_bl": 0,
         "delta_br": 0,
-        "delta_w": linear_control([(t_start, 0), (t_rise, mag)]),
-        "v_W2e": CircularThermal(
+        "delta_w": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
+        "v_W2e": simulation.CircularThermal(
             px=10 * 10,  # At 10m/s, roughly 10 seconds in
             py=py,
             mag=mag,
@@ -403,9 +273,9 @@ def roll_yaw_coupling_with_accelerator():
     t_hold = 3
     t_fall = 1.5
     inputs = {
-        "delta_a": linear_control([(t_start, 0), (t_rise, 0.75)]),
+        "delta_a": simulation.linear_control([(t_start, 0), (t_rise, 0.75)]),
         "delta_bl": 0,
-        "delta_br": linear_control([
+        "delta_br": simulation.linear_control([
             (t_start + t_warmup, 0),
             (t_rise, 0.75),
             (t_hold, None),
@@ -422,8 +292,8 @@ def roll_right_then_left():
     """Scenario: smooth roll right then roll left."""
     inputs = {
         "delta_a": 0,
-        "delta_br": linear_control([(2, 0), (2, 0.5), (10, None), (2, 0)]),
-        "delta_bl": linear_control([(16, 0), (3, 0.5)]),
+        "delta_br": simulation.linear_control([(2, 0), (2, 0.5), (10, None), (2, 0)]),
+        "delta_bl": simulation.linear_control([(16, 0), (3, 0.5)]),
         "delta_w": 0,
         "v_W2e": None,
     }
@@ -448,8 +318,8 @@ def figure_8s(N_cycles=2, duration=30, mag=0.75):
     off = [(1.0, 0), (duration - 1.0, None)]  # Braking off
     inputs = {
         "delta_a": 0,
-        "delta_br": linear_control([(2, 0), *([*on, *off] * N_cycles)]),
-        "delta_bl": linear_control([(2, 0), *([*off, *on] * N_cycles)]),
+        "delta_br": simulation.linear_control([(2, 0), *([*on, *off] * N_cycles)]),
+        "delta_bl": simulation.linear_control([(2, 0), *([*off, *on] * N_cycles)]),
         "delta_w": 0,
         "v_W2e": None,
     }
@@ -463,11 +333,11 @@ def horizontal_shear_zero_controls():
         "delta_bl": 0,
         "delta_br": 0,
         "delta_w": 0,
-        "v_W2e": HorizontalShear(
+        "v_W2e": simulation.HorizontalShear(
+            t_start=0,
             x_start=10 * 10,
             mag=-4,
             smooth=25,
-            t_start=0,
         ),
     }
     T = 20
@@ -481,7 +351,7 @@ def lateral_gust_zero_controls():
         "delta_bl": 0,
         "delta_br": 0,
         "delta_w": 0,
-        "v_W2e": LateralGust(
+        "v_W2e": simulation.LateralGust(
             t_start=2,
             t_ramp=1,
             t_duration=3,
