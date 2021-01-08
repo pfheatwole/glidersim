@@ -35,6 +35,8 @@ def linear_control(pairs):
     pairs : list of 2-tuples of float
         Each tuple is (duration, value).
     """
+    if len(pairs) == 1 and pairs[0][0] == 0:  # eg, `pairs = [(0, 1)]`
+        pairs.append((1, None))  # The initial conditions never change
     durations = np.array([t[0] for t in pairs])
     values = [t[1] for t in pairs]
     assert all(durations >= 0)
