@@ -449,7 +449,7 @@ def main():
     # model = gsim.simulator.Dynamics9a(glider_9b, **common_args)
     # model = gsim.simulator.Dynamics9a(glider_9c, **common_args)
 
-    state0 = model.equilibrium_state(rho_air=rho_air)
+    state0 = model.starting_equilibrium()
     t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
     times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)

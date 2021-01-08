@@ -143,21 +143,37 @@ class Dynamics6a:
 
         return x_dot.view(float)  # The integrator expects a flat array
 
-    def equilibrium_state(self, rho_air):
+    def starting_equilibrium(self):
         """
-        Compute the equilibrium state of the dynamics model with zero inputs.
+        Compute the equilibrium state at `t = 0` assuming uniform local wind.
 
-        Parameters
-        ----------
-        rho_air : float [kg/m^3]
-            Air density
+        In this case, "equilibrium" means "non-accelerating and no sideslip".
+        In a uniform wind field, this steady-state definition requires
+        symmetric brakes and no weight shift.
+
+        Equilibrium is first calculated assuming zero wind. Steady-state is
+        established by relative wind, so the local wind vector is merely an
+        offset from the zero-wind steady-state. The non-zero local wind is
+        included by adding it to the equilibrium `v_RM2e`.
 
         Returns
         -------
         gsim.simulator.Dynamics6a.state_dtype
             The equilibrium state
         """
-        glider_eq = self.glider.equilibrium_state(rho_air=rho_air)
+        if not np.isclose(self.delta_bl(0), self.delta_br(0)):
+            raise ValueError(
+                "Asymmetric brake inputs at t=0. Unable to calculate equilibrium."
+            )
+        if not np.isclose(self.delta_w(0), 0):
+            raise ValueError(
+                "Non-zero weight shift control input. Unable to calculate equilibrium."
+            )
+        glider_eq = self.glider.equilibrium_state(
+            delta_a=self.delta_a(0),
+            delta_b=self.delta_bl(0),  # delta_bl == delta_br
+            rho_air=self.rho_air(0),
+        )
         q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
         state = np.empty(1, dtype=self.state_dtype)
         state["q_b2e"] = q_b2e
@@ -166,6 +182,10 @@ class Dynamics6a:
         state["v_RM2e"] = orientation.quaternion_rotate(
             q_b2e * [-1, 1, 1, 1],
             glider_eq["v_RM2e"],
+        )
+        state["v_RM2e"] += orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            self.v_W2e(t=0, r=state["r_RM2O"]),
         )
         return state
 
@@ -309,21 +329,37 @@ class Dynamics9a:
 
         return x_dot.view(float)  # The integrator expects a flat array
 
-    def equilibrium_state(self, rho_air):
+    def starting_equilibrium(self):
         """
-        Compute the equilibrium state of the dynamics model with zero inputs.
+        Compute the equilibrium state at `t = 0` assuming uniform local wind.
 
-        Parameters
-        ----------
-        rho_air : float [kg/m^3]
-            Air density
+        In this case, "equilibrium" means "non-accelerating and no sideslip".
+        In a uniform wind field, this steady-state definition requires
+        symmetric brakes and no weight shift.
+
+        Equilibrium is first calculated assuming zero wind. Steady-state is
+        established by relative wind, so the local wind vector is merely an
+        offset from the zero-wind steady-state. The non-zero local wind is
+        included by adding it to the equilibrium `v_RM2e`.
 
         Returns
         -------
         gsim.simulator.Dynamics9a.state_dtype
             The equilibrium state
         """
-        glider_eq = self.glider.equilibrium_state()
+        if not np.isclose(self.delta_bl(0), self.delta_br(0)):
+            raise ValueError(
+                "Asymmetric brake inputs at t=0. Unable to calculate equilibrium."
+            )
+        if not np.isclose(self.delta_w(0), 0):
+            raise ValueError(
+                "Non-zero weight shift control input. Unable to calculate equilibrium."
+            )
+        glider_eq = self.glider.equilibrium_state(
+            delta_a=self.delta_a(0),
+            delta_b=self.delta_bl(0),  # delta_bl == delta_br
+            rho_air=self.rho_air(0),
+        )
         q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
         state = np.empty(1, dtype=self.state_dtype)
         state["q_b2e"] = q_b2e
@@ -335,6 +371,10 @@ class Dynamics9a:
         state["v_RM2e"] = orientation.quaternion_rotate(
             q_b2e * [-1, 1, 1, 1],
             glider_eq["v_RM2e"],
+        )
+        state["v_RM2e"] += orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            self.v_W2e(t=0, r=state["r_RM2O"]),
         )
         return state
 
