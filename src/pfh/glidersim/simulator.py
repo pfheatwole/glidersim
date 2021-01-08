@@ -143,6 +143,32 @@ class Dynamics6a:
 
         return x_dot.view(float)  # The integrator expects a flat array
 
+    def equilibrium_state(self, rho_air):
+        """
+        Compute the equilibrium state of the dynamics model with zero inputs.
+
+        Parameters
+        ----------
+        rho_air : float [kg/m^3]
+            Air density
+
+        Returns
+        -------
+        gsim.simulator.Dynamics6a.state_dtype
+            The equilibrium state
+        """
+        glider_eq = self.glider.equilibrium_state(rho_air=rho_air)
+        q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
+        state = np.empty(1, dtype=self.state_dtype)
+        state["q_b2e"] = q_b2e
+        state["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
+        state["r_RM2O"] = [0, 0, 0]
+        state["v_RM2e"] = orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            glider_eq["v_RM2e"],
+        )
+        return state
+
 
 class Dynamics9a:
     """Defines the state dynamics for a 9 DoF paraglider model."""
@@ -282,6 +308,35 @@ class Dynamics9a:
         params["solution"] = solution  # FIXME: needs a design review
 
         return x_dot.view(float)  # The integrator expects a flat array
+
+    def equilibrium_state(self, rho_air):
+        """
+        Compute the equilibrium state of the dynamics model with zero inputs.
+
+        Parameters
+        ----------
+        rho_air : float [kg/m^3]
+            Air density
+
+        Returns
+        -------
+        gsim.simulator.Dynamics9a.state_dtype
+            The equilibrium state
+        """
+        glider_eq = self.glider.equilibrium_state()
+        q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
+        state = np.empty(1, dtype=self.state_dtype)
+        state["q_b2e"] = q_b2e
+        q_p2b = orientation.euler_to_quaternion(glider_eq["Theta_p2b"])
+        state["q_p2e"] = orientation.quaternion_product(q_b2e, q_p2b)
+        state["omega_b2e"] = [0, 0, 0]
+        state["omega_p2e"] = [0, 0, 0]
+        state["r_RM2O"] = [0, 0, 0]
+        state["v_RM2e"] = orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            glider_eq["v_RM2e"],
+        )
+        return state
 
 
 # ---------------------------------------------------------------------------

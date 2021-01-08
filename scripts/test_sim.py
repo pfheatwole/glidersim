@@ -548,39 +548,6 @@ def main():
     )
 
     # -----------------------------------------------------------------------
-    # Define the initial states for both models from precomputed equilibriums
-
-    equilibrium_6a = glider_6a.equilibrium_state()
-    equilibrium_9a = glider_9a.equilibrium_state()
-
-    q_b2e_6a = gsim.orientation.euler_to_quaternion(equilibrium_6a["Theta_b2e"])
-    state_6a = np.empty(1, dtype=gsim.simulator.Dynamics6a.state_dtype)
-    state_6a["q_b2e"] = q_b2e_6a
-    state_6a["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
-    state_6a["r_RM2O"] = [0, 0, 0]
-    state_6a["v_RM2e"] = gsim.orientation.quaternion_rotate(
-        q_b2e_6a * [-1, 1, 1, 1],
-        equilibrium_6a["v_RM2e"],
-    )
-
-    q_b2e_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_b2e"])
-    state_9a = np.empty(1, dtype=gsim.simulator.Dynamics9a.state_dtype)
-    state_9a["q_b2e"] = q_b2e_9a
-    q_p2b_9a = gsim.orientation.euler_to_quaternion(equilibrium_9a["Theta_p2b"])
-    state_9a["q_p2e"] = gsim.orientation.quaternion_product(q_b2e_9a, q_p2b_9a)
-    state_9a["omega_b2e"] = [0, 0, 0]
-    state_9a["omega_p2e"] = [0, 0, 0]
-    state_9a["r_RM2O"] = [0, 0, 0]
-    state_9a["v_RM2e"] = gsim.orientation.quaternion_rotate(
-        q_b2e_9a * [-1, 1, 1, 1],
-        equilibrium_9a["v_RM2e"],
-    )
-
-    # Optional: arbitrary modifications:
-    # state_9a["q_b2e"] = np.array([1, 0, 0, 0])
-    # state_9a["q_p2b"] = np.array([1, 0, 0, 0])
-
-    # -----------------------------------------------------------------------
     # Load a test scenario
 
     inputs, T = zero_controls()
@@ -601,28 +568,18 @@ def main():
     # inputs, T = lateral_gust_zero_controls()
 
     # -----------------------------------------------------------------------
-    # Build the dynamics models
+    # Build a dynamics model and simulate the scenario
 
-    common_args = {"rho_air": 1.225, **inputs}
+    rho_air = 1.225
+    common_args = {"rho_air": rho_air, **inputs}
+    model = gsim.simulator.Dynamics6a(glider_6a, **common_args)
+    # model = gsim.simulator.Dynamics6a(glider_6b, **common_args)
+    # model = gsim.simulator.Dynamics6a(glider_6c, **common_args)
+    # model = gsim.simulator.Dynamics9a(glider_9a, **common_args)
+    # model = gsim.simulator.Dynamics9a(glider_9b, **common_args)
+    # model = gsim.simulator.Dynamics9a(glider_9c, **common_args)
 
-    model_6a = gsim.simulator.Dynamics6a(glider_6a, **common_args)
-    model_6b = gsim.simulator.Dynamics6a(glider_6b, **common_args)
-    model_6c = gsim.simulator.Dynamics6a(glider_6c, **common_args)
-    model_9a = gsim.simulator.Dynamics9a(glider_9a, **common_args)
-    model_9b = gsim.simulator.Dynamics9a(glider_9b, **common_args)
-    model_9c = gsim.simulator.Dynamics9a(glider_9c, **common_args)
-
-    # Choose which model to run
-    state0, model = state_6a, model_6a
-    # state0, model = state_6a, model_6b  # Same state as model_6a
-    # state0, model = state_6a, model_6c  # Same state as model_6a
-    # state0, model = state_9a, model_9a
-    # state0, model = state_9a, model_9b  # Same state as model_9a
-    # state0, model = state_9a, model_9c  # Same state as model_9a
-
-    # -----------------------------------------------------------------------
-    # Run the simulation
-
+    state0 = model.equilibrium_state(rho_air=rho_air)
     t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
     times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
