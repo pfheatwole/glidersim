@@ -14,27 +14,17 @@ from pfh.glidersim.extras import simulation
 
 def zero_controls(T=20):
     """Scenario: zero_inputs."""
-    inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": 0,
-        "delta_w": 0,
-        "v_W2e": None,
-    }
-    return inputs, T
+    return {}, T
 
 
 def symmetric_brakes_fast_on():
     """Scenario: zero_inputs."""
-    t_start = 2
+    t_warmup = 2
     t_rise = 0.5
-    braking = simulation.linear_control([(t_start, 0), (t_rise, 1)])
+    braking = simulation.linear_control([(t_warmup, 0), (t_rise, 1)])
     inputs = {
-        "delta_a": 0,
         "delta_bl": braking,
         "delta_br": braking,
-        "delta_w": 0,
-        "v_W2e": None,
     }
     T = 10
     return inputs, T
@@ -42,125 +32,108 @@ def symmetric_brakes_fast_on():
 
 def symmetric_brakes_fast_off():
     """Scenario: zero_inputs."""
-    t_start = 2
-    t_rise = 3
-    t_hold = 10
+    t_warmup = 2
     t_fall = 0.5
-    braking = simulation.linear_control([(t_start, 0), (t_rise, 1), (t_hold, None), (t_fall, 0)])
+    braking = simulation.linear_control([(0, 1), (t_warmup, None), (t_fall, 0)])
     inputs = {
-        "delta_a": 0,
         "delta_bl": braking,
         "delta_br": braking,
-        "delta_w": 0,
-        "v_W2e": None,
     }
-    T = t_start + t_rise + t_hold + t_fall + 10
+    T = t_warmup + t_fall + 10
     return inputs, T
 
 
 def symmetric_brakes_fast_on_off():
     """Scenario: zero_inputs."""
-    t_start = 2
-    t_rise = 2
+    t_warmup = 2
+    t_rise = 1
     t_hold = 2
     t_fall = 0.5
     braking = simulation.linear_control([
-        (t_start, 0),
+        (t_warmup, 0),
         (t_rise, 1),
         (t_hold, None),
         (t_fall, 0)
     ])
     inputs = {
-        "delta_a": 0,
         "delta_bl": braking,
         "delta_br": braking,
-        "delta_w": 0,
-        "v_W2e": None,
     }
-    T = t_start + t_rise + t_hold + t_fall + 10
-    return inputs, T
-
-
-def short_right_turn_without_weightshift():
-    """Scenario: short right turn."""
-    t_start = 2
-    t_rise = 4
-    t_hold = 5
-    t_fall = 1
-    t_settle = 5
-    mag = 1
-    inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": simulation.linear_control([
-            (t_start, 0),
-            (t_rise, mag),
-            (t_hold, None),
-            (t_fall, 0),
-        ]),
-        "delta_w": 0,
-        "v_W2e": None,
-    }
-    T = t_start + t_rise + t_hold + t_fall + t_settle
+    T = t_warmup + t_rise + t_hold + t_fall + 10
     return inputs, T
 
 
 def short_right_turn_with_weightshift():
     """Scenario: short right turn."""
-    t_start = 2
-    t_warmup = 10
-    t_rise = 1
+    t_warmup = 2
+    t_rise_b = 1
+    t_rise_w = 1
     t_hold = 5
     t_fall = 1
     t_settle = 5
     mag = 0.75
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
         "delta_br": simulation.linear_control([
-            (t_start + t_warmup, 0),
+            (t_warmup + t_rise_w + t_hold, 0),
+            (t_rise_b, mag),
+            (t_hold, None),
+            (t_fall, 0),
+        ]),
+        "delta_w": simulation.linear_control([
+            (t_warmup, 0),
+            (t_rise_w, 0.75),
+            (t_hold + t_rise_b + t_hold, None),
+            (t_fall, 0),
+        ]),
+    }
+    T = t_warmup + t_rise_w + t_hold + + t_rise_b + t_hold + t_fall + t_settle
+    return inputs, T
+
+
+def short_right_turn_without_weightshift():
+    """Scenario: short right turn."""
+    t_warmup = 2
+    t_rise = 4
+    t_hold = 5
+    t_fall = 1
+    t_settle = 5
+    mag = 0.75
+    inputs = {
+        "delta_br": simulation.linear_control([
+            (t_warmup, 0),
             (t_rise, mag),
             (t_hold, None),
             (t_fall, 0),
         ]),
-        "delta_w": simulation.linear_control([(t_start, 0), (2, 0.75)]),
-        "v_W2e": None,
     }
-    T = t_start + t_rise + t_hold + t_fall + t_settle
-    return inputs, T
-
-
-def continuous_right_turn_without_weightshift(mag=0.75, T=60):
-    """Scenario: continuous right turn without weightshift."""
-    t_start = 5
-    inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": simulation.linear_control([(t_start, 0), (3, mag)]),
-        "delta_w": 0,
-        "v_W2e": None,
-    }
-    T = 60
+    T = t_warmup + t_rise + t_hold + t_fall + t_settle
     return inputs, T
 
 
 def continuous_right_turn_with_weightshift(mag=0.75):
     """Scenario: continuous right turn with weightshift."""
-    t_start = 2
-    t_warmup = 5
+    t_warmup = 2
     t_rise = 1
+    t_hold = 5
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": simulation.linear_control([(t_start + t_rise + t_warmup, 0), (t_rise, mag)]),
-        "delta_w": simulation.linear_control([(t_start, 0), (t_rise, 1.00)]),
-        "v_W2e": None,
+        "delta_br": simulation.linear_control([(t_warmup + t_rise + t_hold, 0), (t_rise, mag)]),
+        "delta_w": simulation.linear_control([(t_warmup, 0), (t_rise, 1.00)]),
     }
     T = 60
     return inputs, T
 
 
-def thermal_zero_controls(py=0, mag=-3, radius5=10):
+def continuous_right_turn_without_weightshift(mag=0.75):
+    """Scenario: continuous right turn without weightshift."""
+    t_warmup = 5
+    inputs = {
+        "delta_br": simulation.linear_control([(t_warmup, 0), (3, mag)]),
+    }
+    T = 60
+    return inputs, T
+
+
+def centered_thermal_zero_controls(py=0, mag=-3, radius5=10):
     """
     Place a thermal in the path of a glider flying hands-up.
 
@@ -174,49 +147,12 @@ def thermal_zero_controls(py=0, mag=-3, radius5=10):
         The distance at which the thermal strength has reduced to 5%.
     """
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": 0,
-        "delta_w": 0,
         "v_W2e": simulation.CircularThermal(
             px=10 * 10,  # At 10m/s, roughly 10 seconds in
             py=py,
             mag=mag,
             radius5=radius5,
-            t_start=0,
-        )
-    }
-    T = 20
-    return inputs, T
-
-
-def centered_thermal_with_symmetric_brake(py=0, mag=-3, radius5=10):
-    """
-    Place a thermal in the path of a glider flying with symmetric brakes.
-
-    Parameters
-    ----------
-    py : float [m]
-        The y-axis (easterly) offset of the thermal
-    mag : float [m/s]
-        The strength of the thermal core.
-    radius5 : float [m]
-        The distance at which the thermal strength has reduced to 5%.
-    """
-    t_start = 2
-    t_rise = 2
-    mag = 0.75
-    inputs = {
-        "delta_a": 0,
-        "delta_bl": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
-        "delta_br": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
-        "delta_w": 0,
-        "v_W2e": simulation.CircularThermal(
-            px=10 * 10,  # At 10m/s, roughly 10 seconds in
-            py=py,
-            mag=mag,
-            radius5=radius5,
-            t_start=0,
+            t_enable=0,
         )
     }
     T = 20
@@ -236,23 +172,55 @@ def centered_thermal_with_accelerator(py=0, mag=-3, radius5=10):
     radius5 : float [m]
         The distance at which the thermal strength has reduced to 5%.
     """
-    t_start = 2
-    t_rise = 2
-    mag = 0.75
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": 0,
-        "delta_w": simulation.linear_control([(t_start, 0), (t_rise, mag)]),
+        "delta_a": 0.75,
+        "v_W2e": simulation.CircularThermal(
+            px=10 * 15,  # At 10m/s, roughly 15 seconds in
+            py=py,
+            mag=mag,
+            radius5=radius5,
+            t_enable=0,
+        )
+    }
+    T = 20
+    return inputs, T
+
+
+def centered_thermal_with_symmetric_brake(py=0, mag=-3, radius5=15):
+    """
+    Place a thermal in the path of a glider flying with symmetric brakes.
+
+    Parameters
+    ----------
+    py : float [m]
+        The y-axis (easterly) offset of the thermal
+    mag : float [m/s]
+        The strength of the thermal core.
+    radius5 : float [m]
+        The distance at which the thermal strength has reduced to 5%.
+    """
+    inputs = {
+        "delta_bl": 1,
+        "delta_br": 1,
         "v_W2e": simulation.CircularThermal(
             px=10 * 10,  # At 10m/s, roughly 10 seconds in
             py=py,
             mag=mag,
             radius5=radius5,
-            t_start=0,
+            t_enable=0,
         )
     }
     T = 20
+    return inputs, T
+
+
+def roll_right_then_left():
+    """Scenario: smooth roll right then roll left."""
+    inputs = {
+        "delta_br": simulation.linear_control([(2, 0), (2, 0.75), (10, None), (2, 0)]),
+        "delta_bl": simulation.linear_control([(16, 0), (3, 0.75)]),
+    }
+    T = 30
     return inputs, T
 
 
@@ -274,30 +242,14 @@ def roll_yaw_coupling_with_accelerator():
     t_fall = 1.5
     inputs = {
         "delta_a": simulation.linear_control([(t_start, 0), (t_rise, 0.75)]),
-        "delta_bl": 0,
         "delta_br": simulation.linear_control([
             (t_start + t_warmup, 0),
             (t_rise, 0.75),
             (t_hold, None),
             (t_fall, 0)
         ]),
-        "delta_w": 0,
-        "v_W2e": None,
     }
     T = t_start + t_warmup + t_hold + t_fall + 5
-    return inputs, T
-
-
-def roll_right_then_left():
-    """Scenario: smooth roll right then roll left."""
-    inputs = {
-        "delta_a": 0,
-        "delta_br": simulation.linear_control([(2, 0), (2, 0.5), (10, None), (2, 0)]),
-        "delta_bl": simulation.linear_control([(16, 0), (3, 0.5)]),
-        "delta_w": 0,
-        "v_W2e": None,
-    }
-    T = 20
     return inputs, T
 
 
@@ -317,11 +269,8 @@ def figure_8s(N_cycles=2, duration=30, mag=0.75):
     on = [(2.0, mag), (duration - 2.0, None)]  # Braking on
     off = [(1.0, 0), (duration - 1.0, None)]  # Braking off
     inputs = {
-        "delta_a": 0,
         "delta_br": simulation.linear_control([(2, 0), *([*on, *off] * N_cycles)]),
         "delta_bl": simulation.linear_control([(2, 0), *([*off, *on] * N_cycles)]),
-        "delta_w": 0,
-        "v_W2e": None,
     }
     T = N_cycles * duration * 2
     return inputs, T
@@ -329,15 +278,11 @@ def figure_8s(N_cycles=2, duration=30, mag=0.75):
 
 def horizontal_shear_zero_controls():
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": 0,
-        "delta_w": 0,
         "v_W2e": simulation.HorizontalShear(
-            t_start=0,
             x_start=10 * 10,
             mag=-4,
             smooth=25,
+            t_enable=0,
         ),
     }
     T = 20
@@ -347,13 +292,40 @@ def horizontal_shear_zero_controls():
 def lateral_gust_zero_controls():
     mag = 10  # [mph]
     inputs = {
-        "delta_a": 0,
-        "delta_bl": 0,
-        "delta_br": 0,
-        "delta_w": 0,
         "v_W2e": simulation.LateralGust(
             t_start=2,
             t_ramp=1,
+            t_duration=3,
+            mag=mag * 1.6 / 3.6,  # [m/s]
+        ),
+    }
+    T = 20
+    return inputs, T
+
+
+def lateral_gust_with_accelerator():
+    mag = 10  # [mph]
+    inputs = {
+        "delta_a": 1,
+        "v_W2e": simulation.LateralGust(
+            t_start=2,
+            t_ramp=1,
+            t_duration=3,
+            mag=mag * 1.6 / 3.6,  # [m/s]
+        ),
+    }
+    T = 20
+    return inputs, T
+
+
+def lateral_gust_with_symmetric_brakes():
+    mag = 10  # [mph]
+    inputs = {
+        "delta_bl": 0.75,
+        "delta_br": 0.75,
+        "v_W2e": simulation.LateralGust(
+            t_start=2,
+            t_ramp=3,
             t_duration=3,
             mag=mag * 1.6 / 3.6,  # [m/s]
         ),
@@ -428,7 +400,7 @@ def main():
     # inputs, T = short_right_turn_without_weightshift()
     # inputs, T = continuous_right_turn_with_weightshift()
     # inputs, T = continuous_right_turn_without_weightshift()
-    # inputs, T = thermal_zero_controls()
+    # inputs, T = centered_thermal_zero_controls()
     # inputs, T = centered_thermal_with_accelerator()
     # inputs, T = centered_thermal_with_symmetric_brake()
     # inputs, T = roll_right_then_left()
@@ -436,18 +408,27 @@ def main():
     # inputs, T = figure_8s()
     # inputs, T = horizontal_shear_zero_controls()
     # inputs, T = lateral_gust_zero_controls()
+    # inputs, T = lateral_gust_with_accelerator()
+    # inputs, T = lateral_gust_with_symmetric_brakes()
 
     # -----------------------------------------------------------------------
     # Build a dynamics model and simulate the scenario
 
-    rho_air = 1.225
-    common_args = {"rho_air": rho_air, **inputs}
-    model = gsim.simulator.Dynamics6a(glider_6a, **common_args)
-    # model = gsim.simulator.Dynamics6a(glider_6b, **common_args)
-    # model = gsim.simulator.Dynamics6a(glider_6c, **common_args)
-    # model = gsim.simulator.Dynamics9a(glider_9a, **common_args)
-    # model = gsim.simulator.Dynamics9a(glider_9b, **common_args)
-    # model = gsim.simulator.Dynamics9a(glider_9c, **common_args)
+    sim_parameters = {  # Default scenario
+        "delta_a": 0.0,
+        "delta_bl": 0.0,
+        "delta_br": 0.0,
+        "delta_w": 0.0,
+        "v_W2e": None,
+        "rho_air": 1.225
+    }
+    sim_parameters.update(inputs)
+    model = gsim.simulator.Dynamics6a(glider_6a, **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(glider_6b, **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(glider_6c, **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(glider_9a, **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(glider_9b, **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(glider_9c, **sim_parameters)
 
     state0 = model.starting_equilibrium()
     t_start = time.perf_counter()
@@ -458,10 +439,10 @@ def main():
     # Extra values for verification/debugging
 
     K = len(times)
-    if np.isscalar(inputs["delta_a"]):
-        r_LE2RM = -model.glider.wing.r_RM2LE(inputs["delta_a"])
+    if np.isscalar(sim_parameters["delta_a"]):
+        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"])
     else:
-        r_LE2RM = -model.glider.wing.r_RM2LE(inputs["delta_a"](times))
+        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"](times))
     q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
     r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
     v_LE2O = path["v_RM2e"] + gsim.orientation.quaternion_rotate(

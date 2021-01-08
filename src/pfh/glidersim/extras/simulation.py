@@ -63,21 +63,21 @@ class CircularThermal:
         The magnitude of the thermal center
     radius95 : float [m]
         The distance from the center where the magnitude has dropped to 5%
-    t_start : float [sec], optional
+    t_enable : float [sec], optional
         The time the output magnitudes switches from zero to `mag.`
     """
 
-    def __init__(self, px, py, mag, radius5, t_start=0):
+    def __init__(self, px, py, mag, radius5, t_enable=0):
         self.c = np.array([px, py])
         self.mag = mag
         self.R = -(radius5 ** 2) / np.log(0.05)
-        self.t_start = t_start
+        self.t_enable = t_enable
 
     def __call__(self, t, r):
         # `t` is time, `r` is 3D position in ned coordinates
         d2 = ((self.c - r[..., :2]) ** 2).sum(axis=1)
         wind = np.zeros(r.shape)
-        if t > self.t_start:
+        if t > self.t_enable:
             wind[..., 2] = self.mag * np.exp(-d2 / self.R)
         return wind
 
@@ -97,12 +97,12 @@ class HorizontalShear:
         The peak vertical windspeed.
     smooth : float
         Scaling factor to stretch the transition. FIXME: explain (I forget!)
-    t_start : float [sec], optional
+    t_enable : float [sec], optional
         The time the output magnitudes switches from zero to `mag.`
     """
 
-    def __init__(self, t_start, x_start, mag, smooth):
-        self.t_start = t_start
+    def __init__(self, t_enable, x_start, mag, smooth):
+        self.t_enable = t_enable
         self.x_start = x_start
         self.mag = mag
         self.smooth = smooth
@@ -111,7 +111,7 @@ class HorizontalShear:
         # `t` is time, `r` is 3D position in ned coordinates
         d = r[..., 0] - self.x_start
         wind = np.zeros(r.shape)
-        if t > self.t_start:
+        if t > self.t_enable:
             wind[..., 2] = (  # Sigmoid
                 self.mag * np.exp(d / self.smooth) / (np.exp(d / self.smooth) + 1)
             )
