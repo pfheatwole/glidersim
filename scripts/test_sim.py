@@ -444,6 +444,11 @@ def main():
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
 
+    Theta_b2e = gsim.orientation.quaternion_to_euler(path["q_b2e"])
+    Theta_b2e_dot = gsim.extras.simulation.compute_euler_derivatives(
+        Theta_b2e, path["omega_b2e"]
+    )
+
     K = len(times)
     if np.isscalar(sim_parameters["delta_a"]):
         r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"])
@@ -482,15 +487,6 @@ def main():
             model.glider.payload.control_points(),
         )
 
-    # Euler derivatives (Stevens Eq:1.4-4)
-    Theta_b2e = gsim.orientation.quaternion_to_euler(path["q_b2e"])
-    _0, _1 = np.zeros(K), np.ones(K)
-    sp, st, sg = np.sin(Theta_b2e.T)
-    cp, ct, cg = np.cos(Theta_b2e.T)
-    tp, tt, tg = np.tan(Theta_b2e.T)
-    T = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
-    T = np.moveaxis(T, -1, 0)
-    Theta_b2e_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
 
     # -----------------------------------------------------------------------
     # Plots

@@ -5,6 +5,7 @@ from scipy.interpolate import interp1d
 
 
 __all__ = [
+    "compute_euler_derivatives",
     "linear_control",
     "CircularThermal",
     "HorizontalShear",
@@ -14,6 +15,39 @@ __all__ = [
 
 def __dir__():
     return __all__
+
+
+def compute_euler_derivatives(Theta, omega):
+    """
+    Compute the derivatives of a sequence of Euler angles over time.
+
+    Parameters
+    ----------
+    Theta : ndarray of float, shape (T,3)
+        Euler angles ([roll, pitch, yaw] or [phi, theta, gamma])
+    omega : ndarray of float, shape (T,3)
+        Angular velocities
+    """
+    Theta = np.asarray(Theta)
+    omega = np.asarray(omega)
+
+    if Theta.ndim != 2:
+        raise ValueError("`Theta` must be an ndarray with shape (T,3)")
+    if omega.ndim != 2:
+        raise ValueError("`omega` must be an ndarray with shape (T,3)")
+    if Theta.shape[0] != omega.shape[0]:
+        raise ValueError("`Theta` and `omega` must be the same length")
+
+    # Euler derivatives (Stevens Eq:1.4-4)
+    K = len(Theta)
+    _0, _1 = np.zeros(K), np.ones(K)
+    sp, st, sg = np.sin(Theta.T)
+    cp, ct, cg = np.cos(Theta.T)
+    tp, tt, tg = np.tan(Theta.T)
+    M = np.array([[_1, sp * tt, cp * tt], [_0, cp, -sp], [_0, sp / ct, cp / ct]])
+    M = np.moveaxis(M, -1, 0)
+    Theta_dot = np.einsum("kij,kj->ki", M, omega)
+    return Theta_dot
 
 
 def linear_control(pairs):
