@@ -434,6 +434,9 @@ def main():
     t_start = time.perf_counter()
     dt = 0.10  # Time step for the `path` trajectory
     times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
+    path_dot = gsim.simulator.recompute_derivatives(model, times, path)
+    t_stop = time.perf_counter()
+    print(f"\nTotal time: {t_stop - t_start:.2f}\n")
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
@@ -490,11 +493,6 @@ def main():
     T = np.moveaxis(T, -1, 0)
     Theta_b2e_dot = np.einsum("kij,kj->ki", T, path["omega_b2e"])
 
-    derivatives = gsim.simulator.recompute_derivatives(model, times, path)
-
-    t_stop = time.perf_counter()
-    print(f"\nTotal time: {t_stop - t_start:.2f}\n")
-
     print("Final state:", path[-1])
 
     # -----------------------------------------------------------------------
@@ -521,7 +519,7 @@ def main():
     fig, ax = plt.subplots(3, figsize=(10, 10))
     ax[0].plot(times, np.rad2deg(Theta_b2e))
     ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
-    ax[2].plot(times, np.rad2deg(derivatives["omega_b2e"]))
+    ax[2].plot(times, np.rad2deg(path_dot["omega_b2e"]))
     ax[0].set_ylabel("Theta_b2e [deg]")
     ax[1].set_ylabel("omega_b2e [deg]")
     ax[2].set_ylabel("alpha_b2e [deg]")
