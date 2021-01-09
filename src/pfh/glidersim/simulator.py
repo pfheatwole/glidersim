@@ -482,12 +482,12 @@ def recompute_derivatives(model, times, path):
         The derivatives of the state variables at each step.
     """
     print("Re-running the dynamics to get the accelerations")
-    N = len(times)
-    derivatives = np.empty((N,), dtype=model.state_dtype)
+    K = len(times)
+    derivatives = np.empty((K,), dtype=model.state_dtype)
     params = {"solution": None}  # Is modified by `model.dynamics`
-    for n in range(N):
-        print(f"\rStep: {n}/{N}", end="")
-        derivatives[n] = model.dynamics(times[n], path[n], params)
+    for k in range(K):
+        print(f"\rStep: {k}/{K}", end="")
+        derivatives[k] = model.dynamics(times[k], path[k], params)
     print()
 
     return derivatives
