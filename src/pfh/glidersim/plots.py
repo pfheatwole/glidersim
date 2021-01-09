@@ -338,3 +338,55 @@ def plot_paraglider_wing(
         plt.show()
     else:
         return ax.lines
+
+
+def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, dt, clpp=0.25, ax=None, show=True):
+    """
+    Plot glider positions over time with lines to the wing and harness.
+
+    Parameters
+    ----------
+    r_RM2O : array of float, shape (T,3)
+        Position vectors of the riser midpoint to the world origin O.
+    r_LE2O : array of float, shape (T,3)
+        Position vectors of the central leading edge to the world origin O.
+    r_P2O : array of float, shape (T,3)
+        Position vectors of a payload reference point to the world origin O.
+        It's better to use a fixed point on the payload z-axis instead of the
+        actual payload center of mass, since the centerline is better at
+        showing the relative orientation of the payload.
+    clpp : float [sec], optional
+        Connecting-line plotting period (draw the connecting lines from RM
+        to the leading-edge and paylod every `clpp` seconds).
+    ax : matplotlib.axes, optional
+        An existing axis to use instead of creating a new one.
+    show : bool, optional
+        Whether to call `plt.show` when `ax = None`. Set to `False` if you plan
+        on calling `plt.show` later.
+    """
+    if ax is None:
+        fig, ax = _create_3d_axes()
+        independent_plot = True
+    else:
+        independent_plot = False
+
+    # ax.plot(r_RM2O.T[0], r_RM2O.T[1], r_RM2O.T[2], label="risers")
+    ax.plot(*r_RM2O.T, label="risers")
+    ax.plot(*r_LE2O.T, label="LE0")
+    ax.plot(*r_P2O.T, label="payload", lw=0.5, c="r")
+    for t in range(0, len(r_RM2O), int(clpp / dt)):
+        p1, p2 = r_RM2O[t], r_LE2O[t]  # Risers -> wing central LE
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
+
+        p1, p2 = r_RM2O[t], r_P2O[t]  # Risers -> payload
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
+
+    if independent_plot:
+        _set_axes_equal(ax)
+        ax.view_init(azim=-45, elev=30)
+        ax.legend()
+
+        if show:
+            plt.show()
+    else:
+        return ax.lines

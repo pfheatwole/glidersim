@@ -449,66 +449,30 @@ def main():
         Theta_b2e, path["omega_b2e"]
     )
 
-    K = len(times)
-    if np.isscalar(sim_parameters["delta_a"]):
-        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"])
-    else:
-        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"](times))
-    q_e2b = path["q_b2e"] * [1, -1, -1, -1]  # Applies C_ned/frd
-    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
-    v_LE2O = path["v_RM2e"] + gsim.orientation.quaternion_rotate(
-        q_e2b, np.cross(path["omega_b2e"], r_LE2RM)
-    )
-    v_frd = gsim.orientation.quaternion_rotate(path["q_b2e"], path["v_RM2e"])
-
-    if "q_p2e" in path.dtype.names:  # 9 DoF model
-        q_b2p = gsim.orientation.quaternion_product(
-            path["q_p2e"] * [-1, 1, 1, 1],
-            path["q_b2e"],
-        )
-
-        # FIXME: assumes the payload has only one control point (r_P2RM^p)
-        r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
-            q_e2b,
-            gsim.orientation.quaternion_rotate(
-                q_b2p,
-                model.glider.payload.control_points(),
-            ),
-        )
-
-        q_p2b = q_b2p * [-1, 1, 1, 1]
-        Theta_p2b = gsim.orientation.quaternion_to_euler(q_p2b)
-        Theta_p2e = gsim.orientation.quaternion_to_euler(path["q_p2e"])
-
-    else:  # 6 DoF model
-        # FIXME: assumes the payload has only one control point (r_P2RM^p)
-        r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
-            q_e2b,
-            model.glider.payload.control_points(),
-        )
-
-
     # -----------------------------------------------------------------------
     # Plots
 
     # 3D Plot: Position over time
-    fig = plt.figure(figsize=(12, 12))
-    ax = plt.gca(projection="3d")
-    ax.invert_yaxis()
-    ax.invert_zaxis()
-    lpp = 0.25  # Line-plotting period [sec]
-    for t in range(0, K, int(lpp / dt)):  # Draw connecting lines every `lpp` seconds
-        p1, p2 = path["r_RM2O"][t], r_LE2O[t]  # Risers -> wing central LE
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
+    if np.isscalar(sim_parameters["delta_a"]):
+        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"])
+    else:
+        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"](times))
 
-        p1, p2 = path["r_RM2O"][t], r_P2O[t]  # Risers -> payload
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
-    ax.plot(path["r_RM2O"].T[0], path["r_RM2O"].T[1], path["r_RM2O"].T[2], label="risers")
-    ax.plot(r_LE2O.T[0], r_LE2O.T[1], r_LE2O.T[2], label="LE0")
-    ax.plot(r_P2O.T[0], r_P2O.T[1], r_P2O.T[2], label="payload", lw=0.5, c="r")
-    ax.legend()
-    gsim.plots._set_axes_equal(ax)
+    # Plot the payload centerline, not the payload center of mass.
+    # FIXME: assumes the payload has only one control point (r_P2RM^p)
+    r_P2RM = model.glider.payload.control_points(delta_w=0)
 
+    q_e2b = path["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
+    if "q_p2e" in path.dtype.names:  # 9 DoF model
+        q_e2p = path["q_p2e"] * [-1, 1, 1, 1]
+    else:  # 6 DoF model
+        q_e2p = q_e2b
+
+    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
+    r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
+    gsim.plots.plot_3d_simulation_path(path["r_RM2O"], r_LE2O, r_P2O, dt, show=False)
+
+    # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))
     ax[0].plot(times, np.rad2deg(Theta_b2e))
     ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
