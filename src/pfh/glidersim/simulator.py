@@ -12,6 +12,7 @@ __all__ = [
     "Dynamics6a",
     "Dynamics9a",
     "simulate",
+    "prettyprint_state",
     "recompute_derivatives",
 ]
 
@@ -490,3 +491,40 @@ def recompute_derivatives(model, times, path):
     print()
 
     return derivatives
+
+
+def prettyprint_state(state, header=None, footer=None):
+    """
+    Pretty-print the `state_dtype` for `Dynamics6a` and `Dynamics9a`.
+
+    Parameters
+    ----------
+    state : Dynamics6a.state_dtype or Dynamics9a.state_dtype
+        The state to pretty-print.
+    header : string, optional
+        A string to print on a separate line preceding the states.
+    footer : string, optional
+        A string to print on a separate line after the states.
+
+    Notes
+    -----
+    Don't rely on this function. It's here because I currently find it useful
+    in some scripting, but overall I'm not a fan of hard-coding this
+    information. Then again, I'm in crunch mode, so...
+    """
+    # FIXME: Review the existence/design of this function
+    Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
+    with np.printoptions(precision=4, suppress=True):
+        if header is not None:
+            print(header)
+        print("  Theta_b2e:", np.rad2deg(Theta_b2e))
+        if "q_p2e" in state.dtype.names:
+            Theta_p2e = orientation.quaternion_to_euler(state["q_p2e"])
+            print("  Theta_p2e:", np.rad2deg(Theta_p2e))
+        print("  omega_b2e:", state["omega_b2e"])
+        if "omega_p2e" in state.dtype.names:
+            print("  omega_p2e:", state["omega_p2e"])
+        print("     r_RM2O:", state["r_RM2O"])
+        print("     v_RM2e:", state["v_RM2e"])
+        if footer is not None:
+            print(footer)
