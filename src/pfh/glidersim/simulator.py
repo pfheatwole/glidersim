@@ -411,9 +411,9 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         The state trajectory.
     """
 
-    num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
-    times = np.zeros(num_steps)  # The simulation times
-    path = np.empty(num_steps, dtype=model.state_dtype)
+    K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
+    times = np.zeros(K)  # Simulation timestamps [sec]
+    path = np.empty(K, dtype=model.state_dtype)
     path[0] = state0
 
     solver = scipy.integrate.ode(model.dynamics)
@@ -426,12 +426,12 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     k = 1  # Number of completed states (including the initial state)
     print("Running the simulation...")
     try:
-        while solver.successful() and k < num_steps:
+        while solver.successful() and k < K:
             if k % 25 == 0:  # Update every 25 iterations
                 avg_rate = (k - 1) / (time.perf_counter() - t_start)  # k=0 was free
-                rem = (num_steps - k) / avg_rate  # Time remaining in seconds
+                rem = (K - k) / avg_rate  # Time remaining in seconds
                 msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
-            print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
+            print(f"\rStep: {k}/{K} (t = {k*dt:.2f}). {msg}", end="")
 
             # WARNING: `solver.integrate` returns a *reference* to `_y`, so
             #          modifying `state` modifies `solver._y` directly.
@@ -450,7 +450,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         print("\n--- Simulation interrupted. ---")
 
     # Truncate if the simulation did not complete
-    if k < num_steps:
+    if k < K:
         times = times[:k]
         path = path[:k]
 
