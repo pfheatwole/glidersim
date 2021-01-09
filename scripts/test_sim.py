@@ -476,6 +476,7 @@ def main():
         Theta_p2e = gsim.orientation.quaternion_to_euler(path["q_p2e"])
 
     else:  # 6 DoF model
+        # FIXME: assumes the payload has only one control point (r_P2RM^p)
         r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
             q_e2b,
             model.glider.payload.control_points(),
