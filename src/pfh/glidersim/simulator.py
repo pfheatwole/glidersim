@@ -469,7 +469,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         times = times[:k]
         path = path[:k]
 
-    print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
+    print(f"\nTotal simulation time: {time.perf_counter() - t_start:.2f}")
 
     return times, path
 
@@ -496,13 +496,13 @@ def recompute_derivatives(model, times, path):
     derivatives : array of model.state_dtype
         The derivatives of the state variables at each step.
     """
-    print("\nRe-running the dynamics to get the accelerations")
+    print("Re-running the dynamics to get the accelerations")
     N = len(times)
     derivatives = np.empty((N,), dtype=model.state_dtype)
     params = {"solution": None}  # Is modified by `model.dynamics`
     pf = path.view(float).reshape((N, -1))  # Ugly hack...
     for n in range(N):
-        print(f"\r{n}/{N}", end="")
+        print(f"\rStep: {n}/{N}", end="")
         derivatives[n] = model.dynamics(times[n], pf[n], params).view(model.state_dtype)
     print()
 
