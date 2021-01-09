@@ -432,18 +432,18 @@ def main():
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()
-    Theta_b2e = gsim.orientation.quaternion_to_euler(state0["q_b2e"])[0]
+    Theta_b2e = gsim.orientation.quaternion_to_euler(state0["q_b2e"])
     with np.printoptions(precision=4, suppress=True):
         print("Initial state:")
         print("  Theta_b2e:", np.rad2deg(Theta_b2e))
-        if "q_p2b" in state0.dtype.names:
-            Theta_p2b = gsim.orientation.quaternion_to_euler(state0["q_p2b"])[0]
-            print("  Theta_p2b:", np.rad2deg(Theta_p2b))
-        print("  omega_b2e:", state0["omega_b2e"][0])
+        if "q_p2e" in state0.dtype.names:
+            Theta_p2e = gsim.orientation.quaternion_to_euler(state0["q_p2e"])
+            print("  Theta_p2e:", np.rad2deg(Theta_p2e))
+        print("  omega_b2e:", state0["omega_b2e"])
         if "omega_p2e" in state0.dtype.names:
-            print("  omega_p2e:", state0["omega_p2e"][0])
-        print("     r_RM2O:", state0["r_RM2O"][0])
-        print("     v_RM2e:", state0["v_RM2e"][0])
+            print("  omega_p2e:", state0["omega_p2e"])
+        print("     r_RM2O:", state0["r_RM2O"])
+        print("     v_RM2e:", state0["v_RM2e"])
         print()
 
     t_start = time.perf_counter()
@@ -457,9 +457,9 @@ def main():
     with np.printoptions(precision=4, suppress=True):
         print("Final state:")
         print("  Theta_b2e:", np.rad2deg(Theta_b2e))
-        if "q_p2b" in stateK.dtype.names:
-            Theta_p2b = gsim.orientation.quaternion_to_euler(stateK["q_p2b"])
-            print("  Theta_p2b:", np.rad2deg(Theta_p2b))
+        if "q_p2e" in stateK.dtype.names:
+            Theta_p2e = gsim.orientation.quaternion_to_euler(stateK["q_p2e"])
+            print("  Theta_p2e:", np.rad2deg(Theta_p2e))
         print("  omega_b2e:", stateK["omega_b2e"])
         if "omega_p2e" in state0.dtype.names:
             print("  omega_p2e:", stateK["omega_p2e"])

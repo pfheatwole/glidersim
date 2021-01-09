@@ -72,18 +72,16 @@ class Dynamics6a:
         #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, y, params):
+    def dynamics(self, t, x, params):
         """
         Compute the state derivatives from the model.
-
-        Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
         Parameters
         ----------
         t : float [s]
             Time
-        y : ndarray of float, shape (N,)
-            The array of N state components
+        x : Dynamics6a.state_dtype
+            The current state
         params : dictionary
             Any extra non-state parameters for computing the dynamics. Be aware
             that 'solution' is an in-out parameter: solutions for the current
@@ -92,10 +90,9 @@ class Dynamics6a:
 
         Returns
         -------
-        x_dot : ndarray of float, shape (N,)
-            The array of N state component derivatives
+        x_dot : Dynamics6a.state_dtype
+            The state derivatives
         """
-        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
         delta_a = self.delta_a(t)
@@ -141,7 +138,7 @@ class Dynamics6a:
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot.view(float)  # The integrator expects a flat array
+        return x_dot
 
     def starting_equilibrium(self):
         """
@@ -175,7 +172,7 @@ class Dynamics6a:
             rho_air=self.rho_air(0),
         )
         q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
-        state = np.empty(1, dtype=self.state_dtype)
+        state = np.empty(1, dtype=self.state_dtype)[0]
         state["q_b2e"] = q_b2e
         state["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
         state["r_RM2O"] = [0, 0, 0]
@@ -241,18 +238,16 @@ class Dynamics9a:
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, y, params):
+    def dynamics(self, t, x, params):
         """
         Compute the state derivatives from the model.
-
-        Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
         Parameters
         ----------
         t : float [s]
             Time
-        y : ndarray of float, shape (N,)
-            The array of N state components
+        x : Dynamics9a.state_dtype
+            The current state
         params : dictionary
             Any extra non-state parameters for computing the dynamics. Be aware
             that 'solution' is an in-out parameter: solutions for the current
@@ -261,10 +256,9 @@ class Dynamics9a:
 
         Returns
         -------
-        x_dot : ndarray of float, shape (N,)
-            The array of N state component derivatives
+        x_dot : Dynamics9a.state_dtype
+            The state derivatives
         """
-        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
             orientation.quaternion_product(q_e2b, x["q_p2e"])
@@ -327,7 +321,7 @@ class Dynamics9a:
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot.view(float)  # The integrator expects a flat array
+        return x_dot
 
     def starting_equilibrium(self):
         """
@@ -361,7 +355,7 @@ class Dynamics9a:
             rho_air=self.rho_air(0),
         )
         q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
-        state = np.empty(1, dtype=self.state_dtype)
+        state = np.empty(1, dtype=self.state_dtype)[0]
         state["q_b2e"] = q_b2e
         q_p2b = orientation.euler_to_quaternion(glider_eq["Theta_p2b"])
         state["q_p2e"] = orientation.quaternion_product(q_b2e, q_p2b)
@@ -416,9 +410,14 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     path = np.empty(K, dtype=model.state_dtype)
     path[0] = state0
 
-    solver = scipy.integrate.ode(model.dynamics)
+    def _flattened_dynamics(t, y, params):
+        # Adapter function: the integrator requires a flat array of float
+        state_dot = model.dynamics(t, y.view(model.state_dtype)[0], params)
+        return state_dot.view(float)
+
+    solver = scipy.integrate.ode(_flattened_dynamics)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
-    solver.set_initial_value(state0.view(float))
+    solver.set_initial_value(state0.flatten().view(float))
     solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
 
     t_start = time.perf_counter()
@@ -485,10 +484,9 @@ def recompute_derivatives(model, times, path):
     N = len(times)
     derivatives = np.empty((N,), dtype=model.state_dtype)
     params = {"solution": None}  # Is modified by `model.dynamics`
-    pf = path.view(float).reshape((N, -1))  # Ugly hack...
     for n in range(N):
         print(f"\rStep: {n}/{N}", end="")
-        derivatives[n] = model.dynamics(times[n], pf[n], params).view(model.state_dtype)
+        derivatives[n] = model.dynamics(times[n], path[n], params)
     print()
 
     return derivatives
