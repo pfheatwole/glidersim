@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
+import pfh.glidersim as gsim
+
 
 __all__ = [
     "compute_euler_derivatives",
@@ -48,6 +50,84 @@ def compute_euler_derivatives(Theta, omega):
     M = np.moveaxis(M, -1, 0)
     Theta_dot = np.einsum("kij,kj->ki", M, omega)
     return Theta_dot
+
+
+def sample_glider_positions(model, path, times, samplerate=0.5, include_times=False):
+    """
+    Sample reference points on the risers, wing, and payload for plotting.
+
+    All positions are with respect to the global flat-earth origin `O`. The
+    path is downsampled (decimated) to approximately `samplerate` to avoid
+    excessive resolution when plotting; assumes the path was generated at a
+    fixed timestep.
+
+    This function is is not pretty; it was designed specifically for use with
+    `plots.plot_3d_simulation_path` and depends heavily on the internal design
+    of Dynamics6a/Dynamics9a, but it meets my current crunch-time needs.
+
+    Parameters
+    ----------
+    model : pfh.glidersim.simulator.Dynamics6a or pfh.glidersim.simulator.Dynamics9a
+        The paraglider dynamics model that produced the path.
+    path : array of model.state_dtype, shape (K,)
+        The state values at each timestep.
+    times : array of float, shape (K,) [sec]
+        The timestamps.
+    samplerate : float [sec], optional
+        The desired samplerate. The points were already generated at some fixed
+        timestep, so this method discards samples to achieve a new rate as
+        close to `samplerate` as possible. If the `samplerate` is not an
+        integer multiple of the original timestep then it is rounded to the
+        nearest integer multiple.
+    include_times : bool, optional
+        Whether to include the `times` associated with the (potentially
+        resampled) output.
+
+    Returns
+    -------
+    dict
+        times : array of float, shape (M,) [sec]
+            The timestamps of the (potentially resampled) positions.
+        r_RM2O : array of float, shape (M,3) [m]
+            Position of the riser midpoint.
+        r_LE2O : array of float, shape (M,3) [m]
+            Position of the wing's central leading edge.
+        r_P2O : array of float, shape (M,3) [m]
+            Position of the payload's default center of mass. This ignores
+            displacements due to weight shift because the more intuitive
+            interpretation of the plot is to think in terms of the orientation
+            of the payload frame, not the payload center of mass.
+    """
+    r_LE2RM = -model.glider.wing.r_RM2LE(model.delta_a(times))
+
+    # FIXME: assumes the payload has only one control point (r_P2RM^p)
+    r_P2RM = model.glider.payload.control_points(delta_w=0)
+
+    q_e2b = path["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
+    if "q_p2e" in path.dtype.names:  # 9 DoF model
+        q_e2p = path["q_p2e"] * [-1, 1, 1, 1]
+    else:  # 6 DoF model
+        q_e2p = q_e2b
+
+    r_RM2O = path["r_RM2O"]
+    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
+    r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
+
+    dt = times[1] - times[0]  # Assume a constant simulation timestep
+    if samplerate is not None and samplerate > dt:
+        samples = np.arange(0, len(times), round(samplerate / dt))
+    else:
+        samples = np.arange(0, len(times))
+
+    points = {
+        "r_RM2O": r_RM2O[samples],
+        "r_LE2O": r_LE2O[samples],
+        "r_P2O": r_P2O[samples],
+    }
+    if include_times:
+        points["times"] = times[samples]
+
+    return points
 
 
 def linear_control(pairs):
