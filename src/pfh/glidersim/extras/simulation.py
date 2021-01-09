@@ -109,10 +109,12 @@ class CircularThermal:
 
     def __call__(self, t, r):
         # `t` is time, `r` is 3D position in ned coordinates
-        d2 = ((self.c - r[..., :2]) ** 2).sum(axis=1)
-        wind = np.zeros(r.shape)
-        if t > self.t_enable:
-            wind[..., 2] = self.mag * np.exp(-d2 / self.R)
+        t = np.asarray(t)
+        r = np.asarray(r)
+        d2 = ((self.c - r[..., :2]) ** 2).sum(axis=-1)
+        wind = np.zeros((*t.shape, *r.shape))
+        wind[..., 2] = self.mag * np.exp(-d2 / self.R)
+        wind[t < self.t_enable] = [0, 0, 0]
         return wind
 
 
