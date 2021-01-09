@@ -159,14 +159,15 @@ def quaternion_rotate(q, u, v):
     v[:] = 2 * qv * (qv @ u) + (qw ** 2 - qv @ qv) * u - 2 * qw * _cross3(qv, u)
 
 
-def quaternion_product(p, q):
+@guvectorize([(float64[:], float64[:], float64[:])],
+             '(n),(m)->(m)', nopython=True, cache=True)
+def quaternion_product(p, q, v):
     """Multiply two quaternions."""
     # FIXME: document and test
-    # FIXME add broadcasting support
     pw, pv = p[0], p[1:]
     qw, qv = q[0], q[1:]
-    pq = np.r_[pw * qw - pv @ qv, pw * qv + qw * pv + np.cross(pv, qv)]
-    return pq
+    v[0] = pw * qw - pv @ qv
+    v[1:] = pw * qv + qw * pv + np.cross(pv, qv)
 
 
 def main():

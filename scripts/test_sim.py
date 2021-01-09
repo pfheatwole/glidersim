@@ -457,15 +457,10 @@ def main():
     v_frd = gsim.orientation.quaternion_rotate(path["q_b2e"], path["v_RM2e"])
 
     if "q_p2e" in path.dtype.names:  # 9 DoF model
-        # FIXME: vectorize `gsim.orientation.quaternion_product`
-        q_b2p = [
-            gsim.orientation.quaternion_product(
-                path["q_p2e"][k] * [-1, 1, 1, 1],
-                path["q_b2e"][k],
-            )
-            for k in range(K)
-        ]
-        q_b2p = np.asarray(q_b2p)
+        q_b2p = gsim.orientation.quaternion_product(
+            path["q_p2e"] * [-1, 1, 1, 1],
+            path["q_b2e"],
+        )
 
         # FIXME: assumes the payload has only one control point (r_P2RM^p)
         r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(
