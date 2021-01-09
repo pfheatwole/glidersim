@@ -340,9 +340,12 @@ def plot_paraglider_wing(
         return ax.lines
 
 
-def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, dt, clpp=0.25, ax=None, show=True):
+def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show=True):
     """
     Plot glider positions over time with lines to the wing and harness.
+
+    See `pfh.glidersim.extras.simulation.sample_glider_positions` for a helper
+    function to compute the positions from a simulated glider path.
 
     Parameters
     ----------
@@ -370,11 +373,10 @@ def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, dt, clpp=0.25, ax=None, show=
     else:
         independent_plot = False
 
-    # ax.plot(r_RM2O.T[0], r_RM2O.T[1], r_RM2O.T[2], label="risers")
     ax.plot(*r_RM2O.T, label="risers")
     ax.plot(*r_LE2O.T, label="LE0")
     ax.plot(*r_P2O.T, label="payload", lw=0.5, c="r")
-    for t in range(0, len(r_RM2O), int(clpp / dt)):
+    for t in range(0, len(r_RM2O)):
         p1, p2 = r_RM2O[t], r_LE2O[t]  # Risers -> wing central LE
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
 
@@ -385,7 +387,6 @@ def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, dt, clpp=0.25, ax=None, show=
         _set_axes_equal(ax)
         ax.view_init(azim=-45, elev=30)
         ax.legend()
-
         if show:
             plt.show()
     else:

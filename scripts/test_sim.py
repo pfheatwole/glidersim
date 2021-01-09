@@ -453,24 +453,8 @@ def main():
     # Plots
 
     # 3D Plot: Position over time
-    if np.isscalar(sim_parameters["delta_a"]):
-        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"])
-    else:
-        r_LE2RM = -model.glider.wing.r_RM2LE(sim_parameters["delta_a"](times))
-
-    # Plot the payload centerline, not the payload center of mass.
-    # FIXME: assumes the payload has only one control point (r_P2RM^p)
-    r_P2RM = model.glider.payload.control_points(delta_w=0)
-
-    q_e2b = path["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
-    if "q_p2e" in path.dtype.names:  # 9 DoF model
-        q_e2p = path["q_p2e"] * [-1, 1, 1, 1]
-    else:  # 6 DoF model
-        q_e2p = q_e2b
-
-    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
-    r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
-    gsim.plots.plot_3d_simulation_path(path["r_RM2O"], r_LE2O, r_P2O, dt, show=False)
+    points = gsim.extras.simulation.sample_glider_positions(model, path, times)
+    gsim.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))
