@@ -12,7 +12,7 @@ from pfh.glidersim.extras import simulation
 # Build a set "scenario" inputs
 
 
-def zero_controls(T=20):
+def zero_controls(T=5):
     """Scenario: zero_inputs."""
     return {}, T
 
