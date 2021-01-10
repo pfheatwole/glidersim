@@ -51,7 +51,7 @@ class Dynamics6a:
             if callable(val):
                 return val
             elif np.isscalar(val):
-                return lambda t: val
+                return lambda t: np.full(np.shape(t), val)
             else:
                 raise ValueError(f"`{name}` must be a scalar or callable")
 
