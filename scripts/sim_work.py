@@ -1,3 +1,5 @@
+"""Scratch file for developing simulator-related code."""
+
 import time
 
 import matplotlib.pyplot as plt
@@ -17,71 +19,70 @@ def zero_controls(T=5):
     return {}, T
 
 
-def symmetric_brakes_fast_on():
+def symmetric_brakes_fast_on(delta_b):
     """Scenario: zero_inputs."""
     t_warmup = 2
     t_rise = 0.5
-    braking = simulation.linear_control([(t_warmup, 0), (t_rise, 1)])
+    t_settle = 5
+    braking = simulation.linear_control([(t_warmup, 0), (t_rise, delta_b)])
     inputs = {
         "delta_bl": braking,
         "delta_br": braking,
     }
-    T = 10
+    T = t_warmup + t_rise + t_settle
     return inputs, T
 
 
-def symmetric_brakes_fast_off():
+def symmetric_brakes_fast_off(delta_b):
     """Scenario: zero_inputs."""
     t_warmup = 2
     t_fall = 0.5
-    braking = simulation.linear_control([(0, 1), (t_warmup, None), (t_fall, 0)])
+    t_settle = 5
+    braking = simulation.linear_control([(0, delta_b), (t_warmup, None), (t_fall, 0)])
     inputs = {
         "delta_bl": braking,
         "delta_br": braking,
     }
-    T = t_warmup + t_fall + 10
+    T = t_warmup + t_fall + t_settle
     return inputs, T
 
 
-def symmetric_brakes_fast_on_off():
+def symmetric_brakes_fast_on_off(delta_b):
     """Scenario: zero_inputs."""
     t_warmup = 2
-    t_rise = 1
+    t_rise = 0.5
     t_hold = 2
     t_fall = 0.5
-    braking = simulation.linear_control([
-        (t_warmup, 0),
-        (t_rise, 1),
-        (t_hold, None),
-        (t_fall, 0)
-    ])
+    t_settle = 5
+    braking = simulation.linear_control(
+        [(t_warmup, 0), (t_rise, delta_b), (t_hold, None), (t_fall, 0)]
+    )
     inputs = {
         "delta_bl": braking,
         "delta_br": braking,
     }
-    T = t_warmup + t_rise + t_hold + t_fall + 10
+    T = t_warmup + t_rise + t_hold + t_fall + t_settle
     return inputs, T
 
 
-def short_right_turn_with_weightshift():
+def short_right_turn(delta_br, delta_w):
     """Scenario: short right turn."""
     t_warmup = 2
-    t_rise_b = 1
+    t_rise_b = 2
     t_rise_w = 1
     t_hold = 5
     t_fall = 1
     t_settle = 5
-    mag = 0.75
     inputs = {
         "delta_br": simulation.linear_control([
             (t_warmup + t_rise_w + t_hold, 0),
-            (t_rise_b, mag),
+            (t_rise_b, delta_br),
             (t_hold, None),
             (t_fall, 0),
         ]),
         "delta_w": simulation.linear_control([
             (t_warmup, 0),
-            (t_rise_w, 0.75),
+            (t_rise_w, delta_w),
             (t_hold + t_rise_b + t_hold, None),
             (t_fall, 0),
         ]),
@@ -90,127 +91,17 @@ def short_right_turn_with_weightshift():
     return inputs, T
 
 
-def short_right_turn_without_weightshift():
-    """Scenario: short right turn."""
-    t_warmup = 2
-    t_rise = 4
-    t_hold = 5
-    t_fall = 1
-    t_settle = 5
-    mag = 0.75
-    inputs = {
-        "delta_br": simulation.linear_control([
-            (t_warmup, 0),
-            (t_rise, mag),
-            (t_hold, None),
-            (t_fall, 0),
-        ]),
-    }
-    T = t_warmup + t_rise + t_hold + t_fall + t_settle
-    return inputs, T
-
-
-def continuous_right_turn_with_weightshift(mag=0.75):
-    """Scenario: continuous right turn with weightshift."""
+def continuous_right_turn(delta_w, delta_br):
     t_warmup = 2
     t_rise = 1
     t_hold = 5
     inputs = {
-        "delta_br": simulation.linear_control([(t_warmup + t_rise + t_hold, 0), (t_rise, mag)]),
-        "delta_w": simulation.linear_control([(t_warmup, 0), (t_rise, 1.00)]),
+        "delta_br": simulation.linear_control(
+            [(t_warmup + t_rise + t_hold, 0), (t_rise, delta_br)]
+        ),
+        "delta_w": simulation.linear_control([(t_warmup, 0), (t_rise, delta_w)]),
     }
     T = 60
-    return inputs, T
-
-
-def continuous_right_turn_without_weightshift(mag=0.75):
-    """Scenario: continuous right turn without weightshift."""
-    t_warmup = 5
-    inputs = {
-        "delta_br": simulation.linear_control([(t_warmup, 0), (3, mag)]),
-    }
-    T = 60
-    return inputs, T
-
-
-def centered_thermal_zero_controls(py=0, mag=-3, radius5=10):
-    """
-    Place a thermal in the path of a glider flying hands-up.
-
-    Parameters
-    ----------
-    py : float [m]
-        The y-axis (easterly) offset of the thermal
-    mag : float [m/s]
-        The strength of the thermal core.
-    radius5 : float [m]
-        The distance at which the thermal strength has reduced to 5%.
-    """
-    inputs = {
-        "v_W2e": simulation.CircularThermal(
-            px=10 * 10,  # At 10m/s, roughly 10 seconds in
-            py=py,
-            mag=mag,
-            radius5=radius5,
-            t_enable=0,
-        )
-    }
-    T = 20
-    return inputs, T
-
-
-def centered_thermal_with_accelerator(py=0, mag=-3, radius5=10):
-    """
-    Place a thermal in the path of a glider flying with accelerator applied.
-
-    Parameters
-    ----------
-    py : float [m]
-        The y-axis (easterly) offset of the thermal
-    mag : float [m/s]
-        The strength of the thermal core.
-    radius5 : float [m]
-        The distance at which the thermal strength has reduced to 5%.
-    """
-    inputs = {
-        "delta_a": 0.75,
-        "v_W2e": simulation.CircularThermal(
-            px=10 * 15,  # At 10m/s, roughly 15 seconds in
-            py=py,
-            mag=mag,
-            radius5=radius5,
-            t_enable=0,
-        )
-    }
-    T = 20
-    return inputs, T
-
-
-def centered_thermal_with_symmetric_brake(py=0, mag=-3, radius5=15):
-    """
-    Place a thermal in the path of a glider flying with symmetric brakes.
-
-    Parameters
-    ----------
-    py : float [m]
-        The y-axis (easterly) offset of the thermal
-    mag : float [m/s]
-        The strength of the thermal core.
-    radius5 : float [m]
-        The distance at which the thermal strength has reduced to 5%.
-    """
-    inputs = {
-        "delta_bl": 1,
-        "delta_br": 1,
-        "v_W2e": simulation.CircularThermal(
-            px=10 * 10,  # At 10m/s, roughly 10 seconds in
-            py=py,
-            mag=mag,
-            radius5=radius5,
-            t_enable=0,
-        )
-    }
-    T = 20
     return inputs, T
 
 
@@ -276,8 +167,47 @@ def figure_8s(N_cycles=2, duration=30, mag=0.75):
     return inputs, T
 
 
-def horizontal_shear_zero_controls():
+def centered_thermal(delta_a=0, delta_b=0, py=0, mag=-3, radius5=10):
+    """
+    Place a thermal in the path of a glider.
+
+    The default is that the wing will hit the thermal dead-center, but `py`
+    can be used to shift the thermal and create an indirect hit.
+
+    Parameters
+    ----------
+    delta_a : float [percentage]
+        The amount of accelerator.
+    delta_b : float [percentage]
+        The amount of symmetric brake.
+    py : float [m]
+        The y-axis (easterly) offset of the thermal
+    mag : float [m/s]
+        The strength of the thermal core.
+    radius5 : float [m]
+        The distance at which the thermal strength has reduced to 5%.
+    """
     inputs = {
+        "delta_a": delta_a,
+        "delta_bl": delta_b,
+        "delta_br": delta_b,
+        "v_W2e": simulation.CircularThermal(
+            px=10 * 10,  # At 10m/s, roughly 10 seconds in
+            py=py,
+            mag=mag,
+            radius5=radius5,
+            t_enable=0,
+        )
+    }
+    T = 20
+    return inputs, T
+
+
+def horizontal_shear(delta_a=0, delta_b=0):
+    inputs = {
+        "delta_a": delta_a,
+        "delta_bl": delta_b,
+        "delta_br": delta_b,
         "v_W2e": simulation.HorizontalShear(
             x_start=10 * 10,
             mag=-4,
@@ -289,40 +219,12 @@ def horizontal_shear_zero_controls():
     return inputs, T
 
 
-def lateral_gust_zero_controls():
+def lateral_gust(delta_a=0, delta_b=0):
     mag = 10  # [mph]
     inputs = {
-        "v_W2e": simulation.LateralGust(
-            t_start=2,
-            t_ramp=1,
-            t_duration=3,
-            mag=mag * 1.6 / 3.6,  # [m/s]
-        ),
-    }
-    T = 20
-    return inputs, T
-
-
-def lateral_gust_with_accelerator():
-    mag = 10  # [mph]
-    inputs = {
-        "delta_a": 1,
-        "v_W2e": simulation.LateralGust(
-            t_start=2,
-            t_ramp=1,
-            t_duration=3,
-            mag=mag * 1.6 / 3.6,  # [m/s]
-        ),
-    }
-    T = 20
-    return inputs, T
-
-
-def lateral_gust_with_symmetric_brakes():
-    mag = 10  # [mph]
-    inputs = {
-        "delta_bl": 0.75,
-        "delta_br": 0.75,
+        "delta_a": delta_a,
+        "delta_bl": delta_b,
+        "delta_br": delta_b,
         "v_W2e": simulation.LateralGust(
             t_start=2,
             t_ramp=3,
@@ -330,7 +232,7 @@ def lateral_gust_with_symmetric_brakes():
             mag=mag * 1.6 / 3.6,  # [m/s]
         ),
     }
-    T = 20
+    T = 15
     return inputs, T
 
 
@@ -397,29 +299,33 @@ def build_models(use_apparent_mass=True):
 
 def main():
 
-    models = build_models()
+    use_apparent_mass = True
+    # use_apparent_mass = False
+    models = build_models(use_apparent_mass=use_apparent_mass)
 
     # -----------------------------------------------------------------------
     # Load a test scenario
 
     inputs, T = zero_controls()
-    # inputs, T = symmetric_brakes_fast_on()
-    # inputs, T = symmetric_brakes_fast_off()
-    # inputs, T = symmetric_brakes_fast_on_off()
-    # inputs, T = short_right_turn_with_weightshift()
-    # inputs, T = short_right_turn_without_weightshift()
-    # inputs, T = continuous_right_turn_with_weightshift()
-    # inputs, T = continuous_right_turn_without_weightshift()
-    # inputs, T = centered_thermal_zero_controls()
-    # inputs, T = centered_thermal_with_accelerator()
-    # inputs, T = centered_thermal_with_symmetric_brake()
+    # inputs, T = symmetric_brakes_fast_on(delta_b=1)
+    # inputs, T = symmetric_brakes_fast_off(delta_b=1)
+    # inputs, T = symmetric_brakes_fast_on_off(delta_b=1)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=0)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=1)
+    # inputs, T = continuous_right_turn(delta_br=0.85, delta_w=0)
+    # inputs, T = continuous_right_turn(delta_br=0.85, delta_w=1)
     # inputs, T = roll_right_then_left()
     # inputs, T = roll_yaw_coupling_with_accelerator()
     # inputs, T = figure_8s()
-    # inputs, T = horizontal_shear_zero_controls()
-    # inputs, T = lateral_gust_zero_controls()
-    # inputs, T = lateral_gust_with_accelerator()
-    # inputs, T = lateral_gust_with_symmetric_brakes()
+    # inputs, T = centered_thermal()
+    # inputs, T = centered_thermal(delta_a=1)
+    # inputs, T = centered_thermal(delta_b=1)
+    # inputs, T = horizontal_shear()
+    # inputs, T = horizontal_shear(delta_a=1)
+    # inputs, T = horizontal_shear(delta_b=1)
+    # inputs, T = lateral_gust()
+    # inputs, T = lateral_gust(delta_a=1)
+    # inputs, T = lateral_gust(delta_b=1)
 
     # -----------------------------------------------------------------------
     # Build a dynamics model and simulate the scenario
@@ -430,7 +336,7 @@ def main():
         "delta_br": 0.0,
         "delta_w": 0.0,
         "v_W2e": None,
-        "rho_air": 1.225
+        "rho_air": 1.225,
     }
     sim_parameters.update(inputs)
     model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
@@ -480,7 +386,7 @@ def main():
 
     plt.show()
 
-    breakpoint()
+    # breakpoint()
 
 
 if __name__ == "__main__":
