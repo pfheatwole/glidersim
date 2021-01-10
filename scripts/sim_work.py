@@ -337,11 +337,8 @@ def lateral_gust_with_symmetric_brakes():
 # ---------------------------------------------------------------------------
 
 
-def main():
-
-    # -----------------------------------------------------------------------
-    # Build a set of glider models from a common base configuration
-
+def build_models(use_apparent_mass=True):
+    """Build a set of glider models from a common base configuration."""
     wing = gsim.extras.wings.build_hook3(verbose=False)
     harness = gsim.harness.Spherical(
         mass=75,
@@ -350,7 +347,6 @@ def main():
         CD=0.8,
         kappa_w=0.1,
     )
-    use_apparent_mass = True
 
     # 6 DoF models
     glider_6a = gsim.paraglider.Paraglider6a(
@@ -389,6 +385,20 @@ def main():
         use_apparent_mass=use_apparent_mass,
     )
 
+    return {
+        "6a": glider_6a,
+        "6b": glider_6b,
+        "6c": glider_6c,
+        "9a": glider_9a,
+        "9b": glider_9b,
+        "9c": glider_9c,
+    }
+
+
+def main():
+
+    models = build_models()
+
     # -----------------------------------------------------------------------
     # Load a test scenario
 
@@ -423,12 +433,12 @@ def main():
         "rho_air": 1.225
     }
     sim_parameters.update(inputs)
-    model = gsim.simulator.Dynamics6a(glider_6a, **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(glider_6b, **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(glider_6c, **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(glider_9a, **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(glider_9b, **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(glider_9c, **sim_parameters)
+    model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(models["6b"], **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(models["6c"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(models["9a"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(models["9b"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(models["9c"], **sim_parameters)
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()
