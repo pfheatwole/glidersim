@@ -444,7 +444,7 @@ def main():
     state0 = model.starting_equilibrium()
     gsim.simulator.prettyprint_state(state0, "Initial state:", "")
     t_start = time.perf_counter()
-    dt = 0.10  # Time step for the `path` trajectory
+    dt = 0.25  # Time step for the `path` trajectory
     times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
     path_dot = gsim.simulator.recompute_derivatives(model, times, path)
     t_stop = time.perf_counter()
