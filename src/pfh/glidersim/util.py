@@ -123,3 +123,17 @@ def crossmat(v):
           [vz, 0, -vx],
           [-vy, vx, 0]]
     return np.asarray(sv)
+
+
+def _broadcast_shapes(*args):
+    """
+    Compute the result of broadcasting a set of shapes.
+
+    Copied directly from the numpy source. Many thanks to @madhulikajc.
+
+    ref: https://github.com/numpy/numpy/blob/v1.21.0.dev0/numpy/lib/stride_tricks.py#L470
+
+    FIXME: remove this after updating to numpy-1.20
+    """
+    arrays = [np.empty(x, dtype=[]) for x in args]
+    return np.lib.stride_tricks._broadcast_shape(*arrays)

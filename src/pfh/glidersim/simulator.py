@@ -6,6 +6,7 @@ import numpy as np
 import scipy.integrate
 
 from pfh.glidersim import orientation
+from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
 
 
 __all__ = [
@@ -43,7 +44,7 @@ class Dynamics6a:
         delta_br=0,
         delta_w=0,
         rho_air=1.225,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
     ):
         self.glider = glider
 
@@ -63,10 +64,15 @@ class Dynamics6a:
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
-        elif v_W2e is None:
-            self.v_W2e = lambda t, r: np.zeros_like(r)
+        elif np.shape(v_W2e) == (3,):
+            v_W2e = np.asarray(v_W2e, dtype=float)
+            # FIXME: kludgy, assumes r.shape[-1] == 3
+            self.v_W2e = lambda t, r: np.broadcast_to(
+                v_W2e,
+                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+            )
         else:
-            raise ValueError("`v_W2e` must be a callable")
+            raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
@@ -205,7 +211,7 @@ class Dynamics9a:
         delta_br=0,
         delta_w=0,
         rho_air=1.225,
-        v_W2e=None,
+        v_W2e=(0, 0, 0),
     ):
         self.glider = glider
 
@@ -225,10 +231,15 @@ class Dynamics9a:
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
-        elif v_W2e is None:
-            self.v_W2e = lambda t, r: np.zeros_like(r)
+        elif np.shape(v_W2e) == (3,):
+            v_W2e = np.asarray(v_W2e, dtype=float)
+            # FIXME: kludgy, assumes r.shape[-1] == 3
+            self.v_W2e = lambda t, r: np.broadcast_to(
+                v_W2e,
+                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+            )
         else:
-            raise ValueError("`v_W2e` must be a callable")
+            raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can

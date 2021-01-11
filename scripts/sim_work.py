@@ -167,6 +167,23 @@ def figure_8s(N_cycles=2, duration=30, mag=0.75):
     return inputs, T
 
 
+def ramping_headwind(t_rise=10, mag=-20):
+    _mag = simulation.linear_control([(2, 0), (t_rise, mag)])
+
+    def _headwind(t, r):
+        v_W2e = np.zeros(
+            (*gsim.util._broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3)
+        )
+        v_W2e[..., 0] = _mag(t)
+        return v_W2e
+
+    inputs = {
+        "v_W2e": _headwind,
+    }
+    T = 20
+    return inputs, T
+
+
 def centered_thermal(delta_a=0, delta_b=0, py=0, mag=-3, radius5=10):
     """
     Place a thermal in the path of a glider.
@@ -317,6 +334,7 @@ def main():
     # inputs, T = roll_right_then_left()
     # inputs, T = roll_yaw_coupling_with_accelerator()
     # inputs, T = figure_8s()
+    # inputs, T = ramping_headwind()
     # inputs, T = centered_thermal()
     # inputs, T = centered_thermal(delta_a=1)
     # inputs, T = centered_thermal(delta_b=1)
@@ -336,7 +354,7 @@ def main():
         "delta_br": 0.0,
         "delta_w": 0.0,
         "rho_air": 1.225,
-        "v_W2e": None,
+        "v_W2e": (0, 0, 0),
     }
     sim_parameters.update(inputs)
     model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
