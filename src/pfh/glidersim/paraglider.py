@@ -76,11 +76,11 @@ class Paraglider6a:
         v_RM2e,
         omega_b2e,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -100,8 +100,6 @@ class Paraglider6a:
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -110,6 +108,8 @@ class Paraglider6a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -432,11 +432,11 @@ class Paraglider6b(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -456,8 +456,6 @@ class Paraglider6b(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -466,6 +464,8 @@ class Paraglider6b(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -661,11 +661,11 @@ class Paraglider6c(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -685,8 +685,6 @@ class Paraglider6c(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -695,6 +693,8 @@ class Paraglider6c(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -929,11 +929,11 @@ class Paraglider9a:
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -958,8 +958,6 @@ class Paraglider9a:
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -968,6 +966,8 @@ class Paraglider9a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -1356,11 +1356,11 @@ class Paraglider9b(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -1385,8 +1385,6 @@ class Paraglider9b(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1395,6 +1393,8 @@ class Paraglider9b(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
@@ -1620,11 +1620,11 @@ class Paraglider9c(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air=1.225,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -1649,8 +1649,6 @@ class Paraglider9c(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3], optional
-            Air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1659,6 +1657,8 @@ class Paraglider9c(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
+        rho_air : float [kg/m^3], optional
+            Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If

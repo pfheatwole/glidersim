@@ -38,11 +38,11 @@ class Dynamics6a:
     def __init__(
         self,
         glider,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=None,
     ):
         self.glider = glider
@@ -55,11 +55,11 @@ class Dynamics6a:
             else:
                 raise ValueError(f"`{name}` must be a scalar or callable")
 
-        self.rho_air = _wrap("rho_air", rho_air)
         self.delta_a = _wrap("delta_a", delta_a)
         self.delta_bl = _wrap("delta_bl", delta_bl)
         self.delta_br = _wrap("delta_br", delta_br)
         self.delta_w = _wrap("delta_w", delta_w)
+        self.rho_air = _wrap("rho_air", rho_air)
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
@@ -106,11 +106,11 @@ class Dynamics6a:
             orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
             x["omega_b2e"],
             orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-            rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
+            rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
@@ -203,11 +203,11 @@ class Dynamics9a:
     def __init__(
         self,
         glider,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
+        rho_air=1.225,
         v_W2e=None,
     ):
         self.glider = glider
@@ -277,11 +277,11 @@ class Dynamics9a:
             x["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
             orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-            rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
+            rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],

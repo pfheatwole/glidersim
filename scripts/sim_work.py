@@ -335,8 +335,8 @@ def main():
         "delta_bl": 0.0,
         "delta_br": 0.0,
         "delta_w": 0.0,
-        "v_W2e": None,
         "rho_air": 1.225,
+        "v_W2e": None,
     }
     sim_parameters.update(inputs)
     model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
