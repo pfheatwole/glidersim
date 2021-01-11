@@ -181,10 +181,7 @@ class Dynamics6a:
             q_b2e * [-1, 1, 1, 1],
             glider_eq["v_RM2e"],
         )
-        state["v_RM2e"] += orientation.quaternion_rotate(
-            q_b2e * [-1, 1, 1, 1],
-            self.v_W2e(t=0, r=state["r_RM2O"]),
-        )
+        state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
         return state
 
 
@@ -367,10 +364,7 @@ class Dynamics9a:
             q_b2e * [-1, 1, 1, 1],
             glider_eq["v_RM2e"],
         )
-        state["v_RM2e"] += orientation.quaternion_rotate(
-            q_b2e * [-1, 1, 1, 1],
-            self.v_W2e(t=0, r=state["r_RM2O"]),
-        )
+        state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
         return state
 
 
