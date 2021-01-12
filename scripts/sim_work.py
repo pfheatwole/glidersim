@@ -368,33 +368,33 @@ def main():
     state0 = model.starting_equilibrium()
     gsim.simulator.prettyprint_state(state0, "Initial state:", "")
     t_start = time.perf_counter()
-    dt = 0.25  # Time step for the `path` trajectory
-    times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
-    path_dot = gsim.simulator.recompute_derivatives(model, times, path)
+    dt = 0.25  # Time step for the sequence of `states`
+    times, states = gsim.simulator.simulate(model, state0, dt=dt, T=T)
+    states_dot = gsim.simulator.recompute_derivatives(model, times, states)
     t_stop = time.perf_counter()
     print(f"\nTotal time: {t_stop - t_start:.2f}\n")
-    gsim.simulator.prettyprint_state(path[-1], "Final state:", "")
+    gsim.simulator.prettyprint_state(states[-1], "Final state:", "")
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
 
-    Theta_b2e = gsim.orientation.quaternion_to_euler(path["q_b2e"])
+    Theta_b2e = gsim.orientation.quaternion_to_euler(states["q_b2e"])
     Theta_b2e_dot = gsim.extras.simulation.compute_euler_derivatives(
-        Theta_b2e, path["omega_b2e"]
+        Theta_b2e, states["omega_b2e"]
     )
 
     # -----------------------------------------------------------------------
     # Plots
 
     # 3D Plot: Position over time
-    points = gsim.extras.simulation.sample_glider_positions(model, path, times)
+    points = gsim.extras.simulation.sample_glider_positions(model, states, times)
     gsim.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))
     ax[0].plot(times, np.rad2deg(Theta_b2e))
-    ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
-    ax[2].plot(times, np.rad2deg(path_dot["omega_b2e"]))
+    ax[1].plot(times, np.rad2deg(states["omega_b2e"]))
+    ax[2].plot(times, np.rad2deg(states_dot["omega_b2e"]))
     ax[0].set_ylabel("Theta_b2e [deg]")
     ax[1].set_ylabel("omega_b2e [deg]")
     ax[2].set_ylabel("alpha_b2e [deg]")
