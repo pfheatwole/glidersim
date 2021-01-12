@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pfh.glidersim"
-version = "0.1.0"
+version = "0.5.0"
 description = "Paraglider simulation using non-linear dynamics."
 authors = ["Peter Heatwole <pfheatwole@gmail.com>"]
 license = "MIT"
