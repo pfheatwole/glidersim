@@ -6,12 +6,14 @@ import numpy as np
 import scipy.integrate
 
 from pfh.glidersim import orientation
+from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
 
 
 __all__ = [
     "Dynamics6a",
     "Dynamics9a",
     "simulate",
+    "prettyprint_state",
     "recompute_derivatives",
 ]
 
@@ -37,74 +39,56 @@ class Dynamics6a:
     def __init__(
         self,
         glider,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
     ):
         self.glider = glider
 
-        if callable(rho_air):
-            self.rho_air = rho_air
-        elif np.isscalar(rho_air):
-            self.rho_air = lambda t: rho_air
-        else:
-            raise ValueError("`rho_air` must be a scalar or callable")
+        def _wrap(name, val):
+            if callable(val):
+                return val
+            elif np.isscalar(val):
+                return lambda t: np.full(np.shape(t), val)
+            else:
+                raise ValueError(f"`{name}` must be a scalar or callable")
 
-        if callable(delta_a):
-            self.delta_a = delta_a
-        elif np.isscalar(delta_a):
-            self.delta_a = lambda t: delta_a
-        else:
-            raise ValueError("`delta_a` must be a scalar or callable")
-
-        if callable(delta_bl):
-            self.delta_bl = delta_bl
-        elif np.isscalar(delta_bl):
-            self.delta_bl = lambda t: delta_bl
-        else:
-            raise ValueError("`delta_bl` must be a scalar or callable")
-
-        if callable(delta_br):
-            self.delta_br = delta_br
-        elif np.isscalar(delta_br):
-            self.delta_br = lambda t: delta_br
-        else:
-            raise ValueError("`delta_br` must be a scalar or callable")
-
-        if callable(delta_w):
-            self.delta_w = delta_w
-        elif np.isscalar(delta_w):
-            self.delta_w = lambda t: delta_w
-        else:
-            raise ValueError("`delta_w` must be a scalar or callable")
+        self.delta_a = _wrap("delta_a", delta_a)
+        self.delta_bl = _wrap("delta_bl", delta_bl)
+        self.delta_br = _wrap("delta_br", delta_br)
+        self.delta_w = _wrap("delta_w", delta_w)
+        self.rho_air = _wrap("rho_air", rho_air)
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
-        elif v_W2e is None:
-            self.v_W2e = lambda t, r: np.zeros_like(r)
+        elif np.shape(v_W2e) == (3,):
+            v_W2e = np.asarray(v_W2e, dtype=float)
+            # FIXME: kludgy, assumes r.shape[-1] == 3
+            self.v_W2e = lambda t, r: np.broadcast_to(
+                v_W2e,
+                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+            )
         else:
-            raise ValueError("`v_W2e` must be a callable")
+            raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
         #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, y, params):
+    def dynamics(self, t, x, params):
         """
         Compute the state derivatives from the model.
-
-        Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
         Parameters
         ----------
         t : float [s]
             Time
-        y : ndarray of float, shape (N,)
-            The array of N state components
+        x : Dynamics6a.state_dtype
+            The current state
         params : dictionary
             Any extra non-state parameters for computing the dynamics. Be aware
             that 'solution' is an in-out parameter: solutions for the current
@@ -113,10 +97,9 @@ class Dynamics6a:
 
         Returns
         -------
-        x_dot : ndarray of float, shape (N,)
-            The array of N state component derivatives
+        x_dot : Dynamics6a.state_dtype
+            The state derivatives
         """
-        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
         delta_a = self.delta_a(t)
@@ -129,11 +112,11 @@ class Dynamics6a:
             orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
             x["omega_b2e"],
             orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-            rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
+            rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
@@ -162,7 +145,50 @@ class Dynamics6a:
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot.view(float)  # The integrator expects a flat array
+        return x_dot
+
+    def starting_equilibrium(self):
+        """
+        Compute the equilibrium state at `t = 0` assuming uniform local wind.
+
+        In this case, "equilibrium" means "non-accelerating and no sideslip".
+        In a uniform wind field, this steady-state definition requires
+        symmetric brakes and no weight shift.
+
+        Equilibrium is first calculated assuming zero wind. Steady-state is
+        established by relative wind, so the local wind vector is merely an
+        offset from the zero-wind steady-state. The non-zero local wind is
+        included by adding it to the equilibrium `v_RM2e`.
+
+        Returns
+        -------
+        gsim.simulator.Dynamics6a.state_dtype
+            The equilibrium state
+        """
+        if not np.isclose(self.delta_bl(0), self.delta_br(0)):
+            raise ValueError(
+                "Asymmetric brake inputs at t=0. Unable to calculate equilibrium."
+            )
+        if not np.isclose(self.delta_w(0), 0):
+            raise ValueError(
+                "Non-zero weight shift control input. Unable to calculate equilibrium."
+            )
+        glider_eq = self.glider.equilibrium_state(
+            delta_a=self.delta_a(0),
+            delta_b=self.delta_bl(0),  # delta_bl == delta_br
+            rho_air=self.rho_air(0),
+        )
+        q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
+        state = np.empty(1, dtype=self.state_dtype)[0]
+        state["q_b2e"] = q_b2e
+        state["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
+        state["r_RM2O"] = [0, 0, 0]
+        state["v_RM2e"] = orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            glider_eq["v_RM2e"],
+        )
+        state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
+        return state
 
 
 class Dynamics9a:
@@ -180,56 +206,40 @@ class Dynamics9a:
     def __init__(
         self,
         glider,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
     ):
         self.glider = glider
 
-        if callable(rho_air):
-            self.rho_air = rho_air
-        elif np.isscalar(rho_air):
-            self.rho_air = lambda t: rho_air
-        else:
-            raise ValueError("`rho_air` must be a scalar or callable")
+        def _wrap(name, val):
+            if callable(val):
+                return val
+            elif np.isscalar(val):
+                return lambda t: val
+            else:
+                raise ValueError(f"`{name}` must be a scalar or callable")
 
-        if callable(delta_a):
-            self.delta_a = delta_a
-        elif np.isscalar(delta_a):
-            self.delta_a = lambda t: delta_a
-        else:
-            raise ValueError("`delta_a` must be a scalar or callable")
-
-        if callable(delta_bl):
-            self.delta_bl = delta_bl
-        elif np.isscalar(delta_bl):
-            self.delta_bl = lambda t: delta_bl
-        else:
-            raise ValueError("`delta_bl` must be a scalar or callable")
-
-        if callable(delta_br):
-            self.delta_br = delta_br
-        elif np.isscalar(delta_br):
-            self.delta_br = lambda t: delta_br
-        else:
-            raise ValueError("`delta_br` must be a scalar or callable")
-
-        if callable(delta_w):
-            self.delta_w = delta_w
-        elif np.isscalar(delta_w):
-            self.delta_w = lambda t: delta_w
-        else:
-            raise ValueError("`delta_w` must be a scalar or callable")
+        self.rho_air = _wrap("rho_air", rho_air)
+        self.delta_a = _wrap("delta_a", delta_a)
+        self.delta_bl = _wrap("delta_bl", delta_bl)
+        self.delta_br = _wrap("delta_br", delta_br)
+        self.delta_w = _wrap("delta_w", delta_w)
 
         if callable(v_W2e):
             self.v_W2e = v_W2e
-        elif v_W2e is None:
-            self.v_W2e = lambda t, r: np.zeros_like(r)
+        elif np.shape(v_W2e) == (3,):
+            v_W2e = np.asarray(v_W2e, dtype=float)
+            # FIXME: kludgy, assumes r.shape[-1] == 3
+            self.v_W2e = lambda t, r: np.broadcast_to(
+                v_W2e,
+                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+            )
         else:
-            raise ValueError("`v_W2e` must be a callable")
+            raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
         # FIXME: hack that runs after each integration step. Assumes it can
@@ -237,18 +247,16 @@ class Dynamics9a:
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, y, params):
+    def dynamics(self, t, x, params):
         """
         Compute the state derivatives from the model.
-
-        Matches the `f(t, y, *params)` signature for scipy.integrate.ode
 
         Parameters
         ----------
         t : float [s]
             Time
-        y : ndarray of float, shape (N,)
-            The array of N state components
+        x : Dynamics9a.state_dtype
+            The current state
         params : dictionary
             Any extra non-state parameters for computing the dynamics. Be aware
             that 'solution' is an in-out parameter: solutions for the current
@@ -257,10 +265,9 @@ class Dynamics9a:
 
         Returns
         -------
-        x_dot : ndarray of float, shape (N,)
-            The array of N state component derivatives
+        x_dot : Dynamics9a.state_dtype
+            The state derivatives
         """
-        x = y.view(self.state_dtype)[0]  # The integrator uses a flat array
         q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
             orientation.quaternion_product(q_e2b, x["q_p2e"])
@@ -278,11 +285,11 @@ class Dynamics9a:
             x["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
             orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-            rho_air=self.rho_air(t),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
+            rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
@@ -323,7 +330,53 @@ class Dynamics9a:
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot.view(float)  # The integrator expects a flat array
+        return x_dot
+
+    def starting_equilibrium(self):
+        """
+        Compute the equilibrium state at `t = 0` assuming uniform local wind.
+
+        In this case, "equilibrium" means "non-accelerating and no sideslip".
+        In a uniform wind field, this steady-state definition requires
+        symmetric brakes and no weight shift.
+
+        Equilibrium is first calculated assuming zero wind. Steady-state is
+        established by relative wind, so the local wind vector is merely an
+        offset from the zero-wind steady-state. The non-zero local wind is
+        included by adding it to the equilibrium `v_RM2e`.
+
+        Returns
+        -------
+        gsim.simulator.Dynamics9a.state_dtype
+            The equilibrium state
+        """
+        if not np.isclose(self.delta_bl(0), self.delta_br(0)):
+            raise ValueError(
+                "Asymmetric brake inputs at t=0. Unable to calculate equilibrium."
+            )
+        if not np.isclose(self.delta_w(0), 0):
+            raise ValueError(
+                "Non-zero weight shift control input. Unable to calculate equilibrium."
+            )
+        glider_eq = self.glider.equilibrium_state(
+            delta_a=self.delta_a(0),
+            delta_b=self.delta_bl(0),  # delta_bl == delta_br
+            rho_air=self.rho_air(0),
+        )
+        q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
+        state = np.empty(1, dtype=self.state_dtype)[0]
+        state["q_b2e"] = q_b2e
+        q_p2b = orientation.euler_to_quaternion(glider_eq["Theta_p2b"])
+        state["q_p2e"] = orientation.quaternion_product(q_b2e, q_p2b)
+        state["omega_b2e"] = [0, 0, 0]
+        state["omega_p2e"] = [0, 0, 0]
+        state["r_RM2O"] = [0, 0, 0]
+        state["v_RM2e"] = orientation.quaternion_rotate(
+            q_b2e * [-1, 1, 1, 1],
+            glider_eq["v_RM2e"],
+        )
+        state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
+        return state
 
 
 # ---------------------------------------------------------------------------
@@ -358,29 +411,19 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         The state trajectory.
     """
 
-    Theta_b2e = orientation.quaternion_to_euler(state0["q_b2e"])[0]
-
-    print("\nPreparing the simulation...\n")
-    print("Initial state:")
-    print("  Theta_b2e:", np.rad2deg(Theta_b2e).round(4))
-    if "q_p2b" in state0.dtype.names:
-        Theta_p2b = orientation.quaternion_to_euler(state0["q_p2b"])[0]
-        print("  Theta_p2b:", np.rad2deg(Theta_p2b).round(4))
-    print("  omega_b2e:", state0["omega_b2e"][0].round(4))
-    if "omega_p2e" in state0.dtype.names:
-        print("  omega_p2e:", state0["omega_p2e"][0].round(4))
-    print("      r_RM2O:", state0["r_RM2O"][0].round(4))
-    print("      v_RM2e:", state0["v_RM2e"][0].round(4))
-    print()
-
-    num_steps = int(np.ceil(T / dt)) + 1  # Include the initial state
-    times = np.zeros(num_steps)  # The simulation times
-    path = np.empty(num_steps, dtype=model.state_dtype)
+    K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
+    times = np.zeros(K)  # Simulation timestamps [sec]
+    path = np.empty(K, dtype=model.state_dtype)
     path[0] = state0
 
-    solver = scipy.integrate.ode(model.dynamics)
+    def _flattened_dynamics(t, y, params):
+        # Adapter function: the integrator requires a flat array of float
+        state_dot = model.dynamics(t, y.view(model.state_dtype)[0], params)
+        return state_dot.view(float)
+
+    solver = scipy.integrate.ode(_flattened_dynamics)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
-    solver.set_initial_value(state0.view(float))
+    solver.set_initial_value(state0.flatten().view(float))
     solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
 
     t_start = time.perf_counter()
@@ -388,12 +431,12 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     k = 1  # Number of completed states (including the initial state)
     print("Running the simulation...")
     try:
-        while solver.successful() and k < num_steps:
+        while solver.successful() and k < K:
             if k % 25 == 0:  # Update every 25 iterations
                 avg_rate = (k - 1) / (time.perf_counter() - t_start)  # k=0 was free
-                rem = (num_steps - k) / avg_rate  # Time remaining in seconds
+                rem = (K - k) / avg_rate  # Time remaining in seconds
                 msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
-            print(f"\rStep: {k} (t = {k*dt:.2f}). {msg}", end="")
+            print(f"\rStep: {k}/{K} (t = {k*dt:.2f}). {msg}", end="")
 
             # WARNING: `solver.integrate` returns a *reference* to `_y`, so
             #          modifying `state` modifies `solver._y` directly.
@@ -412,11 +455,11 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
         print("\n--- Simulation interrupted. ---")
 
     # Truncate if the simulation did not complete
-    if k < num_steps:
+    if k < K:
         times = times[:k]
         path = path[:k]
 
-    print(f"\nTotal simulation time: {time.perf_counter() - t_start}\n")
+    print(f"\nTotal simulation time: {time.perf_counter() - t_start:.2f}")
 
     return times, path
 
@@ -443,14 +486,50 @@ def recompute_derivatives(model, times, path):
     derivatives : array of model.state_dtype
         The derivatives of the state variables at each step.
     """
-    print("\nRe-running the dynamics to get the accelerations")
-    N = len(times)
-    derivatives = np.empty((N,), dtype=model.state_dtype)
+    print("Re-running the dynamics to get the accelerations")
+    K = len(times)
+    derivatives = np.empty((K,), dtype=model.state_dtype)
     params = {"solution": None}  # Is modified by `model.dynamics`
-    pf = path.view(float).reshape((N, -1))  # Ugly hack...
-    for n in range(N):
-        print(f"\r{n}/{N}", end="")
-        derivatives[n] = model.dynamics(times[n], pf[n], params).view(model.state_dtype)
+    for k in range(K):
+        print(f"\rStep: {k}/{K}", end="")
+        derivatives[k] = model.dynamics(times[k], path[k], params)
     print()
 
     return derivatives
+
+
+def prettyprint_state(state, header=None, footer=None):
+    """
+    Pretty-print the `state_dtype` for `Dynamics6a` and `Dynamics9a`.
+
+    Parameters
+    ----------
+    state : Dynamics6a.state_dtype or Dynamics9a.state_dtype
+        The state to pretty-print.
+    header : string, optional
+        A string to print on a separate line preceding the states.
+    footer : string, optional
+        A string to print on a separate line after the states.
+
+    Notes
+    -----
+    Don't rely on this function. It's here because I currently find it useful
+    in some scripting, but overall I'm not a fan of hard-coding this
+    information. Then again, I'm in crunch mode, so...
+    """
+    # FIXME: Review the existence/design of this function
+    Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
+    with np.printoptions(precision=4, suppress=True):
+        if header is not None:
+            print(header)
+        print("  Theta_b2e:", np.rad2deg(Theta_b2e))
+        if "q_p2e" in state.dtype.names:
+            Theta_p2e = orientation.quaternion_to_euler(state["q_p2e"])
+            print("  Theta_p2e:", np.rad2deg(Theta_p2e))
+        print("  omega_b2e:", state["omega_b2e"])
+        if "omega_p2e" in state.dtype.names:
+            print("  omega_p2e:", state["omega_p2e"])
+        print("     r_RM2O:", state["r_RM2O"])
+        print("     v_RM2e:", state["v_RM2e"])
+        if footer is not None:
+            print(footer)

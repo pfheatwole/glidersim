@@ -120,7 +120,13 @@ class Spherical(Harness):
         self._kappa_w = kappa_w  # FIXME: Strange notation to match `kappa_a`
 
     def control_points(self, delta_w=0):
-        return np.array([[0, delta_w * self._kappa_w, self._z_riser]])
+        delta_w = np.asarray(delta_w)
+        r_P2RM = [
+            np.zeros(delta_w.shape),
+            delta_w * self._kappa_w,
+            np.full(delta_w.shape, self._z_riser),
+        ]
+        return np.atleast_2d(np.array(r_P2RM).T)
 
     def forces_and_moments(self, v_W2h, rho_air):
         v2 = (v_W2h ** 2).sum()

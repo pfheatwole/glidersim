@@ -281,7 +281,7 @@ class ParagliderWing:
         delta_a,
         delta_b,
         v_mag,
-        rho_air,
+        rho_air=1.225,
         alpha_0=9,
         alpha_1=6,
         reference_solution=None,
@@ -300,7 +300,7 @@ class ParagliderWing:
             Fraction of symmetric brake, from 0 to 1
         v_mag : float [m/s]
             Airspeed
-        rho_air : float [kg/m^3]
+        rho_air : float [kg/m^3], optional
             Air density
         alpha_0 : float [rad], optional
             First guess for the equilibrium alpha search.

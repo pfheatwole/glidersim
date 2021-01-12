@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy.integrate
+import scipy.optimize
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3, crossmat
@@ -75,12 +76,12 @@ class Paraglider6a:
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -99,8 +100,6 @@ class Paraglider6a:
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -109,7 +108,9 @@ class Paraglider6a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -153,10 +154,7 @@ class Paraglider6a:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -306,36 +304,34 @@ class Paraglider6a:
 
     def equilibrium_state(
         self,
-        delta_a,
-        delta_b,
-        alpha_0,
-        theta_0,
-        v_0,
-        rho_air,
+        delta_a=0,
+        delta_b=0,
+        rho_air=1.225,
+        alpha_0=None,
+        theta_0=0,
+        v_0=10,
         reference_solution=None,
     ):
         """
         Compute the equilibrium glider state for given inputs.
 
-        Unlike `equilibrium_state2`, this uses the full model dynamics. It's
-        currently very slow since it simply waits for oscillations to settle.
-        The other method is very fast, but ignores factors such as the moments
-        due to the weight of the wing and harness.
+        Assumes that the wing is symmetric about the xz-plane.
 
         Parameters
         ----------
-        delta_a : float [percentage]
-            Percentage of accelerator application
-        delta_b : float [percentage]
-            Percentage of symmetric brake application
+        delta_a : float, optional
+            Fraction of accelerator application, where `0 <= delta_a <= 1`
+        delta_b : float, optional
+            Fraction of symmetric brake application, where `0 <= delta_b <= 1`
+        rho_air : float [kg/m^3], optional
+            Air density
         alpha_0 : float [rad], optional
-            An initial proposal for the body angle of attack.
+            An initial proposal for the body angle of attack. If no value is
+            set, the wing equilibrium alpha will be used.
         theta_0 : float [rad], optional
             An initial proposal for the body pitch angle.
         v_0 : float [m/s], optional
             An initial proposal for the body airspeed.
-        rho_air : float [kg/m^3]
-            Air density.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -343,206 +339,55 @@ class Paraglider6a:
         -------
         dictionary
             alpha_b : float [radians]
-                Angle of attack of the body (the wing)
+                Wing angle of attack
             gamma_b : float [radians]
-                Glide angle of the foil
+                Wing glide angle
             glide_ratio : float
                 Units of ground distance traveled per unit of altitude lost
             Theta_b2e : array of float, shape (3,) [radians]
-                Steady state orientation as a set of yaw-pitch-role angles
+                Equilibrium orientation of the body relative to Earth as a set
+                of Tait-Bryan yaw-pitch-role angles.
             v_RM2e : float [m/s]
-                Steady-state velocity in body coordinates
+                Steady-state velocity of the riser midpoint in body coordinates
             solution : dictionary
                 FIXME: docstring. See `Phillips.__call__`
         """
-        state_dtype = [
-            ("q_b2e", float, (4,)),  # Orientation quaternion, body/earth
-            ("v_RM2e", float, (3,)),  # Translational velocity in body frd
-            ("omega_b2e", float, (3,)),  # Angular velocity in body frd
-        ]
 
-        def dynamics(t, state, kwargs):
-            x = state.view(state_dtype)[0]
-            a_frd, alpha_frd, ref = self.accelerations(
-                x["v_RM2e"],
-                x["omega_b2e"],
-                orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-                **kwargs,
+        if alpha_0 is None:
+            alpha_0 = self.wing.equilibrium_alpha(
+                delta_a=delta_a,
+                delta_b=delta_b,
+                v_mag=v_0,
+                rho_air=rho_air,
+                reference_solution=reference_solution
             )
-            P, Q, R = x["omega_b2e"]
-            # fmt: off
-            Omega = np.array([
-                [0, -P, -Q, -R],
-                [P,  0,  R, -Q],
-                [Q, -R,  0,  P],
-                [R,  Q, -P,  0]])
-            # fmt: on
-            q_dot = 0.5 * Omega @ x["q_b2e"]
-            x_dot = np.empty(1, state_dtype)
-            x_dot["q_b2e"] = q_dot
-            x_dot["v_RM2e"] = a_frd
-            x_dot["omega_b2e"] = alpha_frd
-            kwargs["reference_solution"] = ref
-            return x_dot.view(float)  # The integrator expects a flat array
 
-        state = np.empty(1, state_dtype)
-        state["q_b2e"] = orientation.euler_to_quaternion([0, theta_0, 0])
-        state["v_RM2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
-        state["omega_b2e"] = [0, 0, 0]
-
-        dynamics_kwargs = {
+        _state = {
             "delta_a": delta_a,
             "delta_bl": delta_b,
             "delta_br": delta_b,
+            "omega_b2e": np.zeros(3),
             "rho_air": rho_air,
             "reference_solution": reference_solution,
         }
 
-        solver = scipy.integrate.ode(dynamics)
-        solver.set_integrator("dopri5", rtol=1e-5, max_step=0.25)
-        solver.set_f_params(dynamics_kwargs)
-
-        while True:
-            state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
-            solver.set_initial_value(state.view(float))
-            state = solver.integrate(3).view(state_dtype)
-            state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            a_frd, alpha_frd, _ = self.accelerations(
-                state["v_RM2e"][0],
-                state["omega_b2e"][0],
-                orientation.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
-                rho_air=rho_air,
-                delta_a=delta_a,
-                delta_bl=delta_b,
-                delta_br=delta_b,
-                reference_solution=dynamics_kwargs["reference_solution"],
+        def _helper(x, state):
+            v_x, v_z, theta_b2e = x
+            a_RM2e, alpha_b2e, ref = self.accelerations(
+                v_RM2e=[v_x, 0, v_z],
+                g=9.8 * np.array([-np.sin(theta_b2e), 0, np.cos(theta_b2e)]),
+                **state,
             )
+            _state["reference_solution"] = ref
+            return (a_RM2e[0], a_RM2e[2], alpha_b2e[1])
 
-            # FIXME: this test doesn't guarantee equilibria
-            if any(abs(a_frd) > 0.001) or any(abs(alpha_frd) > 0.001):
-                continue
-            else:
-                state = state[0]
-                break
-
-        alpha_b = np.arctan2(*state["v_RM2e"][[2, 0]])
-        Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
-        gamma_b = alpha_b - Theta_b2e[1]
-
-        equilibrium = {
-            "alpha_b": alpha_b,
-            "gamma_b": gamma_b,
-            "glide_ratio": 1 / np.tan(gamma_b),
-            "Theta_b2e": Theta_b2e,
-            "v_RM2e": state["v_RM2e"],
-            "reference_solution": dynamics_kwargs["reference_solution"],
-        }
-
-        return equilibrium
-
-    def equilibrium_state2(
-        self,
-        delta_a,
-        delta_b,
-        alpha_0,
-        theta_0,  # For compatibility with `equilibrium_state`; unused here.
-        v_0,
-        rho_air,
-        N_iter=2,
-        reference_solution=None,
-    ):
-        r"""
-        Compute the approximate equilibrium glider state for given inputs.
-
-        It is very fast, and is often a good estimate, but can be inaccurate.
-
-        Because the pitch angles of the wing and payload are relatively small,
-        this method ignores the moment due to the harness, which allows it to
-        use the zero-moment angle of attack of the wing to quickly compute the
-        (approximate) steady-state conditions using a closed for equation.
-
-        Parameters
-        ----------
-        delta_a : float [percentage]
-            Percentage of accelerator application
-        delta_b : float [percentage]
-            Percentage of symmetric brake application
-        alpha_0 : float [rad]
-            An initial proposal for the body angle of attack.
-        theta_0 : unused
-            This parameter is ignored by this function. It is included simply
-            for function signature compatibility with `equilibrium_state`.
-        v_0 : float [m/s]
-            An initial proposal for the equilibrium airspeed. This is required
-            to put the Reynolds numbers into a reasonable range.
-        rho_air : float [kg/m^3]
-            Air density.
-        N_iter : integer, optional
-            Number of iterations to account for the fact that the Reynolds
-            numbers (and thus the coefficients) vary with the solution for
-            the airspeed. If `v_0` is anywhere close to accurate, then one
-            or two iterations are usually sufficient. Default: 2
-        reference_solution : dictionary, optional
-            FIXME: docstring. See `Phillips.__call__`
-
-        Returns
-        -------
-        dictionary
-            alpha_b : float [radians]
-                Angle of attack of the body (the wing)
-            gamma_b : float [radians]
-                Glide angle of the foil
-            glide_ratio : float
-                Units of ground distance traveled per unit of altitude lost
-            Theta_b2e : array of float, shape (3,) [radians]
-                Steady state orientation as a set of yaw-pitch-role angles
-            v_RM2e : float [m/s]
-                Steady-state velocity in body coordinates
-            solution : dictionary
-                FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        Calculating the equilibrium airspeed :math:`\vec{v}_{eq}` takes
-        advantage of the fact that all the aerodynamic forces are proportional
-        to :math:`\vec{v}_{eq}^2`. Thus, by normalizing the forces to
-        :math:`\vec{v}_{eq} = 1`, the following equation can be solved for
-        :math:`\vec{v}_{eq}` directly using:
-
-        .. math::
-
-            \vec{v}_{eq}^2 \cdot \Sigma F_{z,aero} + m_p g \cdot \text{cos} \left( \theta \right)
-
-        where :math:`m_p` is the mass of the payload.
-        """
-
-        v_eq = v_0  # The initial guess
-        solution = reference_solution  # Approximate solution, if available
-        m_p = self.payload.mass_properties()["m_p"]
-
-        for _ in range(N_iter):
-            alpha_eq = self.wing.equilibrium_alpha(
-                delta_a,
-                delta_b,
-                v_eq,
-                rho_air,
-                alpha_0=np.rad2deg(alpha_0),
-                reference_solution=solution,
-            )
-            v_W2CP = -v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)])
-            dF_wing, dM_wing, solution = self.wing.forces_and_moments(
-                delta_a, delta_b, delta_b, v_W2CP, rho_air, solution,
-            )
-            dF_p, dM_p = self.payload.forces_and_moments(v_W2CP, rho_air)
-            F = dF_wing.sum(axis=0) + np.atleast_2d(dF_p).sum(axis=0)
-            F /= v_eq ** 2  # The equation for `v_eq` assumes `|v| == 1`
-
-            theta_eq = np.arctan2(F[0], -F[2])
-
-            # FIXME: neglects the weight of the wing
-            weight_z = 9.8 * m_p * np.cos(theta_eq)
-            v_eq = np.sqrt(-weight_z / F[2])
-
+        v_x_0 = v_0 * np.cos(alpha_0)
+        v_z_0 = v_0 * np.sin(alpha_0)
+        x0 = np.array([v_x_0, v_z_0, theta_0])
+        res = scipy.optimize.root(_helper, x0, _state)
+        v_RM2e = np.array([res.x[0], 0, res.x[1]])  # In body frd
+        alpha_eq = np.arctan2(v_RM2e[2], v_RM2e[0])
+        theta_eq = res.x[2]
         gamma_eq = alpha_eq - theta_eq
 
         equilibrium = {
@@ -550,8 +395,8 @@ class Paraglider6a:
             "gamma_b": gamma_eq,
             "glide_ratio": 1 / np.tan(gamma_eq),
             "Theta_b2e": np.array([0, theta_eq, 0]),
-            "v_RM2e": v_eq * np.array([np.cos(alpha_eq), 0, np.sin(alpha_eq)]),
-            "reference_solution": solution,
+            "v_RM2e": v_RM2e,
+            "reference_solution": _state["reference_solution"],
         }
 
         return equilibrium
@@ -587,12 +432,12 @@ class Paraglider6b(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -611,8 +456,6 @@ class Paraglider6b(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -621,7 +464,9 @@ class Paraglider6b(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -663,10 +508,7 @@ class Paraglider6b(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -819,12 +661,12 @@ class Paraglider6c(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -843,8 +685,6 @@ class Paraglider6c(Paraglider6a):
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -853,7 +693,9 @@ class Paraglider6c(Paraglider6a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -895,10 +737,7 @@ class Paraglider6c(Paraglider6a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -1090,12 +929,12 @@ class Paraglider9a:
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -1119,8 +958,6 @@ class Paraglider9a:
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1129,7 +966,9 @@ class Paraglider9a:
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1173,10 +1012,7 @@ class Paraglider9a:
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -1373,35 +1209,34 @@ class Paraglider9a:
 
     def equilibrium_state(
         self,
-        delta_a,
-        delta_b,
-        alpha_0,
-        theta_0,
-        v_0,
-        rho_air,
+        delta_a=0,
+        delta_b=0,
+        rho_air=1.225,
+        alpha_0=None,
+        theta_0=0,
+        v_0=10,
         reference_solution=None,
     ):
         """
-        Compute the equilibrium state through simulation.
+        Compute the equilibrium glider state for given inputs.
 
-        Unlike `equilibrium_glide`, this uses the full model dynamics. The
-        other method is very fast, but ignores things like the weight of the
-        wing.
+        Assumes that the wing is symmetric about the xz-plane.
 
         Parameters
         ----------
-        delta_a : float [percentage]
-            The percentage of accelerator.
-        delta_b : float [percentage]
-            The percentage of symmetric brake.
+        delta_a : float, optional
+            Fraction of accelerator application, where `0 <= delta_a <= 1`
+        delta_b : float, optional
+            Fraction of symmetric brake application, where `0 <= delta_b <= 1`
+        rho_air : float [kg/m^3], optional
+            Air density
         alpha_0 : float [rad], optional
-            The initial proposal for angle of attack.
+            An initial proposal for the body angle of attack. If no value is
+            set, the wing equilibrium alpha will be used.
         theta_0 : float [rad], optional
-            The initial proposal for glider pitch angle.
+            An initial proposal for the body pitch angle.
         v_0 : float [m/s], optional
-            The initial proposal for glider airspeed.
-        rho_air : float [kg/m^3]
-            Air density.
+            An initial proposal for the body airspeed.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -1409,138 +1244,70 @@ class Paraglider9a:
         -------
         dictionary
             alpha_b : float [radians]
-                Angle of attack of the body (the wing)
+                Wing angle of attack
             gamma_b : float [radians]
-                Glide angle
+                Wing glide angle
             glide_ratio : float
-                Horizontal vs vertical distance
+                Units of ground distance traveled per unit of altitude lost
             Theta_b2e : array of float, shape (3,) [radians]
-                Orientation: body/earth
-            Theta_p2b : array of float, shape (3,) [radians]
-                Orientation: payload/body
+                Equilibrium orientation of the body relative to Earth as a set
+                of Tait-Bryan yaw-pitch-role angles.
             v_RM2e : float [m/s]
-                Steady-state velocity in body coordinates
+                Steady-state velocity of the riser midpoint in body coordinates
             solution : dictionary
                 FIXME: docstring. See `Phillips.__call__`
         """
-        state_dtype = [
-            ("q_b2e", float, (4,)),  # Orientation: body/earth
-            ("q_p2e", float, (4,)),  # Orientation: payload/earth
-            ("omega_b2e", float, (3,)),  # Angular velocity of the body in body frd
-            ("omega_p2e", float, (3,)),  # Angular velocity of the payload in payload frd
-            ("v_RM2e", float, (3,)),  # The velocity of `RM` in ned
-        ]
 
-        def dynamics(t, state, kwargs):
-            x = state.view(state_dtype)[0]
-            q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
-            Theta_p2b = orientation.quaternion_to_euler(
-                orientation.quaternion_product(x["q_p2e"], q_e2b)
+        if alpha_0 is None:
+            alpha_0 = self.wing.equilibrium_alpha(
+                delta_a=delta_a,
+                delta_b=delta_b,
+                v_mag=v_0,
+                rho_air=rho_air,
+                reference_solution=reference_solution
             )
 
-            a_RM2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
-                x["v_RM2e"],
-                x["omega_b2e"],
-                x["omega_p2e"],
-                Theta_p2b,  # FIXME: design review the call signature
-                orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
-                **kwargs,
-            )
-
-            P, Q, R = x["omega_b2e"]
-            # fmt: off
-            Omega = np.array([
-                [0, -P, -Q, -R],
-                [P,  0,  R, -Q],
-                [Q, -R,  0,  P],
-                [R,  Q, -P,  0]])
-            # fmt: on
-            q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
-
-            omega_p2e = x["omega_p2e"]
-            P, Q, R = omega_p2e
-            # fmt: off
-            Omega = np.array([
-                [0, -P, -Q, -R],
-                [P,  0,  R, -Q],
-                [Q, -R,  0,  P],
-                [R,  Q, -P,  0]])
-            # fmt: on
-            q_p2e_dot = 0.5 * Omega @ x["q_p2e"]
-
-            x_dot = np.empty(1, state_dtype)
-            x_dot["q_b2e"] = q_b2e_dot
-            x_dot["q_p2e"] = q_p2e_dot
-            x_dot["omega_b2e"] = alpha_b2e
-            x_dot["omega_p2e"] = alpha_p2e
-            x_dot["v_RM2e"] = a_RM2e
-            kwargs["reference_solution"] = solution
-            return x_dot.view(float)  # The integrator expects a flat array
-
-        state = np.empty(1, state_dtype)
-        state["q_b2e"] = orientation.euler_to_quaternion([0, theta_0, 0])
-        state["q_p2e"] = [1, 0, 0, 0]  # Payload aligned to gravity (straight down)  # FIXME: add theta_p_0
-        state["omega_b2e"] = [0, 0, 0]
-        state["omega_p2e"] = [0, 0, 0]
-        state["v_RM2e"] = v_0 * np.array([np.cos(alpha_0), 0, np.sin(alpha_0)])
-
-        dynamics_kwargs = {
+        _state = {
             "delta_a": delta_a,
             "delta_bl": delta_b,
             "delta_br": delta_b,
+            "omega_b2e": np.zeros(3),
+            "omega_p2e": np.zeros(3),
             "rho_air": rho_air,
             "reference_solution": reference_solution,
         }
 
-        solver = scipy.integrate.ode(dynamics)
-        solver.set_integrator("dopri5", rtol=1e-5, max_step=0.05)
-        solver.set_f_params(dynamics_kwargs)
-
-        while True:
-            state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())
-            state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())
-            solver.set_initial_value(state.view(float))
-            state = solver.integrate(1).view(state_dtype)
-            state["omega_b2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-            state["omega_p2e"] = [0, 0, 0]  # Zero every step to avoid oscillations
-
-            q_e2b = state["q_b2e"][0] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
-            Theta_p2b = orientation.quaternion_to_euler(
-                orientation.quaternion_product(state["q_p2e"][0], q_e2b)
+        def _helper(x, state):
+            v_x, v_z, theta_b2e, theta_p2e = x
+            theta_p2b = theta_p2e - theta_b2e
+            a_RM2e, alpha_b2e, alpha_p2e, ref = self.accelerations(
+                v_RM2e=[v_x, 0, v_z],
+                g=9.8 * np.array([-np.sin(theta_b2e), 0, np.cos(theta_b2e)]),
+                Theta_p2b=[0, theta_p2b, 0],
+                **state,
             )
+            _state["reference_solution"] = ref
+            return (a_RM2e[0], a_RM2e[2], alpha_b2e[1], alpha_p2e[1])
 
-            a_RM2e, alpha_b2e, alpha_p2e, solution = self.accelerations(
-                state["v_RM2e"][0],
-                state["omega_b2e"][0],
-                state["omega_p2e"][0],
-                Theta_p2b,  # FIXME: design review the call signature
-                orientation.quaternion_rotate(state["q_b2e"][0], [0, 0, 9.8]),
-                **dynamics_kwargs,
-            )
-
-            # FIXME: this test doesn't guarantee equilibria
-            if (
-                any(abs(a_RM2e) > 0.001)
-                or any(abs(alpha_b2e) > 0.001)
-                or any(abs(alpha_p2e) > 0.001)
-            ):
-                continue
-            else:
-                state = state[0]
-                break
-
-        alpha_b = np.arctan2(*state["v_RM2e"][[2, 0]])
-        Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
-        gamma_b = alpha_b - Theta_b2e[1]
+        v_x_0 = v_0 * np.cos(alpha_0)
+        v_z_0 = v_0 * np.sin(alpha_0)
+        theta_p2e_0 = 0  # Assume the payload is hanging straight down
+        x0 = np.array([v_x_0, v_z_0, theta_0, theta_p2e_0])
+        res = scipy.optimize.root(_helper, x0, _state)
+        v_RM2e = np.array([res.x[0], 0, res.x[1]])
+        alpha_eq = np.arctan2(v_RM2e[2], v_RM2e[0])
+        theta_b2e = res.x[2]
+        theta_p2b = res.x[3] - res.x[2]
+        gamma_eq = alpha_eq - theta_b2e
 
         equilibrium = {
-            "alpha_b": alpha_b,
-            "gamma_b": gamma_b,
-            "glide_ratio": 1 / np.tan(gamma_b),
-            "Theta_b2e": Theta_b2e,
-            "Theta_p2b": Theta_p2b,
-            "v_RM2e": state["v_RM2e"],
-            "reference_solution": dynamics_kwargs["reference_solution"],
+            "alpha_b": alpha_eq,
+            "gamma_b": gamma_eq,
+            "glide_ratio": 1 / np.tan(gamma_eq),
+            "Theta_b2e": np.array([0, theta_b2e, 0]),
+            "Theta_p2b": np.array([0, theta_p2b, 0]),
+            "v_RM2e": v_RM2e,
+            "reference_solution": _state["reference_solution"],
         }
 
         return equilibrium
@@ -1589,12 +1356,12 @@ class Paraglider9b(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -1618,8 +1385,6 @@ class Paraglider9b(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1628,7 +1393,9 @@ class Paraglider9b(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1672,10 +1439,7 @@ class Paraglider9b(Paraglider9a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the
@@ -1856,12 +1620,12 @@ class Paraglider9c(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        rho_air,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
         delta_w=0,
-        v_W2e=None,
+        rho_air=1.225,
+        v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
     ):
@@ -1885,8 +1649,6 @@ class Paraglider9c(Paraglider9a):
             the relative orientation of the payload with respect to the body.
         g : array of float, shape (3,) [m/s^s]
             The gravity vector in body frd
-        rho_air : float [kg/m^3]
-            The ambient air density
         delta_a : float [percentage]
             The fraction of maximum accelerator
         delta_bl : float [percentage]
@@ -1895,7 +1657,9 @@ class Paraglider9c(Paraglider9a):
             The fraction of maximum right brake
         delta_w : float [percentage]
             The fraction of weight shift, from -1 (left) to +1 (right)
-        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s]
+        rho_air : float [kg/m^3], optional
+            Air density
+        v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
             The wind relative to the earth, in body frd coordinates. If it is a
             single vector, then the wind is uniform everywhere on the wing. If
             it is an ndarray, then it is the wind at each control point.
@@ -1939,10 +1703,7 @@ class Paraglider9c(Paraglider9a):
         field; for the non-uniform case, the control points are a required
         parameter to eliminate their redundant computation.
         """
-        if v_W2e is None:
-            v_W2e = np.array([0, 0, 0])
-        else:
-            v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asarray(v_W2e)
         if v_W2e.ndim > 1 and r_CP2RM is None:
             # FIXME: needs a design review. The idea was that if `v_W2e` is
             #        given for each individual control point, then require the

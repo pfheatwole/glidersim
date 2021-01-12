@@ -858,11 +858,6 @@ ParagliderWing
   in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
 
-* Review the elements in the `ParagliderWing.mass_properties` dictionary.
-  Things like `cm_solid` are ambiguous: should they be `r_S2R` or similar? I'm
-  using `B` for the body mass center, maybe `S` for solid mass center and `V`
-  for volume centroid?
-
 * Review parameter naming conventions (like `kappa_a`). Why "kappa"?
 
 * *Design* the "query control points, compute wind vectors, query dynamics"
@@ -934,7 +929,7 @@ Paraglider
   that confusion-inducing redundancy worth saving the little bit of time to
   recompute those `r_CP2R`?
 
-* I don't like `v_W2b` etc. It's confusing that it's different for each
+* I don't like `v_W2CP_b` etc. It's confusing that it's different for each
   control point. Conceptually, it's the local velocity of a parcel of air `W`,
   but the `W` is different for each control point. So it'd probably clean it
   up if I had some other symbol besides `W`; `Wcp` maybe?
@@ -961,22 +956,10 @@ Models
   bugs, so just because `Paraglider6a` and `Paraglider6c` agree doesn't mean
   they don't have shared flaws.
 
-* In `Paraglider6a` (and `Paraglider6c`? Granted, `B` is close to `R` for the
-  six DoF models, so `r_B2R` is only about 24cm long) if you use the wrong
-  equation for the derivative of angular momentum it makes the model dynamics
-  largely match the nine DoF models. Coincidence? **Seems like a pretty big
-  coincidence.** (The error: let `A2 = [m_B * quaternion.skew(r_B2R), J]`)
-
 * I'm not crazy about the name `forces_and_moments` if they don't include
   weight. Should be `aerodynamic_forces_and_moments`, but that's really long.
   Maybe call it `aerodynamics`? Or, **should the `ParagliderWing` and
   `Harness` be responsible for computing their own weight forces?**
-
-* Use `equilibrium_state2` for the initial guess in `equilibrium_state`?
-
-* Extend `equilibrium_state2` to `Paraglider9a`. I think it just needs an
-  approximate `Theta_p`, which will neglect the wing in the same way the
-  approximate wing solution neglects the payload.
 
 * If the center of mass moves (accelerator, weight shift, relative harness
   pitch, etc) the angular velocity must change in order to conserve angular
@@ -1073,18 +1056,9 @@ Apparent Inertia
 Simulator
 =========
 
-* Design review the `v_W2e` parameter of the dynamics models. The other
-  parameters can take a scalar input; should `v_W2e` accept a 3-vector of
-  float? (then `self.v_W2e = lambda t, r: np.broadcast_to(v_W2e, r`)
-
-* The simulator needs to understand that Phillips can fail, and
+* Ideally, the simulator would understand that Phillips can fail, and could
   degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
   failures; that design is a WIP.)
-
-* Design review support for early terminations (`Ctrl-C`) of fixed-length
-  simulations (eg, "run for 120sec").
-
-* Review the `GliderSim` state definitions (Dictionary? Structured array?)
 
 * Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,
   `first_step`, `max_step`, etc. Remember the simulation depends on the system
