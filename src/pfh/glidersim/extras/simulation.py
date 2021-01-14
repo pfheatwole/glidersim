@@ -69,11 +69,11 @@ def sample_paraglider_positions(
 
     This function is is not pretty; it was designed specifically for use with
     `plots.plot_3d_simulation_path` and depends heavily on the internal design
-    of Dynamics6a/Dynamics9a, but it meets my current crunch-time needs.
+    of ParagliderModel6a/ParagliderModel9a, but this is crunch-time.
 
     Parameters
     ----------
-    model : pfh.glidersim.simulator.Dynamics6a or pfh.glidersim.simulator.Dynamics9a
+    model : pfh.glidersim.simulator.ParagliderModel6a or pfh.glidersim.simulator.ParagliderModel9a
         The paraglider dynamics model that produced the states.
     states : array of model.state_dtype, shape (K,)
         The state values at each timestep.

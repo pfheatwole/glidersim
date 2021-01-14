@@ -357,12 +357,12 @@ def main():
         "v_W2e": (0, 0, 0),
     }
     sim_parameters.update(inputs)
-    model = gsim.simulator.Dynamics6a(paragliders["6a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(paragliders["6b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(paragliders["6c"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(paragliders["9a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(paragliders["9b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(paragliders["9c"], **sim_parameters)
+    model = gsim.simulator.ParagliderModel6a(paragliders["6a"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel6a(paragliders["6b"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel6a(paragliders["6c"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9a"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9b"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9c"], **sim_parameters)
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()

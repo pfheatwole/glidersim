@@ -10,8 +10,8 @@ from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
 
 
 __all__ = [
-    "Dynamics6a",
-    "Dynamics9a",
+    "ParagliderModel6a",
+    "ParagliderModel9a",
     "simulate",
     "prettyprint_state",
     "recompute_derivatives",
@@ -26,7 +26,7 @@ def __dir__():
 # Dynamics Models
 
 
-class Dynamics6a:
+class ParagliderModel6a:
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
     state_dtype = [
@@ -87,7 +87,7 @@ class Dynamics6a:
         ----------
         t : float [s]
             Time
-        state : Dynamics6a.state_dtype
+        state : ParagliderModel6a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -97,7 +97,7 @@ class Dynamics6a:
 
         Returns
         -------
-        state_dot : Dynamics6a.state_dtype
+        state_dot : ParagliderModel6a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
@@ -162,7 +162,7 @@ class Dynamics6a:
 
         Returns
         -------
-        gsim.simulator.Dynamics6a.state_dtype
+        gsim.simulator.ParagliderModel6a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -191,7 +191,7 @@ class Dynamics6a:
         return state
 
 
-class Dynamics9a:
+class ParagliderModel9a:
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
     state_dtype = [
@@ -255,7 +255,7 @@ class Dynamics9a:
         ----------
         t : float [s]
             Time
-        state : Dynamics9a.state_dtype
+        state : ParagliderModel9a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -265,7 +265,7 @@ class Dynamics9a:
 
         Returns
         -------
-        state_dot : Dynamics9a.state_dtype
+        state_dot : ParagliderModel9a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
@@ -347,7 +347,7 @@ class Dynamics9a:
 
         Returns
         -------
-        gsim.simulator.Dynamics9a.state_dtype
+        gsim.simulator.ParagliderModel9a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -475,7 +475,7 @@ def recompute_derivatives(model, times, states):
     Parameters
     ----------
     model : dynamics model
-        For now, this is either Dynamics6a or Dynamics9a
+        For now, this is either ParagliderModel6a or ParagliderModel9a
     times : array of float
         The time value at each step.
     states : array of model.state_dtype
@@ -500,11 +500,11 @@ def recompute_derivatives(model, times, states):
 
 def prettyprint_state(state, header=None, footer=None):
     """
-    Pretty-print the `state_dtype` for `Dynamics6a` and `Dynamics9a`.
+    Pretty-print the `state_dtype` for `ParagliderModel6a` and `ParagliderModel9a`.
 
     Parameters
     ----------
-    state : Dynamics6a.state_dtype or Dynamics9a.state_dtype
+    state : ParagliderModel6a.state_dtype or ParagliderModel9a.state_dtype
         The state to pretty-print.
     header : string, optional
         A string to print on a separate line preceding the states.
