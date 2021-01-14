@@ -14,6 +14,7 @@ select =
   B,  # bugbear defaults
   B9,  # bugbear's more "opionated" warnings
   BLK,  # black formatting compatibility
+  C,  # commas
   D,  # docstrings
   E,  # pycodestyle errors
   F,  # pyflakes
