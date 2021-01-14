@@ -52,24 +52,30 @@ def compute_euler_derivatives(Theta, omega):
     return Theta_dot
 
 
-def sample_glider_positions(model, path, times, samplerate=0.5, include_times=False):
+def sample_paraglider_positions(
+    model,
+    states,
+    times,
+    samplerate=0.5,
+    include_times=False,
+):
     """
     Sample reference points on the risers, wing, and payload for plotting.
 
     All positions are with respect to the global flat-earth origin `O`. The
-    path is downsampled (decimated) to approximately `samplerate` to avoid
-    excessive resolution when plotting; assumes the path was generated at a
-    fixed timestep.
+    state sequence is downsampled (decimated) to approximately `samplerate` to
+    avoid excessive resolution when plotting; assumes the states were generated
+    at a fixed timestep.
 
     This function is is not pretty; it was designed specifically for use with
     `plots.plot_3d_simulation_path` and depends heavily on the internal design
-    of Dynamics6a/Dynamics9a, but it meets my current crunch-time needs.
+    of ParagliderModel6a/ParagliderModel9a, but this is crunch-time.
 
     Parameters
     ----------
-    model : pfh.glidersim.simulator.Dynamics6a or pfh.glidersim.simulator.Dynamics9a
-        The paraglider dynamics model that produced the path.
-    path : array of model.state_dtype, shape (K,)
+    model : pfh.glidersim.simulator.ParagliderModel6a or pfh.glidersim.simulator.ParagliderModel9a
+        The paraglider dynamics model that produced the states.
+    states : array of model.state_dtype, shape (K,)
         The state values at each timestep.
     times : array of float, shape (K,) [sec]
         The timestamps.
@@ -98,20 +104,20 @@ def sample_glider_positions(model, path, times, samplerate=0.5, include_times=Fa
             interpretation of the plot is to think in terms of the orientation
             of the payload frame, not the payload center of mass.
     """
-    r_LE2RM = -model.glider.wing.r_RM2LE(model.delta_a(times))
+    r_LE2RM = -model.paraglider.wing.r_RM2LE(model.delta_a(times))
 
     # FIXME: assumes the payload has only one control point (r_P2RM^p)
-    r_P2RM = model.glider.payload.control_points(delta_w=0)
+    r_P2RM = model.paraglider.payload.control_points(delta_w=0)
 
-    q_e2b = path["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
-    if "q_p2e" in path.dtype.names:  # 9 DoF model
-        q_e2p = path["q_p2e"] * [-1, 1, 1, 1]
+    q_e2b = states["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
+    if "q_p2e" in states.dtype.names:  # 9 DoF model
+        q_e2p = states["q_p2e"] * [-1, 1, 1, 1]
     else:  # 6 DoF model
         q_e2p = q_e2b
 
-    r_RM2O = path["r_RM2O"]
-    r_LE2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
-    r_P2O = path["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
+    r_RM2O = states["r_RM2O"]
+    r_LE2O = states["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
+    r_P2O = states["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
 
     dt = times[1] - times[0]  # Assume a constant simulation timestep
     if samplerate is not None and samplerate > dt:

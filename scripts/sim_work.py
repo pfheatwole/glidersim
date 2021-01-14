@@ -55,7 +55,7 @@ def symmetric_brakes_fast_on_off(delta_b):
     t_fall = 0.5
     t_settle = 5
     braking = simulation.linear_control(
-        [(t_warmup, 0), (t_rise, delta_b), (t_hold, None), (t_fall, 0)]
+        [(t_warmup, 0), (t_rise, delta_b), (t_hold, None), (t_fall, 0)],
     )
     inputs = {
         "delta_bl": braking,
@@ -97,7 +97,7 @@ def continuous_right_turn(delta_w, delta_br):
     t_hold = 5
     inputs = {
         "delta_br": simulation.linear_control(
-            [(t_warmup + t_rise + t_hold, 0), (t_rise, delta_br)]
+            [(t_warmup + t_rise + t_hold, 0), (t_rise, delta_br)],
         ),
         "delta_w": simulation.linear_control([(t_warmup, 0), (t_rise, delta_w)]),
     }
@@ -137,7 +137,7 @@ def roll_yaw_coupling_with_accelerator():
             (t_start + t_warmup, 0),
             (t_rise, 0.75),
             (t_hold, None),
-            (t_fall, 0)
+            (t_fall, 0),
         ]),
     }
     T = t_start + t_warmup + t_hold + t_fall + 5
@@ -172,7 +172,7 @@ def ramping_headwind(t_rise=10, mag=-20):
 
     def _headwind(t, r):
         v_W2e = np.zeros(
-            (*gsim.util._broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3)
+            (*gsim.util._broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
         )
         v_W2e[..., 0] = _mag(t)
         return v_W2e
@@ -214,7 +214,7 @@ def centered_thermal(delta_a=0, delta_b=0, py=0, mag=-3, radius5=10):
             mag=mag,
             radius5=radius5,
             t_enable=0,
-        )
+        ),
     }
     T = 20
     return inputs, T
@@ -256,7 +256,7 @@ def lateral_gust(delta_a=0, delta_b=0):
 # ---------------------------------------------------------------------------
 
 
-def build_models(use_apparent_mass=True):
+def build_paragliders(use_apparent_mass=True):
     """Build a set of glider models from a common base configuration."""
     wing = gsim.extras.wings.build_hook3(verbose=False)
     harness = gsim.harness.Spherical(
@@ -268,13 +268,13 @@ def build_models(use_apparent_mass=True):
     )
 
     # 6 DoF models
-    glider_6a = gsim.paraglider.Paraglider6a(
+    paraglider_6a = gsim.paraglider.Paraglider6a(
         wing,
         harness,
         use_apparent_mass=use_apparent_mass,
     )
-    glider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
-    glider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
+    paraglider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
+    paraglider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
 
     # Coefficients for the spring-damper connection (9DoF models)
     # FIXME: naming?
@@ -282,21 +282,21 @@ def build_models(use_apparent_mass=True):
     kappa_RM_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
 
     # 9 DoF models
-    glider_9a = gsim.paraglider.Paraglider9a(
+    paraglider_9a = gsim.paraglider.Paraglider9a(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         use_apparent_mass=use_apparent_mass,
     )
-    glider_9b = gsim.paraglider.Paraglider9b(
+    paraglider_9b = gsim.paraglider.Paraglider9b(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         # No apparent mass
     )
-    glider_9c = gsim.paraglider.Paraglider9c(
+    paraglider_9c = gsim.paraglider.Paraglider9c(
         wing,
         harness,
         kappa_RM=kappa_RM,
@@ -305,12 +305,12 @@ def build_models(use_apparent_mass=True):
     )
 
     return {
-        "6a": glider_6a,
-        "6b": glider_6b,
-        "6c": glider_6c,
-        "9a": glider_9a,
-        "9b": glider_9b,
-        "9c": glider_9c,
+        "6a": paraglider_6a,
+        "6b": paraglider_6b,
+        "6c": paraglider_6c,
+        "9a": paraglider_9a,
+        "9b": paraglider_9b,
+        "9c": paraglider_9c,
     }
 
 
@@ -318,7 +318,7 @@ def main():
 
     use_apparent_mass = True
     # use_apparent_mass = False
-    models = build_models(use_apparent_mass=use_apparent_mass)
+    paragliders = build_paragliders(use_apparent_mass=use_apparent_mass)
 
     # -----------------------------------------------------------------------
     # Load a test scenario
@@ -357,44 +357,45 @@ def main():
         "v_W2e": (0, 0, 0),
     }
     sim_parameters.update(inputs)
-    model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(models["6b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(models["6c"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9c"], **sim_parameters)
+    model = gsim.simulator.ParagliderModel6a(paragliders["6a"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel6a(paragliders["6b"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel6a(paragliders["6c"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9a"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9b"], **sim_parameters)
+    # model = gsim.simulator.ParagliderModel9a(paragliders["9c"], **sim_parameters)
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()
     gsim.simulator.prettyprint_state(state0, "Initial state:", "")
     t_start = time.perf_counter()
-    dt = 0.25  # Time step for the `path` trajectory
-    times, path = gsim.simulator.simulate(model, state0, dt=dt, T=T)
-    path_dot = gsim.simulator.recompute_derivatives(model, times, path)
+    dt = 0.25  # Time step for the sequence of `states`
+    times, states = gsim.simulator.simulate(model, state0, dt=dt, T=T)
+    states_dot = gsim.simulator.recompute_derivatives(model, times, states)
     t_stop = time.perf_counter()
     print(f"\nTotal time: {t_stop - t_start:.2f}\n")
-    gsim.simulator.prettyprint_state(path[-1], "Final state:", "")
+    gsim.simulator.prettyprint_state(states[-1], "Final state:", "")
 
     # -----------------------------------------------------------------------
     # Extra values for verification/debugging
 
-    Theta_b2e = gsim.orientation.quaternion_to_euler(path["q_b2e"])
+    Theta_b2e = gsim.orientation.quaternion_to_euler(states["q_b2e"])
     Theta_b2e_dot = gsim.extras.simulation.compute_euler_derivatives(
-        Theta_b2e, path["omega_b2e"]
+        Theta_b2e,
+        states["omega_b2e"],
     )
 
     # -----------------------------------------------------------------------
     # Plots
 
     # 3D Plot: Position over time
-    points = gsim.extras.simulation.sample_glider_positions(model, path, times)
+    points = gsim.extras.simulation.sample_paraglider_positions(model, states, times)
     gsim.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))
     ax[0].plot(times, np.rad2deg(Theta_b2e))
-    ax[1].plot(times, np.rad2deg(path["omega_b2e"]))
-    ax[2].plot(times, np.rad2deg(path_dot["omega_b2e"]))
+    ax[1].plot(times, np.rad2deg(states["omega_b2e"]))
+    ax[2].plot(times, np.rad2deg(states_dot["omega_b2e"]))
     ax[0].set_ylabel("Theta_b2e [deg]")
     ax[1].set_ylabel("omega_b2e [deg]")
     ax[2].set_ylabel("alpha_b2e [deg]")

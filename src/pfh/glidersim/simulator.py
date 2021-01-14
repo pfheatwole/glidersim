@@ -10,8 +10,8 @@ from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
 
 
 __all__ = [
-    "Dynamics6a",
-    "Dynamics9a",
+    "ParagliderModel6a",
+    "ParagliderModel9a",
     "simulate",
     "prettyprint_state",
     "recompute_derivatives",
@@ -26,7 +26,7 @@ def __dir__():
 # Dynamics Models
 
 
-class Dynamics6a:
+class ParagliderModel6a:
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
     state_dtype = [
@@ -38,7 +38,7 @@ class Dynamics6a:
 
     def __init__(
         self,
-        glider,
+        paraglider,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -46,7 +46,7 @@ class Dynamics6a:
         rho_air=1.225,
         v_W2e=(0, 0, 0),
     ):
-        self.glider = glider
+        self.paraglider = paraglider
 
         def _wrap(name, val):
             if callable(val):
@@ -79,7 +79,7 @@ class Dynamics6a:
         #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, x, params):
+    def derivatives(self, t, state, params):
         """
         Compute the state derivatives from the model.
 
@@ -87,37 +87,37 @@ class Dynamics6a:
         ----------
         t : float [s]
             Time
-        x : Dynamics6a.state_dtype
+        state : ParagliderModel6a.state_dtype
             The current state
         params : dictionary
-            Any extra non-state parameters for computing the dynamics. Be aware
-            that 'solution' is an in-out parameter: solutions for the current
-            Gamma distribution are passed forward (output) to be used as the
-            proposal to the next time step.
+            Any extra non-state parameters for computing the derivatives. Be
+            aware that 'solution' is an in-out parameter: solutions for the
+            current Gamma distribution are passed forward (output) to be used
+            as the proposal to the next time step.
 
         Returns
         -------
-        x_dot : Dynamics6a.state_dtype
+        state_dot : ParagliderModel6a.state_dtype
             The state derivatives
         """
-        q_e2b = x["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
+        q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.glider.control_points(delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
+        r_CP2RM = self.paraglider.control_points(delta_a, delta_w)  # In body frd
+        r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_RM2e, alpha_b2e, solution = self.glider.accelerations(
-            orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
-            x["omega_b2e"],
-            orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
+        a_RM2e, alpha_b2e, solution = self.paraglider.accelerations(
+            orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
+            state["omega_b2e"],
+            orientation.quaternion_rotate(state["q_b2e"], [0, 0, 9.8]),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
             rho_air=self.rho_air(t),
-            v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
+            v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
@@ -126,7 +126,7 @@ class Dynamics6a:
 
         # Quaternion derivative
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
-        P, Q, R = x["omega_b2e"]
+        P, Q, R = state["omega_b2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -134,18 +134,18 @@ class Dynamics6a:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_dot = 0.5 * Omega @ x["q_b2e"]
+        q_dot = 0.5 * Omega @ state["q_b2e"]
 
-        x_dot = np.empty(1, self.state_dtype)
-        x_dot["q_b2e"] = q_dot
-        x_dot["r_RM2O"] = x["v_RM2e"]
-        x_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
-        x_dot["omega_b2e"] = alpha_b2e
+        state_dot = np.empty(1, self.state_dtype)
+        state_dot["q_b2e"] = q_dot
+        state_dot["r_RM2O"] = state["v_RM2e"]
+        state_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
+        state_dot["omega_b2e"] = alpha_b2e
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot
+        return state_dot
 
     def starting_equilibrium(self):
         """
@@ -162,7 +162,7 @@ class Dynamics6a:
 
         Returns
         -------
-        gsim.simulator.Dynamics6a.state_dtype
+        gsim.simulator.ParagliderModel6a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -173,7 +173,7 @@ class Dynamics6a:
             raise ValueError(
                 "Non-zero weight shift control input. Unable to calculate equilibrium."
             )
-        glider_eq = self.glider.equilibrium_state(
+        glider_eq = self.paraglider.equilibrium_state(
             delta_a=self.delta_a(0),
             delta_b=self.delta_bl(0),  # delta_bl == delta_br
             rho_air=self.rho_air(0),
@@ -191,7 +191,7 @@ class Dynamics6a:
         return state
 
 
-class Dynamics9a:
+class ParagliderModel9a:
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
     state_dtype = [
@@ -205,7 +205,7 @@ class Dynamics9a:
 
     def __init__(
         self,
-        glider,
+        paraglider,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -213,7 +213,7 @@ class Dynamics9a:
         rho_air=1.225,
         v_W2e=(0, 0, 0),
     ):
-        self.glider = glider
+        self.paraglider = paraglider
 
         def _wrap(name, val):
             if callable(val):
@@ -247,7 +247,7 @@ class Dynamics9a:
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, x, params):
+    def derivatives(self, t, state, params):
         """
         Compute the state derivatives from the model.
 
@@ -255,42 +255,42 @@ class Dynamics9a:
         ----------
         t : float [s]
             Time
-        x : Dynamics9a.state_dtype
+        state : ParagliderModel9a.state_dtype
             The current state
         params : dictionary
-            Any extra non-state parameters for computing the dynamics. Be aware
-            that 'solution' is an in-out parameter: solutions for the current
-            Gamma distribution are passed forward (output) to be used as the
-            proposal to the next time step.
+            Any extra non-state parameters for computing the derivatives. Be
+            aware that 'solution' is an in-out parameter: solutions for the
+            current Gamma distribution are passed forward (output) to be used
+            as the proposal to the next time step.
 
         Returns
         -------
-        x_dot : Dynamics9a.state_dtype
+        state_dot : ParagliderModel9a.state_dtype
             The state derivatives
         """
-        q_e2b = x["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
+        q_e2b = state["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
-            orientation.quaternion_product(q_e2b, x["q_p2e"])
+            orientation.quaternion_product(q_e2b, state["q_p2e"])
         )
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
-        r_CP2O = x["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
+        r_CP2RM = self.paraglider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
+        r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_RM2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
-            orientation.quaternion_rotate(x["q_b2e"], x["v_RM2e"]),
-            x["omega_b2e"],
-            x["omega_p2e"],
+        a_RM2e, alpha_b2e, alpha_p2e, solution = self.paraglider.accelerations(
+            orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
+            state["omega_b2e"],
+            state["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
-            orientation.quaternion_rotate(x["q_b2e"], [0, 0, 9.8]),
+            orientation.quaternion_rotate(state["q_b2e"], [0, 0, 9.8]),
             delta_a=delta_a,
             delta_bl=self.delta_bl(t),
             delta_br=self.delta_br(t),
             delta_w=delta_w,
             rho_air=self.rho_air(t),
-            v_W2e=orientation.quaternion_rotate(x["q_b2e"], v_W2e),
+            v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
@@ -299,7 +299,7 @@ class Dynamics9a:
 
         # Quaternion derivatives
         #  * ref: Stevens, Eq:1.8-15, p51 (65)
-        P, Q, R = x["omega_b2e"]
+        P, Q, R = state["omega_b2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -307,9 +307,9 @@ class Dynamics9a:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_b2e_dot = 0.5 * Omega @ x["q_b2e"]
+        q_b2e_dot = 0.5 * Omega @ state["q_b2e"]
 
-        P, Q, R = x["omega_p2e"]
+        P, Q, R = state["omega_p2e"]
         # fmt: off
         Omega = np.array([
             [0, -P, -Q, -R],
@@ -317,20 +317,20 @@ class Dynamics9a:
             [Q, -R,  0,  P],
             [R,  Q, -P,  0]])
         # fmt: on
-        q_p2e_dot = 0.5 * Omega @ x["q_p2e"]
+        q_p2e_dot = 0.5 * Omega @ state["q_p2e"]
 
-        x_dot = np.empty(1, self.state_dtype)
-        x_dot["q_b2e"] = q_b2e_dot
-        x_dot["q_p2e"] = q_p2e_dot
-        x_dot["omega_b2e"] = alpha_b2e
-        x_dot["omega_p2e"] = alpha_p2e
-        x_dot["r_RM2O"] = x["v_RM2e"]
-        x_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
+        state_dot = np.empty(1, self.state_dtype)
+        state_dot["q_b2e"] = q_b2e_dot
+        state_dot["q_p2e"] = q_p2e_dot
+        state_dot["omega_b2e"] = alpha_b2e
+        state_dot["omega_p2e"] = alpha_p2e
+        state_dot["r_RM2O"] = state["v_RM2e"]
+        state_dot["v_RM2e"] = orientation.quaternion_rotate(q_e2b, a_RM2e)
 
         # Use the solution as the reference_solution at the next time step
         params["solution"] = solution  # FIXME: needs a design review
 
-        return x_dot
+        return state_dot
 
     def starting_equilibrium(self):
         """
@@ -347,7 +347,7 @@ class Dynamics9a:
 
         Returns
         -------
-        gsim.simulator.Dynamics9a.state_dtype
+        gsim.simulator.ParagliderModel9a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -358,7 +358,7 @@ class Dynamics9a:
             raise ValueError(
                 "Non-zero weight shift control input. Unable to calculate equilibrium."
             )
-        glider_eq = self.glider.equilibrium_state(
+        glider_eq = self.paraglider.equilibrium_state(
             delta_a=self.delta_a(0),
             delta_b=self.delta_bl(0),  # delta_bl == delta_br
             rho_air=self.rho_air(0),
@@ -385,12 +385,12 @@ class Dynamics9a:
 
 def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     """
-    Generate a state trajectory using the model dynamics.
+    Generate a state trajectory using the model's state derivatives.
 
     Parameters
     ----------
     model
-        The model that provides `dynamics` and `state_dtype`
+        The model that provides `state_dtype` and `derivatives`
     state0 : model.state_dtype
         The initial state
     T : float [seconds]
@@ -407,24 +407,24 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     -------
     times : array of float, shape (K+1,) [seconds]
         The timestamp of each solution
-    path : array of `model.state_dtype`, shape (K+1,)
+    states : array of `model.state_dtype`, shape (K+1,)
         The state trajectory.
     """
 
     K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
     times = np.zeros(K)  # Simulation timestamps [sec]
-    path = np.empty(K, dtype=model.state_dtype)
-    path[0] = state0
+    states = np.empty(K, dtype=model.state_dtype)
+    states[0] = state0
 
-    def _flattened_dynamics(t, y, params):
+    def _flattened_derivatives(t, y, params):
         # Adapter function: the integrator requires a flat array of float
-        state_dot = model.dynamics(t, y.view(model.state_dtype)[0], params)
+        state_dot = model.derivatives(t, y.view(model.state_dtype)[0], params)
         return state_dot.view(float)
 
-    solver = scipy.integrate.ode(_flattened_dynamics)
+    solver = scipy.integrate.ode(_flattened_derivatives)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
     solver.set_initial_value(state0.flatten().view(float))
-    solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
+    solver.set_f_params({"solution": None})  # Is modified by `model.derivatives`
 
     t_start = time.perf_counter()
     msg = ""
@@ -445,7 +445,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
             #        integrator, but that's not what we want here.
             state = solver.integrate(solver.t + dt).view(model.state_dtype)
             model.cleanup(state, solver.t)  # Modifies `solver._y`!!
-            path[k] = state  # Makes a copy of `solver._y`
+            states[k] = state  # Makes a copy of `solver._y`
             times[k] = solver.t
             k += 1
     except RuntimeError as e:  # The model blew up
@@ -457,14 +457,14 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     # Truncate if the simulation did not complete
     if k < K:
         times = times[:k]
-        path = path[:k]
+        states = states[:k]
 
     print(f"\nTotal simulation time: {time.perf_counter() - t_start:.2f}")
 
-    return times, path
+    return times, states
 
 
-def recompute_derivatives(model, times, path):
+def recompute_derivatives(model, times, states):
     """
     Re-run the dynamics to access the state derivatives (accelerations).
 
@@ -475,10 +475,10 @@ def recompute_derivatives(model, times, path):
     Parameters
     ----------
     model : dynamics model
-        For now, this is either Dynamics6a or Dynamics9a
+        For now, this is either ParagliderModel6a or ParagliderModel9a
     times : array of float
         The time value at each step.
-    path : array of model.state_dtype
+    states : array of model.state_dtype
         The state of the simulation at each step.
 
     Returns
@@ -492,7 +492,7 @@ def recompute_derivatives(model, times, path):
     params = {"solution": None}  # Is modified by `model.dynamics`
     for k in range(K):
         print(f"\rStep: {k}/{K}", end="")
-        derivatives[k] = model.dynamics(times[k], path[k], params)
+        derivatives[k] = model.derivatives(times[k], states[k], params)
     print()
 
     return derivatives
@@ -500,11 +500,11 @@ def recompute_derivatives(model, times, path):
 
 def prettyprint_state(state, header=None, footer=None):
     """
-    Pretty-print the `state_dtype` for `Dynamics6a` and `Dynamics9a`.
+    Pretty-print the `state_dtype` for `ParagliderModel6a` and `ParagliderModel9a`.
 
     Parameters
     ----------
-    state : Dynamics6a.state_dtype or Dynamics9a.state_dtype
+    state : ParagliderModel6a.state_dtype or ParagliderModel9a.state_dtype
         The state to pretty-print.
     header : string, optional
         A string to print on a separate line preceding the states.

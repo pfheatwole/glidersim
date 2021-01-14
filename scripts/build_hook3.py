@@ -10,19 +10,19 @@ if __name__ == "__main__":
     print("\n-------------------------------------------------------------\n")
 
     use_6a = True
-    # use_6a = False  # Disable to use Paraglider9a
+    use_6a = False  # Disable to use Paraglider9a
 
     wing = gsim.extras.wings.build_hook3(verbose=True)
     harness = gsim.harness.Spherical(
         mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
     )
     if use_6a:
-        glider = gsim.paraglider.Paraglider6a(wing, harness)
+        paraglider = gsim.paraglider.Paraglider6a(wing, harness)
     else:
-        glider = gsim.paraglider.Paraglider9a(wing, harness)
+        paraglider = gsim.paraglider.Paraglider9a(wing, harness)
 
     print("Computing the glider equilibrium state...\n")
-    eq = glider.equilibrium_state()
+    eq = paraglider.equilibrium_state()
 
     # Compute the residual acceleration at the given equilibrium state
     q_b2e = orientation.euler_to_quaternion(eq["Theta_b2e"])
@@ -30,14 +30,14 @@ if __name__ == "__main__":
     v_RM2e = orientation.quaternion_rotate(q_e2b, eq["v_RM2e"])
 
     if use_6a:
-        a_RM2e, alpha_b2e, _ = glider.accelerations(
+        a_RM2e, alpha_b2e, _ = paraglider.accelerations(
             v_RM2e=eq["v_RM2e"],
             omega_b2e=[0, 0, 0],
             g=orientation.quaternion_rotate(q_b2e, [0, 0, 9.8]),
             reference_solution=eq["reference_solution"],
         )
     else:
-        a_RM2e, alpha_b2e, alpha_p2b, _ = glider.accelerations(
+        a_RM2e, alpha_b2e, alpha_p2b, _ = paraglider.accelerations(
             v_RM2e=eq["v_RM2e"],
             omega_b2e=[0, 0, 0],
             omega_p2e=[0, 0, 0],
@@ -66,4 +66,4 @@ if __name__ == "__main__":
     breakpoint()
 
     input("Plot the polar curve?  Press any key")
-    gsim.extras.compute_polars.plot_polar_curve(glider)
+    gsim.extras.compute_polars.plot_polar_curve(paraglider)

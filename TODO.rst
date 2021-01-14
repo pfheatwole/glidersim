@@ -1,3 +1,11 @@
+* **Why don't `ParagliderWing` and `Harness` compute their own weight forces
+  and moments?** If they don't include all the forces and moments, then the
+  name `forces_and_moments` is misleading. I would probably need to pass the
+  reference point for computing the moments, but so what? The `Paraglider`
+  should know that. Would clean up the `Paraglider.forces_and_moments` quite
+  a bit.
+
+
 * If users load airfoils with `extras/airfoils/load_datfile`, how does that
   function return whether the airfoil uses `delta_f`, and if so what is its
   `delta_max`?
@@ -43,11 +51,27 @@ Development
 Documentation
 -------------
 
+* Add `sphinx`, `numpydoc`, and `sphinx-rtd-theme` to `pyproject.toml`
+
+* Fix the index (`brake_geometry` was replaced by `line_geometry`)
+
+* Add a top-level introduction to the project, give the reader an overview of
+  the project structure.
+
+* Introduce each section, don't just link to the autosummaries
+
+* Review sphinx domains (eg, Python) and the roles they define (eg, `:py:attr:`
+  and `:py:class:`). Review the code for proper sphinx markup.
+
+* Review all (sub)package, module, and class docstrings. They should have
+  summaries, descriptions, parameters, attributes, etc.
+
+* How should I document `simulator.ParagliderModel6a.state_dtype`?
+
+
 * Should docstring types be "array of" or "ndarray of"? I lean towards
   "array", but would it be better to use the canonical name so sphinx can link
   to the numpy datatype documentation?
-
-* Lots of missing/incomplete docstrings, and particularly for modules.
 
 * Verify function docstrings match the signatures (`darglint` would be
   helpful, if only it worked)
@@ -122,6 +146,10 @@ Low priority
 
 Packaging
 ---------
+
+* Why do I need `python = "^3.6<3.9`? Why doesn't `python = "^3.6"` work? See
+  https://github.com/python-poetry/poetry/issues/743#issuecomment-474304798
+  I suspect a `poetry` bug; hopefully an update fixes this. Check it later.
 
 * Complete `README.rst`
 
@@ -832,7 +860,7 @@ Harness
 =======
 
 * Should `delta_w` move the control point, or just the cm? Weight shift is
-  mostly "inside" the harness.
+  mostly "inside" the payload volume.
 
 * Redefine the `SphericalHarness` to use the radius, not the projected area.
   The projected area is not a common way to define a sphere; using the radius
@@ -924,15 +952,11 @@ Paraglider
 
 * Fix the "magic layout" for the control points in the paraglider models
 
-* The call signature for ``Paraglider.accelerations`` has too many parameters!
-  It's weird to pass in `r_CP2R` since it's redundant with `delta_a`. Is
-  that confusion-inducing redundancy worth saving the little bit of time to
-  recompute those `r_CP2R`?
-
-* I don't like `v_W2CP_b` etc. It's confusing that it's different for each
-  control point. Conceptually, it's the local velocity of a parcel of air `W`,
-  but the `W` is different for each control point. So it'd probably clean it
-  up if I had some other symbol besides `W`; `Wcp` maybe?
+* The call signature for ``Paraglider.accelerations`` needs review. I pass
+  `delta_a` since that determines the control points and the wing inertia, but
+  `r_CP2RM` is only there to avoid recomputing them. (I think.) Is that
+  confusion-inducing redundancy worth saving the time to recompute the
+  `r_CP2RM`?
 
 
 Models
@@ -950,16 +974,6 @@ Models
   components of the dynamics matrix, so solving becomes painfully slow.
   Probably a good idea to adapt Slegers' 8 DoF model to constrain relative
   roll to zero.
-
-* Verify the common code for the 6 and 9 DoF models (`accelerations` and
-  `dynamics`) used by the Runge-Kutta integrator. Shared code means shared
-  bugs, so just because `Paraglider6a` and `Paraglider6c` agree doesn't mean
-  they don't have shared flaws.
-
-* I'm not crazy about the name `forces_and_moments` if they don't include
-  weight. Should be `aerodynamic_forces_and_moments`, but that's really long.
-  Maybe call it `aerodynamics`? Or, **should the `ParagliderWing` and
-  `Harness` be responsible for computing their own weight forces?**
 
 * If the center of mass moves (accelerator, weight shift, relative harness
   pitch, etc) the angular velocity must change in order to conserve angular
@@ -998,16 +1012,6 @@ Models
   a function of the accelerator (eg, you'd expect `a_R2e` to have a -z
   contribution while the accelerator is being moved).
 
-* Verify the roll-yaw coupling induced by the accelerator. For example, set
-  `delta_a = 0.85`, then compare `delta_br = 0.05` to `delta_br = 0.38` for
-  the Hook3 using `Paraglider6b`.
-
-* Weight shift has very little effect on the `Paraglider9a` model; the roll
-  restoring force is just too small. I tried bumping the coefficients but
-  never got good performance; the wing eventually becomes unstable. Could
-  investigate it more, but I suspect a linear spring+damper model just doesn't
-  cut it for the harness-riser connection.
-
 * Investigate applying the "Paraglider Flight Dynamics" (Bendetti, 2012)
   stability analyses in the context of my refactored design (eg, longitudinal
   static stability as a function of speed bar)
@@ -1044,13 +1048,14 @@ Apparent Inertia
   have?
 
 * I'm using Barrows equations for the *vehicle mass matrix*, which is
-  equivalent to Eq:9 from (Thomasson; 2000). The limitation is that **in this
-  formulation the relative accelerations mostly cancel**, so I'm not sure how
-  well it works in lift/sink. The Thomasson (2000) paper goes on to develop
-  a more general model in which the fluid medium may include **velocity
-  gradients** and **accelerations**. Both of those seem relevant to the
-  fine-resolution questions I'm asking of my paraglider dynamics (spanwise
-  velocity gradients when you're partially in a thermal, for example).
+  equivalent to Eq:9 from (Thomasson; 2000). The limitation is that **in
+  Barrows' formulation the relative accelerations mostly cancel**, so I'm not
+  sure how well it works when entering/leaving lift/sink. The Thomasson (2000)
+  paper goes on to develop a more general model in which the fluid medium may
+  include **velocity gradients** and **accelerations**. Both of those seem
+  relevant to the fine-resolution questions I'm asking of my paraglider
+  dynamics (spanwise velocity gradients when you're partially in a thermal,
+  for example).
 
 
 Simulator
@@ -1064,6 +1069,26 @@ Simulator
   `first_step`, `max_step`, etc. Remember the simulation depends on the system
   dynamics (the vehicle) as well as the input dynamics (frequency content of
   the brake, speedbar, and wind values).
+
+
+Pre-built models
+----------------
+
+* Right now the only wing I've coded is a "Niviuk Hook 3 23". I need more
+  wings (preferably at least one each from class A and C) for comparison and
+  demonstration (both of how to use the library and of the difference in wing
+  performance).
+
+  I should probably also have some "suggested" paraglider models using those
+  wings. Each wing has some info like weight limits; maybe that'd be good
+  enough. For now just choose the parameters myself.
+
+* For the prebuilt wings, should I have `hook3_23.canopy`, `hook3_23.wing`,
+  `hook3_23.glider6a`, etc?
+
+* For the prebuilt wings, they're made from specs. It'd be nice to standardize
+  comparing the known ("expected") specs against the actual results from the
+  coded version of that wing. (Right now my checks are in `build_hook3`.)
 
 
 Scenarios
@@ -1093,3 +1118,5 @@ Scenarios
   maneuver*. Not sure if you could capture this behavior using standard
   kernels for a Gaussian process; it might need an extra parameter akin to
   a "maneuver" variable.
+
+* Verify the roll-yaw coupling induced by the accelerator.
