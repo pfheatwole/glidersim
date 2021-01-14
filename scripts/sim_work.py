@@ -55,7 +55,7 @@ def symmetric_brakes_fast_on_off(delta_b):
     t_fall = 0.5
     t_settle = 5
     braking = simulation.linear_control(
-        [(t_warmup, 0), (t_rise, delta_b), (t_hold, None), (t_fall, 0)]
+        [(t_warmup, 0), (t_rise, delta_b), (t_hold, None), (t_fall, 0)],
     )
     inputs = {
         "delta_bl": braking,
@@ -97,7 +97,7 @@ def continuous_right_turn(delta_w, delta_br):
     t_hold = 5
     inputs = {
         "delta_br": simulation.linear_control(
-            [(t_warmup + t_rise + t_hold, 0), (t_rise, delta_br)]
+            [(t_warmup + t_rise + t_hold, 0), (t_rise, delta_br)],
         ),
         "delta_w": simulation.linear_control([(t_warmup, 0), (t_rise, delta_w)]),
     }
@@ -137,7 +137,7 @@ def roll_yaw_coupling_with_accelerator():
             (t_start + t_warmup, 0),
             (t_rise, 0.75),
             (t_hold, None),
-            (t_fall, 0)
+            (t_fall, 0),
         ]),
     }
     T = t_start + t_warmup + t_hold + t_fall + 5
@@ -172,7 +172,7 @@ def ramping_headwind(t_rise=10, mag=-20):
 
     def _headwind(t, r):
         v_W2e = np.zeros(
-            (*gsim.util._broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3)
+            (*gsim.util._broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
         )
         v_W2e[..., 0] = _mag(t)
         return v_W2e
@@ -214,7 +214,7 @@ def centered_thermal(delta_a=0, delta_b=0, py=0, mag=-3, radius5=10):
             mag=mag,
             radius5=radius5,
             t_enable=0,
-        )
+        ),
     }
     T = 20
     return inputs, T
@@ -380,7 +380,8 @@ def main():
 
     Theta_b2e = gsim.orientation.quaternion_to_euler(states["q_b2e"])
     Theta_b2e_dot = gsim.extras.simulation.compute_euler_derivatives(
-        Theta_b2e, states["omega_b2e"]
+        Theta_b2e,
+        states["omega_b2e"],
     )
 
     # -----------------------------------------------------------------------
