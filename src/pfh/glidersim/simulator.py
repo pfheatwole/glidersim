@@ -38,7 +38,7 @@ class Dynamics6a:
 
     def __init__(
         self,
-        glider,
+        paraglider,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -46,7 +46,7 @@ class Dynamics6a:
         rho_air=1.225,
         v_W2e=(0, 0, 0),
     ):
-        self.glider = glider
+        self.paraglider = paraglider
 
         def _wrap(name, val):
             if callable(val):
@@ -104,11 +104,11 @@ class Dynamics6a:
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.glider.control_points(delta_a, delta_w)  # In body frd
+        r_CP2RM = self.paraglider.control_points(delta_a, delta_w)  # In body frd
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_RM2e, alpha_b2e, solution = self.glider.accelerations(
+        a_RM2e, alpha_b2e, solution = self.paraglider.accelerations(
             orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
             state["omega_b2e"],
             orientation.quaternion_rotate(state["q_b2e"], [0, 0, 9.8]),
@@ -173,7 +173,7 @@ class Dynamics6a:
             raise ValueError(
                 "Non-zero weight shift control input. Unable to calculate equilibrium."
             )
-        glider_eq = self.glider.equilibrium_state(
+        glider_eq = self.paraglider.equilibrium_state(
             delta_a=self.delta_a(0),
             delta_b=self.delta_bl(0),  # delta_bl == delta_br
             rho_air=self.rho_air(0),
@@ -205,7 +205,7 @@ class Dynamics9a:
 
     def __init__(
         self,
-        glider,
+        paraglider,
         delta_a=0,
         delta_bl=0,
         delta_br=0,
@@ -213,7 +213,7 @@ class Dynamics9a:
         rho_air=1.225,
         v_W2e=(0, 0, 0),
     ):
-        self.glider = glider
+        self.paraglider = paraglider
 
         def _wrap(name, val):
             if callable(val):
@@ -275,11 +275,11 @@ class Dynamics9a:
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.glider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
+        r_CP2RM = self.paraglider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
-        a_RM2e, alpha_b2e, alpha_p2e, solution = self.glider.accelerations(
+        a_RM2e, alpha_b2e, alpha_p2e, solution = self.paraglider.accelerations(
             orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
             state["omega_b2e"],
             state["omega_p2e"],
@@ -358,7 +358,7 @@ class Dynamics9a:
             raise ValueError(
                 "Non-zero weight shift control input. Unable to calculate equilibrium."
             )
-        glider_eq = self.glider.equilibrium_state(
+        glider_eq = self.paraglider.equilibrium_state(
             delta_a=self.delta_a(0),
             delta_b=self.delta_bl(0),  # delta_bl == delta_br
             rho_air=self.rho_air(0),

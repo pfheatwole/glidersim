@@ -256,7 +256,7 @@ def lateral_gust(delta_a=0, delta_b=0):
 # ---------------------------------------------------------------------------
 
 
-def build_models(use_apparent_mass=True):
+def build_paragliders(use_apparent_mass=True):
     """Build a set of glider models from a common base configuration."""
     wing = gsim.extras.wings.build_hook3(verbose=False)
     harness = gsim.harness.Spherical(
@@ -268,13 +268,13 @@ def build_models(use_apparent_mass=True):
     )
 
     # 6 DoF models
-    glider_6a = gsim.paraglider.Paraglider6a(
+    paraglider_6a = gsim.paraglider.Paraglider6a(
         wing,
         harness,
         use_apparent_mass=use_apparent_mass,
     )
-    glider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
-    glider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
+    paraglider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
+    paraglider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
 
     # Coefficients for the spring-damper connection (9DoF models)
     # FIXME: naming?
@@ -282,21 +282,21 @@ def build_models(use_apparent_mass=True):
     kappa_RM_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
 
     # 9 DoF models
-    glider_9a = gsim.paraglider.Paraglider9a(
+    paraglider_9a = gsim.paraglider.Paraglider9a(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         use_apparent_mass=use_apparent_mass,
     )
-    glider_9b = gsim.paraglider.Paraglider9b(
+    paraglider_9b = gsim.paraglider.Paraglider9b(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         # No apparent mass
     )
-    glider_9c = gsim.paraglider.Paraglider9c(
+    paraglider_9c = gsim.paraglider.Paraglider9c(
         wing,
         harness,
         kappa_RM=kappa_RM,
@@ -305,12 +305,12 @@ def build_models(use_apparent_mass=True):
     )
 
     return {
-        "6a": glider_6a,
-        "6b": glider_6b,
-        "6c": glider_6c,
-        "9a": glider_9a,
-        "9b": glider_9b,
-        "9c": glider_9c,
+        "6a": paraglider_6a,
+        "6b": paraglider_6b,
+        "6c": paraglider_6c,
+        "9a": paraglider_9a,
+        "9b": paraglider_9b,
+        "9c": paraglider_9c,
     }
 
 
@@ -318,7 +318,7 @@ def main():
 
     use_apparent_mass = True
     # use_apparent_mass = False
-    models = build_models(use_apparent_mass=use_apparent_mass)
+    paragliders = build_paragliders(use_apparent_mass=use_apparent_mass)
 
     # -----------------------------------------------------------------------
     # Load a test scenario
@@ -357,12 +357,12 @@ def main():
         "v_W2e": (0, 0, 0),
     }
     sim_parameters.update(inputs)
-    model = gsim.simulator.Dynamics6a(models["6a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(models["6b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics6a(models["6c"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9a"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9b"], **sim_parameters)
-    # model = gsim.simulator.Dynamics9a(models["9c"], **sim_parameters)
+    model = gsim.simulator.Dynamics6a(paragliders["6a"], **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(paragliders["6b"], **sim_parameters)
+    # model = gsim.simulator.Dynamics6a(paragliders["6c"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(paragliders["9a"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(paragliders["9b"], **sim_parameters)
+    # model = gsim.simulator.Dynamics9a(paragliders["9c"], **sim_parameters)
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()
@@ -387,7 +387,7 @@ def main():
     # Plots
 
     # 3D Plot: Position over time
-    points = gsim.extras.simulation.sample_glider_positions(model, states, times)
+    points = gsim.extras.simulation.sample_paraglider_positions(model, states, times)
     gsim.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)

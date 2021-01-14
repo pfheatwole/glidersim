@@ -52,7 +52,13 @@ def compute_euler_derivatives(Theta, omega):
     return Theta_dot
 
 
-def sample_glider_positions(model, states, times, samplerate=0.5, include_times=False):
+def sample_paraglider_positions(
+    model,
+    states,
+    times,
+    samplerate=0.5,
+    include_times=False,
+):
     """
     Sample reference points on the risers, wing, and payload for plotting.
 
@@ -98,10 +104,10 @@ def sample_glider_positions(model, states, times, samplerate=0.5, include_times=
             interpretation of the plot is to think in terms of the orientation
             of the payload frame, not the payload center of mass.
     """
-    r_LE2RM = -model.glider.wing.r_RM2LE(model.delta_a(times))
+    r_LE2RM = -model.paraglider.wing.r_RM2LE(model.delta_a(times))
 
     # FIXME: assumes the payload has only one control point (r_P2RM^p)
-    r_P2RM = model.glider.payload.control_points(delta_w=0)
+    r_P2RM = model.paraglider.payload.control_points(delta_w=0)
 
     q_e2b = states["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
     if "q_p2e" in states.dtype.names:  # 9 DoF model
