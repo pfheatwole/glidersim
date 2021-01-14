@@ -79,7 +79,7 @@ class Dynamics6a:
         #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, state, params):
+    def derivatives(self, t, state, params):
         """
         Compute the state derivatives from the model.
 
@@ -90,10 +90,10 @@ class Dynamics6a:
         state : Dynamics6a.state_dtype
             The current state
         params : dictionary
-            Any extra non-state parameters for computing the dynamics. Be aware
-            that 'solution' is an in-out parameter: solutions for the current
-            Gamma distribution are passed forward (output) to be used as the
-            proposal to the next time step.
+            Any extra non-state parameters for computing the derivatives. Be
+            aware that 'solution' is an in-out parameter: solutions for the
+            current Gamma distribution are passed forward (output) to be used
+            as the proposal to the next time step.
 
         Returns
         -------
@@ -247,7 +247,7 @@ class Dynamics9a:
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
-    def dynamics(self, t, state, params):
+    def derivatives(self, t, state, params):
         """
         Compute the state derivatives from the model.
 
@@ -258,10 +258,10 @@ class Dynamics9a:
         state : Dynamics9a.state_dtype
             The current state
         params : dictionary
-            Any extra non-state parameters for computing the dynamics. Be aware
-            that 'solution' is an in-out parameter: solutions for the current
-            Gamma distribution are passed forward (output) to be used as the
-            proposal to the next time step.
+            Any extra non-state parameters for computing the derivatives. Be
+            aware that 'solution' is an in-out parameter: solutions for the
+            current Gamma distribution are passed forward (output) to be used
+            as the proposal to the next time step.
 
         Returns
         -------
@@ -385,12 +385,12 @@ class Dynamics9a:
 
 def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     """
-    Generate a state trajectory using the model dynamics.
+    Generate a state trajectory using the model's state derivatives.
 
     Parameters
     ----------
     model
-        The model that provides `dynamics` and `state_dtype`
+        The model that provides `state_dtype` and `derivatives`
     state0 : model.state_dtype
         The initial state
     T : float [seconds]
@@ -416,15 +416,15 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     states = np.empty(K, dtype=model.state_dtype)
     states[0] = state0
 
-    def _flattened_dynamics(t, y, params):
+    def _flattened_derivatives(t, y, params):
         # Adapter function: the integrator requires a flat array of float
-        state_dot = model.dynamics(t, y.view(model.state_dtype)[0], params)
+        state_dot = model.derivatives(t, y.view(model.state_dtype)[0], params)
         return state_dot.view(float)
 
-    solver = scipy.integrate.ode(_flattened_dynamics)
+    solver = scipy.integrate.ode(_flattened_derivatives)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
     solver.set_initial_value(state0.flatten().view(float))
-    solver.set_f_params({"solution": None})  # Is modified by `model.dynamics`
+    solver.set_f_params({"solution": None})  # Is modified by `model.derivatives`
 
     t_start = time.perf_counter()
     msg = ""
@@ -492,7 +492,7 @@ def recompute_derivatives(model, times, states):
     params = {"solution": None}  # Is modified by `model.dynamics`
     for k in range(K):
         print(f"\rStep: {k}/{K}", end="")
-        derivatives[k] = model.dynamics(times[k], states[k], params)
+        derivatives[k] = model.derivatives(times[k], states[k], params)
     print()
 
     return derivatives
