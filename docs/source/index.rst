@@ -13,7 +13,7 @@ An introductory message goes here.
    :toctree: _autosummary
 
    pfh.glidersim.airfoil
-   pfh.glidersim.brake_geometry
+   pfh.glidersim.line_geometry
    pfh.glidersim.harness
    pfh.glidersim.foil
    pfh.glidersim.paraglider_wing
