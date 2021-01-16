@@ -1846,7 +1846,7 @@ class Phillips(ForceEstimator):
         #  * ref: Phillips Eq:9 (dimensional) or Eq:12 (dimensionless)
         V_n = np.einsum("ik,ik->i", V, self.u_n)  # Normal-wise
         V_a = np.einsum("ik,ik->i", V, self.u_a)  # Chordwise
-        alpha = np.arctan(V_n / V_a)
+        alpha = np.arctan2(V_n, V_a)
 
         return V, V_n, V_a, alpha
 
