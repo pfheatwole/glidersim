@@ -51,8 +51,6 @@ Development
 Documentation
 -------------
 
-* Add `sphinx`, `numpydoc`, and `sphinx-rtd-theme` to `pyproject.toml`
-
 * Fix the index (`brake_geometry` was replaced by `line_geometry`)
 
 * Add a top-level introduction to the project, give the reader an overview of
