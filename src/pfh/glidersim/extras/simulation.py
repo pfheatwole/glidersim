@@ -181,7 +181,7 @@ class CircularThermal:
         The x and y coordinates of the thermal center
     mag : float [m/s]
         The magnitude of the thermal center
-    radius95 : float [m]
+    radius5 : float [m]
         The distance from the center where the magnitude has dropped to 5%
     t_enable : float [sec], optional
         The time the output magnitudes switches from zero to `mag.`
