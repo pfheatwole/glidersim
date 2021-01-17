@@ -1,35 +1,5 @@
-* **Why don't `ParagliderWing` and `Harness` compute their own weight forces
-  and moments?** If they don't include all the forces and moments, then the
-  name `forces_and_moments` is misleading. I would probably need to pass the
-  reference point for computing the moments, but so what? The `Paraglider`
-  should know that. Would clean up the `Paraglider.forces_and_moments` quite
-  a bit.
-
-
-* If users load airfoils with `extras/airfoils/load_datfile`, how does that
-  function return whether the airfoil uses `delta_f`, and if so what is its
-  `delta_max`?
-
-* Rename `delta_max` to `delta_f_max`, since `delta_f` is what
-  `AirfoilCoefficients` uses for trailing edge deflections.
-
-
-* Review `scripts/flat_wings.py`. Depends on pandas, hard coded paths to
-  airfoil data, etc. Maybe just delete it? If it's going to stick around it
-  should be more obvious that it's for checking `Phillips` against XFLR5.
-
-* Convert `convert_xflr5_coefs_to_grid.py` into a proper CLI tool. Probably
-  start by renaming it to `resample_xfoil_polars.py` or similar.
-
-* It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
-  moment. It's fine for small displacements, but doesn't make sense for larger
-  deviations.
-
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
   a bug because I used `r_LE2RM` instead of a vague function name.)
-
-* Question: are the "rectangles" you get from sampling `s` and `sa`
-  "quadrilaterals"?
 
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
@@ -56,8 +26,11 @@ Documentation
 
 * Introduce each section, don't just link to the autosummaries
 
-* Review sphinx domains (eg, Python) and the roles they define (eg, `:py:attr:`
-  and `:py:class:`). Review the code for proper sphinx markup.
+* Review sphinx domains and the roles they define (eg, `:py:attr:` and
+  `:py:class:`; think of `:class:` as being a role scoped inside the `:py`
+  domain.) Not sure if I like fully-specified sphinx markup; it makes the
+  docstrings a lot more messy (eg, instead of `LineGeometry` it's a concrete
+  class like `:py:class:`pfh.glidersim.line_geometry.SimpleLineGeometry`)
 
 * Review all (sub)package, module, and class docstrings. They should have
   summaries, descriptions, parameters, attributes, etc.
@@ -282,6 +255,13 @@ Geometry
 Coefficients
 ------------
 
+* If users load airfoils with `extras/airfoils/load_datfile`, how does that
+  function return whether the airfoil uses `delta_f`, and if so what is its
+  `delta_max`?
+
+* Rename `delta_max` to `delta_f_max`, since `delta_f` is what
+  `AirfoilCoefficients` uses for trailing edge deflections.
+
 * Verify the polar curves, especially for flapped airfoils.
 
   The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
@@ -402,6 +382,9 @@ Parametric functions
 
 FoilGeometry
 ============
+
+* Question: are the "rectangles" you get from sampling `s` and `sa`
+  "quadrilaterals"?
 
 * I refer to `FoilGeometry` in several places, but there's only one:
   `SimpleFoil`. There's no abstract base class anymore. Should there be? It'd
@@ -878,6 +861,10 @@ LineGeometry
 ParagliderWing
 ==============
 
+* My definition of *pitching angle* conflicts with the notion of a *rigging
+  angle* (see `iacomini1999InvestigationLargeScale`), which is essentially
+  a built-in offset to the pitching angle.
+
 * Do speed bars on real wings decrease the length of all lines, or just those
   in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
@@ -957,6 +944,17 @@ Paraglider
 
 Models
 ------
+
+* **Why don't `ParagliderWing` and `Harness` compute their own weight forces
+  and moments?** If they don't include all the forces and moments, then the
+  name `forces_and_moments` is misleading. I would probably need to pass the
+  reference point for computing the moments, but so what? The `Paraglider`
+  should know that. Would clean up the `Paraglider.forces_and_moments` quite
+  a bit.
+
+* It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
+  moment. It's fine for small displacements, but doesn't make sense for larger
+  deviations.
 
 * How hard would it be to code up a linearized paraglider model? It'd be
   fascinating to see how the linear assumption performed, both in terms of
@@ -1057,6 +1055,12 @@ Apparent Inertia
 Simulator
 =========
 
+* The simulator should use `R` instead of `RM`. The dynamics model can choose
+  which a particular reference point, but the simulator itself shouldn't care.
+  (Maybe you wanted a dynamics model that uses the center of mass, or you
+  wanted to implement a hang glider, etc.) Using `R` would make it easier to
+  reuse the simulator `states` output in things like plots.
+
 * Ideally, the simulator would understand that Phillips can fail, and could
   degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
   failures; that design is a WIP.)
@@ -1116,3 +1120,15 @@ Scenarios
   a "maneuver" variable.
 
 * Verify the roll-yaw coupling induced by the accelerator.
+
+
+Scripts
+=======
+
+* Review `scripts/flat_wings.py`. Depends on pandas, hard coded paths to
+  airfoil data, etc. Maybe just delete it? If it's going to stick around it
+  should be more obvious that it's for checking `Phillips` against XFLR5.
+
+* Convert `convert_xflr5_coefs_to_grid.py` into a proper CLI tool. Probably
+  start by renaming it to `resample_xfoil_polars.py` or similar.
+
