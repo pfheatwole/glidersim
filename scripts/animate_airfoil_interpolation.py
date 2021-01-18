@@ -11,8 +11,8 @@ airfoil1 = gsim.airfoil.NACA(24018)
 # airfoil1 = gsim.airfoil.NACA(7111, convention='perpendicular')
 airfoil2 = gsim.airfoil.NACA(7911, convention='perpendicular')
 
-gsim.plots.plot_airfoil_geo(airfoil1)
-gsim.plots.plot_airfoil_geo(airfoil2)
+gsim.extras.plots.plot_airfoil_geo(airfoil1)
+gsim.extras.plots.plot_airfoil_geo(airfoil2)
 
 fig, axes = plt.subplots(2)
 axes[0].set_xlim(-0.1, 1.1)

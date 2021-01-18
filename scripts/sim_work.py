@@ -390,7 +390,7 @@ def main():
 
     # 3D Plot: Position over time
     points = gsim.extras.simulation.sample_paraglider_positions(model, states, times)
-    gsim.plots.plot_3d_simulation_path(**points, show=False)
+    gsim.extras.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))

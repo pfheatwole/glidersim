@@ -416,7 +416,7 @@ foil = gsim.foil.SimpleFoil(
     b_flat=10,
 )
 
-pfh.glidersim.plots.plot_foil(foil)
+pfh.glidersim.extras.plots.plot_foil(foil)
 """
     code_text = axes[0].text(
         0,
@@ -427,7 +427,7 @@ pfh.glidersim.plots.plot_foil(foil)
         transform=axes[0].transAxes,
         verticalalignment="center",
     )
-    foil_artists = gsim.plots.plot_foil(foil, N_sections=51, ax=axes[1])
+    foil_artists = gsim.extras.plots.plot_foil(foil, N_sections=51, ax=axes[1])
 
     return (code_text, *foil_artists)
 
