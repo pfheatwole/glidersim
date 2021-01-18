@@ -40,7 +40,7 @@ Documentation
   `:py:class:`; think of `:class:` as being a role scoped inside the `:py`
   domain.) Not sure if I like fully-specified sphinx markup; it makes the
   docstrings a lot more messy (eg, instead of `LineGeometry` it's a concrete
-  class like `:py:class:`pfh.glidersim.line_geometry.SimpleLineGeometry`)
+  class like `:py:class:`pfh.glidersim.paraglider.Paraglider6a`)
 
 * Review all (sub)package, module, and class docstrings. They should have
   summaries, descriptions, parameters, attributes, etc.
@@ -860,10 +860,10 @@ Harness
   just just makes more sense.
 
 
-LineGeometry
-============
+Line geometry
+=============
 
-* The line parameters in `line_geometry` are super long. Should they be
+* The line parameters in `SimpleLineGeometry` are super long. Should they be
   `kappa`-ized?
 
 * Review the "4 riser speed system" in the "Paraglider design handbook":
@@ -875,7 +875,7 @@ LineGeometry
 ParagliderWing
 ==============
 
-* Documentation: one of the limitations of this model is the `line_geometry`
+* Documentation: one of the limitations of this model is the line geometry
   assumes the total line length (for the line drag) is constant. Technically
   the lines get shorter when the accelerator is applied, but my model assumes
   the effect of that segment is negligible.
