@@ -1,31 +1,28 @@
 pfh.glidersim
 =============
 
-.. Summary
-
-[[Short summary here]]
-
-
-Overview
---------
-
-.. What is it?
+.. Summary: what is it?
 
 A parafoil design tool and simulator written in python.
 
-Written to support `my thesis <https://pfheatwole.github.io/thesis>`. I needed
-a paraglider dynamics model suitable for use in statistical state estimation.
+Written to support `my thesis <https://pfheatwole.github.io/thesis>`_.
+I needed a paraglider dynamics model suitable for use in statistical state
+estimation.
 
 
 Purpose
-^^^^^^^
+-------
 
 .. What problems is it intended to solve?
 
-Enable easier wing design (versus existing, freely-available wing design
-tools), enable simulating specific flight scenarios (eg, off-center thermal
-interactions), provide simple access to state derivatives for flight
-simulation.
+This project was motivated by several, specific tasks:
+
+* To enable usefully-accurate approximations of existing paraglider wings with
+  as little information and effort as possible
+
+* To provide direct access to state derivatives for flight simulation
+
+* To simulate specific flight scenarios (eg, off-center thermal interactions)
 
 .. Who are the intended users?
 
@@ -35,7 +32,7 @@ control systems, performing flight reconstruction, etc)
 
 
 Functionality
-^^^^^^^^^^^^^
+-------------
 
 .. What tasks is it intended to perform?
 
@@ -44,7 +41,7 @@ simulating flights, etc.]]
 
 
 Features
-^^^^^^^^
+--------
 
 .. What tools does it provide to accomplish the desired tasks? What makes it
    special?
@@ -60,15 +57,18 @@ Features
     information about the wing; this tool enables **creating** the wing in the
     first place from basic geometric descriptions.
 
-  * Simulations follow a strict, minimalist, math-centric interface:
+  * The purpose of a glider model is to define a dynamics function that
+    follows a strict, minimalist, math-centric interface:
 
-    `\dot{x} = f(x, u)`
+    :math:`\dot{x} = f(x, u)`
 
+    Where :math:`x` is the model state, and :math:`u` are the model inputs.
     Maintaining the standard mathematical form of a differential equation
-    makes it much easier to create tools using the dynamics. The primary need
-    that motivated this project was statistical state estimation; exposing the
+    makes it much easier to create tools using the dynamics. The primary
+    motivation of this project was statistical state estimation; exposing the
     wing dynamics as a differential equation makes them directly usable for
-    defining the transition function.
+    defining the transition function. [[**So the ultimate purpose of this
+    library is to help build tools that need paraglider dynamics?**]]
 
     [[Keep the project focused; provide the dynamics as a simple math
     function, and let users build the tools on top.]]
@@ -110,14 +110,21 @@ Examples
 Development
 -----------
 
-Design
-^^^^^^
+
+Design goals
+^^^^^^^^^^^^
 
 .. What are the guiding design principles?
 
-Code should mirror the math whenever reasonable. It is much easier to use and
-extend results from literature if the implementation matches the published
-work. It should be clear where equations come from.
+* Avoid deep structure. Flat is preferred.
+
+* Stateless models.
+
+* Code that implements math should mirror the math.
+
+  At least, as closely as reasonably possible. It is much easier to use and
+  extend results from literature if their implementation matches the published
+  work. It should be clear where equations come from.
 
 
 Source
@@ -130,7 +137,7 @@ https://github.com/pfheatwole/pfh.glidersim/
 Support
 ^^^^^^^
 
-* `Issue tracker <https://github.com/pfheatwole/pfh.glidersim/issues>`
+* `Issue tracker <https://github.com/pfheatwole/pfh.glidersim/issues>`_
 
 * FAQ?
 

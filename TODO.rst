@@ -21,9 +21,12 @@ Development
 Documentation
 -------------
 
+* In Sphinx there is already a "Module index" (via ":ref:`modindex`"). The
+  "Library reference" section kind of overlaps with that?
+
 * I'm modeling my `README.rst` after the template taken from "write the docs":
   https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/. Review
-  that template later.
+  that template later, see if my changes missed anything important.
 
 * Should I remove the `sys.path` manipulation? If it's installed in a venv
   that shouldn't be necessary.
@@ -261,6 +264,10 @@ Geometry
 
 Coefficients
 ------------
+
+* In `XFLR5Coefficients`, instead of checking `self.flapped` every call to
+  a coefficient function, maybe just add a `delta_f = 0` column when building
+  the `LinearNDInterpolator`? Not sure that class can interpolate a line.
 
 * If users load airfoils with `extras/airfoils/load_datfile`, how does that
   function return whether the airfoil uses `delta_f`, and if so what is its
