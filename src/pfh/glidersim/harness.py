@@ -1,3 +1,5 @@
+"""FIXME: add module docstring"""
+
 import abc
 
 import numpy as np

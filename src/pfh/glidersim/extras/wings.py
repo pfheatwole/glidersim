@@ -1,3 +1,5 @@
+"""FIXME: add module docstring"""
+
 import numpy as np
 
 import pfh.glidersim as gsim

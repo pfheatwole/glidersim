@@ -1,27 +1,23 @@
-.. Paraglider Model documentation master file, created by
-   sphinx-quickstart on Wed Nov 27 10:41:04 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Welcome to glidersim's documentation!
+=====================================
 
-Welcome to Paraglider Model's documentation!
-============================================
-
-An introductory message goes here.
+[[Brief intro sentence here, then preview the overview the sections.]]
 
 
-.. autosummary::
-   :toctree: _autosummary
+Contents
+--------
 
-   pfh.glidersim.airfoil
-   pfh.glidersim.brake_geometry
-   pfh.glidersim.harness
-   pfh.glidersim.foil
-   pfh.glidersim.paraglider_wing
-   pfh.glidersim.paraglider
+.. toctree::
+   :maxdepth: 2
+
+   introduction
+   design
+   usage
+   reference
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
