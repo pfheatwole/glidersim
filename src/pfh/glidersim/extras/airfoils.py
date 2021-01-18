@@ -1,3 +1,5 @@
+"""FIXME: add module docstring"""
+
 from pathlib import Path
 
 import numpy as np

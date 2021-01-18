@@ -1,3 +1,5 @@
+"""FIXME: add module docstring"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 

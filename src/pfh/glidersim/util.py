@@ -1,3 +1,5 @@
+"""FIXME: add module docstring"""
+
 from numba import float64, guvectorize, njit
 import numpy as np
 
