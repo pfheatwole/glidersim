@@ -259,7 +259,7 @@ def lateral_gust(delta_a=0, delta_b=0):
 def build_paragliders(use_apparent_mass=True):
     """Build a set of glider models from a common base configuration."""
     wing = gsim.extras.wings.build_hook3(verbose=False)
-    harness = gsim.harness.Spherical(
+    harness = gsim.paraglider_harness.Spherical(
         mass=75,
         z_riser=0.5,
         S=0.55,
