@@ -21,6 +21,13 @@ Development
 Documentation
 -------------
 
+* I'm modeling my `README.rst` after the template taken from "write the docs":
+  https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/. Review
+  that template later.
+
+* Should I remove the `sys.path` manipulation? If it's installed in a venv
+  that shouldn't be necessary.
+
 * Add a top-level introduction to the project, give the reader an overview of
   the project structure.
 
@@ -860,6 +867,11 @@ LineGeometry
 
 ParagliderWing
 ==============
+
+* Documentation: one of the limitations of this model is the `line_geometry`
+  assumes the total line length (for the line drag) is constant. Technically
+  the lines get shorter when the accelerator is applied, but my model assumes
+  the effect of that segment is negligible.
 
 * My definition of *pitching angle* conflicts with the notion of a *rigging
   angle* (see `iacomini1999InvestigationLargeScale`), which is essentially
