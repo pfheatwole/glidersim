@@ -32,7 +32,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
                 v_0=np.linalg.norm(equilibrium["v_RM2e"]),
                 reference_solution=equilibrium["reference_solution"],
             )
-        except foil.ForceEstimator.ConvergenceError:
+        except foil_aerodynamics.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
             delta_as = delta_as[:n]
             break
@@ -60,7 +60,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
                 rho_air=rho_air,
                 reference_solution=equilibrium["reference_solution"],
             )
-        except foil.ForceEstimator.ConvergenceError:
+        except foil_aerodynamics.ForceEstimator.ConvergenceError:
             print("\nConvergence started failing. Aborting early.")
             delta_bs = delta_bs[:n]
             break
@@ -139,7 +139,7 @@ def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.225):
             )
             Fs.append(dF.sum(axis=0))
             Ms.append(dM.sum(axis=0))
-        except foil.ForceEstimator.ConvergenceError:
+        except foil_aerodynamics.ForceEstimator.ConvergenceError:
             break
     alphas = alphas[:k]
     Fs = Fs[:k]

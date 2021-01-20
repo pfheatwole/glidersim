@@ -163,7 +163,7 @@ if __name__ == "__main__":
     v_cp2w *= v_mag  # The Reynolds numbers are a function of the magnitude
     rho_air = 1.225
 
-    fe = gsim.foil.Phillips(wing, v_ref_mag=v_mag, alpha_ref=5)
+    fe = gsim.foil_aerodynamics.Phillips(wing, v_ref_mag=v_mag, alpha_ref=5)
     dF, dM, solution = fe(0, -v_cp2w, 1.2)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)
