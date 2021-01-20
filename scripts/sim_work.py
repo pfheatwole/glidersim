@@ -338,7 +338,7 @@ def main():
     # inputs, T = centered_thermal()
     # inputs, T = centered_thermal(delta_a=1)
     # inputs, T = centered_thermal(delta_b=1)
-    inputs, T = centered_thermal(delta_b=0.85, py=10, radius5=20)
+    # inputs, T = centered_thermal(delta_b=0.85, py=10, radius5=20)
     # inputs, T = horizontal_shear()
     # inputs, T = horizontal_shear(delta_a=1)
     # inputs, T = horizontal_shear(delta_b=1)
