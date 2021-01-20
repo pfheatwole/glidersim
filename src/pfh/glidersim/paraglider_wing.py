@@ -200,7 +200,7 @@ class SimpleLineGeometry:
         p = s - self.s_delta_start  # The cubic uses a shifted origin, `s_delta_start`
         return fraction * (self.K1 * p ** 3 + self.K2 * p ** 2)
 
-    def forces_and_moments(self, v_W2b, rho_air):
+    def aerodynamics(self, v_W2b, rho_air):
         K_lines = self._r_L2LE.shape[0]
 
         # Simplistic model for line drag using `K_lines` isotropic points
@@ -427,7 +427,7 @@ class ParagliderWing:
             "I": np.diag([I11, I22, I33]),  # Barrows Eq:17
         }
 
-    def forces_and_moments(
+    def aerodynamics(
         self, delta_a, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
     ):
         """
@@ -451,7 +451,7 @@ class ParagliderWing:
         Returns
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
-            Aerodynamic forces and moments for each section.
+            Aerodynamic forces and moments for each control point.
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -476,7 +476,7 @@ class ParagliderWing:
             delta_f, v_W2b_foil, rho_air, reference_solution,
         )
 
-        dF_lines, dM_lines = self.lines.forces_and_moments(v_W2b_lines, rho_air)
+        dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)
         dF_lines *= self.c_0
         dM_lines *= self.c_0
 
@@ -527,7 +527,7 @@ class ParagliderWing:
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
-            dF_wing, dM_wing, _ = self.forces_and_moments(
+            dF_wing, dM_wing, _ = self.aerodynamics(
                 delta_a, delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
             M = dM_wing.sum(axis=0) + cross3(r_CP2RM, dF_wing).sum(axis=0)

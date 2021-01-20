@@ -39,9 +39,9 @@ class Harness(abc.ABC):
         """
 
     @abc.abstractmethod
-    def forces_and_moments(self, v_W2h, rho_air):
+    def aerodynamics(self, v_W2h, rho_air):
         """
-        Calculate the aerodynamic forces at the control points.
+        Calculate the aerodynamic forces and moments at the control points.
 
         Parameters
         ----------
@@ -130,7 +130,7 @@ class Spherical(Harness):
         ]
         return np.atleast_2d(np.array(r_P2RM).T)
 
-    def forces_and_moments(self, v_W2h, rho_air):
+    def aerodynamics(self, v_W2h, rho_air):
         v2 = (v_W2h ** 2).sum()
         u_drag = v_W2h / np.sqrt(v2)  # Drag force unit vector
         dF = 0.5 * rho_air * v2 * self._S * self._CD * u_drag
