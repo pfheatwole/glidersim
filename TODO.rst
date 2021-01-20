@@ -1,6 +1,3 @@
-* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
-  a bug because I used `r_LE2RM` instead of a vague function name.)
-
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
   (ie, over what range can you treat it as having an aerodynamic center, and
@@ -78,6 +75,11 @@ Documentation
 General
 -------
 
+* Fix the "magic indexing" in `paraglider_wing` and `paraglider`
+
+* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
+  a bug because I used `r_LE2RM` instead of a vague function name.)
+
 * Replace `print` with `logging`
 
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
@@ -132,11 +134,29 @@ Packaging
 
 * Complete `README.rst`
 
-* Make `numba` a dev-only dependency by compiling the modules ahead of time.
-  See https://numba.readthedocs.io/en/stable/user/pycc.html
+* Make `numba` and `matplotlib` optional dependencies
 
-* Make `matplotlib` an optional dependency. The goal is that it can work
-  standalone in installations like Blender's built-in interpreter.
+  For one, need to modify `pyproject.toml`:
+
+  .. code::
+
+     numba = {version = "^0.52.0", optional = true }
+     matplotlib = {version = "^3.3.3", optional = true }
+
+     [tool.poetry.extras]
+     performance = ["numba"]
+     plotting = ["matplotlib"]
+
+  For `matplotlib`, I need to review the code for places that import
+  `matplotlib`, add lazy-loading for those modules, and present a warning if
+  a user tries to use them. For `numba`, I need to try to import `numba.njit`
+  and `numba.guvectorize`, and define a `noop` decorator if numba is
+  unavailable. Actually, for numba I'll probably need to replace the function
+  with the numpy equivalent. Not sure what that'll look like for
+  `orientation.quaternion_rotate` and `orientation.quaternion_product`.
+
+  Alternatively, make `numba` a dev-only dependency by compiling the modules
+  ahead of time. See https://numba.readthedocs.io/en/stable/user/pycc.html
 
 
 Plots
@@ -397,6 +417,9 @@ Parametric functions
 FoilGeometry
 ============
 
+* `Foil.surface_xyz` should take `delta_f`, and the `FoilSections` should
+  interpolate the "braking" airfoils.
+
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
 
@@ -433,6 +456,8 @@ FoilGeometry
 
 FoilSections
 ============
+
+* Rename `FoilSections` to `ParafoilSections`? They have intakes.
 
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
@@ -875,6 +900,14 @@ Line geometry
 ParagliderWing
 ==============
 
+* Canopy parameters (`rho_upper`, `N_cells`, etc) should belong to the canopy,
+  but first I need a foil with native support for internal ribs.
+
+* Why doesn't the `ParagliderWing` compute the net force and moment? It'd need
+  `g` and the reference point, but it'd save the users a lot of work. Maybe
+  add a `forces_and_moments` that sums all the aerodynamic and gravitational
+  forces and moments wrt some reference point (`RM`, `B`, etc)
+
 * Documentation: one of the limitations of this model is the line geometry
   assumes the total line length (for the line drag) is constant. Technically
   the lines get shorter when the accelerator is applied, but my model assumes
@@ -972,8 +1005,8 @@ Models
   a bit.
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
-  moment. It's fine for small displacements, but doesn't make sense for larger
-  deviations.
+  moment in the 9DoF models. The linear relationship is probably fine for
+  small displacements, but would probably break down for larger deviations.
 
 * How hard would it be to code up a linearized paraglider model? It'd be
   fascinating to see how the linear assumption performed, both in terms of
