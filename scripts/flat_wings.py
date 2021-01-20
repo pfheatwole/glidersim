@@ -63,7 +63,7 @@ if __name__ == "__main__":
     )
 
     airfoil = gsim.airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
-    sections = gsim.foil.FoilSections(airfoil=airfoil)
+    sections = gsim.foil_sections.FoilSections(airfoil=airfoil)
 
     # Straight
     layout1 = gsim.foil_layout.SectionLayout(

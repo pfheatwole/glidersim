@@ -55,10 +55,10 @@ def build_hook3(verbose=True):
     )
 
     # FIXME: add the viscous drag modifiers?
-    sections = gsim.foil.FoilSections(
+    sections = gsim.foil_sections.FoilSections(
         profiles=airfoil_geo,
         coefficients=airfoil_coefs,
-        intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
+        intakes=gsim.foil_sections.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 
     canopy = gsim.foil.SimpleFoil(

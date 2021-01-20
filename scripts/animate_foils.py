@@ -8,7 +8,6 @@ import numpy as np
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (  # noqa: F401
-    FoilSections,
     SimpleFoil,
 )
 from pfh.glidersim.foil_layout import (  # noqa: F401
@@ -18,6 +17,7 @@ from pfh.glidersim.foil_layout import (  # noqa: F401
     PolynomialTorsion as PT,
     SectionLayout,
 )
+from pfh.glidersim.foil_sections import FoilSections
 
 
 def sweep(vstart, vstop, T, fps, reverse=True):
@@ -397,7 +397,6 @@ def update(config_and_foil, axes):
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (
-    FoilSections,
     SimpleFoil,
 )
 from pfh.glidersim.foil_layout import (
@@ -407,6 +406,7 @@ from pfh.glidersim.foil_layout import (
     PolynomialTorsion as PT,
     SectionLayout,
 )
+from pfh.glidersim.foil_sections import FoilSections
 
 layout = SectionLayout(
   """
