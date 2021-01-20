@@ -8,12 +8,15 @@ import numpy as np
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (  # noqa: F401
+    FoilSections,
+    SimpleFoil,
+)
+from pfh.glidersim.foil_layout import (  # noqa: F401
     elliptical_arc,
     elliptical_chord,
     FlatYZ,
-    FoilSections,
     PolynomialTorsion as PT,
-    SimpleFoil,
+    SectionLayout,
 )
 
 
@@ -363,7 +366,7 @@ def foil_generator(base_config, sequences, fps=60):
             params = {}  # The `exec`uted result
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
-            layout = gsim.foil.SectionLayout(**params)
+            layout = SectionLayout(**params)
             yield config, gsim.foil.SimpleFoil(
                 layout=layout,
                 sections=FoilSections(profiles=NACA(24018)),
@@ -391,15 +394,18 @@ def update(config_and_foil, axes):
         a.remove()
 
     code = """\
+import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (
+    FoilSections,
+    SimpleFoil,
+)
+from pfh.glidersim.foil_layout import (
     elliptical_arc,
     elliptical_chord,
     FlatYZ,
     PolynomialTorsion as PT,
     SectionLayout,
-    FoilSections,
-    SimpleFoil,
 )
 
 layout = SectionLayout(
