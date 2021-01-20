@@ -10,10 +10,10 @@ if __name__ == "__main__":
     print("\n-------------------------------------------------------------\n")
 
     use_6a = True
-    use_6a = False  # Disable to use Paraglider9a
+    # use_6a = False  # Disable to use Paraglider9a
 
     wing = gsim.extras.wings.build_hook3(verbose=True)
-    harness = gsim.harness.Spherical(
+    harness = gsim.paraglider_harness.Spherical(
         mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
     )
     if use_6a:

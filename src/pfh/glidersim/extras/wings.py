@@ -3,6 +3,7 @@
 import numpy as np
 
 import pfh.glidersim as gsim
+from pfh.glidersim.extras import plots
 
 
 def build_hook3(verbose=True):
@@ -29,7 +30,7 @@ def build_hook3(verbose=True):
     S, b, AR = 19.55, 8.84, 4.00
     m_s = 4.7  # Solid mass [kg]
 
-    c = gsim.foil.elliptical_chord(
+    c = gsim.foil_layout.elliptical_chord(
         root=chord_root / (b_flat / 2),
         tip=chord_tip / (b_flat / 2),
     )
@@ -42,22 +43,22 @@ def build_hook3(verbose=True):
     # difficult for Phillips' method, so here I'm using quadratic distribution
     # thats easier for the aerodynamics to solve.
     # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
-    theta = gsim.foil.PolynomialTorsion(start=0.8, peak=4, exponent=2)
+    theta = gsim.foil_layout.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    layout = gsim.foil.SectionLayout(
+    layout = gsim.foil_layout.FoilLayout(
         r_x=0.75,
         x=0,
         r_yz=1.00,
-        yz=gsim.foil.elliptical_arc(mean_anhedral=33, tip_anhedral=67),
+        yz=gsim.foil_layout.elliptical_arc(mean_anhedral=33, tip_anhedral=67),
         c=c,
         theta=theta,
     )
 
     # FIXME: add the viscous drag modifiers?
-    sections = gsim.foil.FoilSections(
+    sections = gsim.foil_sections.FoilSections(
         profiles=airfoil_geo,
         coefficients=airfoil_coefs,
-        intakes=gsim.foil.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
+        intakes=gsim.foil_sections.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
     )
 
     canopy = gsim.foil.SimpleFoil(
@@ -65,20 +66,22 @@ def build_hook3(verbose=True):
         sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
+        aerodynamics_method=gsim.foil_aerodynamics.Phillips,
+        aerodynamics_config={"v_ref_mag": 10, "K": 31},
     )
 
     # print("Drawing the canopy")
-    # gsim.plots.plot_foil(canopy, N_sections=131, surface="airfoil", flatten=False)
-    # gsim.plots.plot_foil(canopy, N_sections=71, surface="airfoil", flatten=True)
-    # gsim.plots.plot_foil(canopy, N_sections=131, surface="chord", flatten=False)
-    # gsim.plots.plot_foil(canopy, N_sections=71, surface="chord", flatten=True)
-    # gsim.plots.plot_foil(canopy, N_sections=131, surface="camber", flatten=False)
-    # gsim.plots.plot_foil(canopy, N_sections=71, surface="camber", flatten=True)
-    # gsim.plots.plot_foil_topdown(canopy, N_sections=51)
-    # gsim.plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
+    # plots.plot_foil(canopy, N_sections=131, surface="airfoil", flatten=False)
+    # plots.plot_foil(canopy, N_sections=71, surface="airfoil", flatten=True)
+    # plots.plot_foil(canopy, N_sections=131, surface="chord", flatten=False)
+    # plots.plot_foil(canopy, N_sections=71, surface="chord", flatten=True)
+    # plots.plot_foil(canopy, N_sections=131, surface="camber", flatten=False)
+    # plots.plot_foil(canopy, N_sections=71, surface="camber", flatten=True)
+    # plots.plot_foil_topdown(canopy, N_sections=51)
+    # plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # gsim.plots.plot_foil_topdown(canopy, N_sections=77)
+    # plots.plot_foil_topdown(canopy, N_sections=77)
 
     # -----------------------------------------------------------------------
     # Wing
@@ -102,14 +105,14 @@ def build_hook3(verbose=True):
 
     # Approximate brake deflection geometry
     s_delta_start = 0.1
-    s_delta_max = gsim.line_geometry.SimpleLineGeometry.minimum_s_delta_max(s_delta_start) + 1e-9
+    s_delta_max = gsim.paraglider_wing.SimpleLineGeometry.minimum_s_delta_max(s_delta_start) + 1e-9
     brake_parameters = {
         "s_delta_start": s_delta_start,
         "s_delta_max": s_delta_max,
         "delta_max": delta_max,
     }
 
-    lines = gsim.line_geometry.SimpleLineGeometry(
+    lines = gsim.paraglider_wing.SimpleLineGeometry(
         **line_parameters,
         **brake_parameters,
     )
@@ -117,11 +120,10 @@ def build_hook3(verbose=True):
     wing = gsim.paraglider_wing.ParagliderWing(
         lines=lines,
         canopy=canopy,
-        N_cells=52,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
-        force_estimator=gsim.foil.Phillips(canopy, v_ref_mag=10, K=31),
+        N_cells=52,
     )
 
     # -----------------------------------------------------------------------

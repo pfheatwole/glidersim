@@ -1,6 +1,3 @@
-* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
-  a bug because I used `r_LE2RM` instead of a vague function name.)
-
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
   (ie, over what range can you treat it as having an aerodynamic center, and
@@ -40,7 +37,7 @@ Documentation
   `:py:class:`; think of `:class:` as being a role scoped inside the `:py`
   domain.) Not sure if I like fully-specified sphinx markup; it makes the
   docstrings a lot more messy (eg, instead of `LineGeometry` it's a concrete
-  class like `:py:class:`pfh.glidersim.line_geometry.SimpleLineGeometry`)
+  class like `:py:class:`pfh.glidersim.paraglider.Paraglider6a`)
 
 * Review all (sub)package, module, and class docstrings. They should have
   summaries, descriptions, parameters, attributes, etc.
@@ -77,6 +74,11 @@ Documentation
 
 General
 -------
+
+* Fix the "magic indexing" in `paraglider_wing` and `paraglider`
+
+* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
+  a bug because I used `r_LE2RM` instead of a vague function name.)
 
 * Replace `print` with `logging`
 
@@ -132,11 +134,29 @@ Packaging
 
 * Complete `README.rst`
 
-* Make `numba` a dev-only dependency by compiling the modules ahead of time.
-  See https://numba.readthedocs.io/en/stable/user/pycc.html
+* Make `numba` and `matplotlib` optional dependencies
 
-* Make `matplotlib` an optional dependency. The goal is that it can work
-  standalone in installations like Blender's built-in interpreter.
+  For one, need to modify `pyproject.toml`:
+
+  .. code::
+
+     numba = {version = "^0.52.0", optional = true }
+     matplotlib = {version = "^3.3.3", optional = true }
+
+     [tool.poetry.extras]
+     performance = ["numba"]
+     plotting = ["matplotlib"]
+
+  For `matplotlib`, I need to review the code for places that import
+  `matplotlib`, add lazy-loading for those modules, and present a warning if
+  a user tries to use them. For `numba`, I need to try to import `numba.njit`
+  and `numba.guvectorize`, and define a `noop` decorator if numba is
+  unavailable. Actually, for numba I'll probably need to replace the function
+  with the numpy equivalent. Not sure what that'll look like for
+  `orientation.quaternion_rotate` and `orientation.quaternion_product`.
+
+  Alternatively, make `numba` a dev-only dependency by compiling the modules
+  ahead of time. See https://numba.readthedocs.io/en/stable/user/pycc.html
 
 
 Plots
@@ -345,15 +365,15 @@ Low priority
   airfoils though, conceptually. Very elegant.
 
 
-SectionLayout
+FoilLayout
 =============
 
-* Review the calculation of the projected span `b` in `SectionLayout.__init__`.
+* Review the calculation of the projected span `b` in `FoilLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
   leading edge if the wing has positive torsion and arc anhedral), or should
-  I use `SectionLayout.b = xyz(1, r_yz(1))[1] - xyz(-1, r_yz(-1))[1]`?
+  I use `FoilLayout.b = xyz(1, r_yz(1))[1] - xyz(-1, r_yz(-1))[1]`?
 
-* Should `SectionLayout` use the general form of the chord surface equation?
+* Should `FoilLayout` use the general form of the chord surface equation?
   Maybe have another class that presents the simplified parametrization I'm
   using for parafoil chord surfaces?
 
@@ -397,6 +417,9 @@ Parametric functions
 FoilGeometry
 ============
 
+* `Foil.surface_xyz` should take `delta_f`, and the `FoilSections` should
+  interpolate the "braking" airfoils.
+
 * Question: are the "rectangles" you get from sampling `s` and `sa`
   "quadrilaterals"?
 
@@ -434,12 +457,14 @@ FoilGeometry
 FoilSections
 ============
 
+* Rename `FoilSections` to `ParafoilSections`? They have intakes.
+
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
   not been scaled by the chord length, etc.
 
   Heck, I need to document the entire stack: "a Foil is a combination of
-  `SectionLayout` and `FoilSections`, both of which define units that are
+  `FoilLayout` and `FoilSections`, both of which define units that are
   scaled by the span of the foil"
 
 
@@ -509,7 +534,7 @@ Parafoil
 Geometry
 --------
 
-* The `SectionLayout` requires the values to be proportional to `b_flat == 2`?
+* The `FoilLayout` requires the values to be proportional to `b_flat == 2`?
   **What if you don't know `b_flat`? Do you need to compute the total length
   of `yz` and re-normalize to that?** (I think I'm missing something here...
   As long as everything is proportional, who cares? I'll need to look for
@@ -554,7 +579,7 @@ Inertia
 Cells
 ^^^^^
 
-This is a catch-all group. Right now I'm using the idealized `SectionLayout`
+This is a catch-all group. Right now I'm using the idealized `FoilLayout`
 directly, but real parafoils are comprised of cells, where the ribs provide
 internal structure and attempt to produce the desired airfoil cross-sections,
 but deformations (billowing, etc) cause deviations from that ideal shape.
@@ -593,7 +618,7 @@ Some considerations:
 * Try to anticipate some of the effects of billowing. For example, compare the
   performance of a normal `24018` to a 15% increased thickness `24018` using
   XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
-  anticipated deviations compared to the idealized `SectionLayout`. (decreased
+  anticipated deviations compared to the idealized `FoilLayout`. (decreased
   lift/drag ratio, etc)
 
 * How a cell compresses during inflation depends on the shape of the parafoil
@@ -606,7 +631,7 @@ Deformations
 * To warp the trailing edge, could you warp the mean camber line instead of
   the surfaces themselves, then constrain to maintain constant curve length?
 
-* Starting with the `SectionLayout`, how hard would it be to warp the central
+* Starting with the `FoilLayout`, how hard would it be to warp the central
   sections to produce a "weight shift" effect?
 
 * Is it a fools errand to support lifting-line methods in the presence of
@@ -860,10 +885,10 @@ Harness
   just just makes more sense.
 
 
-LineGeometry
-============
+Line geometry
+=============
 
-* The line parameters in `line_geometry` are super long. Should they be
+* The line parameters in `SimpleLineGeometry` are super long. Should they be
   `kappa`-ized?
 
 * Review the "4 riser speed system" in the "Paraglider design handbook":
@@ -875,7 +900,15 @@ LineGeometry
 ParagliderWing
 ==============
 
-* Documentation: one of the limitations of this model is the `line_geometry`
+* Canopy parameters (`rho_upper`, `N_cells`, etc) should belong to the canopy,
+  but first I need a foil with native support for internal ribs.
+
+* Why doesn't the `ParagliderWing` compute the net force and moment? It'd need
+  `g` and the reference point, but it'd save the users a lot of work. Maybe
+  add a `forces_and_moments` that sums all the aerodynamic and gravitational
+  forces and moments wrt some reference point (`RM`, `B`, etc)
+
+* Documentation: one of the limitations of this model is the line geometry
   assumes the total line length (for the line drag) is constant. Technically
   the lines get shorter when the accelerator is applied, but my model assumes
   the effect of that segment is negligible.
@@ -972,8 +1005,8 @@ Models
   a bit.
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
-  moment. It's fine for small displacements, but doesn't make sense for larger
-  deviations.
+  moment in the 9DoF models. The linear relationship is probably fine for
+  small displacements, but would probably break down for larger deviations.
 
 * How hard would it be to code up a linearized paraglider model? It'd be
   fascinating to see how the linear assumption performed, both in terms of
@@ -1081,7 +1114,7 @@ Simulator
   reuse the simulator `states` output in things like plots.
 
 * Ideally, the simulator would understand that Phillips can fail, and could
-  degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
+  degrade/terminate gracefully. (Depends on how the `FoilAerodynamics` signals
   failures; that design is a WIP.)
 
 * Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,

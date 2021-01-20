@@ -15,7 +15,6 @@ For defining a paraglider wing:
 .. autosummary::
    :toctree: _autosummary
 
-   pfh.glidersim.line_geometry
    pfh.glidersim.paraglider_wing
 
 

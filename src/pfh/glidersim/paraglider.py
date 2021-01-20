@@ -210,7 +210,7 @@ class Paraglider6a:
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
@@ -218,7 +218,7 @@ class Paraglider6a:
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
 
@@ -229,7 +229,7 @@ class Paraglider6a:
         M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -564,7 +564,7 @@ class Paraglider6b(Paraglider6a):
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a,
                 delta_bl,
                 delta_br,
@@ -577,7 +577,7 @@ class Paraglider6b(Paraglider6a):
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -587,7 +587,7 @@ class Paraglider6b(Paraglider6a):
         M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -793,7 +793,7 @@ class Paraglider6c(Paraglider6a):
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
         except Exception:
@@ -801,7 +801,7 @@ class Paraglider6c(Paraglider6a):
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -811,7 +811,7 @@ class Paraglider6c(Paraglider6a):
         M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_payload, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1083,7 +1083,7 @@ class Paraglider9a:
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a,
                 delta_bl,
                 delta_br,
@@ -1096,7 +1096,7 @@ class Paraglider9a:
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
@@ -1107,7 +1107,7 @@ class Paraglider9a:
         M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1507,7 +1507,7 @@ class Paraglider9b(Paraglider9a):
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a,
                 delta_bl,
                 delta_br,
@@ -1520,7 +1520,7 @@ class Paraglider9b(Paraglider9a):
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
@@ -1531,7 +1531,7 @@ class Paraglider9b(Paraglider9a):
         M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(v_W2CP_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(dF_p_aero)
         dM_p_aero = np.atleast_2d(dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)
@@ -1778,7 +1778,7 @@ class Paraglider9c(Paraglider9a):
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a,
                 delta_bl,
                 delta_br,
@@ -1791,7 +1791,7 @@ class Paraglider9c(Paraglider9a):
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
             # 1/0
-            dF_wing_aero, dM_wing_aero, ref = self.wing.forces_and_moments(
+            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
             )
 
@@ -1802,7 +1802,7 @@ class Paraglider9c(Paraglider9a):
         M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.forces_and_moments(C_p2b @ v_W2CP_p, rho_air)
+        dF_p_aero, dM_p_aero = self.payload.aerodynamics(C_p2b @ v_W2CP_p, rho_air)
         dF_p_aero = np.atleast_2d(C_b2p @ dF_p_aero)
         dM_p_aero = np.atleast_2d(C_b2p @ dM_p_aero)
         F_p_aero = dF_p_aero.sum(axis=0)

@@ -8,13 +8,16 @@ import numpy as np
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (  # noqa: F401
+    SimpleFoil,
+)
+from pfh.glidersim.foil_layout import (  # noqa: F401
     elliptical_arc,
     elliptical_chord,
     FlatYZ,
-    FoilSections,
     PolynomialTorsion as PT,
-    SimpleFoil,
+    FoilLayout,
 )
+from pfh.glidersim.foil_sections import FoilSections
 
 
 def sweep(vstart, vstop, T, fps, reverse=True):
@@ -363,7 +366,7 @@ def foil_generator(base_config, sequences, fps=60):
             params = {}  # The `exec`uted result
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
-            layout = gsim.foil.SectionLayout(**params)
+            layout = FoilLayout(**params)
             yield config, gsim.foil.SimpleFoil(
                 layout=layout,
                 sections=FoilSections(profiles=NACA(24018)),
@@ -391,18 +394,21 @@ def update(config_and_foil, axes):
         a.remove()
 
     code = """\
+import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import (
+    SimpleFoil,
+)
+from pfh.glidersim.foil_layout import (
     elliptical_arc,
     elliptical_chord,
     FlatYZ,
     PolynomialTorsion as PT,
-    SectionLayout,
-    FoilSections,
-    SimpleFoil,
+    FoilLayout,
 )
+from pfh.glidersim.foil_sections import FoilSections
 
-layout = SectionLayout(
+layout = FoilLayout(
   """
 
     maxlen = max(len(k) for k in config.keys())  # For aligning the "="
@@ -416,7 +422,7 @@ foil = gsim.foil.SimpleFoil(
     b_flat=10,
 )
 
-pfh.glidersim.plots.plot_foil(foil)
+pfh.glidersim.extras.plots.plot_foil(foil)
 """
     code_text = axes[0].text(
         0,
@@ -427,7 +433,7 @@ pfh.glidersim.plots.plot_foil(foil)
         transform=axes[0].transAxes,
         verticalalignment="center",
     )
-    foil_artists = gsim.plots.plot_foil(foil, N_sections=51, ax=axes[1])
+    foil_artists = gsim.extras.plots.plot_foil(foil, N_sections=51, ax=axes[1])
 
     return (code_text, *foil_artists)
 

@@ -2,18 +2,229 @@
 
 import numpy as np
 from scipy.optimize import root_scalar
+from scipy.spatial import Delaunay
 
 from pfh.glidersim import foil
 from pfh.glidersim.util import cross3, crossmat
 
 
 __all__ = [
+    "SimpleLineGeometry",
     "ParagliderWing",
 ]
 
 
 def __dir__():
     return __all__
+
+
+class SimpleLineGeometry:
+    """
+    FIXME: document the design.
+
+    In particular, highlight that everything here is normalized by the length
+    of the central chord.
+
+    Parameters
+    ----------
+    kappa_x : float [percentage]
+        The absolute x-coordinate distance from `RM` to the canopy origin,
+        normalized by the length of the central chord.
+    kappa_z : float [m]
+        The absolute z-coordinate distance from `RM` to the canopy origin,
+        normalized by the length of the central chord.
+    kappa_A, kappa_C : float [percentage]
+        The position of the A and C canopy connection points, normalized by the
+        length of the central chord. The accelerator adjusts the length of the
+        A lines, while the C lines remain fixed length, effectively causing a
+        rotation of the canopy about the point `kappa_C`.
+    kappa_a : float [m], optional
+        The accelerator line length normalized by the length of the central
+        chord. This is the maximum change in the length of the A lines.
+    total_line_length : float [m]
+        The total length of the lines from the risers to the canopy, normalized
+        by the length of the central chord.
+    average_line_diameter : float [m^2]
+        The average diameter of the connecting lines
+    r_L2LE : array of float, shape (K,3) [m]
+        The averaged location(s) of the connecting line surface area(s),
+        normalized by the length of the central chord. If multiple positions
+        are given, the total line length will be divided between them evenly.
+    Cd_lines : float
+        The drag coefficient of the lines
+    s_delta_start : float
+        The section index where brake deflections begin.
+    s_delta_max : float
+        The section index where the brake deflection reaches its maximum. To
+        prevent negative deflections at the wing tips, `s_delta_max` has a minimum
+        value; see :py:meth:`s_delta_max_min`
+    delta_max : float [radians]
+        The maximum deflection angle, which occurs at `s_delta_max`
+
+    Notes
+    -----
+
+    FIXME: describe the design, and maybe reference the sections in my thesis.
+
+    Accelerator
+    ^^^^^^^^^^^
+
+    FIXME: describe
+
+    Brakes
+    ^^^^^^
+
+    The brake deflection angles are approximated using a cubic function.
+
+    The wing root typically experiences very little (if any) brake deflection,
+    so this parametrization allows for zero deflection until a y-axis distance
+    `s_delta_start` from the wing root.
+
+    Also, the maximum delta does not typically occur at the wing tip, but at a
+    point closer to the 3/4 semispan. This parametrization uses `s_delta_max` to
+    control where that maximum deflection occurs.
+
+    Regarding the the derivation: a normal cubic goes like :math:`ay^3 + by^2 +
+    cy + d = 0`, but constraining the function to be zero at the origin forces
+    :math:`d = 0`, and constraining the first derivative to be zero when
+    evaluated at the origin forces :math:`c = 0`. This leaves only the cubic
+    and quadratic terms.  The cubic distribution can then be defined using just
+    two constraints: :math:`f(s_{peak}) = delta_{max}` and
+    :math:`(df/dy)|s_{peak} = 0`.
+    """
+
+    def __init__(
+        self,
+        kappa_x,
+        kappa_z,
+        kappa_A,
+        kappa_C,
+        kappa_a,
+        total_line_length,
+        average_line_diameter,
+        r_L2LE,
+        Cd_lines,
+        s_delta_start,
+        s_delta_max,
+        delta_max,
+    ):
+        self.kappa_A = kappa_A
+        self.kappa_C = kappa_C
+        self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
+
+        # Default lengths of the A and C lines (when `delta_a = 0`)
+        self.A = np.sqrt(kappa_z ** 2 + (kappa_x - kappa_A) ** 2)
+        self.C = np.sqrt(kappa_z ** 2 + (kappa_C - kappa_x) ** 2)
+
+        # `L` is an array of points where line drag is applied
+        r_L2LE = np.atleast_2d(r_L2LE)
+        if r_L2LE.ndim != 2 or r_L2LE.shape[-1] != 3:
+            raise ValueError("`r_L2LE` is not a (K,3) array")
+        self._r_L2LE = r_L2LE
+        self._S_lines = total_line_length * average_line_diameter / r_L2LE.shape[0]
+        self._Cd_lines = Cd_lines
+
+        # Brakes
+        self.s_delta_start = s_delta_start
+        self.s_delta_max = s_delta_max
+        if s_delta_max < self.minimum_s_delta_max(s_delta_start):
+            raise ValueError(
+                "s_delta_max is too small: delta_f is negative at the wing tips"
+            )
+        self.K1 = -2 * delta_max / ((s_delta_max - s_delta_start) ** 3)
+        self.K2 = 3 * delta_max / (s_delta_max - s_delta_start) ** 2
+
+    def r_RM2LE(self, delta_a=0):
+        """
+        Compute the position of the riser midpoint `RM` in body frd.
+
+        Parameters
+        ----------
+        delta_a : array_like of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application. Default: 0
+
+        Returns
+        -------
+        r_RM2LE : array of float, shape (N,3) [unitless]
+            The riser midpoint `RM` with respect to the canopy origin. As with
+            all other values in this class, these values are assumed to have
+            been normalized by the length of the central chord of the wing.
+        """
+        # The accelerator shortens the A lines, while C remains fixed
+        delta_a = np.asarray(delta_a)
+        RM_x = (
+            (self.A - delta_a * self.kappa_a) ** 2
+            - self.C ** 2
+            - self.kappa_A ** 2
+            + self.kappa_C ** 2
+        ) / (2 * (self.kappa_C - self.kappa_A))
+        RM_y = np.zeros_like(delta_a)
+        RM_z = np.sqrt(self.C ** 2 - (self.kappa_C - RM_x) ** 2)
+        r_RM2LE = np.array([-RM_x, RM_y, RM_z]).T
+        return r_RM2LE
+
+    def control_points(self):
+        """
+        Compute the control points for the line geometry dynamics.
+
+        Returns
+        -------
+        r_CP2LE : float, shape (K,3) [m]
+            Control points relative to the central leading edge `LE`.
+            Coordinates are in canopy frd, and `K` is the number of points
+            being used to distribute the surface area of the lines.
+        """
+        return self._r_L2LE
+
+    def delta_f(self, s, delta_bl, delta_br):
+        """
+        Compute the trailing edge deflection due to the application of brakes.
+
+        Parameters
+        ----------
+        s : float, or array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`
+        delta_bl : float [percentage]
+            Left brake application as a fraction of maximum braking
+        delta_br : float [percentage]
+            Right brake application as a fraction of maximum braking
+
+        Returns
+        -------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge, measured between the
+            undeflected chord and the line connecting the leading edge to the
+            deflected trailing edge.
+        """
+        fraction = np.where(s < 0, delta_bl, delta_br)
+        s = np.abs(s)  # left and right side are symmetric
+        fraction = fraction * (s > self.s_delta_start)
+        p = s - self.s_delta_start  # The cubic uses a shifted origin, `s_delta_start`
+        return fraction * (self.K1 * p ** 3 + self.K2 * p ** 2)
+
+    def aerodynamics(self, v_W2b, rho_air):
+        K_lines = self._r_L2LE.shape[0]
+
+        # Simplistic model for line drag using `K_lines` isotropic points
+        V = v_W2b[-K_lines:]  # FIXME: uses "magic" indexing
+        V2 = (V ** 2).sum(axis=1)
+        u_drag = V.T / np.sqrt(V2)
+        dF_lines = (
+            0.5
+            * rho_air
+            * V2
+            * self._S_lines  # Line area per control point
+            * self._Cd_lines
+            * u_drag
+        ).T
+        dM_lines = np.zeros((K_lines, 3))
+
+        return dF_lines, dM_lines  # Normalized by the length of the central chord
+
+    @staticmethod
+    def minimum_s_delta_max(s_delta_start):
+        """The minimum value of `s_delta_max` to avoid negative deflections."""
+        return (2 / 3) * (1 - s_delta_start) + s_delta_start
 
 
 class ParagliderWing:
@@ -26,11 +237,14 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
-    rho_upper, rho_lower : float [kg m^-2]
+    rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
-    force_estimator : foil.ForceEstimator
-        Estimator for the aerodynamic forces and moments on the canopy.
-
+    rho_ribs : float [kg/m^2]
+        Surface area density of the internal vertical ribs.
+    N_cells : integer, optional
+        The number of canopy cells. This is only used for estimating the mass
+        of the internal ribs. Proper support for ribs requires a new `Foil`
+        with native support for cells, ribs, profile distortions, etc.
     Notes
     -----
     The ParagliderWing coordinate axes are parallel to the canopy axes, but the
@@ -42,24 +256,26 @@ class ParagliderWing:
         self,
         lines,
         canopy,
-        N_cells=1,
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
-        force_estimator=None,
+        N_cells=1,
     ):
         self.lines = lines
         self.canopy = canopy
-        self.N_cells = N_cells
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
         self.rho_ribs = rho_ribs
-        self.force_estimator = force_estimator
-        self.c_0 = canopy.chord_length(0)  # Scales the line geometry
+        self.N_cells = N_cells
 
+        self.c_0 = canopy.chord_length(0)  # Scales the line geometry
+        self._compute_real_mass_properties()
+        self._compute_apparent_mass_properties()
+
+    def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
         # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        cmp = self.canopy.mass_properties2(N_s=101, N_r=101, N_cells=N_cells)
+        cmp = self.canopy.mass_properties2(N_s=101, N_r=101)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
@@ -70,6 +286,43 @@ class ParagliderWing:
         for k in ("upper", "volume", "lower"):
             cmp[k + "_centroid"][1] = 0
             cmp[k + "_inertia"][[0, 1, 1, 2], [1, 0, 2, 1]] = 0
+
+        # The `SimpleFoil` has no concept of internal ribs, but I'd like to at
+        # least account for the rib mass. Compute the inertia of vertical ribs
+        # (including wing tips)
+        #
+        # FIXME: this is a kludge, but ribs need design review anyway
+        s_ribs = np.linspace(-1, 1, self.N_cells + 1)
+        N_r = 151  # Number of points around each profile
+        r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
+        r = np.concatenate((-r[:0:-1], r))
+        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], r, "airfoil")
+        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], r, "airfoil")
+        rib_tris = []
+        for n in range(len(rib_vertices)):
+            rib_simplices = Delaunay(rib_points[n]).simplices
+            rib_tris.append(rib_vertices[n][rib_simplices])
+        rib_tris = np.asarray(rib_tris)
+        rib_sides = np.diff(rib_tris, axis=2)
+        rib1 = rib_sides[..., 0, :]
+        rib2 = rib_sides[..., 1, :]
+        rib_areas_n = np.linalg.norm(np.cross(rib1, rib2), axis=2) / 2
+        rib_areas = np.sum(rib_areas_n, axis=1)  # For debugging
+        rib_area = rib_areas_n.sum()
+        rib_centroids_n = np.einsum("NKij->NKj", rib_tris) / 3
+        r_RIB2LE = np.einsum("NK,NKi->i", rib_areas_n, rib_centroids_n) / rib_area
+        cov_ribs = np.einsum(
+            "NK,NKi,NKj->ij",
+            rib_areas_n,
+            rib_centroids_n - r_RIB2LE,
+            rib_centroids_n - r_RIB2LE,
+        )
+        J_rib2RIB = np.trace(cov_ribs) * np.eye(3) - cov_ribs
+        cmp.update({
+            "rib_area": rib_area,
+            "rib_centroid": r_RIB2LE,
+            "rib_inertia": J_rib2RIB,
+        })
 
         m_upper = cmp["upper_area"] * self.rho_upper
         m_lower = cmp["lower_area"] * self.rho_lower
@@ -93,7 +346,7 @@ class ParagliderWing:
         J_l2S = J_l2L + m_lower * D_l
         J_rib2S = J_rib2RIB + m_rib * D_rib
         J_s2S = J_u2S + J_l2S + J_rib2S
-        self._mass_properties = {
+        self._real_mass_properties = {
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_s2S": J_s2S,
@@ -102,9 +355,7 @@ class ParagliderWing:
             "J_v2V": cmp["volume_inertia"],
         }
 
-        self._compute_apparent_masses()
-
-    def _compute_apparent_masses(self):
+    def _compute_apparent_mass_properties(self):
         """
         Compute an approximate apparent mass matrix for the canopy volume.
 
@@ -211,14 +462,14 @@ class ParagliderWing:
         # which depends on `delta_a`.
         r_C2LE = np.array([-0.5 * self.c_0, 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
-        self._apparent_inertia = {
+        self._apparent_mass_properties = {
             "r_RC2LE": r_RC2C + r_C2LE,
             "r_PC2RC": np.array([0, 0, z_PC2RC]),
             "M": np.diag([m11, m22, m33]),  # Barrows Eq:1
             "I": np.diag([I11, I22, I33]),  # Barrows Eq:17
         }
 
-    def forces_and_moments(
+    def aerodynamics(
         self, delta_a, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
     ):
         """
@@ -242,13 +493,13 @@ class ParagliderWing:
         Returns
         -------
         dF, dM : array of float, shape (K,3) [N, N m]
-            Aerodynamic forces and moments for each section.
+            Aerodynamic forces and moments for each control point.
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
         # FIXME: (1) duplicates `self.control_points`
         #        (2) only used to get the shapes of the control point arrays
-        foil_cps = self.force_estimator.control_points()
+        foil_cps = self.canopy.control_points()
         line_cps = self.c_0 * self.lines.control_points()
 
         # FIXME: uses "magic" indexing established in `self.control_points()`
@@ -261,13 +512,13 @@ class ParagliderWing:
         v_W2b_lines = v_W2b[-K_lines:]
 
         delta_f = self.lines.delta_f(
-            self.force_estimator.s_cps, delta_bl, delta_br,
+            self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
-        dF_foil, dM_foil, solution = self.force_estimator(
+        dF_foil, dM_foil, solution = self.canopy.aerodynamics(
             delta_f, v_W2b_foil, rho_air, reference_solution,
         )
 
-        dF_lines, dM_lines = self.lines.forces_and_moments(v_W2b_lines, rho_air)
+        dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)
         dF_lines *= self.c_0
         dM_lines *= self.c_0
 
@@ -318,7 +569,7 @@ class ParagliderWing:
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
-            dF_wing, dM_wing, _ = self.forces_and_moments(
+            dF_wing, dM_wing, _ = self.aerodynamics(
                 delta_a, delta_b, delta_b, v_W2b, rho_air, reference_solution,
             )
             M = dM_wing.sum(axis=0) + cross3(r_CP2RM, dF_wing).sum(axis=0)
@@ -326,7 +577,7 @@ class ParagliderWing:
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
-            raise foil.ForceEstimator.ConvergenceError
+            raise foil_aerodynamics.FoilAerodynamics.ConvergenceError
         return res.root
 
     def control_points(self, delta_a=0):
@@ -345,8 +596,7 @@ class ParagliderWing:
         r_CP2LE : array of floats, shape (K,3) [meters]
             The control points in frd coordinates
         """
-        r_LE2RM = self.c_0 * self.lines.r_RM2LE(delta_a)
-        foil_cps = self.force_estimator.control_points()
+        foil_cps = self.canopy.control_points()
         line_cps = self.lines.control_points() * self.c_0
         return np.vstack((foil_cps, line_cps))
 
@@ -409,13 +659,13 @@ class ParagliderWing:
                 The apparent inertia matrix of the volume about `RM`
         """
         r_LE2RM = -self.r_RM2LE(delta_a)
-        mp = self._mass_properties.copy()
+        mp = self._real_mass_properties.copy()
         mp["r_S2RM"] = mp["r_S2LE"] + r_LE2RM
         mp["r_V2RM"] = mp["r_V2LE"] + r_LE2RM
         mp["m_air"] = mp["v"] * rho_air
 
         # Apparent moment of inertia matrix about `RM` (Barrows Eq:25)
-        ai = self._apparent_inertia  # Dictionary of precomputed values
+        ai = self._apparent_mass_properties  # Dictionary of precomputed values
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
         r_RC2RM = r_LE2RM + ai["r_RC2LE"]
         S_PC2RC = crossmat(ai["r_PC2RC"])

@@ -259,7 +259,7 @@ def lateral_gust(delta_a=0, delta_b=0):
 def build_paragliders(use_apparent_mass=True):
     """Build a set of glider models from a common base configuration."""
     wing = gsim.extras.wings.build_hook3(verbose=False)
-    harness = gsim.harness.Spherical(
+    harness = gsim.paraglider_harness.Spherical(
         mass=75,
         z_riser=0.5,
         S=0.55,
@@ -338,7 +338,7 @@ def main():
     # inputs, T = centered_thermal()
     # inputs, T = centered_thermal(delta_a=1)
     # inputs, T = centered_thermal(delta_b=1)
-    inputs, T = centered_thermal(delta_b=0.85, py=10, radius5=20)
+    # inputs, T = centered_thermal(delta_b=0.85, py=10, radius5=20)
     # inputs, T = horizontal_shear()
     # inputs, T = horizontal_shear(delta_a=1)
     # inputs, T = horizontal_shear(delta_b=1)
@@ -390,7 +390,7 @@ def main():
 
     # 3D Plot: Position over time
     points = gsim.extras.simulation.sample_paraglider_positions(model, states, times)
-    gsim.plots.plot_3d_simulation_path(**points, show=False)
+    gsim.extras.plots.plot_3d_simulation_path(**points, show=False)
 
     # Plot: orientation (note: `omega_b2e` != `Theta_b2e_dot`)
     fig, ax = plt.subplots(3, figsize=(10, 10))

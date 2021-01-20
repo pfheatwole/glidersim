@@ -63,15 +63,15 @@ if __name__ == "__main__":
     )
 
     airfoil = gsim.airfoil.Airfoil(coefficients=airfoil_coefs, geometry=airfoil_geo)
-    sections = gsim.foil.FoilSections(airfoil=airfoil)
+    sections = gsim.foil_sections.FoilSections(airfoil=airfoil)
 
     # Straight
-    layout1 = gsim.foil.SectionLayout(
+    layout1 = gsim.foil_layout.FoilLayout(
         c=0.25,
         r_x=0,
         x=0,
         r_yz=0,
-        yz=gsim.foil.FlatYZ(),
+        yz=gsim.foil_layout.FlatYZ(),
     )
     wing1 = gsim.foil.SimpleFoil(
         layout=layout1,
@@ -81,12 +81,12 @@ if __name__ == "__main__":
     M_ref1 = wing1.surface_xyz(0, 0, surface="chord")
 
     # Elliptical
-    layout2 = gsim.foil.SectionLayout(
-        c=gsim.foil.elliptical_chord(0.25, 0.1),
+    layout2 = gsim.foil_layout.FoilLayout(
+        c=gsim.foil_layout.elliptical_chord(0.25, 0.1),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=gsim.foil.FlatYZ(),
+        yz=gsim.foil_layout.FlatYZ(),
     )
     wing2 = gsim.foil.SimpleFoil(
         layout=layout2,
@@ -96,12 +96,12 @@ if __name__ == "__main__":
     M_ref2 = wing2.surface_xyz(0, 0.5, surface="chord")
 
     # Diagonal
-    layout3 = gsim.foil.SectionLayout(
+    layout3 = gsim.foil_layout.FoilLayout(
         c=0.5,
         r_x=0.5,
         x=lambda s: -np.abs(s),
         r_yz=0,
-        yz=gsim.foil.FlatYZ(),
+        yz=gsim.foil_layout.FlatYZ(),
     )
     wing3 = gsim.foil.SimpleFoil(
         layout=layout3,
@@ -111,12 +111,12 @@ if __name__ == "__main__":
     M_ref3 = wing3.surface_xyz(0, 0.0, surface="chord")
 
     # Triangle
-    layout4 = gsim.foil.SectionLayout(
+    layout4 = gsim.foil_layout.FoilLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=1.0,
         x=0,
         r_yz=0,
-        yz=gsim.foil.FlatYZ(),
+        yz=gsim.foil_layout.FlatYZ(),
     )
     wing4 = gsim.foil.SimpleFoil(
         layout=layout4,
@@ -126,12 +126,12 @@ if __name__ == "__main__":
     M_ref4 = wing4.surface_xyz(0, 0.0, surface="chord")
 
     # Diamond
-    layout5 = gsim.foil.SectionLayout(
+    layout5 = gsim.foil_layout.FoilLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=0.5,
         x=0,
         r_yz=0,
-        yz=gsim.foil.FlatYZ(),
+        yz=gsim.foil_layout.FlatYZ(),
     )
     wing5 = gsim.foil.SimpleFoil(
         layout=layout5,
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     # wing, M_ref = wing4, M_ref4
     # wing, M_ref = wing5, M_ref5
 
-    gsim.plots.plot_foil(wing, N_sections=51)
+    gsim.extras.plots.plot_foil(wing, N_sections=51)
 
     # For a flat wing:
     #
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     v_cp2w *= v_mag  # The Reynolds numbers are a function of the magnitude
     rho_air = 1.225
 
-    fe = gsim.foil.Phillips(wing, v_ref_mag=v_mag, alpha_ref=5)
+    fe = gsim.foil_aerodynamics.Phillips(wing, v_ref_mag=v_mag, alpha_ref=5)
     dF, dM, solution = fe(0, -v_cp2w, 1.2)
     F = rho_air * dF.sum(axis=0)
     M = rho_air * dM.sum(axis=0)
