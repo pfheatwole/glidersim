@@ -12,7 +12,7 @@ __all__ = [
     "elliptical_arc",
     "PolynomialTorsion",
     "FlatYZ",
-    "SectionLayout",
+    "FoilLayout",
 ]
 
 
@@ -237,7 +237,7 @@ def elliptical_chord(root, tip):
     -------
     EllipticalArc
         A function `chord_length(s)` where `-1 <= s <= 1`, (suitable for use
-        with `SectionLayout`).
+        with `FoilLayout`).
     """
 
     taper = tip / root
@@ -272,7 +272,7 @@ def elliptical_arc(mean_anhedral, tip_anhedral=None):
     -------
     EllipticalArc
         A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
-        arc length `2` (suitable for use with `SectionLayout`).
+        arc length `2` (suitable for use with `FoilLayout`).
     """
     if tip_anhedral is None:  # Assume circular
         tip_anhedral = 2 * mean_anhedral
@@ -370,7 +370,7 @@ class FlatYZ:
         return np.broadcast_to([1.0, 0.0], (*np.shape(s), 2)).copy()
 
 
-class SectionLayout:
+class FoilLayout:
     """
     FIXME: docstring. Describe the geometry.
 

@@ -134,7 +134,7 @@ class FoilSections:
 
         These are unscaled since the FoilSections only defines the normalized
         airfoil geometry and coefficients. The Foil scales, translates, and
-        orients these with the chord data it gets from the SectionLayout.
+        orients these with the chord data it gets from the FoilLayout.
 
         Parameters
         ----------

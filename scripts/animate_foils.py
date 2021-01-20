@@ -15,7 +15,7 @@ from pfh.glidersim.foil_layout import (  # noqa: F401
     elliptical_chord,
     FlatYZ,
     PolynomialTorsion as PT,
-    SectionLayout,
+    FoilLayout,
 )
 from pfh.glidersim.foil_sections import FoilSections
 
@@ -366,7 +366,7 @@ def foil_generator(base_config, sequences, fps=60):
             params = {}  # The `exec`uted result
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
-            layout = SectionLayout(**params)
+            layout = FoilLayout(**params)
             yield config, gsim.foil.SimpleFoil(
                 layout=layout,
                 sections=FoilSections(profiles=NACA(24018)),
@@ -404,11 +404,11 @@ from pfh.glidersim.foil_layout import (
     elliptical_chord,
     FlatYZ,
     PolynomialTorsion as PT,
-    SectionLayout,
+    FoilLayout,
 )
 from pfh.glidersim.foil_sections import FoilSections
 
-layout = SectionLayout(
+layout = FoilLayout(
   """
 
     maxlen = max(len(k) for k in config.keys())  # For aligning the "="

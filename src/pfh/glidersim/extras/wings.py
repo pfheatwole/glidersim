@@ -45,7 +45,7 @@ def build_hook3(verbose=True):
     # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
     theta = gsim.foil_layout.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    layout = gsim.foil_layout.SectionLayout(
+    layout = gsim.foil_layout.FoilLayout(
         r_x=0.75,
         x=0,
         r_yz=1.00,

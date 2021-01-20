@@ -345,15 +345,15 @@ Low priority
   airfoils though, conceptually. Very elegant.
 
 
-SectionLayout
+FoilLayout
 =============
 
-* Review the calculation of the projected span `b` in `SectionLayout.__init__`.
+* Review the calculation of the projected span `b` in `FoilLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
   leading edge if the wing has positive torsion and arc anhedral), or should
-  I use `SectionLayout.b = xyz(1, r_yz(1))[1] - xyz(-1, r_yz(-1))[1]`?
+  I use `FoilLayout.b = xyz(1, r_yz(1))[1] - xyz(-1, r_yz(-1))[1]`?
 
-* Should `SectionLayout` use the general form of the chord surface equation?
+* Should `FoilLayout` use the general form of the chord surface equation?
   Maybe have another class that presents the simplified parametrization I'm
   using for parafoil chord surfaces?
 
@@ -439,7 +439,7 @@ FoilSections
   not been scaled by the chord length, etc.
 
   Heck, I need to document the entire stack: "a Foil is a combination of
-  `SectionLayout` and `FoilSections`, both of which define units that are
+  `FoilLayout` and `FoilSections`, both of which define units that are
   scaled by the span of the foil"
 
 
@@ -509,7 +509,7 @@ Parafoil
 Geometry
 --------
 
-* The `SectionLayout` requires the values to be proportional to `b_flat == 2`?
+* The `FoilLayout` requires the values to be proportional to `b_flat == 2`?
   **What if you don't know `b_flat`? Do you need to compute the total length
   of `yz` and re-normalize to that?** (I think I'm missing something here...
   As long as everything is proportional, who cares? I'll need to look for
@@ -554,7 +554,7 @@ Inertia
 Cells
 ^^^^^
 
-This is a catch-all group. Right now I'm using the idealized `SectionLayout`
+This is a catch-all group. Right now I'm using the idealized `FoilLayout`
 directly, but real parafoils are comprised of cells, where the ribs provide
 internal structure and attempt to produce the desired airfoil cross-sections,
 but deformations (billowing, etc) cause deviations from that ideal shape.
@@ -593,7 +593,7 @@ Some considerations:
 * Try to anticipate some of the effects of billowing. For example, compare the
   performance of a normal `24018` to a 15% increased thickness `24018` using
   XFLR5 (which simply scales the airfoil by a constant factor). Make a list of
-  anticipated deviations compared to the idealized `SectionLayout`. (decreased
+  anticipated deviations compared to the idealized `FoilLayout`. (decreased
   lift/drag ratio, etc)
 
 * How a cell compresses during inflation depends on the shape of the parafoil
@@ -606,7 +606,7 @@ Deformations
 * To warp the trailing edge, could you warp the mean camber line instead of
   the surfaces themselves, then constrain to maintain constant curve length?
 
-* Starting with the `SectionLayout`, how hard would it be to warp the central
+* Starting with the `FoilLayout`, how hard would it be to warp the central
   sections to produce a "weight shift" effect?
 
 * Is it a fools errand to support lifting-line methods in the presence of
@@ -1081,7 +1081,7 @@ Simulator
   reuse the simulator `states` output in things like plots.
 
 * Ideally, the simulator would understand that Phillips can fail, and could
-  degrade/terminate gracefully. (Depends on how the `ForceEstimator` signal
+  degrade/terminate gracefully. (Depends on how the `FoilAerodynamics` signals
   failures; that design is a WIP.)
 
 * Verify the RK4 time steps and how I'm stepping the sim forward. Review `dt`,

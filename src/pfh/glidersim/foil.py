@@ -37,13 +37,13 @@ class SimpleFoil:
 
         Parameters
         ----------
-        layout : SectionLayout
+        layout : FoilLayout
             FIXME: docstring
         sections : FoilSections
             The geometry and coefficients for the section profiles.
         b, b_flat : float
             The arched and flattened spans of the chords. Specify only one.
-            These function as scaling factors for the SectionLayout.
+            These function as scaling factors for the FoilLayout.
         """
         self._layout = layout
         self.sections = sections

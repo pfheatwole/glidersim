@@ -66,7 +66,7 @@ if __name__ == "__main__":
     sections = gsim.foil_sections.FoilSections(airfoil=airfoil)
 
     # Straight
-    layout1 = gsim.foil_layout.SectionLayout(
+    layout1 = gsim.foil_layout.FoilLayout(
         c=0.25,
         r_x=0,
         x=0,
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     M_ref1 = wing1.surface_xyz(0, 0, surface="chord")
 
     # Elliptical
-    layout2 = gsim.foil_layout.SectionLayout(
+    layout2 = gsim.foil_layout.FoilLayout(
         c=gsim.foil_layout.elliptical_chord(0.25, 0.1),
         r_x=0.5,
         x=0,
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     M_ref2 = wing2.surface_xyz(0, 0.5, surface="chord")
 
     # Diagonal
-    layout3 = gsim.foil_layout.SectionLayout(
+    layout3 = gsim.foil_layout.FoilLayout(
         c=0.5,
         r_x=0.5,
         x=lambda s: -np.abs(s),
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     M_ref3 = wing3.surface_xyz(0, 0.0, surface="chord")
 
     # Triangle
-    layout4 = gsim.foil_layout.SectionLayout(
+    layout4 = gsim.foil_layout.FoilLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=1.0,
         x=0,
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     M_ref4 = wing4.surface_xyz(0, 0.0, surface="chord")
 
     # Diamond
-    layout5 = gsim.foil_layout.SectionLayout(
+    layout5 = gsim.foil_layout.FoilLayout(
         c=lambda s: 1 - np.abs(s),
         r_x=0.5,
         x=0,
