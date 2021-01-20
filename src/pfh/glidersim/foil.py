@@ -31,6 +31,8 @@ class SimpleFoil:
         sections,
         b=None,
         b_flat=None,
+        aerodynamics_method=None,
+        aerodynamics_config={},
     ):
         """
         Add a docstring.
@@ -44,6 +46,10 @@ class SimpleFoil:
         b, b_flat : float
             The arched and flattened spans of the chords. Specify only one.
             These function as scaling factors for the FoilLayout.
+        aerodynamics_method : foil_aerodynamics.FoilAerodynamics, optional
+            Estimator for the aerodynamic forces and moments.
+        aerodynamics_config : dictionary, optional
+            Keyword arguments for instantiating `aerodynamics_method`
         """
         self._layout = layout
         self.sections = sections
@@ -56,6 +62,8 @@ class SimpleFoil:
             self.b = b
         else:  # b_flat
             self.b_flat = b_flat
+
+        self.aerodynamics = aerodynamics_method(self, **aerodynamics_config)
 
     @property
     def b(self):
@@ -723,3 +731,6 @@ class SimpleFoil:
             )
 
         return triangles_upper, triangles_lower
+
+    def control_points(self):
+        return self.aerodynamics.control_points()

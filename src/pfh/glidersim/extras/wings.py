@@ -66,6 +66,8 @@ def build_hook3(verbose=True):
         sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
+        aerodynamics_method=gsim.foil_aerodynamics.Phillips,
+        aerodynamics_config={"v_ref_mag": 10, "K": 31},
     )
 
     # print("Drawing the canopy")
@@ -122,7 +124,6 @@ def build_hook3(verbose=True):
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
-        foil_aerodynamics=gsim.foil_aerodynamics.Phillips(canopy, v_ref_mag=10, K=31),
     )
 
     # -----------------------------------------------------------------------
