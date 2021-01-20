@@ -237,7 +237,7 @@ class ParagliderWing:
         The geometric shape of the lifting surface.
     rho_upper, rho_lower : float [kg m^-2]
         Surface area densities of the upper and lower canopy surfaces.
-    force_estimator : foil.ForceEstimator
+    foil_aerodynamics : foil.FoilAerodynamics
         Estimator for the aerodynamic forces and moments on the canopy.
 
     Notes
@@ -255,7 +255,7 @@ class ParagliderWing:
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
-        force_estimator=None,
+        foil_aerodynamics=None,
     ):
         self.lines = lines
         self.canopy = canopy
@@ -263,7 +263,7 @@ class ParagliderWing:
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
         self.rho_ribs = rho_ribs
-        self.force_estimator = force_estimator
+        self.foil_aerodynamics = foil_aerodynamics
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
 
         # Compute the canopy mass properties in canopy coordinates
@@ -457,7 +457,7 @@ class ParagliderWing:
         """
         # FIXME: (1) duplicates `self.control_points`
         #        (2) only used to get the shapes of the control point arrays
-        foil_cps = self.force_estimator.control_points()
+        foil_cps = self.foil_aerodynamics.control_points()
         line_cps = self.c_0 * self.lines.control_points()
 
         # FIXME: uses "magic" indexing established in `self.control_points()`
@@ -470,9 +470,9 @@ class ParagliderWing:
         v_W2b_lines = v_W2b[-K_lines:]
 
         delta_f = self.lines.delta_f(
-            self.force_estimator.s_cps, delta_bl, delta_br,
+            self.foil_aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
-        dF_foil, dM_foil, solution = self.force_estimator(
+        dF_foil, dM_foil, solution = self.foil_aerodynamics(
             delta_f, v_W2b_foil, rho_air, reference_solution,
         )
 
@@ -535,7 +535,7 @@ class ParagliderWing:
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
-            raise foil.ForceEstimator.ConvergenceError
+            raise foil.FoilAerodynamics.ConvergenceError
         return res.root
 
     def control_points(self, delta_a=0):
@@ -555,7 +555,7 @@ class ParagliderWing:
             The control points in frd coordinates
         """
         r_LE2RM = self.c_0 * self.lines.r_RM2LE(delta_a)
-        foil_cps = self.force_estimator.control_points()
+        foil_cps = self.foil_aerodynamics.control_points()
         line_cps = self.lines.control_points() * self.c_0
         return np.vstack((foil_cps, line_cps))
 

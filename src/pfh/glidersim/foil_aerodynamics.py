@@ -9,7 +9,7 @@ from pfh.glidersim.util import cross3
 
 
 __all__ = [
-    "ForceEstimator",
+    "FoilAerodynamics",
     "Phillips",
 ]
 
@@ -18,7 +18,7 @@ def __dir__():
     return __all__
 
 
-class ForceEstimator(abc.ABC):
+class FoilAerodynamics(abc.ABC):
 
     @abc.abstractmethod
     def __call__(self, delta_f, v_W2f, rho_air):
@@ -57,7 +57,7 @@ class ForceEstimator(abc.ABC):
         """The estimator failed to converge on a solution."""
 
 
-class Phillips(ForceEstimator):
+class Phillips(FoilAerodynamics):
     """
     A non-linear numerical lifting-line method.
 
@@ -159,7 +159,7 @@ class Phillips(ForceEstimator):
         }
         try:
             _, _, self._reference_solution = self.__call__(0, v_W2f_ref, 1.2)
-        except ForceEstimator.ConvergenceError as e:
+        except FoilAerodynamics.ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
 
     def _compute_Reynolds(self, v_W2f, rho_air):
@@ -308,12 +308,12 @@ class Phillips(ForceEstimator):
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         if not res["success"]:
-            raise ForceEstimator.ConvergenceError
+            raise FoilAerodynamics.ConvergenceError
 
         return res["x"], v
 
     def __call__(self, delta_f, v_W2f, rho_air, reference_solution=None, max_splits=10):
-        # FIXME: this doesn't match the ForceEstimator.__call__ signature
+        # FIXME: this doesn't match the FoilAerodynamics.__call__ signature
         delta_f = np.broadcast_to(delta_f, (self.K))
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
         Re = self._compute_Reynolds(v_W2f, rho_air)
@@ -336,9 +336,9 @@ class Phillips(ForceEstimator):
         while True:
             try:
                 Gamma, v = self._solve_circulation(delta_f, v_W2f, Re, Gamma_ref)
-            except ForceEstimator.ConvergenceError:
+            except FoilAerodynamics.ConvergenceError:
                 if num_splits == max_splits:
-                    raise ForceEstimator.ConvergenceError("max splits reached")
+                    raise FoilAerodynamics.ConvergenceError("max splits reached")
                 num_splits += 1
                 target_backlog.append((delta_f, v_W2f))
                 P = 0.5  # Ratio, a point between the reference and the target
