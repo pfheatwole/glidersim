@@ -365,7 +365,7 @@ class SimpleFoil:
 
         return mass_properties
 
-    def mass_properties2(self, N_s=301, N_r=301, N_cells=1):
+    def mass_properties2(self, N_s=301, N_r=301):
         """
         Compute the quantities that control inertial behavior.
 
@@ -380,8 +380,6 @@ class SimpleFoil:
             The grid resolution over the section index.
         N_r : int
             The grid resolution over the surface coordinates.
-        N_cells : int, optional
-            The number of internal cells. Default: 1
 
         Returns
         -------
@@ -537,32 +535,6 @@ class SimpleFoil:
         J_v2LE = np.eye(3) * np.trace(cov_v) - cov_v
         J_v2V = J_v2LE - V * ((Cv @ Cv) * np.eye(3) - np.outer(Cv, Cv))
 
-        # Compute the inertia of vertical ribs (including wing tips)
-        # FIXME: this is a kludge, but ribs need design review anyway
-        s_ribs = np.linspace(-1, 1, N_cells + 1)
-        rib_vertices = self.surface_xyz(s_ribs[:, None], r, "airfoil")
-        rib_points = self.sections.surface_xz(s_ribs[:, None], r, "airfoil")
-        rib_tris = []
-        for n in range(len(rib_vertices)):
-            rib_simplices = Delaunay(rib_points[n]).simplices
-            rib_tris.append(rib_vertices[n][rib_simplices])
-        rib_tris = np.asarray(rib_tris)
-        rib_sides = np.diff(rib_tris, axis=2)
-        rib1 = rib_sides[..., 0, :]
-        rib2 = rib_sides[..., 1, :]
-        rib_areas_n = np.linalg.norm(np.cross(rib1, rib2), axis=2) / 2
-        rib_areas = np.sum(rib_areas_n, axis=1)  # For debugging
-        rib_area = rib_areas_n.sum()
-        rib_centroids_n = np.einsum("NKij->NKj", rib_tris) / 3
-        r_RIB2LE = np.einsum("NK,NKi->i", rib_areas_n, rib_centroids_n) / rib_area
-        cov_ribs = np.einsum(
-            "NK,NKi,NKj->ij",
-            rib_areas_n,
-            rib_centroids_n - r_RIB2LE,
-            rib_centroids_n - r_RIB2LE,
-        )
-        J_rib2RIB = np.trace(cov_ribs) * np.eye(3) - cov_ribs
-
         mass_properties = {
             "upper_area": Au,
             "upper_centroid": Cu,
@@ -573,9 +545,6 @@ class SimpleFoil:
             "lower_area": Al,
             "lower_centroid": Cl,
             "lower_inertia": J_l2L,
-            "rib_area": rib_area,
-            "rib_centroid": r_RIB2LE,
-            "rib_inertia": J_rib2RIB,
         }
 
         return mass_properties

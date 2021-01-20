@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy.optimize import root_scalar
+from scipy.spatial import Delaunay
 
 from pfh.glidersim import foil
 from pfh.glidersim.util import cross3, crossmat
@@ -236,8 +237,14 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
-    rho_upper, rho_lower : float [kg m^-2]
+    rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
+    rho_ribs : float [kg/m^2]
+        Surface area density of the internal vertical ribs.
+    N_cells : integer, optional
+        The number of canopy cells. This is only used for estimating the mass
+        of the internal ribs. Proper support for ribs requires a new `Foil`
+        with native support for cells, ribs, profile distortions, etc.
     Notes
     -----
     The ParagliderWing coordinate axes are parallel to the canopy axes, but the
@@ -249,22 +256,26 @@ class ParagliderWing:
         self,
         lines,
         canopy,
-        N_cells=1,
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
+        N_cells=1,
     ):
         self.lines = lines
         self.canopy = canopy
-        self.N_cells = N_cells
         self.rho_upper = rho_upper
         self.rho_lower = rho_lower
         self.rho_ribs = rho_ribs
-        self.c_0 = canopy.chord_length(0)  # Scales the line geometry
+        self.N_cells = N_cells
 
+        self.c_0 = canopy.chord_length(0)  # Scales the line geometry
+        self._compute_real_mass_properties()
+        self._compute_apparent_mass_properties()
+
+    def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
         # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        cmp = self.canopy.mass_properties2(N_s=101, N_r=101, N_cells=N_cells)
+        cmp = self.canopy.mass_properties2(N_s=101, N_r=101)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
@@ -275,6 +286,43 @@ class ParagliderWing:
         for k in ("upper", "volume", "lower"):
             cmp[k + "_centroid"][1] = 0
             cmp[k + "_inertia"][[0, 1, 1, 2], [1, 0, 2, 1]] = 0
+
+        # The `SimpleFoil` has no concept of internal ribs, but I'd like to at
+        # least account for the rib mass. Compute the inertia of vertical ribs
+        # (including wing tips)
+        #
+        # FIXME: this is a kludge, but ribs need design review anyway
+        s_ribs = np.linspace(-1, 1, self.N_cells + 1)
+        N_r = 151  # Number of points around each profile
+        r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
+        r = np.concatenate((-r[:0:-1], r))
+        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], r, "airfoil")
+        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], r, "airfoil")
+        rib_tris = []
+        for n in range(len(rib_vertices)):
+            rib_simplices = Delaunay(rib_points[n]).simplices
+            rib_tris.append(rib_vertices[n][rib_simplices])
+        rib_tris = np.asarray(rib_tris)
+        rib_sides = np.diff(rib_tris, axis=2)
+        rib1 = rib_sides[..., 0, :]
+        rib2 = rib_sides[..., 1, :]
+        rib_areas_n = np.linalg.norm(np.cross(rib1, rib2), axis=2) / 2
+        rib_areas = np.sum(rib_areas_n, axis=1)  # For debugging
+        rib_area = rib_areas_n.sum()
+        rib_centroids_n = np.einsum("NKij->NKj", rib_tris) / 3
+        r_RIB2LE = np.einsum("NK,NKi->i", rib_areas_n, rib_centroids_n) / rib_area
+        cov_ribs = np.einsum(
+            "NK,NKi,NKj->ij",
+            rib_areas_n,
+            rib_centroids_n - r_RIB2LE,
+            rib_centroids_n - r_RIB2LE,
+        )
+        J_rib2RIB = np.trace(cov_ribs) * np.eye(3) - cov_ribs
+        cmp.update({
+            "rib_area": rib_area,
+            "rib_centroid": r_RIB2LE,
+            "rib_inertia": J_rib2RIB,
+        })
 
         m_upper = cmp["upper_area"] * self.rho_upper
         m_lower = cmp["lower_area"] * self.rho_lower
@@ -298,7 +346,7 @@ class ParagliderWing:
         J_l2S = J_l2L + m_lower * D_l
         J_rib2S = J_rib2RIB + m_rib * D_rib
         J_s2S = J_u2S + J_l2S + J_rib2S
-        self._mass_properties = {
+        self._real_mass_properties = {
             "m_s": m_s,
             "r_S2LE": r_S2LE,  # In canopy coordinates
             "J_s2S": J_s2S,
@@ -307,9 +355,7 @@ class ParagliderWing:
             "J_v2V": cmp["volume_inertia"],
         }
 
-        self._compute_apparent_masses()
-
-    def _compute_apparent_masses(self):
+    def _compute_apparent_mass_properties(self):
         """
         Compute an approximate apparent mass matrix for the canopy volume.
 
@@ -416,7 +462,7 @@ class ParagliderWing:
         # which depends on `delta_a`.
         r_C2LE = np.array([-0.5 * self.c_0, 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
-        self._apparent_inertia = {
+        self._apparent_mass_properties = {
             "r_RC2LE": r_RC2C + r_C2LE,
             "r_PC2RC": np.array([0, 0, z_PC2RC]),
             "M": np.diag([m11, m22, m33]),  # Barrows Eq:1
@@ -613,13 +659,13 @@ class ParagliderWing:
                 The apparent inertia matrix of the volume about `RM`
         """
         r_LE2RM = -self.r_RM2LE(delta_a)
-        mp = self._mass_properties.copy()
+        mp = self._real_mass_properties.copy()
         mp["r_S2RM"] = mp["r_S2LE"] + r_LE2RM
         mp["r_V2RM"] = mp["r_V2LE"] + r_LE2RM
         mp["m_air"] = mp["v"] * rho_air
 
         # Apparent moment of inertia matrix about `RM` (Barrows Eq:25)
-        ai = self._apparent_inertia  # Dictionary of precomputed values
+        ai = self._apparent_mass_properties  # Dictionary of precomputed values
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
         r_RC2RM = r_LE2RM + ai["r_RC2LE"]
         S_PC2RC = crossmat(ai["r_PC2RC"])
