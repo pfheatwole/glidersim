@@ -8,6 +8,7 @@ from pfh.glidersim.util import cross3, crossmat
 
 
 __all__ = [
+    "SimpleLineGeometry",
     "ParagliderWing",
 ]
 
