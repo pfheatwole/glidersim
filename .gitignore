@@ -1,4 +1,8 @@
 __pycache__/
-dist/
+
 docs/source/_autosummary/
 docs/_build/
+
+*.egg-info/
+dist/
+venv/

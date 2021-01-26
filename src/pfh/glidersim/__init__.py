@@ -9,3 +9,5 @@ from pfh.glidersim import paraglider_harness
 from pfh.glidersim import paraglider_wing
 from pfh.glidersim import simulator
 from pfh.glidersim import util
+
+__version__ = "0.7.1"
