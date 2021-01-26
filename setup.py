@@ -13,8 +13,9 @@ if __name__ == "__main__":
                 "data/*/README",
             ],
         },
-        version="0.7.1",
+        use_scm_version=True,
         python_requires="~=3.7",
+        setup_requires=["setuptools_scm"],
         install_requires=[
             "numpy >= 1.19.4",
             "scipy >= 1.6.0",

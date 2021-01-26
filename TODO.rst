@@ -75,6 +75,11 @@ Documentation
 General
 -------
 
+* Not sure I like relying on git tags for the versions. An alternative would
+  be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
+  use `version = attr: pfh.glidersim.__version__`. See
+  https://packaging.python.org/guides/single-sourcing-package-version/
+
 * Fix the "magic indexing" in `paraglider_wing` and `paraglider`
 
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
