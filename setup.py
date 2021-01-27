@@ -31,6 +31,7 @@ if __name__ == "__main__":
                 "flake8-docstrings >= 1.5.0",
                 "flake8-isort >= 3.0.0",
                 "flake8-rst-docstrings >= 0.0.14",
+                "pre-commit >= 2.10.0",
                 "Sphinx >= 3.4.3",
                 "numpydoc >= 1.1.0",
                 "sphinx-rtd-theme >= 0.5.1",
