@@ -29,7 +29,7 @@ if __name__ == "__main__":
                 "flake8-bugbear >= 20.11.1",
                 "flake8-commas >= 2.0.0",
                 "flake8-docstrings >= 1.5.0",
-                "flake8-import-order >= 0.18.1",
+                "flake8-isort >= 3.0.0",
                 "flake8-rst-docstrings >= 0.0.14",
                 "Sphinx >= 3.4.3",
                 "numpydoc >= 1.1.0",

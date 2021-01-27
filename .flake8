@@ -7,7 +7,7 @@
 
 ignore =
   E203,  # whitespace before `:`
-  E501,  # maximum line length
+  B950,  # strict max-line-length; I agree with PEP 8
   W503,  # line break before binary operator
 
 select =
@@ -23,16 +23,8 @@ select =
   W,  # pycodestyle warnings
   W504,  # newline after binary operator
 
-# Configure: bugbear
-# Rely B950 to encourage a length of 88
-max-line-length = 80
-
 # Configure flake8-docstrings
 docstring-convention = numpy
-
-# Configure: flake8-import=order
-application-import-names = pfh.glidersim
-import-order-style = google
 
 # Configure flake8-rst-docstrings
 rst-roles =
