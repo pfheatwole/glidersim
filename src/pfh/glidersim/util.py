@@ -1,7 +1,7 @@
 """FIXME: add module docstring"""
 
-from numba import float64, guvectorize, njit
 import numpy as np
+from numba import float64, guvectorize, njit
 
 
 __all__ = [
