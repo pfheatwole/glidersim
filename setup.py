@@ -8,12 +8,7 @@ if __name__ == "__main__":
         license="MIT",
         package_dir={"": "src"},
         packages=find_namespace_packages(where="src"),
-        package_data={
-            "pfh.glidersim.extras": [
-                "data/*/*.csv",
-                "data/*/README",
-            ],
-        },
+        include_package_data=True,
         use_scm_version=True,
         python_requires="~=3.7",
         setup_requires=["setuptools_scm"],
