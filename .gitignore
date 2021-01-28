@@ -1,4 +1,9 @@
 __pycache__/
-dist/
+src/pfh/glidersim/_version.py
+
 docs/source/_autosummary/
 docs/_build/
+
+*.egg-info/
+dist/
+venv/

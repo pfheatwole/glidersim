@@ -1,37 +1,11 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=51", "wheel", "setuptools_scm>=5"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
-name = "pfh.glidersim"
-version = "0.7.0"
-description = "Paraglider simulation using non-linear dynamics."
-authors = ["Peter Heatwole <pfheatwole@gmail.com>"]
-license = "MIT"
-readme = "README.rst"
-repository = "https://github.com/pfheatwole/glidersim"
-packages = [
-    { include = "pfh/glidersim", from = "src" },
-]
-include = [
-    "src/pfh/glidersim/extras/airfoil_polars",
-]
+[tool.black]
+line-length = 79
 
-[tool.poetry.dependencies]
-python = "^3.7,<3.9"
-numpy = "^1.19.4"
-scipy = "^1.6.0"
-numba = "^0.52.0"
-matplotlib = "^3.3.3"
-
-[tool.poetry.dev-dependencies]
-flake8 = "^3.8.4"
-flake8-black = "^0.2.1"
-flake8-bugbear = "^20.11.1"
-flake8-commas = "^2.0.0"
-flake8-docstrings = "^1.5.0"
-flake8-import-order = "^0.18.1"
-flake8-rst-docstrings = "^0.0.14"
-Sphinx = "^3.4.3"
-numpydoc = "^1.1.0"
-sphinx-rtd-theme = "^0.5.1"
+[tool.isort]
+line_length = 79
+lines_after_imports = 2
+profile = "black"

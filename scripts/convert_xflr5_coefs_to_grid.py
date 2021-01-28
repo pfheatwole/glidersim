@@ -9,6 +9,7 @@ import numpy as np
 
 import pfh.glidersim as gsim
 
+
 directory = "/home/peter/model/work/glidersim/scripts/polars/NACA23015_closed_N5.0/"
 flapped = False  # Whether to look expect `delta` columns
 

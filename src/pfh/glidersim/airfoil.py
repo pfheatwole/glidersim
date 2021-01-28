@@ -14,12 +14,14 @@ import pathlib
 import re
 
 import numpy as np
+import scipy.optimize
 from numpy.lib import recfunctions as rfn
 from scipy.integrate import simps
-from scipy.interpolate import LinearNDInterpolator
-from scipy.interpolate import PchipInterpolator
-from scipy.interpolate import RegularGridInterpolator
-import scipy.optimize
+from scipy.interpolate import (
+    LinearNDInterpolator,
+    PchipInterpolator,
+    RegularGridInterpolator,
+)
 
 
 __all__ = [

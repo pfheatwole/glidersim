@@ -62,18 +62,25 @@ Documentation
   anyway.
 
 * I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
-  A set of Jinja2 templates from
-  `<https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary>`_
-  control the `autosummary` output. I'd kind of like it if each module would
-  list its classes in the contents tree (left hand side of the `readthedocs`
-  theme). I tried to achieve that by overriding the `module.rst` template to
-  include the ``:toctree:`` directive to the ``.. autosummary::`` that's
-  building up the classes in the module, but that makes sphinx angry since it
-  generates duplicate stubs for those class definitions.
+  A set of Jinja2 templates from [0] control the `autosummary` output. I'd
+  kind of like it if each module would list its classes in the contents tree
+  (left hand side of the `readthedocs` theme). I tried to achieve that by
+  overriding the `module.rst` template to include the ``:toctree:`` directive
+  to the ``.. autosummary::`` that's building up the classes in the module,
+  but that makes sphinx angry since it generates duplicate stubs for those
+  class definitions.
 
+  [0] https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary
 
 General
 -------
+
+* Not sure I like relying on git tags for the versions. An alternative would
+  be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
+  use `version = attr: pfh.glidersim.__version__`. See
+  https://packaging.python.org/guides/single-sourcing-package-version/
+
+  Deal-breaker: you need a `setup.py` to enable `pip install -e .`
 
 * Fix the "magic indexing" in `paraglider_wing` and `paraglider`
 
@@ -112,6 +119,11 @@ General
   * Do the wing+glider functions always parametrize like (<wing stuff>,
     <environment stuff>)? Can they?
 
+* Typing info (mypy). See also `numpy.typing`, `nptyping`, etc.
+
+* According to PEP8, module-level dunders should come after `from __future__`
+  imports but **before** normal imports. My `__all__` are technically wrong.
+
 
 Low priority
 ------------
@@ -128,24 +140,10 @@ Low priority
 Packaging
 ---------
 
-* Why do I need `python = "^3.6<3.9`? Why doesn't `python = "^3.6"` work? See
-  https://github.com/python-poetry/poetry/issues/743#issuecomment-474304798
-  I suspect a `poetry` bug; hopefully an update fixes this. Check it later.
-
 * Complete `README.rst`
 
-* Make `numba` and `matplotlib` optional dependencies
-
-  For one, need to modify `pyproject.toml`:
-
-  .. code::
-
-     numba = {version = "^0.52.0", optional = true }
-     matplotlib = {version = "^3.3.3", optional = true }
-
-     [tool.poetry.extras]
-     performance = ["numba"]
-     plotting = ["matplotlib"]
+* Make `numba` and `matplotlib` optional dependencies; maybe put them as
+  "performance" and "plotting" extras.
 
   For `matplotlib`, I need to review the code for places that import
   `matplotlib`, add lazy-loading for those modules, and present a warning if
@@ -157,6 +155,15 @@ Packaging
 
   Alternatively, make `numba` a dev-only dependency by compiling the modules
   ahead of time. See https://numba.readthedocs.io/en/stable/user/pycc.html
+
+* I looked into `flit` for packaging, but they don't support namespace
+  packages. I'm using the `pfh` namespace for my various projects, so this is
+  disappointing. Recall why I started using a namespace in the first place:
+  https://www.python.org/dev/peps/pep-0423/#individual-projects-use-a-namespace
+
+  * https://github.com/takluyver/flit/issues/370
+
+  * https://github.com/takluyver/flit/pull/159
 
 
 Plots
@@ -175,6 +182,14 @@ Plots
 
 Testing
 -------
+
+* `tox`: Learn it. Use it. Going to take some time to think up how to test this
+  sort of project though.
+
+  Will probably need some special tooling, like an `AirfoilCoefficients` that
+  just returns `1`, a `FoilAerodynamics` that just returns `1`, a wing model
+  that weighs 1kg with the cg 1m below the wing, etc. (In other words, how to
+  build a model for which you can compute accelerations manually.)
 
 * What if the sensation of being "pushed out of a thermal" is a combination of
   effects: the wing yawing away and a *decrease in centripetal acceleration*?
@@ -547,7 +562,7 @@ Geometry
   What are the essential needs of users like `SimpleFoil`, `Parafoil`, etc? At
   least: `section_orientation, chord_length, chord_xyz, surface_xyz`. Anything
   else? I think the least constraining view is "profiles as a function of
-  section index positioned along some line". 
+  section index positioned along some line".
 
 
 Inertia
@@ -1183,4 +1198,3 @@ Scripts
 
 * Convert `convert_xflr5_coefs_to_grid.py` into a proper CLI tool. Probably
   start by renaming it to `resample_xfoil_polars.py` or similar.
-
