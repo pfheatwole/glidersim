@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import root_scalar
 from scipy.spatial import Delaunay
 
-from pfh.glidersim import foil
+from pfh.glidersim import foil, foil_aerodynamics
 from pfh.glidersim.util import cross3, crossmat
 
 
@@ -245,6 +245,7 @@ class ParagliderWing:
         The number of canopy cells. This is only used for estimating the mass
         of the internal ribs. Proper support for ribs requires a new `Foil`
         with native support for cells, ribs, profile distortions, etc.
+
     Notes
     -----
     The ParagliderWing coordinate axes are parallel to the canopy axes, but the
