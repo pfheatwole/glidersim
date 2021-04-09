@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from pfh.glidersim import foil, orientation
+from pfh.glidersim import foil_aerodynamics, orientation
 
 
 def plot_polar_curve(glider, rho_air=1.225, N=21):
