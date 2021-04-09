@@ -75,50 +75,22 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     v_RM2e_a = orientation.quaternion_rotate(q_e2b_a, v_RM2e_a)
     v_RM2e_b = orientation.quaternion_rotate(q_e2b_b, v_RM2e_b)
 
-    # -----------------------------------------------------------------------
-    # Plot the curves
-    fig, ax = plt.subplots(2, 2)  # [[alpha_b, sink rate], [theta_b, GR]]
+    accelerating = {
+        "delta": delta_as,
+        "alpha_b": [e["alpha_b"] for e in eqs_a],
+        "theta_b": [e["Theta_b2e"][1] for e in eqs_a],
+        "v_RM2e": v_RM2e_a,
+        "glide_ratio": [e["glide_ratio"] for e in eqs_a],
+    }
+    braking = {
+        "delta": delta_bs,
+        "alpha_b": [e["alpha_b"] for e in eqs_b],
+        "theta_b": [e["Theta_b2e"][1] for e in eqs_b],
+        "v_RM2e": v_RM2e_b,
+        "glide_ratio": [e["glide_ratio"] for e in eqs_b],
+    }
 
-    # alpha_b versus control input
-    alpha_b_a = [e["alpha_b"] for e in eqs_a]
-    alpha_b_b = [e["alpha_b"] for e in eqs_b]
-    ax[0, 0].plot(delta_as, np.rad2deg(alpha_b_a), "g")
-    ax[0, 0].plot(-delta_bs, np.rad2deg(alpha_b_b), "r")
-    ax[0, 0].set_xlabel("Control input [%]")
-    ax[0, 0].set_ylabel("alpha_b [deg]")
-
-    # Vertical versus horizontal airspeed
-    ax[0, 1].plot(v_RM2e_a.T[0], v_RM2e_a.T[2], "g")
-    ax[0, 1].plot(v_RM2e_b.T[0], v_RM2e_b.T[2], "r")
-    ax[0, 1].set_aspect("equal")
-    ax[0, 1].set_xlim(0, 25)
-    ax[0, 1].set_ylim(0, 8)
-    ax[0, 1].invert_yaxis()
-    ax[0, 1].set_xlabel("Horizontal airspeed [m/s]")
-    ax[0, 1].set_ylabel("sink rate [m/s]")
-    ax[0, 1].grid(which="both")
-    ax[0, 1].minorticks_on()
-
-    # theta_b versus control input
-    theta_b_a = [e["Theta_b2e"][1] for e in eqs_a]
-    theta_b_b = [e["Theta_b2e"][1] for e in eqs_b]
-    ax[1, 0].plot(delta_as, np.rad2deg(theta_b_a), "g")
-    ax[1, 0].plot(-delta_bs, np.rad2deg(theta_b_b), "r")
-    ax[1, 0].set_xlabel("Control input [%]")
-    ax[1, 0].set_ylabel("theta_b [deg]")
-
-    # Glide ratio
-    GR_a = [e["glide_ratio"] for e in eqs_a]
-    GR_b = [e["glide_ratio"] for e in eqs_b]
-    ax[1, 1].plot(v_RM2e_a.T[0], GR_a, "g")
-    ax[1, 1].plot(v_RM2e_b.T[0], GR_b, "r")
-    ax[1, 1].set_xlim(0, 25)
-    ax[1, 1].set_xlabel("Horizontal airspeed [m/s]")
-    ax[1, 1].set_ylabel("Glide ratio")
-
-    plt.show()
-
-    breakpoint()
+    return accelerating, braking
 
 
 def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.225):

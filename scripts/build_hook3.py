@@ -66,4 +66,52 @@ if __name__ == "__main__":
     breakpoint()
 
     input("Plot the polar curve?  Press any key")
-    gsim.extras.compute_polars.plot_polar_curve(paraglider)
+    accelerating, braking = gsim.extras.compute_polars.plot_polar_curve(
+        paraglider,
+    )
+
+    # -----------------------------------------------------------------------
+    # Plot the curves
+    fig, ax = plt.subplots(2, 2)  # [[alpha_b, sink rate], [theta_b, GR]]
+
+    deltas_a = accelerating["delta"]
+    deltas_b = braking["delta"]
+    thetas_a = accelerating["theta_b"]
+    thetas_b = braking["theta_b"]
+    v_RM2e_a = accelerating["v_RM2e"]
+    v_RM2e_b = braking["v_RM2e"]
+
+    # alpha_b versus control input
+    ax[0, 0].plot(deltas_a, np.rad2deg(accelerating["alpha_b"]), "g")
+    ax[0, 0].plot(-deltas_b, np.rad2deg(braking["alpha_b"]), "r")
+    ax[0, 0].set_xlabel("Control input [%]")
+    ax[0, 0].set_ylabel("alpha_b [deg]")
+
+    # Vertical versus horizontal airspeed
+    ax[0, 1].plot(v_RM2e_a.T[0], v_RM2e_a.T[2], "g")
+    ax[0, 1].plot(v_RM2e_b.T[0], v_RM2e_b.T[2], "r")
+    ax[0, 1].set_aspect("equal")
+    ax[0, 1].set_xlim(0, 25)
+    ax[0, 1].set_ylim(0, 8)
+    ax[0, 1].invert_yaxis()
+    ax[0, 1].set_xlabel("Horizontal airspeed [m/s]")
+    ax[0, 1].set_ylabel("sink rate [m/s]")
+    ax[0, 1].grid(which="both")
+    ax[0, 1].minorticks_on()
+
+    # theta_b versus control input
+    ax[1, 0].plot(deltas_a, np.rad2deg(thetas_a), "g")
+    ax[1, 0].plot(-deltas_b, np.rad2deg(thetas_b), "r")
+    ax[1, 0].set_xlabel("Control input [%]")
+    ax[1, 0].set_ylabel("theta_b [deg]")
+
+    # Glide ratio
+    ax[1, 1].plot(v_RM2e_a.T[0], accelerating["glide_ratio"], "g")
+    ax[1, 1].plot(v_RM2e_b.T[0], braking["glide_ratio"], "r")
+    ax[1, 1].set_xlim(0, 25)
+    ax[1, 1].set_xlabel("Horizontal airspeed [m/s]")
+    ax[1, 1].set_ylabel("Glide ratio")
+
+    plt.show()
+
+    breakpoint()
