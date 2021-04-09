@@ -9,8 +9,6 @@ from pfh.glidersim import foil, orientation
 def plot_polar_curve(glider, rho_air=1.225, N=21):
     """Compute the equilibrium conditions and plot the polar curves."""
 
-    eqstate = glider.equilibrium_state
-
     eqs_a = []
     delta_as = np.linspace(0, 1, N)
     equilibrium = {  # Initial guesses
@@ -23,7 +21,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     for n, da in enumerate(delta_as):
         print(f"\r{da:.2f}", end="")
         try:
-            equilibrium = eqstate(
+            equilibrium = glider.equilibrium_state(
                 delta_a=da,
                 delta_b=0,
                 rho_air=rho_air,
@@ -51,7 +49,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     for n, db in enumerate(delta_bs):
         print("\rdb: {:.2f}".format(db), end="")
         try:
-            equilibrium = eqstate(
+            equilibrium = glider.equilibrium_state(
                 delta_a=0,
                 delta_b=db,
                 alpha_0=equilibrium["alpha_b"],
