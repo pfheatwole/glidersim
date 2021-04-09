@@ -14,7 +14,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
         "Theta_b2e": [0, np.deg2rad(3), 0],
-        "v_RM2e": [10, 0, 1],
+        "v_RM2e": 10,  # Only need to guess the magnitude
         "reference_solution": None,
     }
     print("Calculating equilibrium states over the range of accelerator")
@@ -42,7 +42,7 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     equilibrium = {  # Initial guesses
         "alpha_b": np.deg2rad(9),
         "Theta_b2e": [0, np.deg2rad(3), 0],
-        "v_RM2e": [10, 0, 1],
+        "v_RM2e": 10,  # Only need to guess the magnitude
         "reference_solution": None,
     }
     print("Calculating equilibrium states over the range of brake")
