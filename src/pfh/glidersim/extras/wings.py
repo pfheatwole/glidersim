@@ -96,7 +96,7 @@ def build_hook3(verbose=True):
         "kappa_A": 0.11,  # Approximated from the line plan in the users manual, pg 17
         "kappa_C": 0.59,
         "kappa_a": 0.15 / chord_root,  # ref: "Hook 3 technical specs", pg 2
-        "total_line_length": 213 / chord_root,  # ref: "Hook 3 technical specs", pg 2
+        "total_line_length": 218 / chord_root,  # ref: "Hook 3 technical specs", pg 2
         "average_line_diameter": 1e-3,  # Blind guess
         "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
                             [-0.5 * chord_root,  1.75, 1.75]]) / chord_root,
