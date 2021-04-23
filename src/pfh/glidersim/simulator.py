@@ -181,7 +181,7 @@ class ParagliderModel6a:
         q_b2e = orientation.euler_to_quaternion(glider_eq["Theta_b2e"])
         state = np.empty(1, dtype=self.state_dtype)[0]
         state["q_b2e"] = q_b2e
-        state["omega_b2e"] = [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
+        state["omega_b2e"] = [0, 0, 0]
         state["r_RM2O"] = [0, 0, 0]
         state["v_RM2e"] = orientation.quaternion_rotate(
             q_b2e * [-1, 1, 1, 1],
