@@ -403,30 +403,19 @@ FoilLayout
 Parametric functions
 --------------------
 
-* Add `taper` as an alternative parameter in `elliptical_chord`
+* Add `taper` as an alternative parameter in `EllipticalChord`
 
-* Should `elliptical_arc`: accept the alternative pair `{b/b_flat,
+* Should `EllipticalArc`: accept the alternative pair `{b/b_flat,
   max_anhedral}`? You often know b/b_flat from specs, and `max_anhedral` is
   relatively easy to approximate from pictures.
 
-* I don't like requiring `yz` to be a functor that provides a `derivative`
+* I don't like requiring `yz(s)` to be a functor that provides a `derivative`
   method. I originally did it to match the `scipy` interpolator API
   (`PchipInterpolator` in particular), but it's just awkward.
 
-* Redefine the parameters in `foil.elliptical_arc`? This is a helper function
-  that defines an angle distribution as an `EllipticalArc` parametrized by
-  mean and maximum angles. This works for parafoil "arc" (not the same thing
-  as the more general elliptical "arc") as well as sweep.
-
-  And besides, I'm planning to use Euler angles (phi, theta, gamma) instead of
-  the ambiguous "anhedral" angle anyway, so "tip_anhedral" is poorly named
-  anyway.
-
-  Oh, hang on: if I'm planning to use this for sweep, that'd only be a single
-  function `x(s)`, so it'd be an "explicit" `EllipticalArc`. `x(s)` is
-  probably more like the `elliptical_chord`, except the parameter represents
-  `x` instead of `c`. Hrm. Well, probably still best to reparametrize
-  `elliptical_arc` in terms of `mean_angle` and `tip_angle`.
+* Redefine the parameters in `EllipticalArc`? I've moved the paper away from
+  "dihedral/anhedral" angles since they're ambiguous. Euler angles are more
+  explicit, but it's not clear how to translate those into this usage.
 
 
 FoilGeometry

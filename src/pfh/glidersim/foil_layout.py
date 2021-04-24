@@ -4,12 +4,12 @@ import warnings
 
 import numpy as np
 import scipy
+import scipy.interpolate
 
 
 __all__ = [
+    "EllipticalChord",
     "EllipticalArc",
-    "elliptical_chord",
-    "elliptical_arc",
     "PolynomialTorsion",
     "FlatYZ",
     "FoilLayout",
@@ -20,209 +20,7 @@ def __dir__():
     return __all__
 
 
-class EllipticalArc:
-    """
-    An arc segment from an ellipse.
-
-    Although this internal representation uses the standard `t` parameter for
-    the parametric functions, some applications are more easily described with
-    a different domain. For example, all the `FoilGeometry` curves are defined
-    as functions of the section index `s`, which ranges from -1 (the left wing
-    tip) to +1 (the right wing tip).
-
-    Setting different domains for the input coordinates vs the internal
-    coordinates lets users ignore the implementation and focus on the
-    functional domain. This is somewhat analogous to the `domain` and `window`
-    parameters in a numpy `Polynomial`, although in that case the conversion
-    is for numerical improvements, whereas this is for user convenience.
-
-    This class supports both "explicit" and "parametric" representations of an
-    ellipse. The explicit version returns the vertical component as a function
-    of the horizontal coordinate, and the parametric version returns both the
-    horizontal and vertical coordinates as a function of the parametric
-    parameter.
-
-    The parametric curve in this class is always parametrized by `t`. By
-    setting `t_domain` you can constrain the curve to an elliptical arc.
-
-    For both the explicit and parametric forms, you can change the input domain
-    by setting `p_domain`, and they will be scaled automatically to map onto the
-    explicit (`x`) or parametric (`t`) parameter.
-    """
-
-    def __init__(
-        self,
-        AB_ratio,
-        A=None,
-        B=None,
-        length=None,
-        origin=None,
-        p_domain=None,
-        t_domain=None,
-        kind="parametric",
-    ):
-        """
-        Construct an ellipse segment.
-
-        Parameters
-        ----------
-        AB_ratio : float
-            The ratio of the major vs minor axes.
-        A, B, length : float, optional
-            Scaling constraints. Choose only one.
-        origin : array of float, shape (2,), optional
-            The (x, y) offset of the ellipse origin. (For example, shifting the
-            curve up or down to produce a constant offset.)
-        p_domain : array of float, shape (2,), optional
-            The domain of the input parameter. This encodes "what values in the
-            input domain maps to `t_domain`?". For example, if you wanted to a
-            parametric function where -1 and +1 are the start and end of the
-            curve then `p_domain = [1, -1]` would map `t_min` to `p = 1` and
-            `t_max` to `p = -1`.
-        t_domain : array of float, shape (2,), optional
-            The domain of the internal parameter. Values from 0 to pi/2 are the
-            first quadrant, pi/2 to pi are the second, etc.
-        kind : {'explicit', 'parametric'}, default: 'parametric'
-            Specifies whether the class return `y = f(x)` or `<x, y> = f(p)`.
-            The explicit version returns coordinates of the second axis given
-            coordinates of the first axis. The parametric version returns both
-            x and y given a parametric coordinate.
-        """
-        if sum(arg is not None for arg in [A, B, length]) > 1:
-            raise ValueError("Specify only one of width, length, or height")
-
-        if not origin:
-            origin = [0, 0]
-
-        if not t_domain:
-            t_domain = [0, np.pi]  # Default to a complete half-ellipse
-
-        # Initial values (before constraints)
-        self.A = 1
-        self.B = 1 / AB_ratio
-        self.origin = origin
-        self.p_domain = p_domain
-        self.t_domain = t_domain
-        self.kind = kind
-
-        # Apply constraints, if any
-        if A:
-            self.A, self.B = A, A / AB_ratio
-        elif B:
-            self.A, self.B = B * AB_ratio, B
-        elif length:
-            L = self.length  # The length before rescaling A and B
-            K = length / L
-            self.A *= K
-            self.B *= K
-
-    def __call__(self, p, kind=None):
-        if kind is None:
-            kind = self.kind
-
-        p = np.asarray(p)
-        t = self._transform(p, kind)
-
-        if kind == "explicit":  # the `p` are `x` in the external domain
-            vals = self.B * np.sin(t)  # Return `y = f(x)`
-        else:  # the `p` are `t` in the external domain
-            x = self.A * np.cos(t)
-            y = self.B * np.sin(t)
-            vals = np.stack((x, y), axis=-1) + self.origin  # return `<x, y> = f(t)`
-
-        return vals
-
-    @property
-    def p_domain(self):
-        if self._p_domain is not None:
-            return self._p_domain
-        else:
-            return self.t_domain  # No transform
-
-        # FIXME: if p_domain is None, then `p` might be `x` **or** `t`
-
-    @p_domain.setter
-    def p_domain(self, new_p_domain):
-        if new_p_domain:
-            new_p_domain = np.asarray(new_p_domain, dtype=float)
-            if new_p_domain.shape != (2,):
-                raise ValueError("`p_domain` must be an array_like of shape (2,)")
-        self._p_domain = new_p_domain
-
-    @property
-    def t_domain(self):
-        return self._t_domain
-
-    @t_domain.setter
-    def t_domain(self, new_t_domain):
-        new_t_domain = np.asarray(new_t_domain, dtype=float)
-        if new_t_domain.shape != (2,):
-            raise ValueError("`t_domain` must be an array_like of shape (2,)")
-
-        if (new_t_domain.max() > 2 * np.pi) or (new_t_domain.min() < 0):
-            raise ValueError("`t_domain` values must be between 0 and 2pi")
-
-        self._t_domain = new_t_domain
-
-    def _transform(self, p, kind):
-        """
-        Map the external domain onto `t` using an affine transformation.
-
-        Parameters
-        ----------
-        p : array_like of float
-            Parametric coordinates being used by the external application.
-            Values fall inside to [p_0, p_1].
-
-        Returns
-        -------
-        t : array_like of float
-            The value of the internal curve parameter `t` that maps to `p`.
-
-        """
-
-        if kind == "explicit":
-            # The explicit `y = f(x)` can be converted to `y = f(t)` by first
-            # changing the external domain to the internal `x` coordinates
-            p0, p1 = self.p_domain
-            x0, x1 = self.A * np.cos(self.t_domain)  # The internal domain of `x`
-            x = (x1 - x0) / (p1 - p0) * p
-            t = np.arccos(x / self.A)
-
-        else:
-            p0, p1 = self.p_domain
-            t0, t1 = self.t_domain
-            a = (t0 - t1) / (p0 - p1)
-            b = t1 - a * p1
-            t = a * p + b
-
-        return t
-
-    @property
-    def length(self):
-        p = np.linspace(*self.p_domain, 10000)
-        xy = self.__call__(p, kind="parametric")
-        return np.linalg.norm(np.diff(xy, axis=0), axis=1).sum()
-
-    def derivative(self, p, kind=None):
-        """
-        Compute the derivatives of the parametric components.
-
-        For now, I'm never using `dy/dx` directly, so this always returns both
-        derivatives separately to avoid divide-by-zero issues.
-        """
-        if kind is None and self.kind == "explicit":
-            raise RuntimeError("Are you SURE you really want dy/dx?")
-
-        p = np.asarray(p)
-        t = self._transform(p, "parametric")
-        dxdt = self.A * -np.sin(t)
-        dydt = self.B * np.cos(t)
-        vals = np.stack((dxdt, dydt), axis=-1)
-        return vals
-
-
-def elliptical_chord(root, tip):
+class EllipticalChord:
     """
     Build an elliptical chord distribution as a function of the section index.
 
@@ -232,27 +30,31 @@ def elliptical_chord(root, tip):
         The length of the central chord
     tip : float [length]
         The length of the wing tips
-
-    Returns
-    -------
-    EllipticalArc
-        A function `chord_length(s)` where `-1 <= s <= 1`, (suitable for use
-        with `FoilLayout`).
     """
 
-    taper = tip / root
-    A = 1 / np.sqrt(1 - taper ** 2)
-    B = root
-    t_min = np.arcsin(taper)
+    def __init__(self, root, tip):
+        self.A = 1 / np.sqrt(1 - (tip / root) ** 2)
+        self.B = root
 
-    return EllipticalArc(
-        A / B, B=B, p_domain=[1, -1], t_domain=[t_min, np.pi - t_min], kind="explicit",
-    )
+    def __call__(self, s):
+        s = np.asarray(s)
+        c = self.B * np.sqrt(1 - (s / self.A) ** 2)
+        return c
 
 
-def elliptical_arc(mean_anhedral, tip_anhedral=None):
+class EllipticalArc:
     """
-    Build an elliptical arc curve as a function of the section index.
+    Elliptical arc as a function of the section index.
+
+    In this context the name is confusing because "arc" has two meanings: one
+    for the traditional "elliptical arc segment", and one for the "arc" of a
+    foil geometry (which is being modeled by an "elliptical arc segment").
+
+    Expects the section index to be defined as the linear distance along the
+    `yz` curve (that is, `s = y_flat / (b_flat / 2)`).
+
+    This model scales the curve to a total length of 2, making it suitable
+    for use with `FoilLayout` which will scale the curve length to `b_flat`.
 
     Parameters
     ----------
@@ -267,53 +69,75 @@ def elliptical_arc(mean_anhedral, tip_anhedral=None):
         negative of this value. This optional value must satisfy `2 *
         mean_anhedral <= tip_anhedral <= 90`. If no value is specified the
         default is `2 * mean_anhedral`, which results in a circular arc.
-
-    Returns
-    -------
-    EllipticalArc
-        A parametric function `<y(s), z(s)>` where `-1 <= s <= 1`, with total
-        arc length `2` (suitable for use with `FoilLayout`).
     """
-    if tip_anhedral is None:  # Assume circular
-        tip_anhedral = 2 * mean_anhedral
 
-    if mean_anhedral < 0 or mean_anhedral > 45:
-        raise ValueError("mean_anhedral must be between 0 and 45 [degrees]")
-    if tip_anhedral < 0 or tip_anhedral > 90:
-        raise ValueError("tip_anhedral must be between 0 and 90 [degrees]")
-    if tip_anhedral < 2 * mean_anhedral:
-        raise ValueError("tip_anhedral must be >= 2 * mean_anhedral")
+    def __init__(self, mean_anhedral, tip_anhedral=None):
+        if tip_anhedral is None:  # Assume circular
+            tip_anhedral = 2 * mean_anhedral
 
-    # Very small angles produce divide-by-zero, just just assume the user wants
-    # a zero-angle and "do the right thing".
-    if mean_anhedral < 0.1:
-        warnings.warn("Very small mean_anhedral. Returning a FlatYZ.")
-        return FlatYZ()
+        if mean_anhedral < 0 or mean_anhedral > 45:
+            raise ValueError("mean_anhedral must be between 0 and 45 [degrees]")
+        if tip_anhedral < 0 or tip_anhedral > 90:
+            raise ValueError("tip_anhedral must be between 0 and 90 [degrees]")
+        if tip_anhedral < 2 * mean_anhedral:
+            raise ValueError("tip_anhedral must be >= 2 * mean_anhedral")
 
-    mean_anhedral = np.deg2rad(mean_anhedral)
-    tip_anhedral = np.deg2rad(tip_anhedral)
+        # Very small angles produce divide-by-zero, just assume the user wants
+        # a zero-angle and "do the right thing".
+        if mean_anhedral < 0.01:
+            warnings.warn("Very small mean_anhedral. Returning a FlatYZ.")
+            return FlatYZ()
 
-    # Two cases: perfectly circular, or elliptical
-    if np.isclose(2 * mean_anhedral, tip_anhedral):  # Circular
-        A = B = 1
-        t_min = np.pi / 2 - 2 * mean_anhedral
-    else:  # Elliptical
-        v1 = 1 - np.tan(mean_anhedral) / np.tan(tip_anhedral)
-        v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(tip_anhedral)
-        A = v1 / np.sqrt(v2)
-        B = np.tan(mean_anhedral) * v1 / v2
-        t_min = np.arccos(1 / A)
+        mean_anhedral = np.deg2rad(mean_anhedral)
+        tip_anhedral = np.deg2rad(tip_anhedral)
 
-    # FIXME: hack to avoid sign-flip issues at `np.sin(pi)`, which makes the
-    #        normalized dyds explode (sign flip +1 to -1)
-    if t_min < 1e-10:
-        t_min = 1e-10
+        # Two cases: perfectly circular, or elliptical
+        if np.isclose(2 * mean_anhedral, tip_anhedral):  # Circular
+            A = B = 1
+            t_min = np.pi / 2 - 2 * mean_anhedral
+        else:  # Elliptical
+            v1 = 1 - np.tan(mean_anhedral) / np.tan(tip_anhedral)
+            v2 = 1 - 2 * np.tan(mean_anhedral) / np.tan(tip_anhedral)
+            A = v1 / np.sqrt(v2)
+            B = np.tan(mean_anhedral) * v1 / v2
+            t_min = np.arccos(1 / A)
 
-    arc = EllipticalArc(
-        A / B, length=2, p_domain=[-1, 1], t_domain=[np.pi + t_min, 2 * np.pi - t_min],
-    )
-    arc.origin = -arc(0)  # The middle of the curve is the origin
-    return arc
+        # FIXME: hack to avoid sign-flip issues at `np.sin(pi)`, which makes
+        #        the normalized dyds explode (sign flip +1 to -1)
+        if t_min < 1e-10:
+            t_min = 1e-10
+
+        # The parameter `t` is inconvenient. Instead, the FoilLayout expects
+        # the yz-curve to be a function of `s`, so map `s -> t`. The FoilLayout
+        # also expects the total length to be `2` (so it can be easily
+        # rescaled).  Compute the the linear distances and scale the curve to
+        # length = 2
+        N = 101  # Number of samples to build `_s2t` (FIXME: overkill!)
+        t = np.linspace(np.pi / 2, t_min, N)
+        points = np.stack([A * np.cos(t), B * np.sin(t)])
+        d = np.linalg.norm(np.diff(points), axis=0).cumsum()  # Distances
+        self.A = A / d[-1]
+        self.B = B / d[-1]
+        d /= d[-1]
+
+        # Section indices from the linear distances along the length=2 curve
+        s = np.hstack([-d[::-1], 0, d])
+        t = np.linspace(np.pi + t_min, 2 * np.pi - t_min, 2 * N - 1)
+        self._t = scipy.interpolate.PchipInterpolator(s, t)
+        self._dtds = self._t.derivative(1)
+
+    def __call__(self, s):
+        t = self._t(s)
+        x = self.A * np.cos(t)
+        y = self.B * np.sin(t)
+        return np.stack((x, y), axis=-1) + [0, self.B]
+
+    def derivative(self, s):
+        t = self._t(s)
+        dydt = self.A * -np.sin(t)
+        dzdt = self.B * np.cos(t)
+        dtds = self._dtds(s)
+        return np.stack((dydt, dzdt), axis=-1) * dtds[..., None]
 
 
 class PolynomialTorsion:

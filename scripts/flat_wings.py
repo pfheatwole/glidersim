@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     # Elliptical
     layout2 = gsim.foil_layout.FoilLayout(
-        c=gsim.foil_layout.elliptical_chord(0.25, 0.1),
+        c=gsim.foil_layout.EllipticalChord(0.25, 0.1),
         r_x=0.5,
         x=0,
         r_yz=0,

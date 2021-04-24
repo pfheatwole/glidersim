@@ -30,7 +30,7 @@ def build_hook3(verbose=True):
     S, b, AR = 19.55, 8.84, 4.00
     m_s = 4.7  # Solid mass [kg]
 
-    c = gsim.foil_layout.elliptical_chord(
+    c = gsim.foil_layout.EllipticalChord(
         root=chord_root / (b_flat / 2),
         tip=chord_tip / (b_flat / 2),
     )
@@ -45,14 +45,14 @@ def build_hook3(verbose=True):
     # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
     theta = gsim.foil_layout.PolynomialTorsion(start=0.8, peak=4, exponent=2)
 
-    # Using `tip_anhedral = 75` is probably more accurate, but it significantly
+    # Using `tip_anhedral = 75` is probably more accurate, but it also
     # increases the chances of stalling the wing tips during hard turns.
     layout = gsim.foil_layout.FoilLayout(
         r_x=0.70,
         x=0,
         r_yz=1.00,
-        yz=gsim.foil_layout.elliptical_arc(mean_anhedral=33, tip_anhedral=67),
-        # yz=gsim.foil_layout.elliptical_arc(mean_anhedral=32, tip_anhedral=75),
+        yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
+        # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
         c=c,
         theta=theta,
     )

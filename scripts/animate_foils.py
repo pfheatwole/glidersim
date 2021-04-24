@@ -8,9 +8,13 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA
 from pfh.glidersim.foil import SimpleFoil  # noqa: F401
-from pfh.glidersim.foil_layout import FlatYZ, FoilLayout
+from pfh.glidersim.foil_layout import (
+    EllipticalArc,
+    EllipticalChord,
+    FlatYZ,
+    FoilLayout,
+)
 from pfh.glidersim.foil_layout import PolynomialTorsion as PT  # noqa: F401
-from pfh.glidersim.foil_layout import elliptical_arc, elliptical_chord
 from pfh.glidersim.foil_sections import FoilSections
 
 
@@ -105,7 +109,7 @@ def SEQS_sweep_elliptical_chord_ratios(T, fps):
 
     def f(vmin, vmax, tip, T, fps, reverse):
         for c0 in sweep(vmin, vmax, T, fps, reverse):
-            yield {"c": f"elliptical_chord({c0:4.3g}, {tip:4.3g})"}
+            yield {"c": f"EllipticalChord({c0:4.3g}, {tip:4.3g})"}
 
     seq1 = [
         f(.11, .7, .1, T, fps, False),
@@ -205,7 +209,7 @@ def SEQS_sweep_xrx_elliptical(T, fps):
         for p in sweep(0.5, 0, T, fps, reverse=False):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - s**2)"}
 
-    base = {"c": "elliptical_chord(root=0.5, tip=0.1)"}
+    base = {"c": "EllipticalChord(root=0.5, tip=0.1)"}
     seq1a = [
         repeat({**base, "x": "0"}, T, fps),
         sweep_scalar("r_x", 0.5, 1, T, fps, True),
@@ -233,14 +237,14 @@ def SEQS_sweep_xrx_elliptical(T, fps):
 def SEQS_sweep_elliptical_anhedral(T, fps):
     def f1(vstart, vstop, T, fps, reverse=True):
         for ma in sweep(vstart, vstop, T, fps, reverse):
-            yield {"yz": f"elliptical_arc({ma:<#5.2f})"}
+            yield {"yz": f"EllipticalArc({ma:<#5.2f})"}
 
     def f2(vstart, vstop, T, fps, reverse=True):
         ma = vstart
         for mar in sweep(vstart * 2 + 1, vstop, T, fps, reverse):
-            yield {"yz": f"elliptical_arc({ma:<#5.2f}, {mar:<#5.2f})"}
+            yield {"yz": f"EllipticalArc({ma:<#5.2f}, {mar:<#5.2f})"}
 
-    base = {"c": "elliptical_chord(root=0.5, tip=0.1)"}
+    base = {"c": "EllipticalChord(root=0.5, tip=0.1)"}
     seq1a = [
         repeat(base, T, fps),
         f1(1, 44, T, fps, False),
@@ -263,8 +267,8 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
             yield {"x": f"lambda s: {p:>#.3f} * (1 - (s**2))"}
 
     base = {
-        "c": "elliptical_chord(root=0.5, tip=0.1)",
-        "yz": "elliptical_arc(30, 85)",
+        "c": "EllipticalChord(root=0.5, tip=0.1)",
+        "yz": "EllipticalArc(30, 85)",
     }
 
     seq1a = [
@@ -394,8 +398,8 @@ from pfh.glidersim.foil import (
     SimpleFoil,
 )
 from pfh.glidersim.foil_layout import (
-    elliptical_arc,
-    elliptical_chord,
+    EllipticalArc,
+    EllipticalChord,
     FlatYZ,
     PolynomialTorsion as PT,
     FoilLayout,
