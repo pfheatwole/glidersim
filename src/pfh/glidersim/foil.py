@@ -63,7 +63,10 @@ class SimpleFoil:
         else:  # b_flat
             self.b_flat = b_flat
 
-        self.aerodynamics = aerodynamics_method(self, **aerodynamics_config)
+        if aerodynamics_method is not None:
+            self.aerodynamics = aerodynamics_method(self, **aerodynamics_config)
+        else:
+            self.aerodynamics = None
 
     @property
     def b(self):
