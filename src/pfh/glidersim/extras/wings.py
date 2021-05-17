@@ -6,7 +6,7 @@ import pfh.glidersim as gsim
 from pfh.glidersim.extras import plots
 
 
-def build_hook3(verbose=True):
+def build_hook3(num_control_points=31, verbose=True):
     """Build an approximate Niviuk Hook 3, size 23."""
     if verbose:
         print("Building an (approximate) Niviuk Hook 3 23\n")
@@ -70,7 +70,7 @@ def build_hook3(verbose=True):
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
         aerodynamics_method=gsim.foil_aerodynamics.Phillips,
-        aerodynamics_config={"v_ref_mag": 10, "K": 31},
+        aerodynamics_config={"v_ref_mag": 10, "K": num_control_points},
     )
 
     # print("Drawing the canopy")
