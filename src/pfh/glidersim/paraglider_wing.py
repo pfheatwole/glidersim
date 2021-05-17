@@ -1,7 +1,7 @@
 """FIXME: add module docstring."""
 
 import numpy as np
-from scipy.optimize import root_scalar
+from scipy.optimize import minimize_scalar, root_scalar
 from scipy.spatial import Delaunay
 
 from pfh.glidersim import foil, foil_aerodynamics
@@ -22,8 +22,8 @@ class SimpleLineGeometry:
     """
     FIXME: document the design.
 
-    In particular, highlight that everything here is normalized by the length
-    of the central chord.
+    In particular, explain why everything here is normalized by an assumed
+    length of the central chord `c = 1`.
 
     Parameters
     ----------
@@ -54,12 +54,12 @@ class SimpleLineGeometry:
         The drag coefficient of the lines
     s_delta_start : float
         The section index where brake deflections begin.
-    s_delta_max : float
-        The section index where the brake deflection reaches its maximum. To
-        prevent negative deflections at the wing tips, `s_delta_max` has a minimum
-        value; see :py:meth:`s_delta_max_min`
-    delta_max : float [radians]
-        The maximum deflection angle, which occurs at `s_delta_max`
+    s_delta_stop : float
+        The section index where brake deflections return to zero.
+    delta_d_max : float
+        The maximum deflection distance, which occurs at `s_delta_start +
+        (s_delta_start + s_delta_stop) / 2`, normalized by the length of the
+        central chord.
 
     Notes
     -----
@@ -74,23 +74,29 @@ class SimpleLineGeometry:
     Brakes
     ^^^^^^
 
-    The brake deflection angles are approximated using a cubic function.
-
     The wing root typically experiences very little (if any) brake deflection,
-    so this parametrization allows for zero deflection until a y-axis distance
-    `s_delta_start` from the wing root.
+    so this model allows for zero deflection until some section `s_delta_start`
+    from the wing root. Similarly, brake deflections typically stop a little
+    before reaching the wing tip.
 
-    Also, the maximum delta does not typically occur at the wing tip, but at a
-    point closer to the 3/4 semispan. This parametrization uses `s_delta_max` to
-    control where that maximum deflection occurs.
+    This models the deflection distribution with a quartic function. It assumes
+    the deflection distance is symmetric about some peak at the middle of
+    `s_delta_start` and `s_delta_stop`.
 
-    Regarding the the derivation: a normal cubic goes like :math:`ay^3 + by^2 +
-    cy + d = 0`, but constraining the function to be zero at the origin forces
-    :math:`d = 0`, and constraining the first derivative to be zero when
-    evaluated at the origin forces :math:`c = 0`. This leaves only the cubic
-    and quadratic terms.  The cubic distribution can then be defined using just
-    two constraints: :math:`f(s_{peak}) = delta_{max}` and
-    :math:`(df/dy)|s_{peak} = 0`.
+    Regarding the the derivation: a normal quartic goes like :math:`Ap^4 + Bp^3
+    + Cp^2 + Dp + E = 0`. Assuming symmetry about `p = 0.5`, the six terms can
+    be solved using:
+
+        delta_d(0) = 0
+        d(delta_d)/dp | s_0 = 0
+        delta_d(1) = 0
+        d(delta_d)/dp | s_1 = 0
+        delta_d(0.5) = delta_d_peak
+
+    I don't love this design, but I was hoping to find time to prototype a
+    proper line geometry that computes the true angles throughout the bridle,
+    and having the LineGeometry compute distances instead of angles would
+    make that easier.
     """
 
     def __init__(
@@ -106,7 +112,7 @@ class SimpleLineGeometry:
         Cd_lines,
         s_delta_start,
         s_delta_stop,
-        delta_max,
+        delta_d_max=None,
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
@@ -133,12 +139,12 @@ class SimpleLineGeometry:
             raise ValueError("s_delta_start must be less than s_delta_stop")
         self.s_delta_start = s_delta_start
         self.s_delta_stop = s_delta_stop
-        self.delta_max = delta_max  # For debugging
+        self.delta_d_max = delta_d_max
 
-        # Compute the quartic coefficients such that delta_f has both zero
-        # value and zero slope at `p = 0` and `p = 1`, and peaks at `p = 0.5`
+        # Compute the quartic coefficients. Assumes `delta_d_max = 1` to allow
+        # easy scaling later.
         p = 0.5
-        self._K1 = delta_max / (p ** 4 - 2 * p ** 3 + p ** 2)
+        self._K1 = 1 / (p ** 4 - 2 * p ** 3 + p ** 2)
         self._K2 = -2 * self._K1
         self._K3 = self._K1
 
@@ -184,9 +190,9 @@ class SimpleLineGeometry:
         """
         return self._r_L2LE
 
-    def delta_f(self, s, delta_bl, delta_br):
+    def delta_d(self, s, delta_bl, delta_br):
         """
-        Compute the trailing edge deflection due to the application of brakes.
+        Compute the normalized trailing edge deflection distance from braking.
 
         Parameters
         ----------
@@ -199,11 +205,15 @@ class SimpleLineGeometry:
 
         Returns
         -------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge, measured between the
-            undeflected chord and the line connecting the leading edge to the
-            deflected trailing edge.
+        delta_d : float [radians]
+            The normalized deflection distance of the trailing edge, measured
+            between the undeflected chord and the line connecting the leading
+            edge to the deflected trailing edge.
         """
+        # FIXME: I hate this design
+        if self.delta_d_max is None:
+            raise ValueError("delta_d_max must be set")
+
         fraction = np.where(s < 0, delta_bl, delta_br)
         s = np.abs(s)  # left and right side are symmetric
         fraction[s <= self.s_delta_start] = 0
@@ -213,11 +223,7 @@ class SimpleLineGeometry:
         # s_delta_start -> `p = 0` and s_delta_stop -> `p = 1`.
         p = (s - self.s_delta_start) / (self.s_delta_stop - self.s_delta_start)
         delta = self._K1 * p ** 4 + self._K2 * p ** 3 + self._K3 * p ** 2
-
-        if len(s) == 101:
-            breakpoint()
-
-        return fraction * delta
+        return fraction * self.delta_d_max * delta
 
     def aerodynamics(self, v_W2b, rho_air):
         K_lines = self._r_L2LE.shape[0]
@@ -249,6 +255,10 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
+    delta_f_max : float [radians]
+        The maximum deflection angle supported by the airfoil coefficients.
+        This overwrites the `delta_d_max` in the `SimpleLineGeometry`, setting
+        it to whatever value ensures `delta_f` never exceeds `delta_f_max`.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
     rho_ribs : float [kg/m^2]
@@ -269,6 +279,7 @@ class ParagliderWing:
         self,
         lines,
         canopy,
+        delta_f_max=None,
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
@@ -284,6 +295,25 @@ class ParagliderWing:
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
         self._compute_real_mass_properties()
         self._compute_apparent_mass_properties()
+
+        # FIXME: I hate this design. It's order dependent, and changes a
+        # property of `lines` during the optimizer. It works, but *yuck*.
+        if delta_f_max:
+            self._compute_and_set_delta_d_max(delta_f_max)
+
+    def _compute_and_set_delta_d_max(self, delta_f_max):
+        # Set `delta_d_peak` such that `delta_f` never exceeds `delta_f_max`.
+        def _target(delta_d_max_proposal):
+            self.lines.delta_d_max = delta_d_max_proposal
+            res = minimize_scalar(
+                lambda s: -self.delta_f(s, 0, 1),
+                bounds=(0, 1),
+                method="bounded",
+            )
+            return np.abs(-res.fun - delta_f_max)
+        res = minimize_scalar(_target, bounds=(0, 0.5), method="bounded")
+        assert res.x > 0
+        self.lines.delta_d_max = res.x * 0.999
 
     def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
@@ -524,7 +554,7 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_f = self.lines.delta_f(
+        delta_f = self.delta_f(
             self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
@@ -539,6 +569,31 @@ class ParagliderWing:
         dM = np.vstack((dM_foil, dM_lines))
 
         return dF, dM, solution
+
+    def delta_f(self, s, delta_bl, delta_br):
+        """
+        Compute trailing edge deflection angles due to brake inputs.
+
+        Parameters
+        ----------
+        s : float, or array_like of float, shape (N,)
+            Normalized span position, where `-1 <= s <= 1`
+        delta_bl : float [percentage]
+            Left brake application as a fraction of maximum braking
+        delta_br : float [percentage]
+            Right brake application as a fraction of maximum braking
+
+        Returns
+        -------
+        delta_f : float [radians]
+            The deflection angle of the trailing edge, measured between the
+            undeflected chord and the line connecting the leading edge to the
+            deflected trailing edge.
+        """
+        delta_d = self.lines.delta_d(s, delta_bl, delta_br) * self.c_0
+        c = self.canopy.chord_length(s)
+        delta_f = np.arctan(delta_d / c)
+        return delta_f
 
     def equilibrium_alpha(
         self,
