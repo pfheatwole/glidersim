@@ -105,7 +105,7 @@ class SimpleLineGeometry:
         r_L2LE,
         Cd_lines,
         s_delta_start,
-        s_delta_max,
+        s_delta_stop,
         delta_max,
     ):
         self.kappa_A = kappa_A
@@ -125,14 +125,22 @@ class SimpleLineGeometry:
         self._Cd_lines = Cd_lines
 
         # Brakes
+        if s_delta_start < 0:
+            raise ValueError("s_delta_start must be positive")
+        if s_delta_stop < 0:
+            raise ValueError("s_delta_stop must be positive")
+        if s_delta_start >= s_delta_stop:
+            raise ValueError("s_delta_start must be less than s_delta_stop")
         self.s_delta_start = s_delta_start
-        self.s_delta_max = s_delta_max
-        if s_delta_max < self.minimum_s_delta_max(s_delta_start):
-            raise ValueError(
-                "s_delta_max is too small: delta_f is negative at the wing tips"
-            )
-        self.K1 = -2 * delta_max / ((s_delta_max - s_delta_start) ** 3)
-        self.K2 = 3 * delta_max / (s_delta_max - s_delta_start) ** 2
+        self.s_delta_stop = s_delta_stop
+        self.delta_max = delta_max  # For debugging
+
+        # Compute the quartic coefficients such that delta_f has both zero
+        # value and zero slope at `p = 0` and `p = 1`, and peaks at `p = 0.5`
+        p = 0.5
+        self._K1 = delta_max / (p ** 4 - 2 * p ** 3 + p ** 2)
+        self._K2 = -2 * self._K1
+        self._K3 = self._K1
 
     def r_RM2LE(self, delta_a=0):
         """
@@ -198,9 +206,18 @@ class SimpleLineGeometry:
         """
         fraction = np.where(s < 0, delta_bl, delta_br)
         s = np.abs(s)  # left and right side are symmetric
-        fraction = fraction * (s > self.s_delta_start)
-        p = s - self.s_delta_start  # The cubic uses a shifted origin, `s_delta_start`
-        return fraction * (self.K1 * p ** 3 + self.K2 * p ** 2)
+        fraction[s <= self.s_delta_start] = 0
+        fraction[s >= self.s_delta_stop] = 0
+
+        # The quartic domain is `0 <= p <= 1`. Map `s -> p` such that
+        # s_delta_start -> `p = 0` and s_delta_stop -> `p = 1`.
+        p = (s - self.s_delta_start) / (self.s_delta_stop - self.s_delta_start)
+        delta = self._K1 * p ** 4 + self._K2 * p ** 3 + self._K3 * p ** 2
+
+        if len(s) == 101:
+            breakpoint()
+
+        return fraction * delta
 
     def aerodynamics(self, v_W2b, rho_air):
         K_lines = self._r_L2LE.shape[0]
@@ -220,11 +237,6 @@ class SimpleLineGeometry:
         dM_lines = np.zeros((K_lines, 3))
 
         return dF_lines, dM_lines  # Normalized by the length of the central chord
-
-    @staticmethod
-    def minimum_s_delta_max(s_delta_start):
-        """The minimum value of `s_delta_max` to avoid negative deflections."""
-        return (2 / 3) * (1 - s_delta_start) + s_delta_start
 
 
 class ParagliderWing:

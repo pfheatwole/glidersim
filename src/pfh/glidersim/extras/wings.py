@@ -107,11 +107,9 @@ def build_hook3(num_control_points=31, verbose=True):
     }
 
     # Approximate brake deflection geometry
-    s_delta_start = 0.1
-    s_delta_max = gsim.paraglider_wing.SimpleLineGeometry.minimum_s_delta_max(s_delta_start) + 1e-9
     brake_parameters = {
-        "s_delta_start": s_delta_start,
-        "s_delta_max": s_delta_max,
+        "s_delta_start": 0.1,
+        "s_delta_stop": 0.95,
         "delta_max": delta_max,
     }
 
