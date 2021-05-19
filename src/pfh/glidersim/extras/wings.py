@@ -51,8 +51,8 @@ def build_hook3(num_control_points=31, verbose=True):
         r_x=0.70,
         x=0,
         r_yz=1.00,
-        yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
-        # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
+        # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
+        yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
         c=c,
         theta=theta,
     )
@@ -108,8 +108,10 @@ def build_hook3(num_control_points=31, verbose=True):
 
     # Approximate brake deflection geometry
     brake_parameters = {
-        "s_delta_start": 0.1,
-        "s_delta_stop": 0.95,
+        "s_delta_start0": 0.10,
+        "s_delta_start1": -0.20,
+        "s_delta_stop0": 0.95,
+        "s_delta_stop1": 1.15,  # 1.08 -> delta_f doesn't increase at the tips
     }
 
     lines = gsim.paraglider_wing.SimpleLineGeometry(
