@@ -73,7 +73,12 @@ def load_datfile(
 
 
 def load_datfile_set(
-    directory, convention="perpendicular", center=False, derotate=False, normalize=False
+    directory,
+    bundled=True,
+    convention="perpendicular",
+    center=False,
+    derotate=False,
+    normalize=False,
 ):
     """
     Load a set of airfoil `.dat` files using numpy.
@@ -94,6 +99,8 @@ def load_datfile_set(
         The directory containing a set of airfoil curves in the typical `.dat`
         format. The filenames must end with `_delta<###>`, where `<###>` is a
         floating point number
+    bundled : bool
+        Whether `directory` is the name of a bundled profile set.
     convention : {"perpendicular", "vertical"}, optional
         Whether the airfoil thickness is measured perpendicular to the mean
         camber line or vertically (the y-axis distance). Default: perpendicular
@@ -110,7 +117,10 @@ def load_datfile_set(
         A dictionary of {delta: gsim.airfoil.AirfoilGeometry} pairs, where
         `delta` is a `float`.
     """
-    datdir = Path(directory)
+    if bundled:
+        datdir = Path(__file__).parent / "data" / directory
+    else:
+        datdir = Path(directory)
     airfoils = {}
     for datfile in sorted(datdir.glob("*.dat")):
         # Filenames are expected to follow `<basename>_delta<#######>.dat`.
