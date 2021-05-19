@@ -18,7 +18,7 @@ def build_hook3(num_control_points=31, verbose=True):
         print("Airfoil: braking_NACA24018_Xtr0.25\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
     airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
-    delta_max = np.deg2rad(13.37)  # FIXME: magic number
+    delta_f_max = np.deg2rad(13.37)  # FIXME: magic number
 
     # -----------------------------------------------------------------------
     # Canopy
@@ -51,8 +51,8 @@ def build_hook3(num_control_points=31, verbose=True):
         r_x=0.70,
         x=0,
         r_yz=1.00,
-        yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
-        # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
+        # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
+        yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
         c=c,
         theta=theta,
     )
@@ -107,12 +107,11 @@ def build_hook3(num_control_points=31, verbose=True):
     }
 
     # Approximate brake deflection geometry
-    s_delta_start = 0.1
-    s_delta_max = gsim.paraglider_wing.SimpleLineGeometry.minimum_s_delta_max(s_delta_start) + 1e-9
     brake_parameters = {
-        "s_delta_start": s_delta_start,
-        "s_delta_max": s_delta_max,
-        "delta_max": delta_max,
+        "s_delta_start0": 0.10,
+        "s_delta_start1": -0.20,
+        "s_delta_stop0": 0.95,
+        "s_delta_stop1": 1.15,  # 1.08 -> delta_f doesn't increase at the tips
     }
 
     lines = gsim.paraglider_wing.SimpleLineGeometry(
@@ -123,6 +122,7 @@ def build_hook3(num_control_points=31, verbose=True):
     wing = gsim.paraglider_wing.ParagliderWing(
         lines=lines,
         canopy=canopy,
+        delta_f_max=delta_f_max,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
