@@ -110,8 +110,8 @@ def build_hook3(num_control_points=31, verbose=True):
     brake_parameters = {
         "s_delta_start0": 0.10,
         "s_delta_start1": -0.20,
-        "s_delta_stop0": 0.95,
-        "s_delta_stop1": 1.15,  # 1.08 -> delta_f doesn't increase at the tips
+        "s_delta_stop0": 0.90,
+        "s_delta_stop1": 1.10,  # 1.08 -> delta_f doesn't increase at the tips
     }
 
     lines = gsim.paraglider_wing.SimpleLineGeometry(
