@@ -65,17 +65,17 @@ def symmetric_brakes_fast_on_off(delta_b):
     return inputs, T
 
 
-def short_right_turn(delta_br, delta_w):
+def short_right_turn(delta_br, delta_w, t_hold=5):
     """Scenario: short right turn."""
     t_warmup = 2
     t_rise_b = 2
     t_rise_w = 1
-    t_hold = 5
+    t_hold_w = 5  # Hold time for initial weight shift
     t_fall = 1
     t_settle = 5
     inputs = {
         "delta_br": simulation.linear_control([
-            (t_warmup + t_rise_w + t_hold, 0),
+            (t_warmup + t_rise_w + t_hold_w, 0),
             (t_rise_b, delta_br),
             (t_hold, None),
             (t_fall, 0),
@@ -83,17 +83,17 @@ def short_right_turn(delta_br, delta_w):
         "delta_w": simulation.linear_control([
             (t_warmup, 0),
             (t_rise_w, delta_w),
-            (t_hold + t_rise_b + t_hold, None),
+            (t_hold_w + t_rise_b + t_hold, None),
             (t_fall, 0),
         ]),
     }
-    T = t_warmup + t_rise_w + t_hold + + t_rise_b + t_hold + t_fall + t_settle
+    T = t_warmup + t_rise_w + t_hold_w + + t_rise_b + t_hold + t_fall + t_settle
     return inputs, T
 
 
 def continuous_right_turn(delta_w, delta_br):
     t_warmup = 2
-    t_rise = 1
+    t_rise = 2
     t_hold = 5
     inputs = {
         "delta_br": simulation.linear_control(
@@ -327,8 +327,10 @@ def main():
     # inputs, T = symmetric_brakes_fast_on(delta_b=1)
     # inputs, T = symmetric_brakes_fast_off(delta_b=1)
     # inputs, T = symmetric_brakes_fast_on_off(delta_b=1)
-    # inputs, T = short_right_turn(delta_br=0.85, delta_w=0)
-    # inputs, T = short_right_turn(delta_br=0.85, delta_w=1)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=0, t_hold=5)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=1, t_hold=5)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=0, t_hold=20)
+    # inputs, T = short_right_turn(delta_br=0.85, delta_w=1, t_hold=20)
     # inputs, T = continuous_right_turn(delta_br=0.85, delta_w=0)
     # inputs, T = continuous_right_turn(delta_br=0.85, delta_w=1)
     # inputs, T = roll_right_then_left()
