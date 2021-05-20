@@ -228,6 +228,11 @@ class SimpleLineGeometry:
         s_stop_l = _interp(self.s_delta_stop0, self.s_delta_stop1, delta_bl)
         s_stop_r = _interp(self.s_delta_stop0, self.s_delta_stop1, delta_br)
 
+        # Map `s_start <= s <= s_stop` onto `0 <= p <= 1` to use the quartic.
+        # Deflections have contributions from both brakes if `start < 0`. The
+        # start/stop indices are defined using the right side (s > 0), but the
+        # line geometry is symmetric so the section indices are negated to
+        # compute contributions from the left brake.
         pl = (-s - s_start_l) / (s_stop_l - s_start_l)  # For left brake
         pr = (s - s_start_r) / (s_stop_r - s_start_r)  # For right brake
         delta_dl = self._K1 * pl ** 4 + self._K2 * pl ** 3 + self._K3 * pl ** 2
