@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Compute the residual acceleration at the given equilibrium state
     q_b2e = orientation.euler_to_quaternion(eq["Theta_b2e"])
-    q_e2b = q_b2e * [-1, 1, 1, 1]
+    q_e2b = q_b2e * [1, -1, -1, -1]
     v_RM2e = orientation.quaternion_rotate(q_e2b, eq["v_RM2e"])
 
     if use_6a:

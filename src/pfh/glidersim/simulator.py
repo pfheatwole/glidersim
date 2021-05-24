@@ -184,7 +184,7 @@ class ParagliderModel6a:
         state["omega_b2e"] = [0, 0, 0]
         state["r_RM2O"] = [0, 0, 0]
         state["v_RM2e"] = orientation.quaternion_rotate(
-            q_b2e * [-1, 1, 1, 1],
+            q_b2e * [1, -1, -1, -1],
             glider_eq["v_RM2e"],
         )
         state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
@@ -268,7 +268,7 @@ class ParagliderModel9a:
         state_dot : ParagliderModel9a.state_dtype
             The state derivatives
         """
-        q_e2b = state["q_b2e"] * [-1, 1, 1, 1]  # Encodes `C_ned/frd`
+        q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
             orientation.quaternion_product(q_e2b, state["q_p2e"])
         )
@@ -372,7 +372,7 @@ class ParagliderModel9a:
         state["omega_p2e"] = [0, 0, 0]
         state["r_RM2O"] = [0, 0, 0]
         state["v_RM2e"] = orientation.quaternion_rotate(
-            q_b2e * [-1, 1, 1, 1],
+            q_b2e * [1, -1, -1, -1],
             glider_eq["v_RM2e"],
         )
         state["v_RM2e"] += self.v_W2e(t=0, r=state["r_RM2O"])
