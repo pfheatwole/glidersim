@@ -62,10 +62,9 @@ class SimpleLineGeometry:
         `stop0` when `delta_b = 0` to `stop1` when `delta_b = 1`.
         FIXME: needs a proper docstring. For example, these are for the right
         brake, but the left is symmetric.
-    delta_d_max : float
-        The maximum deflection distance, which occurs at `s_delta_start +
-        (s_delta_start + s_delta_stop) / 2`, normalized by the length of the
-        central chord.
+    kappa_b : float
+        The maximum deflection distance, which occurs at `(s_delta_start +
+        s_delta_stop) / 2`, normalized by the length of the central chord.
 
     Notes
     -----
@@ -120,7 +119,7 @@ class SimpleLineGeometry:
         s_delta_start1,
         s_delta_stop0,
         s_delta_stop1,
-        delta_d_max=None,
+        kappa_b=None,
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
@@ -143,7 +142,7 @@ class SimpleLineGeometry:
         self.s_delta_start1 = s_delta_start1
         self.s_delta_stop0 = s_delta_stop0
         self.s_delta_stop1 = s_delta_stop1
-        self.delta_d_max = delta_d_max
+        self.kappa_b = kappa_b
 
         # The non-zero coefficients for a 4th-order polynomial such that the
         # value and slope are both zero at `p = 0` and `p = 1`, symmetric about
@@ -216,33 +215,32 @@ class SimpleLineGeometry:
             between the undeflected chord and the line connecting the leading
             edge to the deflected trailing edge.
         """
-        if self.delta_d_max is None:  # FIXME: I hate this design
-            raise ValueError("delta_d_max must be set")
+        if self.kappa_b is None:  # FIXME: I hate this design
+            raise ValueError("kappa_b must be set")
 
         def _interp(A, B, d):
             # Interpolate from A to B as function of 0 <= d <= 1
             return A + (B - A) * d
+
+        def q(s, s_start, s_stop):
+            # Map `s` into the quartic domain `p` to compute deflections
+            p = (s - s_start) / (s_stop - s_start)
+            q = self._K1 * p ** 4 + self._K2 * p ** 3 + self._K3 * p ** 2
+            q = np.array(q)  # Allow indexing in case `s` is a scalar
+            q[(p < 0) | (p > 1)] = 0  # Zero outside `start <= s <= stop`
+            return q
 
         s_start_l = _interp(self.s_delta_start0, self.s_delta_start1, delta_bl)
         s_start_r = _interp(self.s_delta_start0, self.s_delta_start1, delta_br)
         s_stop_l = _interp(self.s_delta_stop0, self.s_delta_stop1, delta_bl)
         s_stop_r = _interp(self.s_delta_stop0, self.s_delta_stop1, delta_br)
 
-        # Map `s_start <= s <= s_stop` onto `0 <= p <= 1` to use the quartic.
-        # Deflections have contributions from both brakes if `start < 0`. The
-        # start/stop indices are defined using the right side (s > 0), but the
-        # line geometry is symmetric so the section indices are negated to
-        # compute contributions from the left brake.
-        pl = (-s - s_start_l) / (s_stop_l - s_start_l)  # For left brake
-        pr = (s - s_start_r) / (s_stop_r - s_start_r)  # For right brake
-        delta_dl = self._K1 * pl ** 4 + self._K2 * pl ** 3 + self._K3 * pl ** 2
-        delta_dr = self._K1 * pr ** 4 + self._K2 * pr ** 3 + self._K3 * pr ** 2
-        delta_dl = np.array(delta_dl)
-        delta_dr = np.array(delta_dr)  # In case `s` is a scalar
-        delta_dl[(pl < 0) | (pl > 1)] = 0
-        delta_dr[(pr < 0) | (pr > 1)] = 0  # Zero outside `start <= s <= stop`
-        delta_d = delta_bl * delta_dl + delta_br * delta_dr
-        return delta_d * self.delta_d_max
+        # The start/stop indices are defined using the right side (s > 0), but
+        # the line geometry is symmetric so the section indices can be negated
+        # to compute contributions from the left brake.
+        ql = q(-s, s_start_l, s_stop_l)
+        qr = q(s, s_start_r, s_stop_r)
+        return (delta_bl * ql + delta_br * qr) * self.kappa_b
 
     def aerodynamics(self, v_W2b, rho_air):
         K_lines = self._r_L2LE.shape[0]
@@ -274,10 +272,10 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
-    delta_f_max : float [radians]
+    delta_f_max : float [radians], optional
         The maximum deflection angle supported by the airfoil coefficients.
-        This overwrites the `delta_d_max` in the `SimpleLineGeometry`, setting
-        it to whatever value ensures `delta_f` never exceeds `delta_f_max`.
+        This overwrites the `kappa_b` in the `SimpleLineGeometry`, setting it
+        to whatever value ensures `delta_f` never exceeds `delta_f_max`.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
     rho_ribs : float [kg/m^2]
@@ -321,9 +319,9 @@ class ParagliderWing:
         if not isinstance(lines, SimpleLineGeometry):
             raise ValueError("`lines` must be a `SimpleLineGeometry`")
         if delta_f_max:
-            self._compute_and_set_delta_d_max(delta_f_max)
+            self._compute_and_set_kappa_b(delta_f_max)
 
-    def _compute_and_set_delta_d_max(self, delta_f_max):
+    def _compute_and_set_kappa_b(self, delta_f_max):
         # Set `delta_d_peak` such that `delta_f` never exceeds `delta_f_max`.
         # Ugly since the position of maximum deflection can vary, the
         # deflection distances vary nonlinearly, and `delta_f` depends on the
@@ -344,22 +342,22 @@ class ParagliderWing:
             else:
                 return {"s": 1, "delta_b": 1, "delta_f": delta_f_tip}
 
-        def _target(delta_d_max_proposal):
-            self.lines.delta_d_max = delta_d_max_proposal
+        def _target(kappa_b_proposal):
+            self.lines.kappa_b = kappa_b_proposal
             r = _helper()
             return np.abs(r["delta_f"] - delta_f_max)
 
         res = minimize_scalar(_target, bounds=(0, 0.5), method="bounded")
         assert res.x > 0
-        self.lines.delta_d_max = res.x * 0.999  # FIXME: crude, magic margin
+        self.lines.kappa_b = res.x * 0.999  # FIXME: crude, magic margin
 
         # Show which section produces delta_f_max for which delta_b
         # FIXME: convert into `logging` output
         # res2 = _helper()
-        # delta_d_max = round(res.x, 4)
+        # kappa_b = round(res.x, 4)
         # s = round(res2["s"], 2)
         # delta_b = round(res2["delta_b"], 2)
-        # print(f"ParagliderWing: {delta_d_max=} for ({s=}, {delta_b=})")
+        # print(f"ParagliderWing: {kappa_b=} for ({s=}, {delta_b=})")
 
     def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
