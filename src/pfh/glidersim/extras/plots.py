@@ -82,7 +82,7 @@ def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
 
 def _create_3d_axes(figsize=(12, 12), dpi=96):
     fig = plt.figure(figsize=figsize, dpi=dpi)
-    ax = fig.gca(projection="3d")
+    ax = fig.add_subplot(projection="3d")
     ax.set_proj_type('ortho')
     elev = 90 - np.rad2deg(np.arctan(np.sqrt(2)))
     ax.view_init(azim=-135, elev=elev)  # Isometric view
@@ -150,7 +150,7 @@ def plot_airfoil_coef(airfoil, coef, N=100):
         raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
     fig = plt.figure(figsize=(17, 15))
-    ax = fig.gca(projection="3d")
+    ax = fig.add_subplot(projection="3d")
     ax.plot_surface(np.rad2deg(grid[0]), np.rad2deg(grid[1]), values)
 
     try:  # Kludge: Try to plot the raw coefficient data from the DataFrame
