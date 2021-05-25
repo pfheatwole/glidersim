@@ -18,7 +18,7 @@ def build_hook3(num_control_points=31, verbose=True):
         print("Airfoil: braking_NACA24018_Xtr0.25\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
     airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
-    delta_f_max = np.deg2rad(13.37)  # FIXME: magic number
+    delta_d_max = 0.20273  # FIXME: magic number
 
     # -----------------------------------------------------------------------
     # Canopy
@@ -122,7 +122,7 @@ def build_hook3(num_control_points=31, verbose=True):
     wing = gsim.paraglider_wing.ParagliderWing(
         lines=lines,
         canopy=canopy,
-        delta_f_max=delta_f_max,
+        delta_d_max=delta_d_max,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29

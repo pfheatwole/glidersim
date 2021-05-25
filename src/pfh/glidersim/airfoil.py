@@ -41,15 +41,15 @@ class AirfoilCoefficients(abc.ABC):
     """Defines the API for classes that provide airfoil coefficients."""
 
     @abc.abstractmethod
-    def Cl(self, delta_f, alpha, Re):
+    def Cl(self, delta_d, alpha, Re):
         """
         Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -61,15 +61,15 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, delta_f, alpha, Re):
+    def Cd(self, delta_d, alpha, Re):
         """
         Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -81,15 +81,15 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, delta_f, alpha, Re):
+    def Cm(self, delta_d, alpha, Re):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -101,15 +101,15 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cl_alpha(self, delta_f, alpha, Re):
+    def Cl_alpha(self, delta_d, alpha, Re):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -130,7 +130,7 @@ class GridCoefficients(AirfoilCoefficients):
     Assumes the `Cl` and `Cl_alpha` have already been smoothed.
 
     The CSV must contain the following columns
-     * delta [degrees]
+     * delta_d
      * alpha [degrees]
      * Re
      * Cl
@@ -148,11 +148,11 @@ class GridCoefficients(AirfoilCoefficients):
 
         # FIXME: Requires that all points are present (even if `nan`).
         # FIXME: Assumes that the points are correctly ordered.
-        delta = np.deg2rad(np.unique(data["delta"]))
+        delta_d = np.unique(data["delta_d"])
         alpha = np.deg2rad(np.unique(data["alpha"]))
         Re = np.unique(data["Re"])
-        points = (delta, alpha, Re)
-        shape = (len(delta), len(alpha), len(Re))
+        points = (delta_d, alpha, Re)
+        shape = (len(delta_d), len(alpha), len(Re))
 
         self._Cl = RegularGridInterpolator(
             points, data["Cl"].reshape(shape), bounds_error=False,
@@ -167,17 +167,17 @@ class GridCoefficients(AirfoilCoefficients):
             points, data["Cl_alpha"].reshape(shape), bounds_error=False,
         )
 
-    def Cl(self, delta_f, alpha, Re):
-        return self._Cl((delta_f, alpha, Re / 1e6))
+    def Cl(self, delta_d, alpha, Re):
+        return self._Cl((delta_d, alpha, Re / 1e6))
 
-    def Cd(self, delta_f, alpha, Re):
-        return self._Cd((delta_f, alpha, Re / 1e6))
+    def Cd(self, delta_d, alpha, Re):
+        return self._Cd((delta_d, alpha, Re / 1e6))
 
-    def Cm(self, delta_f, alpha, Re):
-        return self._Cm((delta_f, alpha, Re / 1e6))
+    def Cm(self, delta_d, alpha, Re):
+        return self._Cm((delta_d, alpha, Re / 1e6))
 
-    def Cl_alpha(self, delta_f, alpha, Re):
-        return self._Cl_alpha((delta_f, alpha, Re / 1e6))
+    def Cl_alpha(self, delta_d, alpha, Re):
+        return self._Cl_alpha((delta_d, alpha, Re / 1e6))
 
 
 class XFLR5Coefficients(AirfoilCoefficients):
@@ -193,6 +193,8 @@ class XFLR5Coefficients(AirfoilCoefficients):
        in units of millions (so `920,000` is encoded as `0.920`).
 
     3. All polars will be included.
+
+    FIXME: uses the old `delta_f`; needs work.
     """
     def __init__(self, dirname, flapped):
         self.flapped = flapped

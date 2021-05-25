@@ -272,10 +272,11 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
-    delta_f_max : float [radians], optional
-        The maximum deflection angle supported by the airfoil coefficients.
-        This overwrites the `kappa_b` in the `SimpleLineGeometry`, setting it
-        to whatever value ensures `delta_f` never exceeds `delta_f_max`.
+    delta_d_max : float [radians], optional
+        The maximum normalized vertical deflection distance supported by the
+        airfoil coefficients. This overwrites the `kappa_b` in the
+        `SimpleLineGeometry`, setting it to whatever value ensures `delta_d`
+        never exceeds `delta_d_max`.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
     rho_ribs : float [kg/m^2]
@@ -296,7 +297,7 @@ class ParagliderWing:
         self,
         lines,
         canopy,
-        delta_f_max=None,
+        delta_d_max=None,
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
@@ -318,34 +319,34 @@ class ParagliderWing:
         # Also, requires that `lines` is a `SimpleLineGeometry`...
         if not isinstance(lines, SimpleLineGeometry):
             raise ValueError("`lines` must be a `SimpleLineGeometry`")
-        if delta_f_max:
-            self._compute_and_set_kappa_b(delta_f_max)
+        if delta_d_max:
+            self._compute_and_set_kappa_b(delta_d_max)
 
-    def _compute_and_set_kappa_b(self, delta_f_max):
-        # Set `delta_d_peak` such that `delta_f` never exceeds `delta_f_max`.
+    def _compute_and_set_kappa_b(self, delta_d_max):
+        # Set `delta_d_peak` such that `delta_d` never exceeds `delta_d_max`.
         # Ugly since the position of maximum deflection can vary, the
-        # deflection distances vary nonlinearly, and `delta_f` depends on the
-        # chord lengths (which also vary nonlinearly).
+        # deflection distances vary nonlinearly, and the normalized `delta_d`
+        # depend on the chord lengths (which also vary nonlinearly).
         # FIXME: global optimization is unreliable for non-convex functions
         def _helper():
             r = minimize(
-                lambda x: -self.delta_f(x[0], 0, x[1]),
+                lambda x: -self.delta_d(x[0], 0, x[1]),
                 x0=(0.5, 1),
                 bounds=[(0, 1), (0, 1)],
             )
             # The optimizer assumes `delta_f` is convex, but due to taper the
             # wing tips have a tendency to create large deflection angles even
             # if the deflection distance is small.
-            delta_f_tip = self.delta_f(1, 0, 1)
-            if -r.fun > delta_f_tip:
-                return {"s": r.x[0], "delta_b": r.x[1], "delta_f": -r.fun}
+            delta_d_tip = self.delta_d(1, 0, 1)
+            if -r.fun > delta_d_tip:
+                return {"s": r.x[0], "delta_b": r.x[1], "delta_d": -r.fun}
             else:
-                return {"s": 1, "delta_b": 1, "delta_f": delta_f_tip}
+                return {"s": 1, "delta_b": 1, "delta_d": delta_d_tip}
 
         def _target(kappa_b_proposal):
             self.lines.kappa_b = kappa_b_proposal
             r = _helper()
-            return np.abs(r["delta_f"] - delta_f_max)
+            return np.abs(r["delta_d"] - delta_d_max)
 
         res = minimize_scalar(_target, bounds=(0, 0.5), method="bounded")
         assert res.x > 0
@@ -598,11 +599,11 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_f = self.delta_f(
+        delta_d = self.delta_d(
             self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
-            delta_f, v_W2b_foil, rho_air, reference_solution,
+            delta_d, v_W2b_foil, rho_air, reference_solution,
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)
@@ -614,7 +615,7 @@ class ParagliderWing:
 
         return dF, dM, solution
 
-    def delta_f(self, s, delta_bl, delta_br):
+    def delta_d(self, s, delta_bl, delta_br):
         """
         Compute trailing edge deflection angles due to brake inputs.
 
@@ -629,15 +630,12 @@ class ParagliderWing:
 
         Returns
         -------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge, measured between the
-            undeflected chord and the line connecting the leading edge to the
-            deflected trailing edge.
+        delta_d : float [radians]
+            The normalized vertical deflection distance of the trailing edge.
         """
         delta_d = self.lines.delta_d(s, delta_bl, delta_br) * self.c_0
         c = self.canopy.chord_length(s)
-        delta_f = np.arctan(delta_d / c)
-        return delta_f
+        return delta_d / c
 
     def equilibrium_alpha(
         self,

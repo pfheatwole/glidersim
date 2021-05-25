@@ -100,7 +100,7 @@ class FoilSections:
     profiles : AirfoilGeometry
         The section profiles. This class currently assumes all sections have
         the same, fixed airfoil. In the future the section profiles will be
-        functions of `s` and `delta_f`.
+        functions of `s` and `delta_d`.
     coefficients : AirfoilCoefficients
         The section coefficients. This class currently assumes all sections
         have the section coefficients. In the future the coefficients will be
@@ -182,7 +182,7 @@ class FoilSections:
 
         return r_P2LE
 
-    def Cl(self, s, delta_f, alpha, Re):
+    def Cl(self, s, delta_d, alpha, Re):
         """
         Compute the lift coefficient of the airfoil.
 
@@ -190,9 +190,9 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_f : array_like of float [radians]
-            Deflection angle of the trailing edge due to control inputs, as
-            measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
@@ -202,9 +202,9 @@ class FoilSections:
         -------
         Cl : float
         """
-        return self.coefficients.Cl(delta_f, alpha, Re)
+        return self.coefficients.Cl(delta_d, alpha, Re)
 
-    def Cl_alpha(self, s, delta_f, alpha, Re):
+    def Cl_alpha(self, s, delta_d, alpha, Re):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
@@ -212,9 +212,9 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_f : array_like of float [radians]
-            Deflection angle of the trailing edge due to control inputs, as
-            measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
@@ -224,9 +224,9 @@ class FoilSections:
         -------
         Cl_alpha : float
         """
-        return self.coefficients.Cl_alpha(delta_f, alpha, Re)
+        return self.coefficients.Cl_alpha(delta_d, alpha, Re)
 
-    def Cd(self, s, delta_f, alpha, Re):
+    def Cd(self, s, delta_d, alpha, Re):
         """
         Compute the drag coefficient of the airfoil.
 
@@ -234,9 +234,9 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_f : array_like of float [radians]
-            Deflection angle of the trailing edge due to control inputs, as
-            measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
@@ -246,7 +246,7 @@ class FoilSections:
         -------
         Cd : float
         """
-        Cd = self.coefficients.Cd(delta_f, alpha, Re)
+        Cd = self.coefficients.Cd(delta_d, alpha, Re)
 
         # Additional drag from the air intakes
         #
@@ -265,15 +265,15 @@ class FoilSections:
 
         return Cd
 
-    def Cm(self, s, delta_f, alpha, Re):
+    def Cm(self, s, delta_d, alpha, Re):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_f : float [radians]
-            The deflection angle of the trailing edge due to control inputs,
-            as measured between the deflected edge and the undeflected chord.
+        delta_d : float
+            Normalized vertical deflection distance of the trailing edge due to
+            control inputs.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
@@ -283,7 +283,7 @@ class FoilSections:
         -------
         Cm : float
         """
-        return self.coefficients.Cm(delta_f, alpha, Re)
+        return self.coefficients.Cm(delta_d, alpha, Re)
 
     def thickness(self, s, r):
         """
