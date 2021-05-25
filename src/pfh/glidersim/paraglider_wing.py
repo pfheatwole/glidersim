@@ -119,7 +119,7 @@ class SimpleLineGeometry:
         s_delta_start1,
         s_delta_stop0,
         s_delta_stop1,
-        kappa_b=None,
+        kappa_b,
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
@@ -215,9 +215,6 @@ class SimpleLineGeometry:
             between the undeflected chord and the line connecting the leading
             edge to the deflected trailing edge.
         """
-        if self.kappa_b is None:  # FIXME: I hate this design
-            raise ValueError("kappa_b must be set")
-
         def _interp(A, B, d):
             # Interpolate from A to B as function of 0 <= d <= 1
             return A + (B - A) * d
@@ -261,6 +258,33 @@ class SimpleLineGeometry:
 
         return dF_lines, dM_lines  # Normalized by the length of the central chord
 
+    def maximize_kappa_b(self, delta_d_max, chord_length, margin=1e-6):
+        """Maximze kappa_b such that delta_d never exceeds delta_d_max.
+
+        Useful to ensure the deflections don't exceed the maximum delta_d
+        supported by the airfoil coefficients.
+
+        Parameters
+        ----------
+        delta_d_max : float
+            Maximum normalized deflection distance the brakes should produce.
+        chord_length : function
+            Foil chord lengths as a function of section index `-1 <= s <= 1`.
+        """
+        # FIXME: I don't love this design. It requires the user to know to pass
+        # an arbitrary `kappa_b` to the constructor, and it assumes the
+        # normalized delta_d is a convex function.
+        self.kappa_b = 1
+        res = minimize_scalar(
+            lambda _s: -self.delta_d(_s, 1, 1) / chord_length(_s),
+            bounds=(0, 1),
+            method="bounded",
+        )
+        delta_d = self.delta_d(res.x, 1, 1) / chord_length(res.x)
+        self.kappa_b = delta_d_max / delta_d - margin
+        self.kappa_b /= chord_length(0)
+        print(f"\n\nDEBUG> {self.kappa_b=} at s={res.x}")
+
 
 class ParagliderWing:
     """
@@ -272,11 +296,6 @@ class ParagliderWing:
         Lines that position the riser and produce trailing edge deflections.
     canopy : foil.FoilGeometry
         The geometric shape of the lifting surface.
-    delta_d_max : float [radians], optional
-        The maximum normalized vertical deflection distance supported by the
-        airfoil coefficients. This overwrites the `kappa_b` in the
-        `SimpleLineGeometry`, setting it to whatever value ensures `delta_d`
-        never exceeds `delta_d_max`.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
     rho_ribs : float [kg/m^2]
@@ -297,7 +316,6 @@ class ParagliderWing:
         self,
         lines,
         canopy,
-        delta_d_max=None,
         rho_upper=0,
         rho_lower=0,
         rho_ribs=0,
@@ -313,52 +331,6 @@ class ParagliderWing:
         self.c_0 = canopy.chord_length(0)  # Scales the line geometry
         self._compute_real_mass_properties()
         self._compute_apparent_mass_properties()
-
-        # FIXME: I hate this design. It's order dependent, and changes a
-        # property of `lines` during the optimizer. It works, but *yuck*.
-        # Also, requires that `lines` is a `SimpleLineGeometry`...
-        if not isinstance(lines, SimpleLineGeometry):
-            raise ValueError("`lines` must be a `SimpleLineGeometry`")
-        if delta_d_max:
-            self._compute_and_set_kappa_b(delta_d_max)
-
-    def _compute_and_set_kappa_b(self, delta_d_max):
-        # Set `delta_d_peak` such that `delta_d` never exceeds `delta_d_max`.
-        # Ugly since the position of maximum deflection can vary, the
-        # deflection distances vary nonlinearly, and the normalized `delta_d`
-        # depend on the chord lengths (which also vary nonlinearly).
-        # FIXME: global optimization is unreliable for non-convex functions
-        def _helper():
-            r = minimize(
-                lambda x: -self.delta_d(x[0], 0, x[1]),
-                x0=(0.5, 1),
-                bounds=[(0, 1), (0, 1)],
-            )
-            # The optimizer assumes `delta_f` is convex, but due to taper the
-            # wing tips have a tendency to create large deflection angles even
-            # if the deflection distance is small.
-            delta_d_tip = self.delta_d(1, 0, 1)
-            if -r.fun > delta_d_tip:
-                return {"s": r.x[0], "delta_b": r.x[1], "delta_d": -r.fun}
-            else:
-                return {"s": 1, "delta_b": 1, "delta_d": delta_d_tip}
-
-        def _target(kappa_b_proposal):
-            self.lines.kappa_b = kappa_b_proposal
-            r = _helper()
-            return np.abs(r["delta_d"] - delta_d_max)
-
-        res = minimize_scalar(_target, bounds=(0, 0.5), method="bounded")
-        assert res.x > 0
-        self.lines.kappa_b = res.x * 0.999  # FIXME: crude, magic margin
-
-        # Show which section produces delta_f_max for which delta_b
-        # FIXME: convert into `logging` output
-        # res2 = _helper()
-        # kappa_b = round(res.x, 4)
-        # s = round(res2["s"], 2)
-        # delta_b = round(res2["delta_b"], 2)
-        # print(f"ParagliderWing: {kappa_b=} for ({s=}, {delta_b=})")
 
     def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates

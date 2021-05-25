@@ -18,7 +18,7 @@ def build_hook3(num_control_points=31, verbose=True):
         print("Airfoil: braking_NACA24018_Xtr0.25\n")
     airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
     airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
-    delta_d_max = 0.20273  # FIXME: magic number
+    delta_d_max = 0.20273  # FIXME: magic number from the set of coefficients
 
     # -----------------------------------------------------------------------
     # Canopy
@@ -104,6 +104,7 @@ def build_hook3(num_control_points=31, verbose=True):
         "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
                             [-0.5 * chord_root,  1.75, 1.75]]) / chord_root,
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
+        "kappa_b": None,  # Set later with `maximize_kappa_b`
     }
 
     # Approximate brake deflection geometry
@@ -118,11 +119,11 @@ def build_hook3(num_control_points=31, verbose=True):
         **line_parameters,
         **brake_parameters,
     )
+    lines.maximize_kappa_b(delta_d_max, canopy.chord_length)
 
     wing = gsim.paraglider_wing.ParagliderWing(
         lines=lines,
         canopy=canopy,
-        delta_d_max=delta_d_max,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
