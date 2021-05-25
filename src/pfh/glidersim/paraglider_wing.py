@@ -22,49 +22,47 @@ class SimpleLineGeometry:
     """
     FIXME: document the design.
 
-    In particular, explain why everything here is normalized by an assumed
-    length of the central chord `c = 1`.
-
     Parameters
     ----------
-    kappa_x : float [percentage]
-        The absolute x-coordinate distance from `RM` to the canopy origin,
-        normalized by the length of the central chord.
+    kappa_x : float [m]
+        x-coordinate distance from `RM` to the canopy origin.
     kappa_z : float [m]
-        The absolute z-coordinate distance from `RM` to the canopy origin,
-        normalized by the length of the central chord.
-    kappa_A, kappa_C : float [percentage]
-        The position of the A and C canopy connection points, normalized by the
-        length of the central chord. The accelerator adjusts the length of the
-        A lines, while the C lines remain fixed length, effectively causing a
-        rotation of the canopy about the point `kappa_C`.
-    kappa_a : float [m], optional
-        The accelerator line length normalized by the length of the central
-        chord. This is the maximum change in the length of the A lines.
-    total_line_length : float [m]
-        The total length of the lines from the risers to the canopy, normalized
-        by the length of the central chord.
-    average_line_diameter : float [m^2]
-        The average diameter of the connecting lines
-    r_L2LE : array of float, shape (K,3) [m]
-        The averaged location(s) of the connecting line surface area(s),
-        normalized by the length of the central chord. If multiple positions
-        are given, the total line length will be divided between them evenly.
-    Cd_lines : float
-        The drag coefficient of the lines
+        z-coordinate distance from `RM` to the canopy origin.
+    kappa_A, kappa_C : float [m]
+        Distance of the A and C canopy connection points along the central
+        chord. The accelerator adjusts the length of the A lines, while the C
+        lines remain fixed length, effectively causing a rotation of the canopy
+        about the point `kappa_C`.
+    kappa_a : float [m]
+        Accelerator line length. This is the maximum change in the length of
+        the A lines.
+    kappa_b : float [m]
+        Brake line length. Equal to the maximum vertical deflection of the
+        trailing edge, which occurs at `(s_delta_start + s_delta_stop) / 2`.
+        This is the deflection distance supported by the model, not the true
+        physical length of the line. The aerodynamics model can only support a
+        limited range of edge deflection, and this value is the deflection
+        associated with "100% brake input".
     s_delta_start0, s_delta_start1 : float
-        The section indices where brake deflections begin, transitioning from
+        Section indices where brake deflections begin, transitioning from
         `start0` when `delta_b = 0` to `start1` when `delta_b = 1`.
         FIXME: needs a proper docstring. For example, these are for the right
         brake, but the left is symmetric.
     s_delta_stop0, s_delta_stop1 : float
-        The section indices where brake deflections end, transitioning from
-        `stop0` when `delta_b = 0` to `stop1` when `delta_b = 1`.
+        Section indices where brake deflections end, transitioning from `stop0`
+        when `delta_b = 0` to `stop1` when `delta_b = 1`.
         FIXME: needs a proper docstring. For example, these are for the right
         brake, but the left is symmetric.
-    kappa_b : float
-        The maximum deflection distance, which occurs at `(s_delta_start +
-        s_delta_stop) / 2`, normalized by the length of the central chord.
+    total_line_length : float [m]
+        Total length of the lines from the risers to the canopy.
+    average_line_diameter : float [m]
+        Average diameter of the connecting lines.
+    r_L2LE : array of float, shape (K,3) [m]
+        Averaged location(s) of the connecting line surface area(s). If
+        multiple positions are given, the total line length will be divided
+        between them evenly.
+    Cd_lines : float
+        Drag coefficient of the lines.
 
     Notes
     -----
@@ -111,6 +109,7 @@ class SimpleLineGeometry:
         kappa_A,
         kappa_C,
         kappa_a,
+        kappa_b,
         total_line_length,
         average_line_diameter,
         r_L2LE,
@@ -119,7 +118,6 @@ class SimpleLineGeometry:
         s_delta_start1,
         s_delta_stop0,
         s_delta_stop1,
-        kappa_b,
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
@@ -165,9 +163,7 @@ class SimpleLineGeometry:
         Returns
         -------
         r_RM2LE : array of float, shape (N,3) [unitless]
-            The riser midpoint `RM` with respect to the canopy origin. As with
-            all other values in this class, these values are assumed to have
-            been normalized by the length of the central chord of the wing.
+            The riser midpoint `RM` with respect to the canopy origin.
         """
         # The accelerator shortens the A lines, while C remains fixed
         delta_a = np.asarray(delta_a)
@@ -197,12 +193,12 @@ class SimpleLineGeometry:
 
     def delta_d(self, s, delta_bl, delta_br):
         """
-        Compute the normalized trailing edge deflection distance from braking.
+        Compute the trailing edge deflection distance due to brake inputs.
 
         Parameters
         ----------
         s : float, or array_like of float, shape (N,)
-            Normalized span position, where `-1 <= s <= 1`
+            Section index, where `-1 <= s <= 1`
         delta_bl : float [percentage]
             Left brake application as a fraction of maximum braking
         delta_br : float [percentage]
@@ -210,10 +206,8 @@ class SimpleLineGeometry:
 
         Returns
         -------
-        delta_d : float [radians]
-            The normalized deflection distance of the trailing edge, measured
-            between the undeflected chord and the line connecting the leading
-            edge to the deflected trailing edge.
+        delta_d : float [m]
+            The deflection distance of the trailing edge.
         """
         def _interp(A, B, d):
             # Interpolate from A to B as function of 0 <= d <= 1
@@ -255,8 +249,7 @@ class SimpleLineGeometry:
             * u_drag
         ).T
         dM_lines = np.zeros((K_lines, 3))
-
-        return dF_lines, dM_lines  # Normalized by the length of the central chord
+        return dF_lines, dM_lines
 
     def maximize_kappa_b(self, delta_d_max, chord_length, margin=1e-6):
         """Maximze kappa_b such that delta_d never exceeds delta_d_max.
@@ -267,23 +260,23 @@ class SimpleLineGeometry:
         Parameters
         ----------
         delta_d_max : float
-            Maximum normalized deflection distance the brakes should produce.
+            Maximum deflection distance the brakes should produce at any
+            section, normalized to unit chord length.
         chord_length : function
-            Foil chord lengths as a function of section index `-1 <= s <= 1`.
+            Canopy chord length as a function of section index `-1 <= s <= 1`.
         """
         # FIXME: I don't love this design. It requires the user to know to pass
-        # an arbitrary `kappa_b` to the constructor, and it assumes the
-        # normalized delta_d is a convex function.
+        # an arbitrary `kappa_b` to the constructor, assumes the normalized
+        # delta_d is a convex function, assumes the maximum normalized
+        # deflection occurs with full brakes, etc.
         self.kappa_b = 1
         res = minimize_scalar(
-            lambda _s: -self.delta_d(_s, 1, 1) / chord_length(_s),
+            lambda s: -self.delta_d(s, 1, 1) / chord_length(s),
             bounds=(0, 1),
             method="bounded",
         )
         delta_d = self.delta_d(res.x, 1, 1) / chord_length(res.x)
         self.kappa_b = delta_d_max / delta_d - margin
-        self.kappa_b /= chord_length(0)
-        print(f"\n\nDEBUG> {self.kappa_b=} at s={res.x}")
 
 
 class ParagliderWing:
@@ -328,7 +321,6 @@ class ParagliderWing:
         self.rho_ribs = rho_ribs
         self.N_cells = N_cells
 
-        self.c_0 = canopy.chord_length(0)  # Scales the line geometry
         self._compute_real_mass_properties()
         self._compute_apparent_mass_properties()
 
@@ -520,7 +512,7 @@ class ParagliderWing:
         # are defined with respect to `C` and the canopy origin (the central
         # leading edge), but the final apparent inertia matrix is about `RM`,
         # which depends on `delta_a`.
-        r_C2LE = np.array([-0.5 * self.c_0, 0, r])
+        r_C2LE = np.array([-0.5 * self.canopy.chord_length(0), 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
         self._apparent_mass_properties = {
             "r_RC2LE": r_RC2C + r_C2LE,
@@ -560,7 +552,7 @@ class ParagliderWing:
         # FIXME: (1) duplicates `self.control_points`
         #        (2) only used to get the shapes of the control point arrays
         foil_cps = self.canopy.control_points()
-        line_cps = self.c_0 * self.lines.control_points()
+        line_cps = self.lines.control_points()
 
         # FIXME: uses "magic" indexing established in `self.control_points()`
         K_foil = foil_cps.shape[0]
@@ -571,7 +563,7 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_d = self.c_0 * self.lines.delta_d(
+        delta_d = self.lines.delta_d(
             self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
@@ -579,9 +571,6 @@ class ParagliderWing:
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)
-        dF_lines *= self.c_0
-        dM_lines *= self.c_0
-
         dF = np.vstack((dF_foil, dF_lines))
         dM = np.vstack((dM_foil, dM_lines))
 
@@ -657,7 +646,7 @@ class ParagliderWing:
             The control points in frd coordinates
         """
         foil_cps = self.canopy.control_points()
-        line_cps = self.lines.control_points() * self.c_0
+        line_cps = self.lines.control_points()
         return np.vstack((foil_cps, line_cps))
 
     def r_RM2LE(self, delta_a=0):
@@ -674,7 +663,7 @@ class ParagliderWing:
         r_RM2LE : array of float, shape (N,3) [meters]
             The riser midpoint `RM` with respect to the canopy origin.
         """
-        return self.lines.r_RM2LE(delta_a) * self.c_0
+        return self.lines.r_RM2LE(delta_a)
 
     def mass_properties(self, rho_air, delta_a=0):
         """

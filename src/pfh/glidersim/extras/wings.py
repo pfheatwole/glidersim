@@ -86,38 +86,32 @@ def build_hook3(num_control_points=31, verbose=True):
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
     # plots.plot_foil_topdown(canopy, N_sections=77)
 
-    # -----------------------------------------------------------------------
-    # Wing
-
-    # Line geometry
-    #
-    # The brake parameters are not based on the actual wing in any way. Line
-    # drag positions are crude guess.
-    line_parameters = {
-        "kappa_x": 0.49,  # FIXME: Source? Trying to match `theta_eq` at trim?
-        "kappa_z": 6.8 / chord_root,  # ref: "Hook 3 technical specs", pg 2
-        "kappa_A": 0.11,  # Approximated from the line plan in the users manual, pg 17
-        "kappa_C": 0.59,
-        "kappa_a": 0.15 / chord_root,  # ref: "Hook 3 technical specs", pg 2
-        "total_line_length": 218 / chord_root,  # ref: "Hook 3 technical specs", pg 2
-        "average_line_diameter": 1e-3,  # Blind guess
-        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
-                            [-0.5 * chord_root,  1.75, 1.75]]) / chord_root,
-        "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
-        "kappa_b": None,  # Set later with `maximize_kappa_b`
+    # Most of these line parameters are crude guesses.
+    riser_position_parameters = {
+        "kappa_x": 0.49 * chord_root,  # FIXME: Source? Trying to match `theta_eq` at trim?
+        "kappa_z": 6.8,  # ref: "Hook 3 technical specs", pg 2
+        "kappa_A": 0.11 * chord_root,  # Approximated from the line plan in the users manual, pg 17
+        "kappa_C": 0.59 * chord_root,
+        "kappa_a": 0.15,  # ref: "Hook 3 technical specs", pg 2
     }
-
-    # Approximate brake deflection geometry
     brake_parameters = {
+        "kappa_b": None,  # Set later with `maximize_kappa_b`
         "s_delta_start0": 0.10,
         "s_delta_start1": -0.20,
         "s_delta_stop0": 0.90,
         "s_delta_stop1": 1.10,  # 1.08 -> delta_f doesn't increase at the tips
     }
-
+    line_drag_parameters = {
+        "total_line_length": 218,  # ref: "Hook 3 technical specs", pg 2
+        "average_line_diameter": 1e-3,  # Blind guess
+        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
+                            [-0.5 * chord_root,  1.75, 1.75]]),
+        "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
+    }
     lines = gsim.paraglider_wing.SimpleLineGeometry(
-        **line_parameters,
+        **riser_position_parameters,
         **brake_parameters,
+        **line_drag_parameters,
     )
     lines.maximize_kappa_b(delta_d_max, canopy.chord_length)
 
