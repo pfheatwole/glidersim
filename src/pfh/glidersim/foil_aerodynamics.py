@@ -28,9 +28,9 @@ class FoilAerodynamics(abc.ABC):
         Parameters
         ----------
         delta_d : array_like of float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs. The shape must be able to broadcast to (K,), where
-            `K` is the number of control points being used by the estimator.
+            Vertical deflection distances of the trailing edge due to control
+            inputs. The shape must be able to broadcast to (K,), where `K` is
+            the number of control points being used by the estimator.
         v_W2f : array_like of float [m/s]
             The velocity of the wind relative to the control points in foil frd
             coordinates. The shape must be able to broadcast to (K, 3), where
@@ -134,6 +134,7 @@ class Phillips(FoilAerodynamics):
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.foil.chord_length(self.s_nodes)
+        self.cp_chords = self.foil.chord_length(self.s_cps)
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
@@ -316,6 +317,7 @@ class Phillips(FoilAerodynamics):
     def __call__(self, delta_d, v_W2f, rho_air, reference_solution=None, max_splits=10):
         # FIXME: this doesn't match the FoilAerodynamics.__call__ signature
         delta_d = np.broadcast_to(delta_d, (self.K))
+        delta_d = delta_d / self.cp_chords  # Coefficients use the normalized distances
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
         Re = self._compute_Reynolds(v_W2f, rho_air)
 

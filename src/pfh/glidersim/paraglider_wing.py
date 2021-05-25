@@ -571,7 +571,7 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_d = self.delta_d(
+        delta_d = self.c_0 * self.lines.delta_d(
             self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
         )  # FIXME: leaky, don't grab `s_cps` directly
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
@@ -586,28 +586,6 @@ class ParagliderWing:
         dM = np.vstack((dM_foil, dM_lines))
 
         return dF, dM, solution
-
-    def delta_d(self, s, delta_bl, delta_br):
-        """
-        Compute trailing edge deflection angles due to brake inputs.
-
-        Parameters
-        ----------
-        s : float, or array_like of float, shape (N,)
-            Normalized span position, where `-1 <= s <= 1`
-        delta_bl : float [percentage]
-            Left brake application as a fraction of maximum braking
-        delta_br : float [percentage]
-            Right brake application as a fraction of maximum braking
-
-        Returns
-        -------
-        delta_d : float [radians]
-            The normalized vertical deflection distance of the trailing edge.
-        """
-        delta_d = self.lines.delta_d(s, delta_bl, delta_br) * self.c_0
-        c = self.canopy.chord_length(s)
-        return delta_d / c
 
     def equilibrium_alpha(
         self,
