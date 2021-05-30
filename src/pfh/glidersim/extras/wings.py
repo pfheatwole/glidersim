@@ -39,11 +39,10 @@ def build_hook3(num_control_points=31, verbose=True):
     #
     # The distribution is uncertain. In Sec. 11.4, pg 17 of the manual ("Line
     # Plan") it appears to have a roughly square-root spanwise distribution
-    # with a maximum value of 6 or so? Unfortunately that distribution proves
-    # difficult for Phillips' method, so here I'm using quadratic distribution
-    # thats easier for the aerodynamics to solve.
-    # theta = Parafoil.PolynomialTorsion(start=0.0, peak=6, exponent=0.75)
-    theta = gsim.foil_layout.PolynomialTorsion(start=0.8, peak=4, exponent=2)
+    # with a maximum value of 6 or so, but without better data I'm sticking to
+    # a linear distribution with a smaller peak (easier for the aerodynamics).
+    # theta = gsim.foil_layout.PolynomialTorsion(start=0.0, peak=6, exponent=0.5)
+    theta = gsim.foil_layout.PolynomialTorsion(start=0.05, peak=4, exponent=1)
 
     # Using `tip_anhedral = 75` is probably more accurate, but it also
     # increases the chances of stalling the wing tips during hard turns.
@@ -57,7 +56,6 @@ def build_hook3(num_control_points=31, verbose=True):
         theta=theta,
     )
 
-    # FIXME: add the viscous drag modifiers?
     sections = gsim.foil_sections.FoilSections(
         profiles=airfoil_geo,
         coefficients=airfoil_coefs,
@@ -84,30 +82,45 @@ def build_hook3(num_control_points=31, verbose=True):
     # plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
 
     # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # plots.plot_foil_topdown(canopy, N_sections=77)
+    # plots.plot_foil_topdown(canopy, N_sections=53)
 
-    # Most of these line parameters are crude guesses.
+    # Most of these values are based on data, but `kappa_x` is simply the
+    # choice that produces a nice polar (max and min speeds are reasonable) and
+    # the best glide ratio occurs at zero control inputs (some wings produce
+    # better glide ratios with small amounts of accelerator, but without
+    # evidence this a reasonable assumption).
     riser_position_parameters = {
-        "kappa_x": 0.49 * chord_root,  # FIXME: Source? Trying to match `theta_eq` at trim?
-        "kappa_z": 6.8,  # ref: "Hook 3 technical specs", pg 2
-        "kappa_A": 0.11 * chord_root,  # Approximated from the line plan in the users manual, pg 17
-        "kappa_C": 0.59 * chord_root,
-        "kappa_a": 0.15,  # ref: "Hook 3 technical specs", pg 2
+        "kappa_x": 0.50 * chord_root,
+        "kappa_z": 6.8,  # "Technical specs", pg 2
+        "kappa_A": 0.11 * chord_root,  # "Users manual", "Line plan", pg 17
+        "kappa_C": 0.59 * chord_root,  # "Users manual", "Line plan", pg 17
+        "kappa_a": 0.15,  # "Technical specs", pg 2
     }
+
+    # Estimated from https://www.youtube.com/watch?v=D-OyGZbOmS0
+    # The `0` parameters are easy to estimate directly from small brake inputs.
+    # The "max brake" parameters are more difficult since they depend on the
+    # value of `kappa_b` (the maximum deflection supported by the model). An
+    # initial guess shows that the set of NACA 24018 coefficients is going to
+    # limit `kappa_b` to roughly 45cm; using the video to observe deflections
+    # at ~45cm (the risers are 47cm) produce `start1` and `stop1`.
     brake_parameters = {
         "kappa_b": None,  # Set later with `maximize_kappa_b`
-        "s_delta_start0": 0.10,
-        "s_delta_start1": -0.20,
-        "s_delta_stop0": 0.90,
-        "s_delta_stop1": 1.10,  # 1.08 -> delta_f doesn't increase at the tips
+        "s_delta_start0": 0.30,
+        "s_delta_start1": 0.08,
+        "s_delta_stop0": 0.70,
+        "s_delta_stop1": 1.05,
     }
+
+    # Crude guesses to account for the bulk of the line drag.
     line_drag_parameters = {
-        "total_line_length": 218,  # ref: "Hook 3 technical specs", pg 2
+        "total_line_length": 218,  # "Technical specs", pg 2
         "average_line_diameter": 1e-3,  # Blind guess
-        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],
+        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],  # FIXME: review
                             [-0.5 * chord_root,  1.75, 1.75]]),
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
     }
+
     lines = gsim.paraglider_wing.SimpleLineGeometry(
         **riser_position_parameters,
         **brake_parameters,
