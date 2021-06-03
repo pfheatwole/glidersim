@@ -120,56 +120,41 @@ def plot_airfoil_geo(foil_geo, N_points=200):
     plt.show()
 
 
-def plot_airfoil_coef(airfoil, coef, N=100):
+def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
     """
     Parameters
     ----------
-    airfoil : Airfoil
-        The airfoil to plot.
+    coefficients : AirfoilCoefficients
+        The airfoil coefficients to plot.
     coef : {'cl', 'cl_alpha', 'cd', 'cm'}
         The airfoil coefficient to plot. Case-insensitive.
+    delta_d : float
+        Normalized vertical deflection distance of the trailing edge.
     N : integer
         The number of sample points per dimension
     """
-    raise RuntimeError("`plot_airfoil_coef` is currently broken")
+    coef = coef.lower()
+    if coef not in {'cl', 'cl_alpha', 'cd', 'cm'}:
+        raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
     alpha = np.deg2rad(np.linspace(-10, 25, N))
-    delta = np.deg2rad(np.linspace(0, 15, N))
-    grid = np.meshgrid(alpha, delta)
+    Re = np.linspace(200e3, 4e6, N)
+    grid = np.meshgrid(alpha, Re)
 
-    coef = coef.lower()
-    if coef == "cl":
-        values = airfoil.coefficients.Cl(grid[0], grid[1])
-    elif coef == "cl_alpha":
-        values = airfoil.coefficients.Cl_alpha(grid[0], grid[1])
-    elif coef == "cd":
-        values = airfoil.coefficients.Cd(grid[0], grid[1])
-    elif coef == "cm":
-        values = airfoil.coefficients.Cm(grid[0], grid[1])
-    else:
-        raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
+    f = {
+        'cl': coefficients.Cl,
+        'cl_alpha': coefficients.Cl_alpha,
+        'cd': coefficients.Cd,
+        'cm': coefficients.Cm,
+    }[coef]
+    values = f(delta_d, grid[0], grid[1], clamp=clamp)
 
     fig = plt.figure(figsize=(17, 15))
     ax = fig.add_subplot(projection="3d")
-    ax.plot_surface(np.rad2deg(grid[0]), np.rad2deg(grid[1]), values)
-
-    try:  # Kludge: Try to plot the raw coefficient data from the DataFrame
-        for delta, group in airfoil.coefficients.data.groupby("delta"):
-            deltas = np.full_like(group["alpha"], delta)
-            if coef == "cl":
-                values = airfoil.coefficients.Cl(group["alpha"], deltas)
-            elif coef == "cd":
-                values = airfoil.coefficients.Cd(group["alpha"], deltas)
-            elif coef == "cm":
-                values = airfoil.coefficients.Cm(group["alpha"], deltas)
-            else:  # FIXME: does the data ever provide `cl_alpha` directly?
-                break
-            ax.plot(np.rad2deg(group["alpha"]), np.rad2deg(deltas), values)
-    except AttributeError:
-        pass
+    ax.plot_surface(np.rad2deg(grid[0]), grid[1], values)
 
     ax.set_xlabel("alpha [degrees]")
-    ax.set_ylabel("delta [degrees]")
+    ax.set_ylabel("Re")
     ax.set_zlabel(coef)
     plt.show()
 
