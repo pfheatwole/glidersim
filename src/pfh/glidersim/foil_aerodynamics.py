@@ -75,6 +75,21 @@ class Phillips(FoilAerodynamics):
         The reference solution angle of attack
     K : integer
         The number of bound vortex segments. Default: 51
+    s_clamp : float
+        Section index to enable clamped output of the aerodynamic coefficients
+        for section indices `abs(s) >= s_clamp`. Instead of returning `nan`,
+        clamping uses the value of the largest `alpha` that produces a
+        non-`nan` coefficient for the given (delta_d, Re) pair.
+
+        This option is experimental and should be used with caution. Its
+        purpose is to mitigate the fictitious, large angles of attack induced
+        at the wing tips due to the control points being placed on the lifting
+        line. The theory is that if the induced velocity is indeed fictious,
+        then the true angle of attack is likely much closer to the standard
+        range. By limiting clamping to just the outer `s > s_clamp`, if the
+        wing is experiencing a genuinely large angle of attack, then the other
+        non-clamped sections will still fail, thus signalling stall conditions.
+        If the segments are small the error introduced should be negligible.
 
     References
     ----------
@@ -100,7 +115,7 @@ class Phillips(FoilAerodynamics):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, foil, v_ref_mag, alpha_ref=5, K=51):
+    def __init__(self, foil, v_ref_mag, alpha_ref=5, K=51, s_clamp=None):
         self.foil = foil
         self.K = K
 
@@ -118,6 +133,12 @@ class Phillips(FoilAerodynamics):
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
         self.cps = self.foil.surface_xyz(self.s_cps, 0.25, surface="chord")
+
+        # Enable clamped coefficients at some control points
+        if s_clamp:
+            self.clamped = np.abs(self.s_cps) >= s_clamp
+        else:
+            self.clamped = np.full(K, False)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]
@@ -217,7 +238,13 @@ class Phillips(FoilAerodynamics):
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.foil.sections.Cl(self.s_cps, delta_d, alpha, Re)
+        Cl = self.foil.sections.Cl(
+            self.s_cps,
+            delta_d,
+            alpha,
+            Re,
+            clamp=self.clamped,
+        )
         # return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
         return 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
 
@@ -227,8 +254,20 @@ class Phillips(FoilAerodynamics):
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
         W = cross3(V, self.dl)
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
-        Cl = self.foil.sections.Cl(self.s_cps, delta_d, alpha, Re)
-        Cl_alpha = self.foil.sections.Cl_alpha(self.s_cps, delta_d, alpha, Re)
+        Cl = self.foil.sections.Cl(
+            self.s_cps,
+            delta_d,
+            alpha,
+            Re,
+            clamp=self.clamped,
+        )
+        Cl_alpha = self.foil.sections.Cl_alpha(
+            self.s_cps,
+            delta_d,
+            alpha,
+            Re,
+            clamp=self.clamped,
+        )
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
         J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl))
@@ -372,7 +411,13 @@ class Phillips(FoilAerodynamics):
         # believe that is a mistake; it produces *massive* drag. Here I use the
         # section area like they do in "MachUp_Py" (see where they compute
         # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
-        Cd = self.foil.sections.Cd(self.s_cps, delta_d, alpha, Re)
+        Cd = self.foil.sections.Cd(
+            self.s_cps,
+            delta_d,
+            alpha,
+            Re,
+            clamp=self.clamped,
+        )
         V2 = np.einsum("ik,ik->i", V, V)
         u_drag = V.T / np.sqrt(V2)
         dF_viscous = 0.5 * V2 * self.dA * Cd * u_drag
@@ -390,7 +435,13 @@ class Phillips(FoilAerodynamics):
         # calculated by the wing.
         #  * ref: Hunsaker Eq:19
         #  * ref: Phillips Eq:28
-        Cm = self.foil.sections.Cm(self.s_cps, delta_d, alpha, Re)
+        Cm = self.foil.sections.Cm(
+            self.s_cps,
+            delta_d,
+            alpha,
+            Re,
+            clamp=self.clamped,
+        )
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {

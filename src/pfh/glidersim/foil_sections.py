@@ -182,7 +182,7 @@ class FoilSections:
 
         return r_P2LE
 
-    def Cl(self, s, delta_d, alpha, Re):
+    def Cl(self, s, delta_d, alpha, Re, clamp=False):
         """
         Compute the lift coefficient of the airfoil.
 
@@ -197,14 +197,17 @@ class FoilSections:
             Angle of attack
         Re : float [unitless]
             Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
         Cl : float
         """
-        return self.coefficients.Cl(delta_d, alpha, Re)
+        return self.coefficients.Cl(delta_d, alpha, Re, clamp)
 
-    def Cl_alpha(self, s, delta_d, alpha, Re):
+    def Cl_alpha(self, s, delta_d, alpha, Re, clamp=False):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
@@ -219,14 +222,17 @@ class FoilSections:
             Angle of attack
         Re : float [unitless]
             Reynolds number
+        clamp : bool
+            Whether to return `0` if `alpha` exceeds the the highest non-nan
+            value supported by the (delta_d, Re) pair.
 
         Returns
         -------
         Cl_alpha : float
         """
-        return self.coefficients.Cl_alpha(delta_d, alpha, Re)
+        return self.coefficients.Cl_alpha(delta_d, alpha, Re, clamp)
 
-    def Cd(self, s, delta_d, alpha, Re):
+    def Cd(self, s, delta_d, alpha, Re, clamp=False):
         """
         Compute the drag coefficient of the airfoil.
 
@@ -241,12 +247,15 @@ class FoilSections:
             Angle of attack
         Re : float [unitless]
             Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
         Cd : float
         """
-        Cd = self.coefficients.Cd(delta_d, alpha, Re)
+        Cd = self.coefficients.Cd(delta_d, alpha, Re, clamp)
 
         # Additional drag from the air intakes
         #
@@ -265,7 +274,7 @@ class FoilSections:
 
         return Cd
 
-    def Cm(self, s, delta_d, alpha, Re):
+    def Cm(self, s, delta_d, alpha, Re, clamp=False):
         """
         Compute the pitching coefficient of the airfoil.
 
@@ -278,12 +287,15 @@ class FoilSections:
             The angle of attack
         Re : float [unitless]
             The Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
         Cm : float
         """
-        return self.coefficients.Cm(delta_d, alpha, Re)
+        return self.coefficients.Cm(delta_d, alpha, Re, clamp)
 
     def thickness(self, s, r):
         """

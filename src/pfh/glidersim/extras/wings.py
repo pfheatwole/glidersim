@@ -68,7 +68,11 @@ def build_hook3(num_control_points=31, verbose=True):
         # b=b,  # Option 1: Scale the using the projected span
         b_flat=b_flat,  # Option 2: Scale the using the flattened span
         aerodynamics_method=gsim.foil_aerodynamics.Phillips,
-        aerodynamics_config={"v_ref_mag": 10, "K": num_control_points},
+        aerodynamics_config={
+            "v_ref_mag": 10,
+            "K": num_control_points,
+            "s_clamp": 0.95,  # Mitigate fictitious stalls at wing tips
+        },
     )
 
     # print("Drawing the canopy")

@@ -12,6 +12,7 @@ and pitching moment.
 import abc
 import pathlib
 import re
+from itertools import product
 
 import numpy as np
 import scipy.optimize
@@ -22,6 +23,8 @@ from scipy.interpolate import (
     PchipInterpolator,
     RegularGridInterpolator,
 )
+
+from .fast_interp import interp3d
 
 
 __all__ = [
@@ -41,7 +44,7 @@ class AirfoilCoefficients(abc.ABC):
     """Defines the API for classes that provide airfoil coefficients."""
 
     @abc.abstractmethod
-    def Cl(self, delta_d, alpha, Re):
+    def Cl(self, delta_d, alpha, Re, clamp=False):
         """
         Compute the lift coefficient of the airfoil.
 
@@ -54,6 +57,9 @@ class AirfoilCoefficients(abc.ABC):
             The angle of attack
         Re : float [unitless]
             The Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
@@ -61,7 +67,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, delta_d, alpha, Re):
+    def Cd(self, delta_d, alpha, Re, clamp=False):
         """
         Compute the drag coefficient of the airfoil.
 
@@ -74,6 +80,9 @@ class AirfoilCoefficients(abc.ABC):
             The angle of attack
         Re : float [unitless]
             The Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
@@ -81,7 +90,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, delta_d, alpha, Re):
+    def Cm(self, delta_d, alpha, Re, clamp=False):
         """
         Compute the pitching coefficient of the airfoil.
 
@@ -94,6 +103,9 @@ class AirfoilCoefficients(abc.ABC):
             The angle of attack
         Re : float [unitless]
             The Reynolds number
+        clamp : bool
+            Whether to clamp `alpha` to the highest non-nan value supported by
+            the (delta_d, Re) pair.
 
         Returns
         -------
@@ -101,7 +113,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cl_alpha(self, delta_d, alpha, Re):
+    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
@@ -114,6 +126,9 @@ class AirfoilCoefficients(abc.ABC):
             The angle of attack
         Re : float [unitless]
             The Reynolds number
+        clamp : bool
+            Whether to return `0` if `alpha` exceeds the the highest non-nan
+            value supported by the (delta_d, Re) pair.
 
         Returns
         -------
@@ -125,11 +140,7 @@ class GridCoefficients(AirfoilCoefficients):
     """
     Loads a set of polars from a CSV file.
 
-    All values must lie on a regular grid over `delta`, `alpha`, and `Re`. This
-    works like `XFLR5Coefficients`, but using a regular grid is much faster.
-    Assumes the `Cl` and `Cl_alpha` have already been smoothed.
-
-    The CSV must contain the following columns
+    The CSV must contain a header with the following columns:
      * delta_d
      * alpha [degrees]
      * Re
@@ -138,21 +149,26 @@ class GridCoefficients(AirfoilCoefficients):
      * Cm
      * Cl_alpha
 
+    All values must lie on a grid over `delta`, `alpha`, and `Re`. The points
+    must be on a grid, but the spacing in each dimension is not required to
+    be uniform. If the grid has uniform spacing in each dimension, the
+    GridCoefficients2 class is faster.
     """
 
     def __init__(self, filename):
-        # FIXME: docstring
-
         names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
-        data = np.genfromtxt(filename, skip_header=1, names=list(names), delimiter=',')
+        data = np.genfromtxt(
+            filename, skip_header=1, names=list(names), delimiter=",",
+        )
+        data.sort(order=['delta_d', 'alpha', 'Re'])
 
-        # FIXME: Requires that all points are present (even if `nan`).
-        # FIXME: Assumes that the points are correctly ordered.
-        delta_d = np.unique(data["delta_d"])
-        alpha = np.deg2rad(np.unique(data["alpha"]))
-        Re = np.unique(data["Re"])
-        points = (delta_d, alpha, Re)
-        shape = (len(delta_d), len(alpha), len(Re))
+        # All points must be present (even if `nan`)
+        self._delta_d = np.unique(data["delta_d"])
+        self._alpha = np.deg2rad(np.unique(data["alpha"]))
+        self._alpha_step = self._alpha[1] - self._alpha[0]
+        self._Re = np.unique(data["Re"])
+        shape = (len(self._delta_d), len(self._alpha), len(self._Re))
+        points = (self._delta_d, self._alpha, self._Re)
 
         self._Cl = RegularGridInterpolator(
             points, data["Cl"].reshape(shape), bounds_error=False,
@@ -167,17 +183,184 @@ class GridCoefficients(AirfoilCoefficients):
             points, data["Cl_alpha"].reshape(shape), bounds_error=False,
         )
 
-    def Cl(self, delta_d, alpha, Re):
-        return self._Cl((delta_d, alpha, Re / 1e6))
+        # Trilinear interpolation uses the values at all 8 corners of the
+        # bounding cube. If any values are nan then interpolation in that cube
+        # will be nan. Clamping to the highest valid alpha requires finding the
+        # cube containing the same delta_d and Re and the largest alpha.
+        ld = len(self._delta_d)
+        lRe = len(self._Re)
+        non_nan = ~np.isnan(data['Cl'].reshape(shape))
+        max_non_nan_indices = np.empty((ld, lRe), dtype=int)
+        subgrid = np.empty((ld - 1, lRe - 1), dtype=int)
+        for (D, R) in product(range(ld), range(lRe)):
+            max_non_nan_indices[D, R] = np.max(np.nonzero(non_nan[D, :, R]))
+        for (D, R) in product(range(ld - 1), range(lRe - 1)):
+            subgrid[D, R] = np.min(max_non_nan_indices[D : D + 2, R : R + 2])
+        self._max_alphas = self._alpha[subgrid]  # Upper-bound for each cube
 
-    def Cd(self, delta_d, alpha, Re):
-        return self._Cd((delta_d, alpha, Re / 1e6))
+    def _max_alpha(self, delta_d, Re):
+        # These are not strictly correct since it clips delta_d and Re, but
+        # querying the coefficients using an out-of-bounds delta_d or Re will
+        # produce nan anyway.
+        delta_d = delta_d.copy()
+        Re = Re.copy()
+        delta_d[delta_d < self._delta_d[0]] = self._delta_d[0]
+        Re[Re < self._Re[0]] = self._Re[0]
+        ix_d = np.argmax(delta_d[:, None] < self._delta_d, axis=-1) - 1
+        ix_Re = np.argmax(Re[:, None] < self._Re, axis=-1) - 1
+        return self._max_alphas[ix_d, ix_Re]
 
-    def Cm(self, delta_d, alpha, Re):
-        return self._Cm((delta_d, alpha, Re / 1e6))
+    def _query(self, f, clamp, delta_d, alpha, Re):
+        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
 
-    def Cl_alpha(self, delta_d, alpha, Re):
-        return self._Cl_alpha((delta_d, alpha, Re / 1e6))
+        # Set clamped sections to their maximum non-nan values by setting alpha
+        # to be just inside the cube associated with the maximum valid alpha.
+        if np.any(clamp):
+            clamped = np.broadcast_to(clamp, alpha.shape)
+            alpha = alpha.copy()
+            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            alpha[clamped] = np.minimum(
+                alpha[clamped],
+                max_alpha - self._alpha_step * 0.0001,
+            )
+        return f((delta_d, alpha, Re))
+
+    def Cl(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cl, clamp, delta_d, alpha, Re)
+
+    def Cd(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cd, clamp, delta_d, alpha, Re)
+
+    def Cm(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cm, clamp, delta_d, alpha, Re)
+
+    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
+        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
+        out = self._Cl_alpha((delta_d, alpha, Re))
+        if np.any(clamp):
+            clamped = np.broadcast_to(clamp, out.shape)
+            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            tmp = out[clamped]
+            tmp[alpha[clamped] >= max_alpha] = 0
+            out[clamped] = tmp
+        return out
+
+
+class GridCoefficients2(AirfoilCoefficients):
+    """
+    Loads a set of polars from a CSV file.
+
+    The CSV must contain a header with the following columns:
+     * delta_d
+     * alpha [degrees]
+     * Re
+     * Cl
+     * Cd
+     * Cm
+     * Cl_alpha
+
+    All values must lie on a grid over `delta`, `alpha`, and `Re`. The points
+    must be on a grid, and the spacing in each dimension must be uniform.  All
+    values must lie on a grid over `delta`, `alpha`, and `Re`. The points must
+    be on a grid, and the spacing in each dimension must be uniform. If the
+    grid with non-uniform spacing in each dimension,
+    use the GridCoefficients class.
+
+    All values must lie on a grid over `delta`, `alpha`, and `Re`. The points
+    must be on a grid, and the spacing in each dimension must be uniform. If
+    the grid has non-uniform spacing, use the GridCoefficients class.
+    """
+
+    def __init__(self, filename):
+        names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
+        data = np.genfromtxt(
+            filename, skip_header=1, names=list(names), delimiter=",",
+        )
+        data.sort(order=['delta_d', 'alpha', 'Re'])
+
+        # All points must be present (even if `nan`)
+        self._delta_d = np.unique(data["delta_d"])
+        self._alpha = np.deg2rad(np.unique(data["alpha"]))
+        self._alpha_step = self._alpha[1] - self._alpha[0]
+        self._Re = np.unique(data["Re"])
+        shape = (len(self._delta_d), len(self._alpha), len(self._Re))
+
+        kwargs = {
+            "a": (self._delta_d.min(), self._alpha.min(), self._Re.min()),
+            "b": (self._delta_d.max(), self._alpha.max(), self._Re.max()),
+            "h": (
+                np.diff(self._delta_d)[0],
+                np.diff(self._alpha)[0],
+                np.diff(self._Re)[0],
+            ),
+            "k": 1,  # FIXME: why does it crash for k=3?
+        }
+        self._Cl = interp3d(f=data['Cl'].reshape(shape), **kwargs)
+        self._Cd = interp3d(f=data['Cd'].reshape(shape), **kwargs)
+        self._Cm = interp3d(f=data['Cm'].reshape(shape), **kwargs)
+        self._Cl_alpha = interp3d(f=data['Cl_alpha'].reshape(shape), **kwargs)
+
+        # Trilinear interpolation uses the values at all 8 corners of the
+        # bounding cube. If any values are nan then interpolation in that cube
+        # will be nan. Clamping to the highest valid alpha requires finding the
+        # cube containing the same delta_d and Re and the largest alpha.
+        ld = len(self._delta_d)
+        lRe = len(self._Re)
+        non_nan = ~np.isnan(data['Cl'].reshape(shape))
+        max_non_nan_indices = np.empty((ld, lRe), dtype=int)
+        subgrid = np.empty((ld - 1, lRe - 1), dtype=int)
+        for (D, R) in product(range(ld), range(lRe)):
+            max_non_nan_indices[D, R] = np.max(np.nonzero(non_nan[D, :, R]))
+        for (D, R) in product(range(ld - 1), range(lRe - 1)):
+            subgrid[D, R] = np.min(max_non_nan_indices[D : D + 2, R : R + 2])
+        self._max_alphas = self._alpha[subgrid]  # Upper-bound for each cube
+
+    def _max_alpha(self, delta_d, Re):
+        # These are not strictly correct since it clips delta_d and Re, but
+        # querying the coefficients using an out-of-bounds delta_d or Re will
+        # produce nan anyway.
+        delta_d = delta_d.copy()
+        Re = Re.copy()
+        delta_d[delta_d < self._delta_d[0]] = self._delta_d[0]
+        Re[Re < self._Re[0]] = self._Re[0]
+        ix_d = np.argmax(delta_d[:, None] < self._delta_d, axis=-1) - 1
+        ix_Re = np.argmax(Re[:, None] < self._Re, axis=-1) - 1
+        return self._max_alphas[ix_d, ix_Re]
+
+    def _query(self, f, clamp, delta_d, alpha, Re):
+        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
+
+        # Set clamped sections to their maximum non-nan values by setting alpha
+        # to be just inside the cube associated with the maximum valid alpha.
+        if np.any(clamp):
+            clamped = np.broadcast_to(clamp, alpha.shape)
+            alpha = alpha.copy()
+            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            alpha[clamped] = np.minimum(
+                alpha[clamped],
+                max_alpha - self._alpha_step * 0.0001,
+            )
+        return f(delta_d, alpha, Re)
+
+    def Cl(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cl, clamp, delta_d, alpha, Re)
+
+    def Cd(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cd, clamp, delta_d, alpha, Re)
+
+    def Cm(self, delta_d, alpha, Re, clamp=False):
+        return self._query(self._Cm, clamp, delta_d, alpha, Re)
+
+    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
+        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
+        out = self._Cl_alpha(delta_d, alpha, Re)
+        if np.any(clamp):
+            clamped = np.broadcast_to(clamp, out.shape)
+            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            tmp = out[clamped]
+            tmp[alpha[clamped] >= max_alpha] = 0
+            out[clamped] = tmp
+        return out
 
 
 class XFLR5Coefficients(AirfoilCoefficients):
@@ -195,6 +378,8 @@ class XFLR5Coefficients(AirfoilCoefficients):
     3. All polars will be included.
 
     FIXME: uses the old `delta_f`; needs work.
+
+    FIXME: doesn't support clamping
     """
     def __init__(self, dirname, flapped):
         self.flapped = flapped
@@ -262,28 +447,28 @@ class XFLR5Coefficients(AirfoilCoefficients):
 
         return np.concatenate(polars)
 
-    def Cl(self, delta_f, alpha, Re):
+    def Cl(self, delta_f, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
             return self._Cl(delta_f, alpha, Re)
         else:
             return self._Cl(alpha, Re)
 
-    def Cd(self, delta_f, alpha, Re):
+    def Cd(self, delta_f, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
             return self._Cd(delta_f, alpha, Re)
         else:
             return self._Cd(alpha, Re)
 
-    def Cm(self, delta_f, alpha, Re):
+    def Cm(self, delta_f, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
             return self._Cm(delta_f, alpha, Re)
         else:
             return self._Cm(alpha, Re)
 
-    def Cl_alpha(self, delta_f, alpha, Re):
+    def Cl_alpha(self, delta_f, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
             return self._Cl_alpha(delta_f, alpha, Re)

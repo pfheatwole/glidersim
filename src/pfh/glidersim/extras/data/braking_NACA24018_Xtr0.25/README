@@ -1,7 +1,13 @@
 These are from a crude utility that curved the trailing edge using two circles
 along the top edge (which maintained the length of the upper surface), and
-a quadratic Bezier along the lower surface (no attempt was made to maintain
-the lower surface length). The polars were generated with XFLR5, the `Cl` were
-smoothed using a 10th order polynomial (via `XFLR5Coefficients`), and
-resampled to produce a regular grid over the values (making them suitable for
-use with a `RegularGridInterpolator`).
+a quadratic Bezier along the lower surface (no attempt was made to maintain the
+lower surface length). The polars were generated with XFLR5, then resampled
+onto grids. During resampling, the `Cl` and `Cl_alpha` were smoothed using
+a 10th order polynomial to improve convergence in Phillips' method.
+
+The values in `nonuniform_grid.csv` are over a non-uniform but regular grid
+over the values, making it suitable for use with `RegularGridInterpolator`.
+
+The values in `uniform_grid.csv` were resampled to produce a grid with uniform
+spacing in each dimension. The uniform resampling has a lot of redundancy, but
+the regularity makes it suitable for use with `fast_interp`.
