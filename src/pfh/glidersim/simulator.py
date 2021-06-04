@@ -6,7 +6,6 @@ import numpy as np
 import scipy.integrate
 
 from pfh.glidersim import orientation
-from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
 from pfh.glidersim.util import cross3
 
 
@@ -70,7 +69,7 @@ class ParagliderModel6a:
             # FIXME: kludgy, assumes r.shape[-1] == 3
             self.v_W2e = lambda t, r: np.broadcast_to(
                 v_W2e,
-                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+                (*np.broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
             )
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
@@ -239,7 +238,7 @@ class ParagliderModel9a:
             # FIXME: kludgy, assumes r.shape[-1] == 3
             self.v_W2e = lambda t, r: np.broadcast_to(
                 v_W2e,
-                (*_broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
+                (*np.broadcast_shapes(np.shape(t), np.shape(r)[:-1]), 3),
             )
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")

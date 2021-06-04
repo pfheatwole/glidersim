@@ -13,7 +13,7 @@ if __name__ == "__main__":
         python_requires="~=3.7",
         setup_requires=["setuptools_scm"],
         install_requires=[
-            "numpy >= 1.19.4",
+            "numpy >= 1.20.0",
             "scipy >= 1.6.0",
             "numba >= 0.52.0",
             "matplotlib >= 3.3.3",
