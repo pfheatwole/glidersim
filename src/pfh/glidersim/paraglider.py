@@ -297,7 +297,6 @@ class Paraglider6a:
 
         derivatives = np.linalg.solve(A, B)
         a_RM2e = derivatives[:3]  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
         alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_RM2e, alpha_b2e, ref
@@ -626,7 +625,6 @@ class Paraglider6b(Paraglider6a):
         a_B2e = derivatives[:3]  # In frame F_b
         alpha_b2e = derivatives[3:]  # In frames F_b and F_e
         a_RM2e = a_B2e - np.cross(alpha_b2e, r_B2RM)  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
 
         return a_RM2e, alpha_b2e, ref
 
@@ -848,7 +846,6 @@ class Paraglider6c(Paraglider6a):
 
         derivatives = np.linalg.solve(A, B)
         a_RM2e = derivatives[:3]  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
         alpha_b2e = derivatives[3:]  # In frames F_b and F_e
 
         return a_RM2e, alpha_b2e, ref
@@ -1197,7 +1194,6 @@ class Paraglider9a:
 
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
@@ -1578,7 +1574,6 @@ class Paraglider9b(Paraglider9a):
 
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
@@ -1892,7 +1887,6 @@ class Paraglider9c(Paraglider9a):
 
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
-        a_RM2e += cross3(omega_b2e, v_RM2e)  # In frame F_e
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2b = x[6:9]  # In frames F_b and F_p
         F_RM = x[9:]  # For debugging

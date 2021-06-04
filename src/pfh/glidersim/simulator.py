@@ -7,6 +7,7 @@ import scipy.integrate
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import _broadcast_shapes  # FIXME: stopgap
+from pfh.glidersim.util import cross3
 
 
 __all__ = [
@@ -108,8 +109,9 @@ class ParagliderModel6a:
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
+        v_RM2e = orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"])
         a_RM2e, alpha_b2e, solution = self.paraglider.accelerations(
-            orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
+            v_RM2e,
             state["omega_b2e"],
             orientation.quaternion_rotate(state["q_b2e"], [0, 0, 9.8]),
             delta_a=delta_a,
@@ -121,6 +123,7 @@ class ParagliderModel6a:
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
+        a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
@@ -279,8 +282,9 @@ class ParagliderModel9a:
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
+        v_RM2e = orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"])
         a_RM2e, alpha_b2e, alpha_p2e, solution = self.paraglider.accelerations(
-            orientation.quaternion_rotate(state["q_b2e"], state["v_RM2e"]),
+            v_RM2e,
             state["omega_b2e"],
             state["omega_p2e"],
             Theta_p2b,  # FIXME: design review the call signature
@@ -294,6 +298,7 @@ class ParagliderModel9a:
             r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
+        a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
