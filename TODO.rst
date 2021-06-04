@@ -1,3 +1,18 @@
+* In `simulator.py` some variable names confuse frames with coordinate
+  systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
+  For example, `q_b2e` should be `q_b2tp`.
+
+  Think of it this way: you would say how two coordinate systems are oriented
+  relative to each other, but you don't say how they are rotating relative to
+  each other: they're embedded in frames, so you specify rotation rates using
+  frames. **The rotation of frames are the same regardless of of coordinate
+  system.** (I think.)
+
+  Conversely, what is the absolute orientation of one frame relative to
+  another? It's undefined: their only have relative orientations in the sense
+  that you can attach coordinate systems to each frame and describe the
+  orientation of those two coordinate systems.
+
 * Aerodynamic centers exist for lifting bodies with linear lift coefficient
   and constant pitching moment? How useful is this concept for paragliders?
   (ie, over what range can you treat it as having an aerodynamic center, and
@@ -258,9 +273,9 @@ Airfoil
 Geometry
 --------
 
-* If my airfoil coefficients are parametrized by `delta_f`, should the airfoil
+* If my airfoil coefficients are parametrized by `delta_d`, should the airfoil
   geometry be as well? I don't like either option: currently I have the
-  `AirfoilCoefficients` handling the interpolation over `delta_f` since it's
+  `AirfoilCoefficients` handling the interpolation over `delta_d` since it's
   much easier to just dump all the coefficient data into a single `csv` file,
   but that implies the `AirfoilGeometry` should handle interpolating the
   geometry, which I think belongs in the `FoilSections`. The foil sections are
@@ -300,16 +315,9 @@ Geometry
 Coefficients
 ------------
 
-* In `XFLR5Coefficients`, instead of checking `self.flapped` every call to
-  a coefficient function, maybe just add a `delta_f = 0` column when building
-  the `LinearNDInterpolator`? Not sure that class can interpolate a line.
-
 * If users load airfoils with `extras/airfoils/load_datfile`, how does that
-  function return whether the airfoil uses `delta_f`, and if so what is its
-  `delta_max`?
-
-* Rename `delta_max` to `delta_f_max`, since `delta_f` is what
-  `AirfoilCoefficients` uses for trailing edge deflections.
+  function return whether the airfoil uses `delta_d`, and if so what is its
+  `delta_d_max`?
 
 * Verify the polar curves, especially for flapped airfoils.
 
@@ -325,16 +333,11 @@ Coefficients
   conceptually a fixed geometry entity, and doesn't change (no brake
   deflections). The section, however, is more general: a profile (which is
   a function of `delta_f`) and its aerodynamic coefficients (also a function
-  of `delta_f`).
+  of `delta_d`).
 
   If you really wanted to build a `SectionCoefficients` from individual
   airfoil polar files you could, but that should be the exception rather than
   the rule. Don't let that "atypical" use case complicate the API.
-
-* It might be interesting if `GridCoefficients` automatically handled CSV
-  files that lack `Re`. Maybe just print a warning that Reynolds values will
-  be ignored. Wouldn't make for good analysis, but would be interesting for
-  demonstrating the effect of ignoring Reynolds numbers.
 
 * In `XFLR5Coefficients`, the `LinearNDInterpolator` should be able to use
   `scale=True` instead of the `Re = Re / 1e6` in the coefficients functions,
@@ -353,15 +356,6 @@ Low priority
   a function of arc-lengths, but beyond that use the actual functions instead
   of relying on interpolated estimates. The annoying part will be calculating
   the `profile_curve_normal` and `profile_curve_tangent` functions.
-
-* Rewrite `AirfoilGeometry.mass_properties` to handle rotated airfoils
-  (meaning you can't just integrate over `y_upper - y_lower`). Not a high
-  priority for now since I'm simple shapes with derotation. Besides, I'm not
-  sure this function will continue making sense later on (probably better ways
-  compute the area and volume inertias of the wing (integrate the meshes for
-  areas and voxels for the volume).
-
-* Rename airfoil's `surface` to `profile`? "Surface" suggests 2D.
 
 * Consider Gaussian quadratures or other more efficient arc-length methods?
 
@@ -421,11 +415,8 @@ Parametric functions
 FoilGeometry
 ============
 
-* `Foil.surface_xyz` should take `delta_f`, and the `FoilSections` should
+* `Foil.surface_xyz` should take `delta_d`, and the `FoilSections` should
   interpolate the "braking" airfoils.
-
-* Question: are the "rectangles" you get from sampling `s` and `sa`
-  "quadrilaterals"?
 
 * I refer to `FoilGeometry` in several places, but there's only one:
   `SimpleFoil`. There's no abstract base class anymore. Should there be? It'd
@@ -477,7 +468,7 @@ Profiles
 
 * `FoilSections.profiles` should be an airfoil interpolator. I should be able
   to load a set of datfiles and stick them in an airfoil interpolator that
-  produces the right section profiles as a function of `s, delta_f`.
+  produces the right section profiles as a function of `s, delta_d`.
 
   Once this is done you could use the actual profiles then `plot_foil` could
   use the new `surface_xyz` to plot the actual braking surface.
@@ -563,10 +554,6 @@ Inertia
   tensors. Once I fix this I should also remove the manual symmetry
   corrections in `ParagliderWing.__init__`.
 
-* Rename `Au` (upper area) to `au`? I've been trying to reserve uppercase for
-  points/matrices, lowercase for scalars/vectors. (I think I did that because
-  I used lowercase for individual triangles and uppercase for the sum.)
-
 * Mark `AirfoilGeometry.mass_properties` and `SimpleFoil.mass_properties` as
   deprecated. Probably best to move it to a separate branch. Still useful for
   validation purposes, but they add way too much complexity to the overall
@@ -592,8 +579,9 @@ Long term, I'd like to combine the idealized chord surface with a set of ribs
 and produce the set of (approximately) deformed cells. There are many tasks
 here:
 
-* Replace explicit `Airfoil` references with (eg, `canopy.airfoil.geometry`)
-  with a function that returns the profile as a function of section index.
+* Replace explicit `AirfoilGeometry` references (eg,
+  `canopy.airfoil.geometry`) with a function that returns the profile as
+  a function of section index.
 
 * Define a set of rib types (vertical ribs, v-ribs, lateral bands, etc)
 
@@ -707,9 +695,6 @@ Low Priority
   OpenFOAM (you can import the mesh into Blender and export an STL, but I'm
   sure there are easier ways to go about it, like `NURBS-Python`).
 
-* Is *wetted area* same thing as total surface area? Also see *wetted aspect
-  ratio*.
-
 * Is the "mean aerodynamic chord" a useful concept for arched wings?
 
 * Should the "projected surface area" methods take pitch angle as a parameter?
@@ -720,8 +705,8 @@ Low Priority
   of the wing. It's more in-line with what you'd use for classical aerodynamic
   analysis, and it's essential constant regardless of load.
 
-  For my Hook3ish, `Theta_eq = 3`. Rotating the foil before projecting changed
-  `S` by `0.15%`, so it's not a big deal.
+  For my Hook3ish, `Theta_eq ~= 3`. Rotating the foil before projecting
+  changed `S` by `0.15%`, so it's not a big deal.
 
 
 Coefficient Estimation
@@ -752,7 +737,10 @@ Coefficient Estimation
   derivatives* (derivatives of the coefficients with respect to `alpha` and
   `beta`). The direct approach is finite differencing, but for a "more
   economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
-  Sec:6.5.7, "Stability and control derivative calculation".
+  Sec:6.5.7, "Stability and control derivative calculation". For an example of
+  the defining equations for computing the linearized coefficients, check
+  "Appendix A" of :cite:`slegers2017ComparisonParafoilDynamic`. For a paper
+  with a set of numerical values, :cite:`toglia2010ModelingMotionAnalysis`.
 
 
 Phillips
@@ -774,37 +762,6 @@ Phillips
   continuity in the vortex sheet." Useful? He may just be talking about
   discontinuities in the geometry, not the discontinuity at the wingtip.
 
-* In `Phillips`, a comment says it's modeling the chord areas as
-  parallelograms, but in general the leading and trailing edge lengths may be
-  different. Is a parallelogram a reasonable shape? (Would happen in the
-  presence of sweep and changing chord length; would also happen if I allowed
-  section yaw, but my parametrization design avoids that.)
-
-* By placing the boundary condition at `0.25c` instead of `0.75c` or similar,
-  this method can produce infinite induced velocities as the number of
-  sections increases. This is mostly a problem since it means `alpha` at the
-  wing tips `alpha` can go to infinity, which produces `nan` for the lift
-  coefficients. For an example that triggers this, change the arc anhedral for
-  the Hook3ish from 33/67 degrees to 10/21 degrees and apply brakes; even
-  though the flatter wing seems "easier" conceptually, the particularities of
-  the geometry and lift curve causes failure for any reasonable number of
-  segments.
-
-* I'm using Hunsaker's derivation for `_f` and `_J`, but there is some
-  uncertainty regarding his choice of wind vector (for the 3D vortex law) and
-  airspeed (for section lift due to lift coefficient). Phillips uses "V_total"
-  and "V_infinity", Hunsaker uses "V_total" and "V_total", and in
-  "Weissinger's model of the nonlinear lifting-line method for aircraft
-  design" (Owens; 1998) they appear to use "V_infinity" for both (he simply
-  uses V_total for computing the induced angle of attack). These terms are all
-  relatively close and don't make a huge difference, but it still bothers me.
-
-  The bigger question is that **all of those seem wrong for a paraglider!!**
-  Does the spanwise airspeed really contribute to section lift? Spanwise flow
-  is significant at the wing tips of a parafoil; seems wrong for that to count
-  towards section lift. I'd expect lift from the section lift coefficients to
-  depend only on `V_n**2 + V_a**2`.
-
 * The `_hybrj` solver retries a bazillion times when it encounters a `nan`.
   Can I use exceptions to abort early so I can use relaxation iterations
   instead of letting `hybrj` try to brute force bad solutions? What if `_f`
@@ -825,10 +782,9 @@ Phillips
 * **Review the iteration design**: should I be interpolating `Gamma`?
 
 * Verify the analytical Jacobian; right now the finite-difference
-  approximation disagrees with the analytical version
-
-* How should I handle a turning wing? (Non-uniform `u_inf`) Right now I just
-  use the central `V_rel` for `u_inf` and assume it's the same everywhere.
+  approximation disagrees with the analytical version (which isn't unexpected,
+  actually: it's computing `Cl_alpha` using finite differences of linearly
+  interpolated values of `Cl`).
 
 * Using straight segments to approximate an curved wing will underestimate the
   upper surface and overestimate the lower surface. It'd be interesting to
@@ -840,14 +796,6 @@ Phillips
   segment upper surface area to underestimate the segment lift coefficient,
   but I'm not sure what conclusions you could reliably produce from such
   a crude measure.
-
-* Refactor Phillips outside `foil.py`?
-
-* Why does Phillip's seem to be so sensitive to `sweepMax`? Needs testing
-
-* The Jacobian uses the smoothed `Cl_alpha`, which technically will not match
-  the finite-difference of the raw `Cl`. Should I smooth the `Cl` and replace
-  that as well, so they match?
 
 * Profile and optimize
 
@@ -863,42 +811,34 @@ Phillips
   my Phillips implementation against the VLM methods in XFLR5.
 
 
-BrakeGeometry
+Harness
+=======
+
+* Redefine the `SphericalHarness` to use the radius, not the projected area.
+  The projected area is not a common way to define a sphere; using the radius
+  just makes more sense.
+
+
+Line geometry
 =============
 
-* Nice to have: automatically compute an upper bound for
-  `BrakeGeometry.delta_max` based on the maximum supported by the Airfoils.
-  (Setting ``delta_max`` to a magic number is *awful*.)
-
-* Add support for proper line geometries.
+* Add a proper line geometry
 
   The `BrakeGeometry` are nothing more than quick-and-dirty hacks that produce
   deflection distributions that you're *assuming* can be produced by a line
   geometry. Checkout `altmann2015FluidStructureInteractionAnalysis` for
   a discussion on "identifying optimal line cascading"
 
-
-Harness
-=======
-
-* Should `delta_w` move the control point, or just the cm? Weight shift is
-  mostly "inside" the payload volume.
-
-* Redefine the `SphericalHarness` to use the radius, not the projected area.
-  The projected area is not a common way to define a sphere; using the radius
-  just just makes more sense.
-
-
-Line geometry
-=============
-
-* The line parameters in `SimpleLineGeometry` are super long. Should they be
-  `kappa`-ized?
+* The names of the line parameters in `SimpleLineGeometry` are super long.
+  Should they be `kappa`-ized?
 
 * Review the "4 riser speed system" in the "Paraglider design handbook":
   http://laboratoridenvol.com/paragliderdesign/risers.html. They use a 4-line
   setup instead of a 3-line (so the D lines are fixed), but otherwise his
   derivation closely matches my own.
+
+* Assumes the total line length (for the line drag) is constant. Technically
+  the lines get shorter when the accelerator is applied. Probably negligible.
 
 
 ParagliderWing
@@ -912,11 +852,6 @@ ParagliderWing
   add a `forces_and_moments` that sums all the aerodynamic and gravitational
   forces and moments wrt some reference point (`RM`, `B`, etc)
 
-* Documentation: one of the limitations of this model is the line geometry
-  assumes the total line length (for the line drag) is constant. Technically
-  the lines get shorter when the accelerator is applied, but my model assumes
-  the effect of that segment is negligible.
-
 * My definition of *pitching angle* conflicts with the notion of a *rigging
   angle* (see `iacomini1999InvestigationLargeScale`), which is essentially
   a built-in offset to the pitching angle.
@@ -925,16 +860,8 @@ ParagliderWing
   in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
 
-* Review parameter naming conventions (like `kappa_a`). Why "kappa"?
-
 * *Design* the "query control points, compute wind vectors, query dynamics"
   sequence and API
-
-* Paraglider should be responsible for weight shifting?
-
-  * The wing doesn't care about the glider cm, only the changes to the riser
-    positions. However, **that would change if the arc supports deformations**
-    in response to weight shift.
 
 * Check if paragliders have aerodynamic centers. See "Aircraft Performance and
   Design" (Anderson; 1999), page 70 (89) for an equation that works **for
@@ -952,9 +879,7 @@ Wing mass properties
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
   sure how to best translate for a paraglider wing.
 
-* `ParagliderWing.mass_properties` is ignoring the mass of the lines. Should
-  `Paraglider` be responsible for including it in the center of mass
-  calculations?
+* `ParagliderWing.mass_properties` ignores the mass of the lines.
 
 * `mass_properties` should take the reference point for the apparent mass as
   a parameter. It's only constraint should be that it lies in the xz-plane (to
@@ -1070,12 +995,6 @@ Models
 Apparent Inertia
 ^^^^^^^^^^^^^^^^
 
-* Is the way I'm removing the steady-state terms correct? Barrows mentions
-  "simple theories, such as strip theory". Is my NLLT considered one of the
-  family of strip theories, or he is referencing something more like what's
-  described in "Basic Aerodynamics" (Flandro, McMahon, Roach; 2012), Sec:6.6
-  "Aerodynamic strip theory"?
-
 * Consider the apparent rolling inertia. In Barrows, Fig:6 shows the
   relationship of the apparent roll inertia versus the ratio of circular
   radius `R` to the span `b`. For my Hook 3, if `R = 4.84` and `b = 8.84`,
@@ -1141,10 +1060,6 @@ Pre-built models
 
 * For the prebuilt wings, should I have `hook3_23.canopy`, `hook3_23.wing`,
   `hook3_23.glider6a`, etc?
-
-* For the prebuilt wings, they're made from specs. It'd be nice to standardize
-  comparing the known ("expected") specs against the actual results from the
-  coded version of that wing. (Right now my checks are in `build_hook3`.)
 
 
 Scenarios
