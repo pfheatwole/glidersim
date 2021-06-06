@@ -16,7 +16,9 @@ def build_hook3(num_control_points=31, verbose=True):
 
     if verbose:
         print("Airfoil: braking_NACA24018_Xtr0.25\n")
-    airfoil_geo = gsim.airfoil.NACA(24018, convention="vertical")
+    airfoils = gsim.extras.airfoils.load_datfile_set("braking_NACA24018_Xtr0.25")
+    airfoils = {d: airfoils[d]['airfoil'] for d in airfoils}
+    airfoil_geo = gsim.airfoil.AirfoilGeometryInterpolator(airfoils)
     airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
     delta_d_max = 0.20273  # FIXME: magic number from the set of coefficients
 
@@ -75,19 +77,6 @@ def build_hook3(num_control_points=31, verbose=True):
         },
     )
 
-    # print("Drawing the canopy")
-    # plots.plot_foil(canopy, N_sections=131, surface="airfoil", flatten=False)
-    # plots.plot_foil(canopy, N_sections=71, surface="airfoil", flatten=True)
-    # plots.plot_foil(canopy, N_sections=131, surface="chord", flatten=False)
-    # plots.plot_foil(canopy, N_sections=71, surface="chord", flatten=True)
-    # plots.plot_foil(canopy, N_sections=131, surface="camber", flatten=False)
-    # plots.plot_foil(canopy, N_sections=71, surface="camber", flatten=True)
-    # plots.plot_foil_topdown(canopy, N_sections=51)
-    # plots.plot_foil_topdown(canopy, N_sections=51, flatten=True)
-
-    # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
-    # plots.plot_foil_topdown(canopy, N_sections=53)
-
     # Most of these values are based on data, but `kappa_x` is simply the
     # choice that produces a nice polar (max and min speeds are reasonable) and
     # the best glide ratio occurs at zero control inputs (some wings produce
@@ -140,6 +129,27 @@ def build_hook3(num_control_points=31, verbose=True):
         rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
         N_cells=52,
     )
+
+    # -----------------------------------------------------------------------
+    # Plots
+
+    # print("Drawing the canopy")
+    # plots.plot_foil(canopy, 131, surface="airfoil", flatten=False)
+    # plots.plot_foil(canopy, 131, surface="chord", flatten=False)
+    # plots.plot_foil(canopy, 131, surface="camber", flatten=False)
+    # plots.plot_foil(canopy, 71, surface="airfoil", flatten=True)
+    # plots.plot_foil(canopy, 71, surface="chord", flatten=True)
+    # plots.plot_foil(canopy, 71, surface="camber", flatten=True)
+    # plots.plot_foil_topdown(canopy, 51)
+    # plots.plot_foil_topdown(canopy, 51, flatten=True)
+
+    # Plot a braking wing
+    # s = np.linspace(-1, 1, 131)  # Inflated plots
+    # ai = wing.lines.delta_d(s, 0.5, 1) / wing.canopy.chord_length(s)
+    # plots.plot_foil(canopy, s, ai=ai, surface="airfoil", flatten=False)
+
+    # Compare to the Hook 3 manual, sec 11.4 "Line Plan", page 17
+    # plots.plot_foil_topdown(canopy, 53)
 
     # -----------------------------------------------------------------------
     # Model diagnostics

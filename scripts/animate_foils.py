@@ -6,7 +6,7 @@ from matplotlib import animation
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
 import pfh.glidersim as gsim
-from pfh.glidersim.airfoil import NACA
+from pfh.glidersim.airfoil import NACA, AirfoilGeometryInterpolator
 from pfh.glidersim.foil import SimpleFoil  # noqa: F401
 from pfh.glidersim.foil_layout import (
     EllipticalArc,
@@ -365,9 +365,10 @@ def foil_generator(base_config, sequences, fps=60):
             for k, v in config.items():
                 exec(f"params['{k}'] = {v}")
             layout = FoilLayout(**params)
+            profiles = AirfoilGeometryInterpolator({0: NACA(24018)})
             yield config, gsim.foil.SimpleFoil(
                 layout=layout,
-                sections=FoilSections(profiles=NACA(24018)),
+                sections=FoilSections(profiles=profiles),
                 b_flat=10,
             )
             n += 1
@@ -393,7 +394,7 @@ def update(config_and_foil, axes):
 
     code = """\
 import pfh.glidersim as gsim
-from pfh.glidersim.airfoil import NACA
+from pfh.glidersim.airfoil import AirfoilGeometryInterpolator, NACA
 from pfh.glidersim.foil import (
     SimpleFoil,
 )
@@ -414,8 +415,9 @@ layout = FoilLayout(
     code += """
 )
 
+profiles = AirfoilGeometryInterpolator({0: NACA(24018)})
 foil = gsim.foil.SimpleFoil(
-    sections=FoilSections(NACA(24018)),
+    sections=FoilSections(profiles),
     layout=layout,
     b_flat=10,
 )
@@ -431,7 +433,7 @@ pfh.glidersim.extras.plots.plot_foil(foil)
         transform=axes[0].transAxes,
         verticalalignment="center",
     )
-    foil_artists = gsim.extras.plots.plot_foil(foil, N_sections=51, ax=axes[1])
+    foil_artists = gsim.extras.plots.plot_foil(foil, 51, ax=axes[1])
 
     return (code_text, *foil_artists)
 

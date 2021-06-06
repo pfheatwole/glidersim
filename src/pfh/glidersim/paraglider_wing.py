@@ -348,8 +348,8 @@ class ParagliderWing:
         N_r = 151  # Number of points around each profile
         r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
         r = np.concatenate((-r[:0:-1], r))
-        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], r, "airfoil")
-        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], r, "airfoil")
+        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], 0, r, "airfoil")
+        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], 0, r, "airfoil")
         rib_tris = []
         for n in range(len(rib_vertices)):
             rib_simplices = Delaunay(rib_points[n]).simplices
@@ -467,8 +467,8 @@ class ParagliderWing:
         # Assuming the arch is circular, find its radius and arc angle using
         # the quarter-chords of the central section and the wing tip. See
         # Barrows Figure:5 for a diagram.
-        r_tip2center = (self.canopy.surface_xyz(1, 0.25, surface="chord")
-                        - self.canopy.surface_xyz(0, 0.25, surface="chord"))
+        r_tip2center = (self.canopy.surface_xyz(1, 0, 0.25, surface="chord")
+                        - self.canopy.surface_xyz(0, 0, 0.25, surface="chord"))
         dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
         r = dz + r_tip2center[2]  # Arch radius
         theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle

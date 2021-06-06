@@ -170,9 +170,9 @@ class SimpleFoil:
             leading edge, and `r = 1` is the trailing edge.
         """
         # FIXME: does `r` specify stations along the chord or the camber?
-        return self.sections.thickness(s, r) * self.chord_length(s)
+        return self.sections.thickness(s, 0, r) * self.chord_length(s)
 
-    def surface_xyz(self, s, r, surface, flatten=False):
+    def surface_xyz(self, s, ai, r, surface, flatten=False):
         """
         Sample points on section surfaces in foil frd.
 
@@ -180,6 +180,8 @@ class SimpleFoil:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float
             Surface coordinate (normalized arc length). Meaning depends on the
             value of `surface`.
@@ -207,7 +209,7 @@ class SimpleFoil:
             raise ValueError("Section indices must be between -1 and 1.")
 
         c = self.chord_length(s)
-        r_P2LE_a = self.sections.surface_xz(s, r, surface)  # Unscaled airfoil
+        r_P2LE_a = self.sections.surface_xz(s, ai, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
             (-r_P2LE_a[..., 0], np.zeros(r_P2LE_a.shape[:-1]), -r_P2LE_a[..., 1]),
             axis=-1,
@@ -472,7 +474,7 @@ class SimpleFoil:
         s = np.linspace(-1, 1, N_s)
         r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
         r = np.concatenate((-r[:0:-1], r))
-        surface_vertices = self.surface_xyz(s[:, None], r, "airfoil")
+        surface_vertices = self.surface_xyz(s[:, None], 0, r, "airfoil")
 
         # Using Delaunay is too slow as the number of vertices increases.
         S, R = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_r - 2), indexing='ij')
@@ -491,14 +493,14 @@ class SimpleFoil:
         # correctly. Uses the 2D section profile to compute the triangulation.
         # If a wing tip has a closed trailing edge there will be coplanar
         # vertices, which `Delaunay` will discard automatically.
-        left_vertices = self.surface_xyz(-1, r, "airfoil")
-        right_vertices = self.surface_xyz(1, r, "airfoil")
+        left_vertices = self.surface_xyz(-1, 0, r, "airfoil")
+        right_vertices = self.surface_xyz(1, 0, r, "airfoil")
 
         # Verson 1: use scipy.spatial.Delaunay. This version will automatically
         # discard coplanar points if the trailing edge is closed.
         #
-        left_points = self.sections.surface_xz(-1, r, 'airfoil')
-        right_points = self.sections.surface_xz(1, r, 'airfoil')
+        left_points = self.sections.surface_xz(-1, 0, r, 'airfoil')
+        right_points = self.sections.surface_xz(1, 0, r, 'airfoil')
         left_tris = left_vertices[Delaunay(left_points).simplices]
         right_tris = right_vertices[Delaunay(right_points).simplices[:, ::-1]]
 
@@ -610,6 +612,8 @@ class SimpleFoil:
            mesh_lower.from_pydata(vl, [], simplices)
            mesh_upper.update(calc_edges=True)
            mesh_lower.update(calc_edges=True)
+
+        FIXME: doesn't support airfoil indexing (brake deflections, etc)
         """
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
@@ -619,8 +623,8 @@ class SimpleFoil:
         # which is important for computing the enclosed volume of air between
         # the two surfaces, and for 3D programs in general (which tend to
         # expect the normals to point "out" of the volume).
-        vu = self.surface_xyz(s[:, np.newaxis], r, 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[::-1, np.newaxis], r, 'lower').reshape(-1, 3)
+        vu = self.surface_xyz(s[:, np.newaxis], 0, r, 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], 0, r, 'lower').reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles).
         S, R = np.meshgrid(np.arange(N_s - 1), np.arange(N_r - 1), indexing='ij')
@@ -690,6 +694,8 @@ class SimpleFoil:
            >>> mesh_lower = Mesh.Mesh(triangles['triangles_lower'].tolist())
            >>> Mesh.show(mesh_upper)
            >>> Mesh.show(mesh_lower)
+
+        FIXME: doesn't support airfoil indexing (brake deflections, etc)
         """
         vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_r=N_r)
         triangles_upper = vu[fi]

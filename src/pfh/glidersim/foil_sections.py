@@ -97,10 +97,10 @@ class FoilSections:
 
     Parameters
     ----------
-    profiles : AirfoilGeometry
+    profiles : AirfoilGeometryInterpolator
         The section profiles. This class currently assumes all sections have
         the same, fixed airfoil. In the future the section profiles will be
-        functions of `s` and `ai`.
+        functions of both `s` and `ai`, not just `ai`.
     coefficients : AirfoilCoefficients
         The section coefficients. This class currently assumes all sections
         have the section coefficients. In the future the coefficients will be
@@ -128,7 +128,7 @@ class FoilSections:
             r = -r
         return np.broadcast_arrays(s, r)[1]
 
-    def surface_xz(self, s, r, surface):
+    def surface_xz(self, s, ai, r, surface):
         """
         Compute unscaled surface coordinates along section profiles.
 
@@ -140,6 +140,8 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float
             Surface or airfoil coordinates, depending on the value of `surface`.
         surface : {"chord", "camber", "upper", "lower", "airfoil"}
@@ -157,6 +159,7 @@ class FoilSections:
             determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
+        ai = np.asarray(ai)
         r = np.asarray(r)
         valid_surfaces = {"chord", "camber", "upper", "lower", "airfoil"}
         if s.min() < -1 or s.max() > 1:
@@ -170,15 +173,15 @@ class FoilSections:
 
         if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
-            r_P2LE = self.profiles.profile_curve(r)
+            r_P2LE = self.profiles.profile_curve(ai, r)
         else:
             r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
                 r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
             elif surface == "camber":
-                r_P2LE = self.profiles.camber_curve(r)
+                r_P2LE = self.profiles.camber_curve(ai, r)
             elif surface == "airfoil":
-                r_P2LE = self.profiles.profile_curve(r)
+                r_P2LE = self.profiles.profile_curve(ai, r)
 
         return r_P2LE
 
@@ -258,8 +261,8 @@ class FoilSections:
         #
         # Ref: `babinsky1999AerodynamicPerformanceParagliders`
         la = np.linalg.norm(  # Length of the air intake
-            self.surface_xz(s, 0, 'upper')
-            - self.surface_xz(s, 0, 'lower'),
+            self.surface_xz(s, ai, 0, 'upper')
+            - self.surface_xz(s, ai, 0, 'lower'),
             axis=-1,
         )
         Cd += 0.07 * la  # Drag due to air intakes
@@ -295,7 +298,7 @@ class FoilSections:
         """
         return self.coefficients.Cm(ai, alpha, Re, clamp)
 
-    def thickness(self, s, r):
+    def thickness(self, s, ai, r):
         """
         Compute section thickness.
 
@@ -306,6 +309,8 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float [percentage]
             Fractional position on the camber line, where `0 <= r <= 1`
 
@@ -314,7 +319,7 @@ class FoilSections:
         thickness : array_like of float
             The normalized section profile thicknesses.
         """
-        return self.profiles.thickness(r)
+        return self.profiles.thickness(ai, r)
 
     def _mass_properties(self):
         """Pass-through to the airfoil `mass_properties` function."""
