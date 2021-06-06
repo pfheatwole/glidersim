@@ -563,11 +563,11 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_d = self.lines.delta_d(
-            self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
-        )  # FIXME: leaky, don't grab `s_cps` directly
+        s_cps = self.canopy.aerodynamics.s_cps  # FIXME: leaky
+        delta_d = self.lines.delta_d(s_cps, delta_bl, delta_br)
+        ai = delta_d / self.canopy.chord_length(s_cps)
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
-            delta_d, v_W2b_foil, rho_air, reference_solution,
+            ai, v_W2b_foil, rho_air, reference_solution,
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)

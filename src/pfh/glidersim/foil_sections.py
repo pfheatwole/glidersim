@@ -100,7 +100,7 @@ class FoilSections:
     profiles : AirfoilGeometry
         The section profiles. This class currently assumes all sections have
         the same, fixed airfoil. In the future the section profiles will be
-        functions of `s` and `delta_d`.
+        functions of `s` and `ai`.
     coefficients : AirfoilCoefficients
         The section coefficients. This class currently assumes all sections
         have the section coefficients. In the future the coefficients will be
@@ -182,7 +182,7 @@ class FoilSections:
 
         return r_P2LE
 
-    def Cl(self, s, delta_d, alpha, Re, clamp=False):
+    def Cl(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the lift coefficient of the airfoil.
 
@@ -190,24 +190,23 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cl : float
         """
-        return self.coefficients.Cl(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cl(ai, alpha, Re, clamp)
 
-    def Cl_alpha(self, s, delta_d, alpha, Re, clamp=False):
+    def Cl_alpha(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
@@ -215,24 +214,23 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to return `0` if `alpha` exceeds the the highest non-nan
-            value supported by the (delta_d, Re) pair.
+            value supported by the (ai, Re) pair.
 
         Returns
         -------
         Cl_alpha : float
         """
-        return self.coefficients.Cl_alpha(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cl_alpha(ai, alpha, Re, clamp)
 
-    def Cd(self, s, delta_d, alpha, Re, clamp=False):
+    def Cd(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the drag coefficient of the airfoil.
 
@@ -240,22 +238,21 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cd : float
         """
-        Cd = self.coefficients.Cd(delta_d, alpha, Re, clamp)
+        Cd = self.coefficients.Cd(ai, alpha, Re, clamp)
 
         # Additional drag from the air intakes
         #
@@ -274,28 +271,29 @@ class FoilSections:
 
         return Cd
 
-    def Cm(self, s, delta_d, alpha, Re, clamp=False):
+    def Cm(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        s : array_like of float
+            Section index.
+        ai : float
+            Airfoil index.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cm : float
         """
-        return self.coefficients.Cm(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cm(ai, alpha, Re, clamp)
 
     def thickness(self, s, r):
         """
