@@ -25,23 +25,8 @@ names = [
     "XCp",
 ]
 
-# Hack: magic conversion table from the deprecated `delta_f`
-f2d = {
-    0.00: 0.0,
-    1.57: 0.02691,
-    2.45: 0.04182,
-    3.44: 0.05809,
-    4.56: 0.07605,
-    5.84: 0.09606,
-    7.31: 0.11845,
-    9.02: 0.14353,
-    11.03: 0.17156,
-    13.38: 0.20274,
-}
-
-
 # Example filename:
-#   NACA24018_theta30_Ku4.5_Kl0.5_d0.35_delta13.38_T1_Re4.000_M0.00_N5.0_XtrTop25%_XtrBot25%.txt
+#   NACA24018_theta30_Ku4.5_Kl0.5_d0.35_deltad0.20274_T1_Re4.000_M0.00_N5.0_XtrTop25%_XtrBot25%.txt
 #
 # Here `delta` refers to an outdated definition of the angle made between the
 # trailing edge and the chord. I switched to the deflection distance `delta_d`
@@ -50,8 +35,7 @@ polars = []
 for polar_file in pathlib.Path(".").glob("*.txt"):
     print(polar_file)
     data = np.genfromtxt(polar_file, skip_header=11, names=names)
-    delta_f = float(re.search(r"_delta(\d+\.\d+)_", polar_file.name).group(1))
-    delta_d = f2d[delta_f]
+    delta_d = float(re.search(r"_deltad(\d+\.\d+)_", polar_file.name).group(1))
     Re = float(re.search(r"_Re(\d\.\d\d\d)_", polar_file.name).group(1))
     data = rfn.append_fields(data, "delta_d", np.full(data.shape[0], delta_d))
     data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
