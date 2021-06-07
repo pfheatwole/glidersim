@@ -128,8 +128,8 @@ def plot_airfoil_coef(coefficients, coef, ai=0, clamp=False, N=100):
         The airfoil coefficients to plot.
     coef : {'cl', 'cl_alpha', 'cd', 'cm'}
         The airfoil coefficient to plot. Case-insensitive.
-    delta_d : float
-        Normalized vertical deflection distance of the trailing edge.
+    ai
+        Airfoil index
     N : integer
         The number of sample points per dimension
     """
