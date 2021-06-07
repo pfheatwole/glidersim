@@ -120,11 +120,11 @@ def plot_airfoil_geo(foil_geo, N_points=200):
     plt.show()
 
 
-def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
+def plot_airfoil_coef(coefficients, coef, ai=0, clamp=False, N=100):
     """
     Parameters
     ----------
-    coefficients : AirfoilCoefficients
+    coefficients : AirfoilCoefficientsInterpolator
         The airfoil coefficients to plot.
     coef : {'cl', 'cl_alpha', 'cd', 'cm'}
         The airfoil coefficient to plot. Case-insensitive.
@@ -147,7 +147,7 @@ def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
         'cd': coefficients.Cd,
         'cm': coefficients.Cm,
     }[coef]
-    values = f(delta_d, grid[0], grid[1], clamp=clamp)
+    values = f(ai, grid[0], grid[1], clamp=clamp)
 
     fig = plt.figure(figsize=(17, 15))
     ax = fig.add_subplot(projection="3d")

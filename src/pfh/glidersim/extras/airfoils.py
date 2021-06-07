@@ -29,7 +29,7 @@ def load_polar(polarname):
 
     Returns
     -------
-    gsim.airfoil.AirfoilCoefficients
+    gsim.airfoil.AirfoilCoefficientsInterpolator
     """
     # polarfile = Path(__file__).parent / "data" / polarname / "nonuniform_grid.csv"
     # polar = gsim.airfoil.GridCoefficients(polarfile)

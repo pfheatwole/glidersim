@@ -28,7 +28,7 @@ from .fast_interp import interp3d
 
 
 __all__ = [
-    "AirfoilCoefficients",
+    "AirfoilCoefficientsInterpolator",
     "GridCoefficients",
     "XFLR5Coefficients",
     "AirfoilGeometry",
@@ -41,11 +41,18 @@ def __dir__():
     return __all__
 
 
-class AirfoilCoefficients(abc.ABC):
+class AirfoilCoefficientsInterpolator(abc.ABC):
     """Defines the API for classes that provide airfoil coefficients.
 
-    The choice of airfoil index is up to the user, but it's usually a float,
-    such as deflection angle, normalized vertical deflection distance, etc.
+    Aerodynamic coefficients for a single airfoil are typicall calculated over
+    a range of angle of attack and Reynolds number. For wings with control
+    surfaces, the section profiles are variable; the control inputs choose the
+    section profile from a set of airfoils by specifying their unique "airfoil
+    index". The definition of airfoil index is up to the user, but common
+    choices are deflection angle, normalized vertical deflection distance, etc.
+
+    Coefficients interpolators calculate the aerodynamic coefficients over the
+    range of airfoil index, angle of attack, and Reynolds number.
     """
 
     @abc.abstractmethod
@@ -137,7 +144,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
 
-class GridCoefficients(AirfoilCoefficients):
+class GridCoefficients(AirfoilCoefficientsInterpolator):
     """
     Loads a set of polars from a CSV file.
 
@@ -249,7 +256,7 @@ class GridCoefficients(AirfoilCoefficients):
         return out
 
 
-class GridCoefficients2(AirfoilCoefficients):
+class GridCoefficients2(AirfoilCoefficientsInterpolator):
     """
     Loads a set of polars from a CSV file.
 
@@ -368,7 +375,7 @@ class GridCoefficients2(AirfoilCoefficients):
         return out
 
 
-class XFLR5Coefficients(AirfoilCoefficients):
+class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
     """
     Loads a set of XFLR5 polars (.txt) from a directory.
 

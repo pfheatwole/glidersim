@@ -201,10 +201,11 @@ Testing
 * `tox`: Learn it. Use it. Going to take some time to think up how to test this
   sort of project though.
 
-  Will probably need some special tooling, like an `AirfoilCoefficients` that
-  just returns `1`, a `FoilAerodynamics` that just returns `1`, a wing model
-  that weighs 1kg with the cg 1m below the wing, etc. (In other words, how to
-  build a model for which you can compute accelerations manually.)
+  Will probably need some special tooling, like an
+  `AirfoilCoefficientsInterpolator` that just returns `1`,
+  a `FoilAerodynamics` that just returns `1`, a wing model that weighs 1kg
+  with the cg 1m below the wing, etc. (In other words, how to build a model
+  for which you can compute accelerations manually.)
 
 * What if the sensation of being "pushed out of a thermal" is a combination of
   effects: the wing yawing away and a *decrease in centripetal acceleration*?
@@ -294,10 +295,6 @@ Geometry
 Coefficients
 ------------
 
-* If users load airfoils with `extras/airfoils/load_datfile`, how does that
-  function return whether the airfoil uses `delta_d`, and if so what is its
-  `delta_d_max`?
-
 * Verify the polar curves, especially for flapped airfoils.
 
   The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
@@ -307,20 +304,6 @@ Coefficients
   changes?). Just creating a nominal 23015 with the builtin generator then
   removing the tiny TE gap causes the pitching moment in particular to change
   dramatically.
-
-* Replace `AirfoilCoefficients` with `SectionCoefficients`. An airfoil is
-  conceptually a fixed geometry entity, and doesn't change (no brake
-  deflections). The section, however, is more general: a profile (which is
-  a function of `delta_f`) and its aerodynamic coefficients (also a function
-  of `delta_d`).
-
-  If you really wanted to build a `SectionCoefficients` from individual
-  airfoil polar files you could, but that should be the exception rather than
-  the rule. Don't let that "atypical" use case complicate the API.
-
-* In `XFLR5Coefficients`, the `LinearNDInterpolator` should be able to use
-  `scale=True` instead of the `Re = Re / 1e6` in the coefficients functions,
-  but for some reason it doesn't work. Worth investigating?
 
 * In `XFLR5Coefficients`, I could support XFOIL polars as well, but I'd need to
   read the columns differently. Easy way to read the headers is with `names
@@ -477,10 +460,6 @@ Intakes
 
 Coefficients
 ------------
-
-* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
-  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
-  index I don't seen an obvious way around it.
 
 * Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
   `C_d,f` to my "air intakes and skin friction drag" adjustments in

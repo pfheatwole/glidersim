@@ -101,7 +101,7 @@ class FoilSections:
         The section profiles. This class currently assumes all sections have
         the same, fixed airfoil. In the future the section profiles will be
         functions of both `s` and `ai`, not just `ai`.
-    coefficients : AirfoilCoefficients
+    coefficients : AirfoilCoefficientsInterpolator
         The section coefficients. This class currently assumes all sections
         have the section coefficients. In the future the coefficients will be
         functions of `s`.
