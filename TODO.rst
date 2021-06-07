@@ -1,3 +1,9 @@
+* The `FoilSections` is really a section interpolator. It's naming should make
+  that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
+  it also adds `s` to beginning of the function signatures. While I'm at it,
+  it should take a dictionary `{s: {"geometry": g, "coefficients": c}}`, and
+  probably have a `symmetric : bool` property.
+
 * In `simulator.py` some variable names confuse frames with coordinate
   systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
   For example, `q_b2e` should be `q_b2tp`.
@@ -295,6 +301,11 @@ Geometry
 Coefficients
 ------------
 
+* `GridCoefficients` and `GridCoefficients` **require** the CSV to contain an
+  "airfoil index" column; you can't use them to interpolate coefficients for
+  a single airfoil geometry. They'll need special logic for calling the grid
+  interpolators.
+
 * Verify the polar curves, especially for flapped airfoils.
 
   The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
@@ -502,12 +513,8 @@ Inertia
   tensors. Once I fix this I should also remove the manual symmetry
   corrections in `ParagliderWing.__init__`.
 
-* Mark `AirfoilGeometry.mass_properties` and `SimpleFoil.mass_properties` as
-  deprecated. Probably best to move it to a separate branch. Still useful for
-  validation purposes, but they add way too much complexity to the overall
-  codebase.
-
-* Why doesn't the old `mass_properties` agree with the mesh-based method?
+* Why doesn't the old `mass_properties` agree with the mesh-based method? See
+  `scripts/validate_inertia.properties.py`
 
 * Refactor the mesh sampling so I don't have to duplicate it in both
   `mass_properties` and `_mesh_vertex_lists`. Probably best to generalize
