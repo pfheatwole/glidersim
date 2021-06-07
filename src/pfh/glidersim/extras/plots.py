@@ -120,16 +120,16 @@ def plot_airfoil_geo(foil_geo, N_points=200):
     plt.show()
 
 
-def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
+def plot_airfoil_coef(coefficients, coef, ai=0, clamp=False, N=100):
     """
     Parameters
     ----------
-    coefficients : AirfoilCoefficients
+    coefficients : AirfoilCoefficientsInterpolator
         The airfoil coefficients to plot.
     coef : {'cl', 'cl_alpha', 'cd', 'cm'}
         The airfoil coefficient to plot. Case-insensitive.
-    delta_d : float
-        Normalized vertical deflection distance of the trailing edge.
+    ai
+        Airfoil index
     N : integer
         The number of sample points per dimension
     """
@@ -147,7 +147,7 @@ def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
         'cd': coefficients.Cd,
         'cm': coefficients.Cm,
     }[coef]
-    values = f(delta_d, grid[0], grid[1], clamp=clamp)
+    values = f(ai, grid[0], grid[1], clamp=clamp)
 
     fig = plt.figure(figsize=(17, 15))
     ax = fig.add_subplot(projection="3d")
@@ -159,7 +159,15 @@ def plot_airfoil_coef(coefficients, coef, delta_d, clamp=False, N=100):
     plt.show()
 
 
-def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False, ax=None):
+def plot_foil(
+    foil,
+    s=51,
+    ai=0,
+    N_points=50,
+    surface="airfoil",
+    flatten=False,
+    ax=None,
+):
     """Plot a FoilGeometry in 3D."""
     if ax is None:
         fig, ax = _create_3d_axes()
@@ -167,27 +175,31 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
     else:
         independent_plot = False
 
+    # Interpret integer `s` as the number of sections (slices) to plot
+    if isinstance(s, (int, np.integer)):
+        s = np.linspace(-1, 1, s)
+
+    s, ai = np.broadcast_arrays(s, ai)  # Allow scalar values
     valid_surfaces = {"airfoil", "chord", "camber"}
     r = 1 - np.cos(np.linspace(np.pi / 2, 0, N_points))
-    for s in np.linspace(-1, 1, N_sections):
+    for n in range(len(s)):  # FIXME: assumes `s.ndim == 1`
         if surface == "airfoil":
-            coords = foil.surface_xyz(s, r, "lower", flatten=flatten).T
+            coords = foil.surface_xyz(s[n], ai[n], r, "lower", flatten=flatten).T
             ax.plot(coords[0], coords[1], coords[2], c="r", zorder=0.9, lw=0.25)
-            coords = foil.surface_xyz(s, r, "upper", flatten=flatten).T
+            coords = foil.surface_xyz(s[n], ai[n], r, "upper", flatten=flatten).T
             ax.plot(coords[0], coords[1], coords[2], c="b", lw=0.25)
         elif surface == "chord":
-            coords = foil.surface_xyz(s, r, "chord", flatten=flatten).T
+            coords = foil.surface_xyz(s[n], ai[n], r, "chord", flatten=flatten).T
             ax.plot(coords[0], coords[1], coords[2], c="k", lw=0.5)
         elif surface == "camber":
-            coords = foil.surface_xyz(s, r, "camber", flatten=flatten).T
+            coords = foil.surface_xyz(s[n], ai[n], r, "camber", flatten=flatten).T
             ax.plot(coords[0], coords[1], coords[2], c="k", lw=0.5)
         else:
             raise ValueError(f"`surface` must be one of {valid_surfaces}")
 
-    s = np.linspace(-1, 1, N_sections)
-    LE = foil.surface_xyz(s, 0, surface="chord", flatten=flatten).T
-    c4 = foil.surface_xyz(s, 0.25, surface="chord", flatten=flatten).T
-    TE = foil.surface_xyz(s, 1, surface="chord", flatten=flatten).T
+    LE = foil.surface_xyz(s, ai, 0, surface="chord", flatten=flatten).T
+    c4 = foil.surface_xyz(s, ai, 0.25, surface="chord", flatten=flatten).T
+    TE = foil.surface_xyz(s, ai, 1, surface="upper", flatten=flatten).T
     ax.plot(LE[0], LE[1], LE[2], "k--", lw=0.8)
     ax.plot(c4[0], c4[1], c4[2], "g--", lw=0.8)
     ax.plot(TE[0], TE[1], TE[2], "k--", lw=0.8)
@@ -207,7 +219,7 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
-    xyz = foil.surface_xyz(s, foil._layout.r_x(s), surface="chord")
+    xyz = foil.surface_xyz(s, ai, foil._layout.r_x(s), surface="chord")
     x, y = xyz[..., 0], xyz[..., 1]
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
@@ -217,7 +229,7 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
     # `yz` reference curve projection onto the yz-pane
-    xyz = foil.surface_xyz(s, foil._layout.r_yz(s), surface="chord")
+    xyz = foil.surface_xyz(s, ai, foil._layout.r_yz(s), surface="chord")
     y, z = xyz[..., 1], xyz[..., 2]
     ax.plot(x, y, z, 'r--', lw=0.8)
 
@@ -230,15 +242,15 @@ def plot_foil(foil, N_sections=21, N_points=50, surface="airfoil", flatten=False
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, N_sections=21, flatten=False, rotate=0, ax=None):
+def plot_foil_topdown(foil, s=51, flatten=False, rotate=0, ax=None):
     """
     Plot a 3D foil in topdown projection.
 
     Parameters
     ----------
     foil : FoilGeometry
-    N_sections : integer
-        The number of spanwise sections to plot.
+    s : integer or array of float, shape (K,)
+        The number of sections or an explicit list of section indices to plot.
     flatten : bool
         Whether to flatten the arch (ignore dihedral).
     rotate : float [degrees]
@@ -246,12 +258,18 @@ def plot_foil_topdown(foil, N_sections=21, flatten=False, rotate=0, ax=None):
         use `Theta_eq` for the specs?
     ax : matplotlib.axes
         An existing subplot. Useful for layering or animation.
+
+    FIXME: assumes all airfoil indices are zero
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 12))
         independent_plot = True
     else:
         independent_plot = False
+
+    # Interpret integer `s` as the number of sections (slices) to plot
+    if isinstance(s, (int, np.integer)):
+        s = np.linspace(-1, 1, s)
 
     theta = np.deg2rad(rotate)
     ct, st = np.cos(theta), np.sin(theta)
@@ -261,64 +279,20 @@ def plot_foil_topdown(foil, N_sections=21, flatten=False, rotate=0, ax=None):
          [-st, 0, ct]],
     )
 
-    for s in np.linspace(-1, 1, N_sections):
-        LE = foil.surface_xyz(s, 0, surface="chord", flatten=flatten)
-        TE = foil.surface_xyz(s, 1, surface="chord", flatten=flatten)
+    for _s in s:
+        LE = foil.surface_xyz(_s, 0, 0, surface="chord", flatten=flatten)
+        TE = foil.surface_xyz(_s, 0, 1, surface="chord", flatten=flatten)
         coords = np.stack((LE, TE))
         coords = (R @ coords.T).T
         ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
 
-    s = np.linspace(-1, 1, N_sections)
-    LE = (R @ foil.surface_xyz(s, 0, surface="chord", flatten=flatten).T).T
-    TE = (R @ foil.surface_xyz(s, 1, surface="chord", flatten=flatten).T).T
+    LE = (R @ foil.surface_xyz(s, 0, 0, surface="chord", flatten=flatten).T).T
+    TE = (R @ foil.surface_xyz(s, 0, 1, surface="chord", flatten=flatten).T).T
     ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
     ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
 
     if independent_plot:
         ax.set_aspect("equal")
-        fig.tight_layout()
-        plt.show()
-    else:
-        return ax.lines
-
-
-def plot_paraglider_wing(
-    wing, delta_bl=0, delta_br=0, N_sections=131, N_points=50, ax=None
-):
-    """
-    Plot a ParagliderWing using 3D cross-sections.
-
-    Uses a dashed black line to approximately visualize brake deflections.
-    Deflections are assumed to start at 80% of the section chord, and deflect
-    the last 20% of the chord as a straight line to an angle `delta` downwards
-    from the section chord.
-
-    This isn't terribly accurate, but it's decently helpful for checking if
-    a brake deflection distribution seems reasonable.
-    """
-    if ax is None:
-        fig, ax = _create_3d_axes()
-        independent_plot = True
-    else:
-        independent_plot = False
-
-    plot_foil(wing.canopy, N_sections=N_sections, N_points=N_points, ax=ax)
-
-    # Add a dashed brake deflection line
-    s = np.linspace(-1, 1, N_sections)
-    delta = wing.brake_geo(s, delta_bl, delta_br)
-    flap = delta / 0.2
-    c = wing.canopy.chord_length(s)
-    orientations = wing.canopy.section_orientation(s)
-    p = (np.array([-0.8 * c, np.zeros_like(s), np.zeros_like(s)])
-         + 0.2 * c * np.array([-np.cos(flap), np.zeros_like(s), np.sin(flap)]))
-    p = (np.einsum("Sij,Sj->Si", orientations, p.T)
-         + wing.canopy.surface_xyz(s, 0, surface="chord"))
-    ax.plot(p.T[0], p.T[1], p.T[2], "k--", lw=0.8)
-
-    if independent_plot:
-        _set_axes_equal(ax)
-        ax.view_init(azim=0, elev=0)  # Rear view to see deflections
         fig.tight_layout()
         plt.show()
     else:

@@ -21,16 +21,15 @@ def __dir__():
 class FoilAerodynamics(abc.ABC):
 
     @abc.abstractmethod
-    def __call__(self, delta_d, v_W2f, rho_air):
+    def __call__(self, ai, v_W2f, rho_air):
         """
         Estimate the forces and moments on a foil.
 
         Parameters
         ----------
-        delta_d : array_like of float
-            Vertical deflection distances of the trailing edge due to control
-            inputs. The shape must be able to broadcast to (K,), where `K` is
-            the number of control points being used by the estimator.
+        ai : array_like of float
+            Airfoil indices. The shape must be able to broadcast to (K,), where
+            `K` is the number of control points being used by the estimator.
         v_W2f : array_like of float [m/s]
             The velocity of the wind relative to the control points in foil frd
             coordinates. The shape must be able to broadcast to (K, 3), where
@@ -79,7 +78,7 @@ class Phillips(FoilAerodynamics):
         Section index to enable clamped output of the aerodynamic coefficients
         for section indices `abs(s) >= s_clamp`. Instead of returning `nan`,
         clamping uses the value of the largest `alpha` that produces a
-        non-`nan` coefficient for the given (delta_d, Re) pair.
+        non-`nan` coefficient for the given (ai, Re) pair.
 
         This option is experimental and should be used with caution. Its
         purpose is to mitigate the fictitious, large angles of attack induced
@@ -128,11 +127,11 @@ class Phillips(FoilAerodynamics):
         # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
 
         # Nodes are indexed from 0..K+1
-        self.nodes = self.foil.surface_xyz(self.s_nodes, 0.25, surface="chord")
+        self.nodes = self.foil.surface_xyz(self.s_nodes, 0, 0.25, surface="chord")
 
         # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
-        self.cps = self.foil.surface_xyz(self.s_cps, 0.25, surface="chord")
+        self.cps = self.foil.surface_xyz(self.s_cps, 0, 0.25, surface="chord")
 
         # Enable clamped coefficients at some control points
         if s_clamp:
@@ -155,7 +154,6 @@ class Phillips(FoilAerodynamics):
         # chord variation between nodes.
         self.dl = self.nodes[1:] - self.nodes[:-1]
         node_chords = self.foil.chord_length(self.s_nodes)
-        self.cp_chords = self.foil.chord_length(self.s_cps)
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
@@ -175,7 +173,7 @@ class Phillips(FoilAerodynamics):
         v_mag = np.broadcast_to(v_ref_mag, (self.K, 3))
         v_W2f_ref = -v_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
         self._reference_solution = {
-            'delta_d': 0,
+            'ai': 0,
             'v_W2f': v_W2f_ref,
             'Gamma': np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
         }
@@ -231,7 +229,7 @@ class Phillips(FoilAerodynamics):
 
         return V, V_n, V_a, alpha
 
-    def _f(self, Gamma, delta_d, v_W2f, v, Re):
+    def _f(self, Gamma, ai, v_W2f, v, Re):
         # Compute the residual error vector
         #  * ref: Hunsaker Eq:8
         #  * ref: Phillips Eq:14
@@ -240,7 +238,7 @@ class Phillips(FoilAerodynamics):
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.sections.Cl(
             self.s_cps,
-            delta_d,
+            ai,
             alpha,
             Re,
             clamp=self.clamped,
@@ -248,7 +246,7 @@ class Phillips(FoilAerodynamics):
         # return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
         return 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
 
-    def _J(self, Gamma, delta_d, v_W2f, v, Re, verify_J=False):
+    def _J(self, Gamma, ai, v_W2f, v, Re, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
         #  * ref: Hunsaker Eq:11
         V, V_n, V_a, alpha = self._local_velocities(v_W2f, Gamma, v)
@@ -256,14 +254,14 @@ class Phillips(FoilAerodynamics):
         W_norm = np.sqrt(np.einsum("ik,ik->i", W, W))
         Cl = self.foil.sections.Cl(
             self.s_cps,
-            delta_d,
+            ai,
             alpha,
             Re,
             clamp=self.clamped,
         )
         Cl_alpha = self.foil.sections.Cl_alpha(
             self.s_cps,
-            delta_d,
+            ai,
             alpha,
             Re,
             clamp=self.clamped,
@@ -283,22 +281,22 @@ class Phillips(FoilAerodynamics):
 
         # Compare the analytical gradient to the finite-difference version
         if verify_J:
-            J_true = self._J_finite(Gamma, delta_d, v_W2f, v, Re)
+            J_true = self._J_finite(Gamma, ai, v_W2f, v, Re)
             if not np.allclose(J, J_true):
                 print("\n !!! The analytical Jacobian disagrees. Halting. !!!")
                 breakpoint()
 
         return J
 
-    def _J_finite(self, Gamma, delta_d, v_W2f, v, Re):
+    def _J_finite(self, Gamma, ai, v_W2f, v, Re):
         """Compute the Jacobian using a centered finite distance.
 
         Useful for checking the analytical gradient.
 
         Examples
         --------
-        >>> J1 = self._J(Gamma, v_W2f, v, delta_d)
-        >>> J2 = self._J_finite(Gamma, v_W2f, v, delta_d)
+        >>> J1 = self._J(Gamma, v_W2f, v, ai)
+        >>> J2 = self._J_finite(Gamma, v_W2f, v, ai)
         >>> np.allclose(J1, J2)  # FIXME: tune the tolerances?
         True
         """
@@ -311,22 +309,21 @@ class Phillips(FoilAerodynamics):
         Gp, Gm = Gamma.copy(), Gamma.copy()
         for k in range(self.K):
             Gp[k], Gm[k] = Gamma[k] + eps, Gamma[k] - eps
-            fp = self._f(Gp, delta_d, v_W2f, v, Re)
-            fm = self._f(Gm, delta_d, v_W2f, v, Re)
+            fp = self._f(Gp, ai, v_W2f, v, Re)
+            fm = self._f(Gm, ai, v_W2f, v, Re)
             JT[k] = (fp - fm) / (2 * eps)
             Gp[k], Gm[k] = Gamma[k], Gamma[k]
 
         return JT.T
 
-    def _solve_circulation(self, delta_d, v_W2f, Re, Gamma0):
+    def _solve_circulation(self, ai, v_W2f, Re, Gamma0):
         """
         Solve for the spanwise circulation distribution.
 
         Parameters
         ----------
-        delta_d : array of float, shape (K,) [radians]
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : array of float, shape (K,) [radians]
+            Airfoil indices.
         v_W2f : array of float, shape (K,) [m/s]
             Relative wind velocity at each control point.
         Re : array of float, shape (K,)
@@ -345,7 +342,7 @@ class Phillips(FoilAerodynamics):
         v_mid = v_W2f[self.K // 2]
         u_inf = v_mid / np.linalg.norm(v_mid)  # FIXME: what if PQR != 0?
         v = self._induced_velocities(u_inf)
-        args = (delta_d, v_W2f, v, Re)
+        args = (ai, v_W2f, v, Re)
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         if not res["success"]:
@@ -353,47 +350,45 @@ class Phillips(FoilAerodynamics):
 
         return res["x"], v
 
-    def __call__(self, delta_d, v_W2f, rho_air, reference_solution=None, max_splits=10):
+    def __call__(self, ai, v_W2f, rho_air, reference_solution=None, max_splits=10):
         # FIXME: this doesn't match the FoilAerodynamics.__call__ signature
-        delta_d = np.broadcast_to(delta_d, (self.K))
-        delta_d = delta_d / self.cp_chords  # Coefficients use the normalized distances
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
         Re = self._compute_Reynolds(v_W2f, rho_air)
 
         if reference_solution is None:
             reference_solution = self._reference_solution
 
-        delta_d_ref = reference_solution['delta_d']
+        ai_ref = reference_solution['ai']
         v_W2f_ref = reference_solution['v_W2f']
         Gamma_ref = reference_solution['Gamma']
 
         # Try to solve for the target (`Gamma` as a function of `v_W2f` and
-        # `delta_d`) directly using the `reference_solution`. If that fails,
-        # pick a point between the target and the reference, solve for that
-        # easier case, then use its solution as the new starting point for the
-        # next target. Repeat for intermediate targets until either solving for
-        # the original target, or exceeding `max_splits`.
+        # `ai`) directly using the `reference_solution`. If that fails, pick a
+        # point between the target and the reference, solve for that easier
+        # case, then use its solution as the new starting point for the next
+        # target. Repeat for intermediate targets until either solving for the
+        # original target, or exceeding `max_splits`.
         target_backlog = []  # Stack of pending targets
         num_splits = 0
         while True:
             try:
-                Gamma, v = self._solve_circulation(delta_d, v_W2f, Re, Gamma_ref)
+                Gamma, v = self._solve_circulation(ai, v_W2f, Re, Gamma_ref)
             except FoilAerodynamics.ConvergenceError:
                 if num_splits == max_splits:
                     raise FoilAerodynamics.ConvergenceError("max splits reached")
                 num_splits += 1
-                target_backlog.append((delta_d, v_W2f))
+                target_backlog.append((ai, v_W2f))
                 P = 0.5  # Ratio, a point between the reference and the target
-                delta_d = (1 - P) * delta_d_ref + P * delta_d
+                ai = (1 - P) * ai_ref + P * ai
                 v_W2f = (1 - P) * v_W2f_ref + P * v_W2f
                 continue
 
-            delta_d_ref = delta_d
+            ai_ref = ai
             v_W2f_ref = v_W2f
             Gamma_ref = Gamma
 
             if target_backlog:
-                delta_d, v_W2f = target_backlog.pop()
+                ai, v_W2f = target_backlog.pop()
             else:
                 break
 
@@ -413,7 +408,7 @@ class Phillips(FoilAerodynamics):
         # `f_parasite_mag` in `llmodel.py:LLModel:_compute_forces`).
         Cd = self.foil.sections.Cd(
             self.s_cps,
-            delta_d,
+            ai,
             alpha,
             Re,
             clamp=self.clamped,
@@ -437,7 +432,7 @@ class Phillips(FoilAerodynamics):
         #  * ref: Phillips Eq:28
         Cm = self.foil.sections.Cm(
             self.s_cps,
-            delta_d,
+            ai,
             alpha,
             Re,
             clamp=self.clamped,
@@ -445,7 +440,7 @@ class Phillips(FoilAerodynamics):
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
-            'delta_d': delta_d_ref,
+            'ai': ai,
             'v_W2f': v_W2f_ref,
             'Gamma': Gamma_ref,
         }

@@ -97,11 +97,11 @@ class FoilSections:
 
     Parameters
     ----------
-    profiles : AirfoilGeometry
+    profiles : AirfoilGeometryInterpolator
         The section profiles. This class currently assumes all sections have
         the same, fixed airfoil. In the future the section profiles will be
-        functions of `s` and `delta_d`.
-    coefficients : AirfoilCoefficients
+        functions of both `s` and `ai`, not just `ai`.
+    coefficients : AirfoilCoefficientsInterpolator
         The section coefficients. This class currently assumes all sections
         have the section coefficients. In the future the coefficients will be
         functions of `s`.
@@ -128,7 +128,7 @@ class FoilSections:
             r = -r
         return np.broadcast_arrays(s, r)[1]
 
-    def surface_xz(self, s, r, surface):
+    def surface_xz(self, s, ai, r, surface):
         """
         Compute unscaled surface coordinates along section profiles.
 
@@ -140,6 +140,8 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float
             Surface or airfoil coordinates, depending on the value of `surface`.
         surface : {"chord", "camber", "upper", "lower", "airfoil"}
@@ -157,6 +159,7 @@ class FoilSections:
             determined by standard numpy broadcasting of `s` and `r`.
         """
         s = np.asarray(s)
+        ai = np.asarray(ai)
         r = np.asarray(r)
         valid_surfaces = {"chord", "camber", "upper", "lower", "airfoil"}
         if s.min() < -1 or s.max() > 1:
@@ -170,19 +173,19 @@ class FoilSections:
 
         if surface in {"upper", "lower"}:
             r = self.intakes(s, r, surface)
-            r_P2LE = self.profiles.profile_curve(r)
+            r_P2LE = self.profiles.profile_curve(ai, r)
         else:
             r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
                 r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
             elif surface == "camber":
-                r_P2LE = self.profiles.camber_curve(r)
+                r_P2LE = self.profiles.camber_curve(ai, r)
             elif surface == "airfoil":
-                r_P2LE = self.profiles.profile_curve(r)
+                r_P2LE = self.profiles.profile_curve(ai, r)
 
         return r_P2LE
 
-    def Cl(self, s, delta_d, alpha, Re, clamp=False):
+    def Cl(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the lift coefficient of the airfoil.
 
@@ -190,24 +193,23 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cl : float
         """
-        return self.coefficients.Cl(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cl(ai, alpha, Re, clamp)
 
-    def Cl_alpha(self, s, delta_d, alpha, Re, clamp=False):
+    def Cl_alpha(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
@@ -215,24 +217,23 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to return `0` if `alpha` exceeds the the highest non-nan
-            value supported by the (delta_d, Re) pair.
+            value supported by the (ai, Re) pair.
 
         Returns
         -------
         Cl_alpha : float
         """
-        return self.coefficients.Cl_alpha(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cl_alpha(ai, alpha, Re, clamp)
 
-    def Cd(self, s, delta_d, alpha, Re, clamp=False):
+    def Cd(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the drag coefficient of the airfoil.
 
@@ -240,29 +241,28 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai : float
+            Airfoil index.
         alpha : array_like of float [radians]
             Angle of attack
         Re : float [unitless]
             Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cd : float
         """
-        Cd = self.coefficients.Cd(delta_d, alpha, Re, clamp)
+        Cd = self.coefficients.Cd(ai, alpha, Re, clamp)
 
         # Additional drag from the air intakes
         #
         # Ref: `babinsky1999AerodynamicPerformanceParagliders`
         la = np.linalg.norm(  # Length of the air intake
-            self.surface_xz(s, 0, 'upper')
-            - self.surface_xz(s, 0, 'lower'),
+            self.surface_xz(s, ai, 0, 'upper')
+            - self.surface_xz(s, ai, 0, 'lower'),
             axis=-1,
         )
         Cd += 0.07 * la  # Drag due to air intakes
@@ -274,30 +274,31 @@ class FoilSections:
 
         return Cd
 
-    def Cm(self, s, delta_d, alpha, Re, clamp=False):
+    def Cm(self, s, ai, alpha, Re, clamp=False):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        s : array_like of float
+            Section index.
+        ai : float
+            Airfoil index.
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
         Cm : float
         """
-        return self.coefficients.Cm(delta_d, alpha, Re, clamp)
+        return self.coefficients.Cm(ai, alpha, Re, clamp)
 
-    def thickness(self, s, r):
+    def thickness(self, s, ai, r):
         """
         Compute section thickness.
 
@@ -308,6 +309,8 @@ class FoilSections:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float [percentage]
             Fractional position on the camber line, where `0 <= r <= 1`
 
@@ -316,9 +319,4 @@ class FoilSections:
         thickness : array_like of float
             The normalized section profile thicknesses.
         """
-        return self.profiles.thickness(r)
-
-    def _mass_properties(self):
-        """Pass-through to the airfoil `mass_properties` function."""
-        # FIXME: I hate this. Also, should be a function of `s`
-        return self.profiles._mass_properties()
+        return self.profiles.thickness(ai, r)

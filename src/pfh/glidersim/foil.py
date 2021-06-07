@@ -153,26 +153,38 @@ class SimpleFoil:
         """
         return self._layout.orientation(s, flatten)
 
-    def section_thickness(self, s, r):
+    def section_thickness(self, s, ai, r):
         """
-        Compute section thicknesses at chordwise stations.
+        Compute section thicknesses.
 
         Note that the thickness is determined by the airfoil convention, so
         this value may be measured perpendicular to either the chord line or
-        to the camber line.
+        to the camber line. Be careful relying on these values.
+
+        FIXME: the airfoil thickness "convention" can dramatically affect this
+        value. For normalized and derotated airfoils with relatively mild
+        camber the convention does not dramatically affect the thickness, but
+        for airfoils with deflected trailing edges it can vary quite a lot.
+        For now, the `ai` parameter is included to establish the API, but is
+        constrained to zero-indexed profiles (which assumes the `ai=0` airfoil
+        is normalized and derotated). Section thickness is in serious need of a
+        design review.
 
         Parameters
         ----------
         s : array_like of float
             Section index.
+        ai
+            Airfoil index. Must be zero. (See FIXME above.)
         r : float
-            Position on the chords as a percentage, where `r = 0` is the
-            leading edge, and `r = 1` is the trailing edge.
+            Position along the chord or camber line as a percentage, where `r =
+            0` is the leading edge, and `r = 1` is the trailing edge.
         """
-        # FIXME: does `r` specify stations along the chord or the camber?
-        return self.sections.thickness(s, r) * self.chord_length(s)
+        if np.any(ai != 0):
+            raise ValueError("Airfoil indices must be zero. See docstring.")
+        return self.sections.thickness(s, ai, r) * self.chord_length(s)
 
-    def surface_xyz(self, s, r, surface, flatten=False):
+    def surface_xyz(self, s, ai, r, surface, flatten=False):
         """
         Sample points on section surfaces in foil frd.
 
@@ -180,6 +192,8 @@ class SimpleFoil:
         ----------
         s : array_like of float
             Section index.
+        ai : float
+            Airfoil index.
         r : array_like of float
             Surface coordinate (normalized arc length). Meaning depends on the
             value of `surface`.
@@ -207,7 +221,7 @@ class SimpleFoil:
             raise ValueError("Section indices must be between -1 and 1.")
 
         c = self.chord_length(s)
-        r_P2LE_a = self.sections.surface_xz(s, r, surface)  # Unscaled airfoil
+        r_P2LE_a = self.sections.surface_xz(s, ai, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
             (-r_P2LE_a[..., 0], np.zeros(r_P2LE_a.shape[:-1]), -r_P2LE_a[..., 1]),
             axis=-1,
@@ -217,158 +231,7 @@ class SimpleFoil:
         r_LE2O = self._layout.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
         return r_P2LE + r_LE2O
 
-    def mass_properties(self, N=250):
-        """
-        Compute the quantities that control inertial behavior.
-
-        (This method is deprecated by the new mesh-based method, and is only
-        used for sanity checks.)
-
-        The inertia matrices returned by this function are proportional to the
-        values for a physical wing, and do not have standard units. They must
-        be scaled by the wing materials and air density to get their physical
-        values. See "Notes" for a thorough description.
-
-        Returns
-        -------
-        dictionary
-            upper_area: float [m^2]
-                foil upper surface area
-            upper_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the upper surface material in foil frd
-            upper_inertia: ndarray of float, shape (3, 3) [m^4]
-                The inertia matrix of the upper surface
-            volume: float [m^3]
-                internal volume of the inflated foil
-            volume_centroid: ndarray of float, shape (3,) [m]
-                centroid of the internal air mass in foil frd
-            volume_inertia: ndarray of float, shape (3, 3) [m^5]
-                The inertia matrix of the internal volume
-            lower_area: float [m^2]
-                foil lower surface area
-            lower_centroid: ndarray of float, shape (3,) [m]
-                center of mass of the lower surface material in foil frd
-            lower_inertia: ndarray of float, shape (3, 3) [m^4]
-                The inertia matrix of the upper surface
-
-        Notes
-        -----
-        The foil is treated as a composite of three components: the upper
-        surface, internal volume, and lower surface. Because this class only
-        defines the geometry of the foil, not the physical properties, each
-        component is treated as having unit densities, and the results are
-        proportional to the values for a physical wing. To compute the values
-        for a physical wing, the upper and lower surface inertia matrices must
-        be scaled by the aerial densities [kg/m^2] of the upper and lower wing
-        surface materials, and the volumetric inertia matrix must be scaled by
-        the volumetric density [kg/m^3] of air.
-
-        Keeping these components separate allows a user to simply multiply them
-        by different wing material densities and air densities to compute the
-        values for the physical wing.
-
-        The calculation works by breaking the foil into N segments, where
-        each segment is assumed to have a constant airfoil and chord length.
-        The airfoil for each segment is extruded along the segment span using
-        the perpendicular axis theorem, then oriented into body coordinates,
-        and finally translated to the global centroid (of the surface or
-        volume) using the parallel axis theorem.
-
-        Limitations:
-
-        * Assumes a constant airfoil over the entire foil.
-
-        * Assumes the upper and lower surfaces of the foil are the same as the
-          upper and lower surfaces of the airfoil. (Ignores air intakes.)
-
-        * Places all the segment mass on the section bisecting the center of
-          the segment instead of spreading the mass out along the segment span,
-          so it underestimates `I_xx` and `I_zz` by a factor of `\int{y^2 dm}`.
-          Doesn't make a big difference in practice, but still: it's wrong.
-
-        * Requires the AirfoilGeometry to compute its own `mass_properties`,
-          which is an extra layer of mess I'd like to eliminate.
-        """
-        s_nodes = np.cos(np.linspace(np.pi, 0, N + 1))
-        s_mid_nodes = (s_nodes[1:] + s_nodes[:-1]) / 2  # Segment midpoints
-        nodes = self.surface_xyz(s_nodes, 0.25, surface="chord")  # Segment endpoints
-        section = self.sections._mass_properties()
-        node_chords = self.chord_length(s_nodes)
-        chords = (node_chords[1:] + node_chords[:-1]) / 2  # Mean average
-        T = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])  # acs -> frd
-        u = self.section_orientation(s_mid_nodes)
-        u_inv = np.linalg.inv(u)
-
-        # Segment centroids
-        airfoil_centroids = np.array([
-            [*section["upper_centroid"], 0],
-            [*section["area_centroid"], 0],
-            [*section["lower_centroid"], 0]])
-        segment_origins = self.surface_xyz(s_mid_nodes, 0, surface="chord")
-        segment_upper_cm, segment_volume_cm, segment_lower_cm = (
-            np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
-            + segment_origins[None, ...]
-        )
-
-        # Scaling factors for converting 2D airfoils into 3D segments.
-        # Approximates each segments' `chord * span` area as parallelograms.
-        u_a = u[..., 0]  # The chordwise ("aerodynamic") unit vectors
-        dl = nodes[1:] - nodes[:-1]
-        segment_chord_area = np.linalg.norm(cross3(u_a, dl), axis=1)
-        Kl = chords * segment_chord_area  # section curve length into segment area
-        Ka = chords ** 2 * segment_chord_area  # section area into segment volume
-
-        segment_upper_area = Kl * section["upper_length"]
-        segment_volume = Ka * section["area"]
-        segment_lower_area = Kl * section["lower_length"]
-
-        # Total surface areas and the internal volume
-        upper_area = segment_upper_area.sum()
-        volume = segment_volume.sum()
-        lower_area = segment_lower_area.sum()
-
-        # The upper/volume/lower centroids for the entire foil
-        upper_centroid = (segment_upper_area * segment_upper_cm.T).T.sum(axis=0) / upper_area
-        volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
-        lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
-
-        # Segment inertia matrices in body frd coordinates
-        Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
-        segment_upper_J = u_inv @ T @ (Kl * section["upper_inertia"]) @ T @ u
-        segment_volume_J = u_inv @ T @ (Ka * section["area_inertia"]) @ T @ u
-        segment_lower_J = u_inv @ T @ (Kl * section["lower_inertia"]) @ T @ u
-
-        # Parallel axis distances of each segment
-        Ru = upper_centroid - segment_upper_cm
-        Rv = volume_centroid - segment_volume_cm
-        Rl = lower_centroid - segment_lower_cm
-
-        # Segment distances to the group centroids
-        R = np.array([Ru, Rv, Rl])
-        D = (np.einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
-             - np.einsum("Rki,Rkj->Rkij", R, R))
-        Du, Dv, Dl = D
-
-        # And finally, apply the parallel axis theorem
-        upper_J = (segment_upper_J + (segment_upper_area * Du.T).T).sum(axis=0)
-        volume_J = (segment_volume_J + (segment_volume * Dv.T).T).sum(axis=0)
-        lower_J = (segment_lower_J + (segment_lower_area * Dl.T).T).sum(axis=0)
-
-        mass_properties = {
-            "upper_area": upper_area,
-            "upper_centroid": upper_centroid,
-            "upper_inertia": upper_J,
-            "volume": volume,
-            "volume_centroid": volume_centroid,
-            "volume_inertia": volume_J,
-            "lower_area": lower_area,
-            "lower_centroid": lower_centroid,
-            "lower_inertia": lower_J
-        }
-
-        return mass_properties
-
-    def mass_properties2(self, N_s=301, N_r=301):
+    def mass_properties(self, N_s=301, N_r=301):
         """
         Compute the quantities that control inertial behavior.
 
@@ -472,7 +335,7 @@ class SimpleFoil:
         s = np.linspace(-1, 1, N_s)
         r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
         r = np.concatenate((-r[:0:-1], r))
-        surface_vertices = self.surface_xyz(s[:, None], r, "airfoil")
+        surface_vertices = self.surface_xyz(s[:, None], 0, r, "airfoil")
 
         # Using Delaunay is too slow as the number of vertices increases.
         S, R = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_r - 2), indexing='ij')
@@ -491,14 +354,14 @@ class SimpleFoil:
         # correctly. Uses the 2D section profile to compute the triangulation.
         # If a wing tip has a closed trailing edge there will be coplanar
         # vertices, which `Delaunay` will discard automatically.
-        left_vertices = self.surface_xyz(-1, r, "airfoil")
-        right_vertices = self.surface_xyz(1, r, "airfoil")
+        left_vertices = self.surface_xyz(-1, 0, r, "airfoil")
+        right_vertices = self.surface_xyz(1, 0, r, "airfoil")
 
         # Verson 1: use scipy.spatial.Delaunay. This version will automatically
         # discard coplanar points if the trailing edge is closed.
         #
-        left_points = self.sections.surface_xz(-1, r, 'airfoil')
-        right_points = self.sections.surface_xz(1, r, 'airfoil')
+        left_points = self.sections.surface_xz(-1, 0, r, 'airfoil')
+        right_points = self.sections.surface_xz(1, 0, r, 'airfoil')
         left_tris = left_vertices[Delaunay(left_points).simplices]
         right_tris = right_vertices[Delaunay(right_points).simplices[:, ::-1]]
 
@@ -610,6 +473,8 @@ class SimpleFoil:
            mesh_lower.from_pydata(vl, [], simplices)
            mesh_upper.update(calc_edges=True)
            mesh_lower.update(calc_edges=True)
+
+        FIXME: doesn't support airfoil indexing (brake deflections, etc)
         """
         # Compute the vertices
         s = np.linspace(-1, 1, N_s)
@@ -619,8 +484,8 @@ class SimpleFoil:
         # which is important for computing the enclosed volume of air between
         # the two surfaces, and for 3D programs in general (which tend to
         # expect the normals to point "out" of the volume).
-        vu = self.surface_xyz(s[:, np.newaxis], r, 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[::-1, np.newaxis], r, 'lower').reshape(-1, 3)
+        vu = self.surface_xyz(s[:, np.newaxis], 0, r, 'upper').reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], 0, r, 'lower').reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles).
         S, R = np.meshgrid(np.arange(N_s - 1), np.arange(N_r - 1), indexing='ij')
@@ -690,6 +555,8 @@ class SimpleFoil:
            >>> mesh_lower = Mesh.Mesh(triangles['triangles_lower'].tolist())
            >>> Mesh.show(mesh_upper)
            >>> Mesh.show(mesh_lower)
+
+        FIXME: doesn't support airfoil indexing (brake deflections, etc)
         """
         vu, vl, fi = self._mesh_vertex_lists(N_s=N_s, N_r=N_r)
         triangles_upper = vu[fi]

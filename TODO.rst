@@ -1,3 +1,9 @@
+* The `FoilSections` is really a section interpolator. It's naming should make
+  that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
+  it also adds `s` to beginning of the function signatures. While I'm at it,
+  it should take a dictionary `{s: {"geometry": g, "coefficients": c}}`, and
+  probably have a `symmetric : bool` property.
+
 * In `simulator.py` some variable names confuse frames with coordinate
   systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
   For example, `q_b2e` should be `q_b2tp`.
@@ -201,10 +207,11 @@ Testing
 * `tox`: Learn it. Use it. Going to take some time to think up how to test this
   sort of project though.
 
-  Will probably need some special tooling, like an `AirfoilCoefficients` that
-  just returns `1`, a `FoilAerodynamics` that just returns `1`, a wing model
-  that weighs 1kg with the cg 1m below the wing, etc. (In other words, how to
-  build a model for which you can compute accelerations manually.)
+  Will probably need some special tooling, like an
+  `AirfoilCoefficientsInterpolator` that just returns `1`,
+  a `FoilAerodynamics` that just returns `1`, a wing model that weighs 1kg
+  with the cg 1m below the wing, etc. (In other words, how to build a model
+  for which you can compute accelerations manually.)
 
 * What if the sensation of being "pushed out of a thermal" is a combination of
   effects: the wing yawing away and a *decrease in centripetal acceleration*?
@@ -273,24 +280,6 @@ Airfoil
 Geometry
 --------
 
-* If my airfoil coefficients are parametrized by `delta_d`, should the airfoil
-  geometry be as well? I don't like either option: currently I have the
-  `AirfoilCoefficients` handling the interpolation over `delta_d` since it's
-  much easier to just dump all the coefficient data into a single `csv` file,
-  but that implies the `AirfoilGeometry` should handle interpolating the
-  geometry, which I think belongs in the `FoilSections`. The foil sections are
-  there to eventually support airfoil interpolation, cell definitions, and the
-  cell distortions, but maybe it'd make sense to let the `AirfoilGeometry`
-  handle delta in the sense of "this is the idealized shape"? Related to this
-  is "how do you compute the mass properties of a wing with brakes applied?"
-
-* Write an `AirfoilGeometry` interpolator. Takes two geometries, and returns
-  the interpolated surface points.
-
-  **Does this make sense as a standalone thing?** It's so simple, it almost
-  seems like overkill to make it it's own class. Might be preferable to have
-  a single class that interpolates both the geometry and the coefficients?
-
 * Implement **accurate** `camber_curve` and `thickness` estimators.
 
   This is mostly only an issue if I implement cell billowing (and thus ribs).
@@ -299,9 +288,6 @@ Geometry
   disjoint surfaces at small thickness changes (since you'll move from the
   true surface to the version of that surface produced by estimates of its
   thickness and camber). See branch `WIP_airfoil_curves`.
-
-* Write a basic "trailing edge deflection" routine for airfoils. Doesn't have
-  to be physically accurate for now, just need to establish the API.
 
 * Add some literature references. For NACA airfoils, there are:
 
@@ -315,9 +301,10 @@ Geometry
 Coefficients
 ------------
 
-* If users load airfoils with `extras/airfoils/load_datfile`, how does that
-  function return whether the airfoil uses `delta_d`, and if so what is its
-  `delta_d_max`?
+* `GridCoefficients` and `GridCoefficients` **require** the CSV to contain an
+  "airfoil index" column; you can't use them to interpolate coefficients for
+  a single airfoil geometry. They'll need special logic for calling the grid
+  interpolators.
 
 * Verify the polar curves, especially for flapped airfoils.
 
@@ -328,20 +315,6 @@ Coefficients
   changes?). Just creating a nominal 23015 with the builtin generator then
   removing the tiny TE gap causes the pitching moment in particular to change
   dramatically.
-
-* Replace `AirfoilCoefficients` with `SectionCoefficients`. An airfoil is
-  conceptually a fixed geometry entity, and doesn't change (no brake
-  deflections). The section, however, is more general: a profile (which is
-  a function of `delta_f`) and its aerodynamic coefficients (also a function
-  of `delta_d`).
-
-  If you really wanted to build a `SectionCoefficients` from individual
-  airfoil polar files you could, but that should be the exception rather than
-  the rule. Don't let that "atypical" use case complicate the API.
-
-* In `XFLR5Coefficients`, the `LinearNDInterpolator` should be able to use
-  `scale=True` instead of the `Re = Re / 1e6` in the coefficients functions,
-  but for some reason it doesn't work. Worth investigating?
 
 * In `XFLR5Coefficients`, I could support XFOIL polars as well, but I'd need to
   read the columns differently. Easy way to read the headers is with `names
@@ -375,7 +348,7 @@ Low priority
 
 
 FoilLayout
-=============
+==========
 
 * Review the calculation of the projected span `b` in `FoilLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
@@ -414,9 +387,6 @@ Parametric functions
 
 FoilGeometry
 ============
-
-* `Foil.surface_xyz` should take `delta_d`, and the `FoilSections` should
-  interpolate the "braking" airfoils.
 
 * I refer to `FoilGeometry` in several places, but there's only one:
   `SimpleFoil`. There's no abstract base class anymore. Should there be? It'd
@@ -466,13 +436,6 @@ FoilSections
 Profiles
 --------
 
-* `FoilSections.profiles` should be an airfoil interpolator. I should be able
-  to load a set of datfiles and stick them in an airfoil interpolator that
-  produces the right section profiles as a function of `s, delta_d`.
-
-  Once this is done you could use the actual profiles then `plot_foil` could
-  use the new `surface_xyz` to plot the actual braking surface.
-
 * I need to review everywhere I talk about airfoil "thickness" and ensure I'm
   referring to "chordwise" or "camberwise" stations correctly. Some places
   I mention "chordwise" stations, but glancing at the code it actually looks
@@ -508,10 +471,6 @@ Intakes
 
 Coefficients
 ------------
-
-* I'm not a fan of the duplicated docstrings in `FoilSections.Cl` and
-  `AirfoilCoefficients.Cl`, etc, but if that API needs to include the section
-  index I don't seen an obvious way around it.
 
 * Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
   `C_d,f` to my "air intakes and skin friction drag" adjustments in
@@ -554,12 +513,8 @@ Inertia
   tensors. Once I fix this I should also remove the manual symmetry
   corrections in `ParagliderWing.__init__`.
 
-* Mark `AirfoilGeometry.mass_properties` and `SimpleFoil.mass_properties` as
-  deprecated. Probably best to move it to a separate branch. Still useful for
-  validation purposes, but they add way too much complexity to the overall
-  codebase.
-
-* Why doesn't the old `mass_properties` agree with the mesh-based method?
+* Why doesn't the old `mass_properties` agree with the mesh-based method? See
+  `scripts/validate_inertia.properties.py`
 
 * Refactor the mesh sampling so I don't have to duplicate it in both
   `mass_properties` and `_mesh_vertex_lists`. Probably best to generalize
@@ -712,23 +667,7 @@ Low Priority
 Coefficient Estimation
 ----------------------
 
-* **Add section-wise adjustments to coefficients.**
-
-  Example: air intake drag.
-
-  I'd prefer to keep adjustments independent of the foil geometry, but that
-  doesn't mean the foil geometry can't *provide* the adjustments. You'll have
-  to call `ParafoilSections` or whatever to get the coefficients; it can add
-  the extra terms when it returns the values.
-
-  My current thinking is that you'll specify ribs, and `InterpolatedAirfoil`
-  for each rib (that provide the geometries+coefficients over the range of
-  deltas), then a `SectionInterpolator` or something will interpolate the
-  values of the two `InterpolatedAirfoils` at each rib. The
-  `SectionInterpolator` will need to provide the coefficients for any given
-  section index, so you can give it extra functions (also as functions of the
-  section indices) that it can layer on top. For example, for air intakes, you
-  could have a function that converts the intake size into extra drag.
+* **Add section-wise adjustments to coefficients.** (eg, air intake drag)
 
 * Design review how the coefficient estimator signals non-convergence. (All
   users that call `Phillips.__call__` should be exception-aware.)

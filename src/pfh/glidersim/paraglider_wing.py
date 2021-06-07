@@ -327,7 +327,7 @@ class ParagliderWing:
     def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
         # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        cmp = self.canopy.mass_properties2(N_s=101, N_r=101)
+        cmp = self.canopy.mass_properties(N_s=101, N_r=101)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
@@ -348,8 +348,8 @@ class ParagliderWing:
         N_r = 151  # Number of points around each profile
         r = 1 - np.cos(np.linspace(0, np.pi / 2, N_r))
         r = np.concatenate((-r[:0:-1], r))
-        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], r, "airfoil")
-        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], r, "airfoil")
+        rib_vertices = self.canopy.surface_xyz(s_ribs[:, None], 0, r, "airfoil")
+        rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], 0, r, "airfoil")
         rib_tris = []
         for n in range(len(rib_vertices)):
             rib_simplices = Delaunay(rib_points[n]).simplices
@@ -459,16 +459,17 @@ class ParagliderWing:
         #        different thicknesses for the different dimensions?
         t = np.mean(
             self.canopy.section_thickness(
-                np.linspace(0.0, 0.5, 25),  # Central 50% of the canopy
-                np.linspace(0.1, 0.5, 25),  # Thickest parts of each airfoil
+                s=np.linspace(0.0, 0.5, 25),  # Central 50% of the canopy
+                ai=0,
+                r=np.linspace(0.1, 0.5, 25),  # Thickest parts of each airfoil
             ),
         )
 
         # Assuming the arch is circular, find its radius and arc angle using
         # the quarter-chords of the central section and the wing tip. See
         # Barrows Figure:5 for a diagram.
-        r_tip2center = (self.canopy.surface_xyz(1, 0.25, surface="chord")
-                        - self.canopy.surface_xyz(0, 0.25, surface="chord"))
+        r_tip2center = (self.canopy.surface_xyz(1, 0, 0.25, surface="chord")
+                        - self.canopy.surface_xyz(0, 0, 0.25, surface="chord"))
         dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
         r = dz + r_tip2center[2]  # Arch radius
         theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle
@@ -563,11 +564,11 @@ class ParagliderWing:
         v_W2b_foil = v_W2b[:-K_lines]
         v_W2b_lines = v_W2b[-K_lines:]
 
-        delta_d = self.lines.delta_d(
-            self.canopy.aerodynamics.s_cps, delta_bl, delta_br,
-        )  # FIXME: leaky, don't grab `s_cps` directly
+        s_cps = self.canopy.aerodynamics.s_cps  # FIXME: leaky
+        delta_d = self.lines.delta_d(s_cps, delta_bl, delta_br)
+        ai = delta_d / self.canopy.chord_length(s_cps)
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
-            delta_d, v_W2b_foil, rho_air, reference_solution,
+            ai, v_W2b_foil, rho_air, reference_solution,
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)

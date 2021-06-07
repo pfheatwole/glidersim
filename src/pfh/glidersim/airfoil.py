@@ -17,7 +17,6 @@ from itertools import product
 import numpy as np
 import scipy.optimize
 from numpy.lib import recfunctions as rfn
-from scipy.integrate import simps
 from scipy.interpolate import (
     LinearNDInterpolator,
     PchipInterpolator,
@@ -28,10 +27,11 @@ from .fast_interp import interp3d
 
 
 __all__ = [
-    "AirfoilCoefficients",
+    "AirfoilCoefficientsInterpolator",
     "GridCoefficients",
     "XFLR5Coefficients",
     "AirfoilGeometry",
+    "AirfoilGeometryInterpolator",
     "NACA",
 ]
 
@@ -40,26 +40,36 @@ def __dir__():
     return __all__
 
 
-class AirfoilCoefficients(abc.ABC):
-    """Defines the API for classes that provide airfoil coefficients."""
+class AirfoilCoefficientsInterpolator(abc.ABC):
+    """Defines the API for classes that provide airfoil coefficients.
+
+    Aerodynamic coefficients for a single airfoil are typicall calculated over
+    a range of angle of attack and Reynolds number. For wings with control
+    surfaces, the section profiles are variable; the control inputs choose the
+    section profile from a set of airfoils by specifying their unique "airfoil
+    index". The definition of airfoil index is up to the user, but common
+    choices are deflection angle, normalized vertical deflection distance, etc.
+
+    Coefficients interpolators calculate the aerodynamic coefficients over the
+    range of airfoil index, angle of attack, and Reynolds number.
+    """
 
     @abc.abstractmethod
-    def Cl(self, delta_d, alpha, Re, clamp=False):
+    def Cl(self, ai, alpha, Re, clamp=False):
         """
         Compute the lift coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai
+            Airfoil index
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
@@ -67,22 +77,21 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cd(self, delta_d, alpha, Re, clamp=False):
+    def Cd(self, ai, alpha, Re, clamp=False):
         """
         Compute the drag coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai
+            Airfoil index
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
@@ -90,22 +99,21 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cm(self, delta_d, alpha, Re, clamp=False):
+    def Cm(self, ai, alpha, Re, clamp=False):
         """
         Compute the pitching coefficient of the airfoil.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai
+            Airfoil index
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to clamp `alpha` to the highest non-nan value supported by
-            the (delta_d, Re) pair.
+            the (ai, Re) pair.
 
         Returns
         -------
@@ -113,22 +121,21 @@ class AirfoilCoefficients(abc.ABC):
         """
 
     @abc.abstractmethod
-    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
+    def Cl_alpha(self, ai, alpha, Re, clamp=False):
         """
         Compute the derivative of the lift coefficient versus angle of attack.
 
         Parameters
         ----------
-        delta_d : float
-            Normalized vertical deflection distance of the trailing edge due to
-            control inputs.
+        ai
+            Airfoil index
         alpha : float [radians]
             The angle of attack
         Re : float [unitless]
             The Reynolds number
         clamp : bool
             Whether to return `0` if `alpha` exceeds the the highest non-nan
-            value supported by the (delta_d, Re) pair.
+            value supported by the (ai, Re) pair.
 
         Returns
         -------
@@ -136,7 +143,7 @@ class AirfoilCoefficients(abc.ABC):
         """
 
 
-class GridCoefficients(AirfoilCoefficients):
+class GridCoefficients(AirfoilCoefficientsInterpolator):
     """
     Loads a set of polars from a CSV file.
 
@@ -153,22 +160,24 @@ class GridCoefficients(AirfoilCoefficients):
     must be on a grid, but the spacing in each dimension is not required to
     be uniform. If the grid has uniform spacing in each dimension, the
     GridCoefficients2 class is faster.
+
+    FIXME: requires a valid `ai` column name
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, ai="delta_d"):
         names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
         data = np.genfromtxt(
             filename, skip_header=1, names=list(names), delimiter=",",
         )
-        data.sort(order=['delta_d', 'alpha', 'Re'])
+        data.sort(order=[ai, "alpha", "Re"])
 
         # All points must be present (even if `nan`)
-        self._delta_d = np.unique(data["delta_d"])
+        self._ai = np.unique(data[ai])
         self._alpha = np.deg2rad(np.unique(data["alpha"]))
         self._alpha_step = self._alpha[1] - self._alpha[0]
         self._Re = np.unique(data["Re"])
-        shape = (len(self._delta_d), len(self._alpha), len(self._Re))
-        points = (self._delta_d, self._alpha, self._Re)
+        shape = (len(self._ai), len(self._alpha), len(self._Re))
+        points = (self._ai, self._alpha, self._Re)
 
         self._Cl = RegularGridInterpolator(
             points, data["Cl"].reshape(shape), bounds_error=False,
@@ -186,67 +195,67 @@ class GridCoefficients(AirfoilCoefficients):
         # Trilinear interpolation uses the values at all 8 corners of the
         # bounding cube. If any values are nan then interpolation in that cube
         # will be nan. Clamping to the highest valid alpha requires finding the
-        # cube containing the same delta_d and Re and the largest alpha.
-        ld = len(self._delta_d)
+        # cube containing the same ai and Re and the largest alpha.
+        lai = len(self._ai)
         lRe = len(self._Re)
         non_nan = ~np.isnan(data['Cl'].reshape(shape))
-        max_non_nan_indices = np.empty((ld, lRe), dtype=int)
-        subgrid = np.empty((ld - 1, lRe - 1), dtype=int)
-        for (D, R) in product(range(ld), range(lRe)):
+        max_non_nan_indices = np.empty((lai, lRe), dtype=int)
+        subgrid = np.empty((lai - 1, lRe - 1), dtype=int)
+        for (D, R) in product(range(lai), range(lRe)):
             max_non_nan_indices[D, R] = np.max(np.nonzero(non_nan[D, :, R]))
-        for (D, R) in product(range(ld - 1), range(lRe - 1)):
+        for (D, R) in product(range(lai - 1), range(lRe - 1)):
             subgrid[D, R] = np.min(max_non_nan_indices[D : D + 2, R : R + 2])
         self._max_alphas = self._alpha[subgrid]  # Upper-bound for each cube
 
-    def _max_alpha(self, delta_d, Re):
-        # These are not strictly correct since it clips delta_d and Re, but
-        # querying the coefficients using an out-of-bounds delta_d or Re will
+    def _max_alpha(self, ai, Re):
+        # These are not strictly correct since it clips ai and Re, but
+        # querying the coefficients using an out-of-bounds ai or Re will
         # produce nan anyway.
-        delta_d = delta_d.copy()
+        ai = ai.copy()
         Re = Re.copy()
-        delta_d[delta_d < self._delta_d[0]] = self._delta_d[0]
+        ai[ai < self._ai[0]] = self._ai[0]
         Re[Re < self._Re[0]] = self._Re[0]
-        ix_d = np.argmax(delta_d[:, None] < self._delta_d, axis=-1) - 1
+        ix_d = np.argmax(ai[:, None] < self._ai, axis=-1) - 1
         ix_Re = np.argmax(Re[:, None] < self._Re, axis=-1) - 1
         return self._max_alphas[ix_d, ix_Re]
 
-    def _query(self, f, clamp, delta_d, alpha, Re):
-        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
+    def _query(self, f, clamp, ai, alpha, Re):
+        ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
 
         # Set clamped sections to their maximum non-nan values by setting alpha
         # to be just inside the cube associated with the maximum valid alpha.
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, alpha.shape)
             alpha = alpha.copy()
-            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            max_alpha = self._max_alpha(ai[clamped], Re[clamped])
             alpha[clamped] = np.minimum(
                 alpha[clamped],
                 max_alpha - self._alpha_step * 0.0001,
             )
-        return f((delta_d, alpha, Re))
+        return f((ai, alpha, Re))
 
-    def Cl(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cl, clamp, delta_d, alpha, Re)
+    def Cl(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cl, clamp, ai, alpha, Re)
 
-    def Cd(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cd, clamp, delta_d, alpha, Re)
+    def Cd(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cd, clamp, ai, alpha, Re)
 
-    def Cm(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cm, clamp, delta_d, alpha, Re)
+    def Cm(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cm, clamp, ai, alpha, Re)
 
-    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
-        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
-        out = self._Cl_alpha((delta_d, alpha, Re))
+    def Cl_alpha(self, ai, alpha, Re, clamp=False):
+        ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        out = self._Cl_alpha((ai, alpha, Re))
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, out.shape)
-            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            max_alpha = self._max_alpha(ai[clamped], Re[clamped])
             tmp = out[clamped]
             tmp[alpha[clamped] >= max_alpha] = 0
             out[clamped] = tmp
         return out
 
 
-class GridCoefficients2(AirfoilCoefficients):
+class GridCoefficients2(AirfoilCoefficientsInterpolator):
     """
     Loads a set of polars from a CSV file.
 
@@ -269,27 +278,29 @@ class GridCoefficients2(AirfoilCoefficients):
     All values must lie on a grid over `delta`, `alpha`, and `Re`. The points
     must be on a grid, and the spacing in each dimension must be uniform. If
     the grid has non-uniform spacing, use the GridCoefficients class.
+
+    FIXME: requires a valid `ai` column name
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, ai="delta_d"):
         names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
         data = np.genfromtxt(
             filename, skip_header=1, names=list(names), delimiter=",",
         )
-        data.sort(order=['delta_d', 'alpha', 'Re'])
+        data.sort(order=[ai, 'alpha', 'Re'])
 
         # All points must be present (even if `nan`)
-        self._delta_d = np.unique(data["delta_d"])
+        self._ai = np.unique(data[ai])
         self._alpha = np.deg2rad(np.unique(data["alpha"]))
         self._alpha_step = self._alpha[1] - self._alpha[0]
         self._Re = np.unique(data["Re"])
-        shape = (len(self._delta_d), len(self._alpha), len(self._Re))
+        shape = (len(self._ai), len(self._alpha), len(self._Re))
 
         kwargs = {
-            "a": (self._delta_d.min(), self._alpha.min(), self._Re.min()),
-            "b": (self._delta_d.max(), self._alpha.max(), self._Re.max()),
+            "a": (self._ai.min(), self._alpha.min(), self._Re.min()),
+            "b": (self._ai.max(), self._alpha.max(), self._Re.max()),
             "h": (
-                np.diff(self._delta_d)[0],
+                np.diff(self._ai)[0],
                 np.diff(self._alpha)[0],
                 np.diff(self._Re)[0],
             ),
@@ -303,67 +314,67 @@ class GridCoefficients2(AirfoilCoefficients):
         # Trilinear interpolation uses the values at all 8 corners of the
         # bounding cube. If any values are nan then interpolation in that cube
         # will be nan. Clamping to the highest valid alpha requires finding the
-        # cube containing the same delta_d and Re and the largest alpha.
-        ld = len(self._delta_d)
+        # cube containing the same ai and Re and the largest alpha.
+        lai = len(self._ai)
         lRe = len(self._Re)
         non_nan = ~np.isnan(data['Cl'].reshape(shape))
-        max_non_nan_indices = np.empty((ld, lRe), dtype=int)
-        subgrid = np.empty((ld - 1, lRe - 1), dtype=int)
-        for (D, R) in product(range(ld), range(lRe)):
+        max_non_nan_indices = np.empty((lai, lRe), dtype=int)
+        subgrid = np.empty((lai - 1, lRe - 1), dtype=int)
+        for (D, R) in product(range(lai), range(lRe)):
             max_non_nan_indices[D, R] = np.max(np.nonzero(non_nan[D, :, R]))
-        for (D, R) in product(range(ld - 1), range(lRe - 1)):
+        for (D, R) in product(range(lai - 1), range(lRe - 1)):
             subgrid[D, R] = np.min(max_non_nan_indices[D : D + 2, R : R + 2])
         self._max_alphas = self._alpha[subgrid]  # Upper-bound for each cube
 
-    def _max_alpha(self, delta_d, Re):
-        # These are not strictly correct since it clips delta_d and Re, but
-        # querying the coefficients using an out-of-bounds delta_d or Re will
+    def _max_alpha(self, ai, Re):
+        # These are not strictly correct since it clips ai and Re, but
+        # querying the coefficients using an out-of-bounds ai or Re will
         # produce nan anyway.
-        delta_d = delta_d.copy()
+        ai = ai.copy()
         Re = Re.copy()
-        delta_d[delta_d < self._delta_d[0]] = self._delta_d[0]
+        ai[ai < self._ai[0]] = self._ai[0]
         Re[Re < self._Re[0]] = self._Re[0]
-        ix_d = np.argmax(delta_d[:, None] < self._delta_d, axis=-1) - 1
+        ix_d = np.argmax(ai[:, None] < self._ai, axis=-1) - 1
         ix_Re = np.argmax(Re[:, None] < self._Re, axis=-1) - 1
         return self._max_alphas[ix_d, ix_Re]
 
-    def _query(self, f, clamp, delta_d, alpha, Re):
-        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
+    def _query(self, f, clamp, ai, alpha, Re):
+        ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
 
         # Set clamped sections to their maximum non-nan values by setting alpha
         # to be just inside the cube associated with the maximum valid alpha.
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, alpha.shape)
             alpha = alpha.copy()
-            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            max_alpha = self._max_alpha(ai[clamped], Re[clamped])
             alpha[clamped] = np.minimum(
                 alpha[clamped],
                 max_alpha - self._alpha_step * 0.0001,
             )
-        return f(delta_d, alpha, Re)
+        return f(ai, alpha, Re)
 
-    def Cl(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cl, clamp, delta_d, alpha, Re)
+    def Cl(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cl, clamp, ai, alpha, Re)
 
-    def Cd(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cd, clamp, delta_d, alpha, Re)
+    def Cd(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cd, clamp, ai, alpha, Re)
 
-    def Cm(self, delta_d, alpha, Re, clamp=False):
-        return self._query(self._Cm, clamp, delta_d, alpha, Re)
+    def Cm(self, ai, alpha, Re, clamp=False):
+        return self._query(self._Cm, clamp, ai, alpha, Re)
 
-    def Cl_alpha(self, delta_d, alpha, Re, clamp=False):
-        delta_d, alpha, Re = np.broadcast_arrays(delta_d, alpha, Re / 1e6)
-        out = self._Cl_alpha(delta_d, alpha, Re)
+    def Cl_alpha(self, ai, alpha, Re, clamp=False):
+        ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        out = self._Cl_alpha(ai, alpha, Re)
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, out.shape)
-            max_alpha = self._max_alpha(delta_d[clamped], Re[clamped])
+            max_alpha = self._max_alpha(ai[clamped], Re[clamped])
             tmp = out[clamped]
             tmp[alpha[clamped] >= max_alpha] = 0
             out[clamped] = tmp
         return out
 
 
-class XFLR5Coefficients(AirfoilCoefficients):
+class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
     """
     Loads a set of XFLR5 polars (.txt) from a directory.
 
@@ -377,8 +388,6 @@ class XFLR5Coefficients(AirfoilCoefficients):
 
     3. All polars will be included.
 
-    FIXME: uses the old `delta_f`; needs work.
-
     FIXME: doesn't support clamping
     """
     def __init__(self, dirname, flapped):
@@ -387,7 +396,7 @@ class XFLR5Coefficients(AirfoilCoefficients):
         self.polars = polars
 
         if flapped:
-            columns = ["delta", "alpha", "Re"]
+            columns = ["delta_d", "alpha", "Re"]
         else:
             columns = ["alpha", "Re"]
 
@@ -424,12 +433,12 @@ class XFLR5Coefficients(AirfoilCoefficients):
 
         polars = []
         for polar_file in polar_files:
-            Re = re.search("_Re(\d\.\d\d\d)_", polar_file.name).group(1)
+            Re = re.search(r"_Re(\d+\.\d+)_", polar_file.name).group(1)
             Re = float(Re)
             data = np.genfromtxt(polar_file, skip_header=11, names=names)
             data['alpha'] = np.deg2rad(data['alpha'])
 
-            # Smooth `CL` and compute a smoothed `CL_alpha` (improves convergence)
+            # Smoothed `Cl` and `Cl_alpha` improve convergence
             poly = np.polynomial.Polynomial.fit(data['alpha'], data['Cl'], 10)
             data['Cl'] = poly(data['alpha'])
             Cl_alphas = poly.deriv()(data['alpha'])
@@ -439,39 +448,43 @@ class XFLR5Coefficients(AirfoilCoefficients):
             data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
 
             if flapped:
-                deltastr = re.search("_delta(\d+\.\d+)_", polar_file.name)
-                deltas = np.deg2rad(float(deltastr.group(1)))
-                data = rfn.append_fields(data, "delta", np.full(data.shape[0], deltas))
+                deltastr = re.search(r"_deltad(\d+\.\d+)_", polar_file.name)
+                delta_d = np.deg2rad(float(deltastr.group(1)))
+                data = rfn.append_fields(
+                    data,
+                    "delta_d",
+                    np.full(data.shape[0], delta_d),
+                )
 
             polars.append(data)
 
         return np.concatenate(polars)
 
-    def Cl(self, delta_f, alpha, Re, clamped=None):
+    def Cl(self, ai, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cl(delta_f, alpha, Re)
+            return self._Cl(ai, alpha, Re)
         else:
             return self._Cl(alpha, Re)
 
-    def Cd(self, delta_f, alpha, Re, clamped=None):
+    def Cd(self, ai, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cd(delta_f, alpha, Re)
+            return self._Cd(ai, alpha, Re)
         else:
             return self._Cd(alpha, Re)
 
-    def Cm(self, delta_f, alpha, Re, clamped=None):
+    def Cm(self, ai, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cm(delta_f, alpha, Re)
+            return self._Cm(ai, alpha, Re)
         else:
             return self._Cm(alpha, Re)
 
-    def Cl_alpha(self, delta_f, alpha, Re, clamped=None):
+    def Cl_alpha(self, ai, alpha, Re, clamped=None):
         Re = Re / 1e6
         if self.flapped:
-            return self._Cl_alpha(delta_f, alpha, Re)
+            return self._Cl_alpha(ai, alpha, Re)
         else:
             return self._Cl_alpha(alpha, Re)
 
@@ -686,174 +699,6 @@ class AirfoilGeometry:
         thickness = PchipInterpolator(r, t, extrapolate=False)
 
         return cls(profile, camber, thickness, convention, theta, scale)
-
-    def _mass_properties(self, r_upper=0, r_lower=0, N=200):
-        """
-        Calculate the inertial properties for the curves and planar area.
-
-        These unitless magnitudes, centroids, and inertia matrices can be
-        scaled by the physical units of the target application in order to
-        calculate the upper and lower surface areas, internal volume, and
-        inertia matrix of a 3D wing.
-
-        This procedure treats the 2D geometry as perfectly flat 3D objects,
-        with a new `z` axis added according to the right-hand rule. See
-        "Notes" for more details.
-
-        Parameters
-        ----------
-        r_upper, r_lower : float
-            The starting coordinates of the upper and lower surfaces. Requires
-            that `-1 <= r_lower <= r_upper, 1`.
-        N : integer
-            The number of chordwise sample points. Used to create the vertical
-            strips for calculating the area, and for creating line segments of
-            the parametric curves for the upper and lower surfaces.
-
-        Returns
-        -------
-        dictionary
-            upper_length : float
-                The total length of the upper surface curve
-            upper_centroid : array of float, shape (2,)
-                The centroid of the upper surface curve as (x, y) in acs
-            upper_inertia : array of float, shape (3,3)
-                The inertia matrix of the upper surface curve
-            area : float
-                The area of the airfoil
-            area_centroid : array of float, shape (2,)
-                The centroid of the area as (x, y) in acs
-            area_inertia : array of float, shape (3,3)
-                The inertia matrix of the area
-            lower_length : float
-                The total length of the lower surface curve
-            lower_centroid : array of float, shape (2,)
-                The centroid of the lower surface curve as (x, y) in acs
-            lower_inertia : array of float, shape (3,3)
-                The inertia matrix of the lower surface curve
-
-            These are unitless quantities. The inertia matrices for each
-            component are for rotations about that components' centroid.
-
-        Notes
-        -----
-        In traditional airfoil definitions, the positive x-axis lies along the
-        chord, directed from the leading edge to the trailing edge, and the
-        positive y-axis points towards the upper surface.
-
-        Here, a z-axis that satisfies the right hand rule is added for the
-        purpose of creating a well-defined inertia matrix. Let this set of axes
-        be called the "airfoil coordinate system" (acs).
-
-        Translating these acs coordinates into the front-right-down (frd)
-        coordinate system requires reordering and reversing the direction of
-        vector components. To convert acs -> frd: [x, y, z] -> [-x, -z, -y]
-
-        In terms of code, to convert from acs to frd coordinates:
-
-        >>> C = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
-        >>> centroid_frd = C @ [*centroid_acs, 0]  # Augment with z_acs=0
-        >>> inertia_frd = C @ inertia_acs @ C
-        """
-        if r_lower < -1:
-            raise ValueError("Required: r_lower >= -1")
-        if r_lower > r_upper:
-            raise ValueError("Required: r_lower <= r_upper")
-        if r_upper > 1:
-            raise ValueError("Required: r_upper <= 1")
-
-        # -------------------------------------------------------------------
-        # 1. Area calculations
-
-        r = (1 - np.cos(np.linspace(0, np.pi, N))) / 2  # `0 <= r <= 1`
-        top = self.profile_curve(r).T  # Top half (above r = 0)
-        bottom = self.profile_curve(-r).T  # Bottom half (below r = 0)
-        Tx, Ty = top[0], top[1]
-        Bx, By = bottom[0], bottom[1]
-
-        area = simps(Ty, Tx) - simps(By, Bx)
-        xbar = (simps(Tx * Ty, Tx) - simps(Bx * By, Bx)) / area
-        ybar = (simps(Ty ** 2 / 2, Tx) + simps(By ** 2 / 2, Bx)) / area
-        area_centroid = np.array([xbar, ybar])
-
-        # Area moments of inertia about the origin
-        # FIXME: verify, especially `Ixy_o`. Check airfoils where some `By > 0`
-        Ixx_o = 1 / 3 * (simps(Ty ** 3, Tx) - simps(By ** 3, Bx))
-        Iyy_o = simps(Tx ** 2 * Ty, Tx) - simps(Bx ** 2 * By, Bx)
-        Ixy_o = 1 / 2 * (simps(Tx * Ty ** 2, Tx) - simps(Bx * By ** 2, Bx))
-
-        # Use the parallel axis theorem to find the inertias about the centroid
-        Ixx = Ixx_o - area * ybar ** 2
-        Iyy = Iyy_o - area * xbar ** 2
-        Ixy = Ixy_o - area * xbar * ybar
-        Izz = Ixx + Iyy  # Perpendicular axis theorem
-
-        # Inertia matrix for the area about the origin
-        area_inertia = np.array(
-            [[ Ixx, -Ixy,   0],
-             [-Ixy,  Iyy,   0],
-             [   0,    0, Izz]])
-
-        # -------------------------------------------------------------------
-        # 2. Surface line calculations
-
-        su = np.linspace(r_upper, 1, N)
-        sl = np.linspace(r_lower, -1, N)
-        upper = self.profile_curve(su).T
-        lower = self.profile_curve(sl).T
-
-        # Line segment lengths and midpoints
-        norm_U = np.linalg.norm(np.diff(upper), axis=0)  # Segment lengths
-        norm_L = np.linalg.norm(np.diff(lower), axis=0)
-        mid_U = (upper[:, :-1] + upper[:, 1:]) / 2  # Segment midpoints
-        mid_L = (lower[:, :-1] + lower[:, 1:]) / 2
-
-        # Total line lengths and centroids
-        upper_length = norm_U.sum()
-        lower_length = norm_L.sum()
-        upper_centroid = np.einsum("ij,j->i", mid_U, norm_U) / upper_length
-        lower_centroid = np.einsum("ij,j->i", mid_L, norm_L) / lower_length
-
-        # Surface line moments of inertia about their centroids
-        # FIXME: not proper line integrals: treats segments as point masses
-        cmUx, cmUy = upper_centroid
-        mid_Ux, mid_Uy = mid_U[0], mid_U[1]
-        Ixx_U = np.sum(mid_Uy ** 2 * norm_U) - upper_length * cmUy ** 2
-        Iyy_U = np.sum(mid_Ux ** 2 * norm_U) - upper_length * cmUx ** 2
-        Ixy_U = np.sum(mid_Ux * mid_Uy * norm_U) - upper_length * cmUx * cmUy
-        Izz_U = Ixx_U + Iyy_U
-
-        cmLx, cmLy = lower_centroid
-        mid_Lx, mid_Ly = mid_L[0], mid_L[1]
-        Ixx_L = np.sum(mid_Ly ** 2 * norm_L) - lower_length * cmLy ** 2
-        Iyy_L = np.sum(mid_Lx ** 2 * norm_L) - lower_length * cmLx ** 2
-        Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - lower_length * cmLx * cmLy
-        Izz_L = Ixx_L + Iyy_L
-
-        # Inertia matrices for the lines about the origin
-        upper_inertia = np.array(
-            [[ Ixx_U, -Ixy_U,     0],
-             [-Ixy_U,  Iyy_U,     0],
-             [     0,      0, Izz_U]])
-
-        lower_inertia = np.array(
-            [[ Ixx_L, -Ixy_L,     0],
-             [-Ixy_L,  Iyy_L,     0],
-             [     0,      0, Izz_L]])
-
-        properties = {
-            'upper_length': upper_length,
-            'upper_centroid': upper_centroid,
-            'upper_inertia': upper_inertia,
-            'area': area,
-            'area_centroid': area_centroid,
-            'area_inertia': area_inertia,
-            'lower_length': lower_length,
-            'lower_centroid': lower_centroid,
-            'lower_inertia': lower_inertia,
-        }
-
-        return properties
 
     def profile_curve(self, r):
         """
@@ -1225,3 +1070,86 @@ class NACA(AirfoilGeometry):
             else:
                 raise RuntimeError(f"Invalid convention '{self.convention}'")
         return curve
+
+
+class AirfoilGeometryInterpolator:
+    """Simple airfoil geometry interpolator."""
+
+    def __init__(self, airfoils: dict):
+        ai = np.array(list(airfoils))
+        ix = np.argsort(ai)
+        self.ai = ai[ix]  # Airfoil indices, such as normalized `delta_d`
+        self.airfoils = [airfoils[k] for k in ai]
+        self._ai_min = ai.min()
+        self._ai_max = ai.max()
+
+    @property
+    def index_bounds(self):
+        return (self._ai_min, self._ai_max)
+
+    def _neighbors(self, ai):
+        """Find the bounding indices and their distances."""
+        i0 = np.empty(np.shape(ai), dtype=int)
+        i1 = np.empty(np.shape(ai), dtype=int)
+        p0 = np.empty(np.shape(ai))
+        p1 = np.empty(np.shape(ai))
+        exact_match = np.isclose(ai[..., None], self.ai)
+        if np.any(exact_match):
+            matches = np.nonzero(exact_match)
+            i0[matches[:-1]] = self.ai[matches[-1]]
+            i1[matches[:-1]] = 0
+            p0[matches[:-1]] = 1
+            p1[matches[:-1]] = 0
+        others = np.nonzero(~np.any(exact_match, axis=-1))
+        i0[others] = np.argmax(~(ai[others][..., None] >= self.ai), axis=-1) - 1
+        i1[others] = np.argmax(ai[others][..., None] < self.ai, axis=-1)
+        delta = (self.ai[i1[others]] - self.ai[i0[others]])
+        p0[others] = (self.ai[i1[others]] - ai[others]) / delta
+        p1[others] = (ai[others] - self.ai[i0[others]]) / delta
+        return (i0, i1, p0, p1)
+
+    def _interpolate(self, func, ai, r):
+        """Interpolate `func(r)` between two indexed airfoils."""
+        if np.any(ai < self._ai_min) or np.any(ai > self._ai_max):
+            raise ValueError(f"Airfoil index {ai} is out of bounds")
+
+        ai, r = np.broadcast_arrays(ai, r)
+        i0, i1, p0, p1 = self._neighbors(ai)
+        if func in {"profile_curve", "camber_curve"}:
+            out = np.zeros((*np.shape(r), 2))
+        else:
+            out = np.zeros(np.shape(r))
+
+        # Function calls are expensive, so coalesce them across the groups.
+        # FIXME: could group both f0 and f1 calls, but good enough for now.
+        for i in range(len(self.ai)):
+            if func == "profile_curve":
+                f0 = self.airfoils[i].profile_curve
+                f1 = self.airfoils[i].profile_curve
+            elif func == "camber_curve":
+                f0 = self.airfoils[i].camber_curve
+                f1 = self.airfoils[i].camber_curve
+            elif func == "thickness":
+                f0 = self.airfoils[i].thickness
+                f1 = self.airfoils[i].thickness
+
+            _i0 = np.nonzero(i0 == i)
+            _i1 = np.nonzero(i1 == i)
+
+            if func in {"profile_curve", "camber_curve"}:
+                out[_i0] += p0[_i0][..., None] * f0(r[_i0])
+                out[_i1] += p1[_i1][..., None] * f1(r[_i1])
+            else:
+                out[_i0] += p0[_i0] * f0(r[_i0])
+                out[_i1] += p1[_i1] * f1(r[_i1])
+
+        return out
+
+    def profile_curve(self, ai, r):
+        return self._interpolate("profile_curve", ai, r)
+
+    def camber_curve(self, ai, r):
+        return self._interpolate("camber_curve", ai, r)
+
+    def thickness(self, ai, r):
+        return self._interpolate("thickness", ai, r)

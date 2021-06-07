@@ -29,7 +29,7 @@ def load_polar(polarname):
 
     Returns
     -------
-    gsim.airfoil.AirfoilCoefficients
+    gsim.airfoil.AirfoilCoefficientsInterpolator
     """
     # polarfile = Path(__file__).parent / "data" / polarname / "nonuniform_grid.csv"
     # polar = gsim.airfoil.GridCoefficients(polarfile)
@@ -86,14 +86,14 @@ def load_datfile_set(
     Load a set of airfoil `.dat` files using numpy.
 
     This is intended for use with a set of .dat files that represent a single
-    airfoil geometry with deflected trailing edges. The deflection angle must
-    be the last part of the filename.
+    airfoil geometry with deflected trailing edges. The vertical deflection
+    distance must be the last part of the filename.
 
     For example, the directory might contain:
 
-      naca23015_delta0.00.dat
-      naca23015_delta5.00.dat
-      naca23015_delta10.0.dat
+      naca23015_deltad0.00.dat
+      naca23015_deltad0.10.dat
+      naca23015_deltad0.20.dat
 
     Parameters
     ----------
@@ -128,8 +128,8 @@ def load_datfile_set(
         # Filenames are expected to follow `<basename>_delta<#######>.dat`.
         # The number of digits in `delta` is variable.
         datname = datfile.name
-        delta_start = datname.find("_delta")
-        delta = float(datname[delta_start + 6 : -4])
+        delta_start = datname.find("_deltad")
+        delta = float(datname[delta_start + 7 : -4])
         airfoil = load_datfile(
             datfile,
             convention=convention,
