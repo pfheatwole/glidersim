@@ -320,8 +320,3 @@ class FoilSections:
             The normalized section profile thicknesses.
         """
         return self.profiles.thickness(ai, r)
-
-    def _mass_properties(self):
-        """Pass-through to the airfoil `mass_properties` function."""
-        # FIXME: I hate this. Also, should be a function of `s`
-        return self.profiles._mass_properties()

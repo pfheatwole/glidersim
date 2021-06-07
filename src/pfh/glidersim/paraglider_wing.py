@@ -327,7 +327,7 @@ class ParagliderWing:
     def _compute_real_mass_properties(self):
         # Compute the canopy mass properties in canopy coordinates
         # cmp = self.canopy.mass_properties(N=5000)  # Assumes `delta_a = 0`
-        cmp = self.canopy.mass_properties2(N_s=101, N_r=101)
+        cmp = self.canopy.mass_properties(N_s=101, N_r=101)
 
         # Hack: the Ixy/Iyz terms are non-zero due to numerical issues. The
         # meshes should be symmetric about the xz-plane, but for now I'll just
