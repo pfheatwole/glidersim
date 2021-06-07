@@ -9,9 +9,7 @@ if __name__ == "__main__":
         package_dir={"": "src"},
         packages=find_namespace_packages(where="src"),
         include_package_data=True,
-        use_scm_version=True,
         python_requires="~=3.7",
-        setup_requires=["setuptools_scm"],
         install_requires=[
             "numpy >= 1.20.0",
             "scipy >= 1.6.0",

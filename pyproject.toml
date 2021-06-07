@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=51", "wheel", "setuptools_scm>=5"]
+requires = ["setuptools>=51", "wheel", "setuptools_scm[toml]>=6"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
@@ -9,3 +9,6 @@ line-length = 79
 line_length = 79
 lines_after_imports = 2
 profile = "black"
+
+[tool.setuptools_scm]
+write_to = "src/pfh/glidersim/_version.py"
