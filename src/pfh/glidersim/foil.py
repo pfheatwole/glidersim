@@ -153,24 +153,36 @@ class SimpleFoil:
         """
         return self._layout.orientation(s, flatten)
 
-    def section_thickness(self, s, r):
+    def section_thickness(self, s, ai, r):
         """
-        Compute section thicknesses at chordwise stations.
+        Compute section thicknesses.
 
         Note that the thickness is determined by the airfoil convention, so
         this value may be measured perpendicular to either the chord line or
-        to the camber line.
+        to the camber line. Be careful relying on these values.
+
+        FIXME: the airfoil thickness "convention" can dramatically affect this
+        value. For normalized and derotated airfoils with relatively mild
+        camber the convention does not dramatically affect the thickness, but
+        for airfoils with deflected trailing edges it can vary quite a lot.
+        For now, the `ai` parameter is included to establish the API, but is
+        constrained to zero-indexed profiles (which assumes the `ai=0` airfoil
+        is normalized and derotated). Section thickness is in serious need of a
+        design review.
 
         Parameters
         ----------
         s : array_like of float
             Section index.
+        ai
+            Airfoil index. Must be zero. (See FIXME above.)
         r : float
-            Position on the chords as a percentage, where `r = 0` is the
-            leading edge, and `r = 1` is the trailing edge.
+            Position along the chord or camber line as a percentage, where `r =
+            0` is the leading edge, and `r = 1` is the trailing edge.
         """
-        # FIXME: does `r` specify stations along the chord or the camber?
-        return self.sections.thickness(s, 0, r) * self.chord_length(s)
+        if np.any(ai != 0):
+            raise ValueError("Airfoil indices must be zero. See docstring.")
+        return self.sections.thickness(s, ai, r) * self.chord_length(s)
 
     def surface_xyz(self, s, ai, r, surface, flatten=False):
         """

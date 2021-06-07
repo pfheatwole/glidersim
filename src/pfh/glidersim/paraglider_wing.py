@@ -459,8 +459,9 @@ class ParagliderWing:
         #        different thicknesses for the different dimensions?
         t = np.mean(
             self.canopy.section_thickness(
-                np.linspace(0.0, 0.5, 25),  # Central 50% of the canopy
-                np.linspace(0.1, 0.5, 25),  # Thickest parts of each airfoil
+                s=np.linspace(0.0, 0.5, 25),  # Central 50% of the canopy
+                ai=0,
+                r=np.linspace(0.1, 0.5, 25),  # Thickest parts of each airfoil
             ),
         )
 
