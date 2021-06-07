@@ -388,8 +388,6 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
     3. All polars will be included.
 
-    FIXME: uses the old `delta_f`; needs work.
-
     FIXME: doesn't support clamping
     """
     def __init__(self, dirname, flapped):
@@ -398,7 +396,7 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
         self.polars = polars
 
         if flapped:
-            columns = ["delta", "alpha", "Re"]
+            columns = ["delta_d", "alpha", "Re"]
         else:
             columns = ["alpha", "Re"]
 
@@ -435,12 +433,12 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
         polars = []
         for polar_file in polar_files:
-            Re = re.search("_Re(\d\.\d\d\d)_", polar_file.name).group(1)
+            Re = re.search(r"_Re(\d+\.\d+)_", polar_file.name).group(1)
             Re = float(Re)
             data = np.genfromtxt(polar_file, skip_header=11, names=names)
             data['alpha'] = np.deg2rad(data['alpha'])
 
-            # Smooth `CL` and compute a smoothed `CL_alpha` (improves convergence)
+            # Smoothed `Cl` and `Cl_alpha` improve convergence
             poly = np.polynomial.Polynomial.fit(data['alpha'], data['Cl'], 10)
             data['Cl'] = poly(data['alpha'])
             Cl_alphas = poly.deriv()(data['alpha'])
@@ -450,9 +448,13 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
             data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
 
             if flapped:
-                deltastr = re.search("_delta(\d+\.\d+)_", polar_file.name)
-                deltas = np.deg2rad(float(deltastr.group(1)))
-                data = rfn.append_fields(data, "delta", np.full(data.shape[0], deltas))
+                deltastr = re.search(r"_deltad(\d+\.\d+)_", polar_file.name)
+                delta_d = np.deg2rad(float(deltastr.group(1)))
+                data = rfn.append_fields(
+                    data,
+                    "delta_d",
+                    np.full(data.shape[0], delta_d),
+                )
 
             polars.append(data)
 
