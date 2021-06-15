@@ -440,7 +440,7 @@ pfh.glidersim.extras.plots.plot_foil(foil)
 
 if __name__ == "__main__":
     outfile = '/home/peter/animated.mp4'
-    outfile = None  # Disable movie output (use a live plot)
+    outfile = ''  # Disable movie output (use a live plot)
 
     # Use high quality output for movies
     dpi = 200 if outfile else 150
