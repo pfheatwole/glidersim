@@ -1,10 +1,21 @@
 """FIXME: add module docstring"""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING, TextIO
 
 import numpy as np
 
 import pfh.glidersim as gsim
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.airfoil import (
+        AirfoilCoefficientsInterpolator,
+        AirfoilGeometry,
+        AirfoilGeometryInterpolator,
+    )
 
 
 __all__ = [
@@ -18,7 +29,7 @@ def __dir__():
     return __all__
 
 
-def load_polar(polarname):
+def load_polar(polarname: str) -> AirfoilCoefficientsInterpolator:
     """
     Load a gridded section polar from a bundled directory.
 
@@ -39,15 +50,19 @@ def load_polar(polarname):
 
 
 def load_datfile(
-    path, convention="perpendicular", center=False, derotate=False, normalize=False
-):
+    file: str | Path | TextIO,
+    convention: str = "perpendicular",
+    center: bool = False,
+    derotate: bool = False,
+    normalize: bool = False,
+) -> AirfoilGeometry:
     """
     Build an AirfoilGeometry from a `.dat` file using numpy.
 
     Parameters
     ----------
-    path : string
-        The filename.
+    file : string, Path, or file
+        The datfile with lines of airfoil ordinates.
     convention : {"perpendicular", "vertical"}, optional
         Whether the airfoil thickness is measured perpendicular to the mean
         camber line or vertically (the y-axis distance). Default: perpendicular
@@ -63,7 +78,7 @@ def load_datfile(
     gsim.airfoil.AirfoilGeometry
         The instantiated AirfoilGeometry object.
     """
-    points = np.loadtxt(path, skiprows=1)
+    points = np.loadtxt(file, skiprows=1)
     airfoil = gsim.airfoil.AirfoilGeometry.from_points(
         points,
         convention=convention,
@@ -75,13 +90,13 @@ def load_datfile(
 
 
 def load_datfile_set(
-    directory,
-    bundled=True,
-    convention="perpendicular",
-    center=False,
-    derotate=False,
-    normalize=False,
-):
+    directory: str,
+    bundled: bool = True,
+    convention: str = "perpendicular",
+    center: bool = False,
+    derotate: bool = False,
+    normalize: bool = False,
+) -> dict[float, AirfoilGeometry]:
     """
     Load a set of airfoil `.dat` files using numpy.
 
@@ -137,6 +152,6 @@ def load_datfile_set(
             derotate=derotate,
             normalize=normalize,
         )
-        airfoils[delta] = {"name": datname, "airfoil": airfoil}
+        airfoils[delta] = airfoil
 
     return airfoils

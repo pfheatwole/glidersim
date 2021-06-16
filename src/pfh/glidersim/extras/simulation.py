@@ -1,5 +1,9 @@
 """A collection of useful functions when working with glider simulations."""
 
+from __future__ import annotations
+
+from typing import Callable, cast
+
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -56,8 +60,8 @@ def sample_paraglider_positions(
     model,
     states,
     times,
-    samplerate=0.5,
-    include_times=False,
+    samplerate: float = 0.5,
+    include_times: bool = False,
 ):
     """
     Sample reference points on the risers, wing, and payload for plotting.
@@ -136,7 +140,7 @@ def sample_paraglider_positions(
     return points
 
 
-def linear_control(pairs):
+def linear_control(pairs: list[tuple[float, float | None]]) -> Callable:
     """
     Helper function to build linear interpolators for control inputs.
 
@@ -163,8 +167,13 @@ def linear_control(pairs):
     for n, v in enumerate(values):  # Use `None` for "hold previous value"
         values[n] = v if v is not None else values[n - 1]
     times = np.cumsum(durations)
-    c = interp1d(times, values, fill_value=(values[0], values[-1]), bounds_error=False)
-    return c
+    c = interp1d(
+        times,
+        values,
+        fill_value=(values[0], values[-1]),
+        bounds_error=False,
+    )
+    return cast(Callable, c)
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +196,14 @@ class CircularThermal:
         The time the output magnitudes switches from zero to `mag.`
     """
 
-    def __init__(self, px, py, mag, radius5, t_enable=0):
+    def __init__(
+        self,
+        px: float,
+        py: float,
+        mag: float,
+        radius5: float,
+        t_enable: float = 0,
+    ) -> None:
         self.c = np.array([px, py])
         self.mag = mag
         self.R = -(radius5 ** 2) / np.log(0.05)
@@ -223,7 +239,13 @@ class HorizontalShear:
         The time the output magnitudes switches from zero to `mag.`
     """
 
-    def __init__(self, t_enable, x_start, mag, smooth):
+    def __init__(
+        self,
+        x_start: float,
+        mag: float,
+        smooth: float,
+        t_enable: float = 0,
+    ) -> None:
         self.t_enable = t_enable
         self.x_start = x_start
         self.mag = mag
@@ -256,7 +278,13 @@ class LateralGust:
         The peak gust magnitude.
     """
 
-    def __init__(self, t_start, t_ramp, t_duration, mag):
+    def __init__(
+        self,
+        t_start: float,
+        t_ramp: float,
+        t_duration: float,
+        mag: float,
+    ) -> None:
         t0 = 0
         t1 = t_start  # Start the ramp-up
         t2 = t1 + t_ramp  # Start the hold
