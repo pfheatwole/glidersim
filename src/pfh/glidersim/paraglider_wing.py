@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "LineGeometry",
     "SimpleLineGeometry",
     "ParagliderWing",
 ]
@@ -26,7 +28,64 @@ def __dir__():
     return __all__
 
 
-class SimpleLineGeometry:
+class LineGeometry(abc.ABC):
+    """Abstract base class to define the LineGeometry interface."""
+
+    @abc.abstractmethod
+    def r_RM2LE(self, delta_a=0):
+        """
+        Compute the position of the riser midpoint `RM` in body frd.
+
+        Parameters
+        ----------
+        delta_a : array_like of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application. Default: 0
+
+        Returns
+        -------
+        r_RM2LE : array of float, shape (N,3) [unitless]
+            The riser midpoint `RM` with respect to the canopy origin.
+        """
+
+    @abc.abstractmethod
+    def control_points(self):
+        """
+        Compute the control points for the line geometry dynamics.
+
+        Returns
+        -------
+        r_CP2LE : float, shape (K,3) [m]
+            Control points relative to the central leading edge `LE`.
+            Coordinates are in canopy frd, and `K` is the number of points
+            being used to distribute the surface area of the lines.
+        """
+
+    @abc.abstractmethod
+    def delta_d(self, s, delta_bl, delta_br):
+        """
+        Compute the trailing edge deflection distance due to brake inputs.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index, where `-1 <= s <= 1`
+        delta_bl : array_like of float [percentage]
+            Left brake application as a fraction of maximum braking
+        delta_br : array_like of float [percentage]
+            Right brake application as a fraction of maximum braking
+
+        Returns
+        -------
+        delta_d : float [m]
+            The deflection distance of the trailing edge.
+        """
+
+    @abc.abstractmethod
+    def aerodynamics(self, v_W2b, rho_air: float):
+        """FIXME: docstring."""
+
+
+class SimpleLineGeometry(LineGeometry):
     """
     FIXME: document the design.
 
@@ -160,19 +219,6 @@ class SimpleLineGeometry:
         self._K3 = self._K1
 
     def r_RM2LE(self, delta_a=0):
-        """
-        Compute the position of the riser midpoint `RM` in body frd.
-
-        Parameters
-        ----------
-        delta_a : array_like of float, shape (N,) [percentage] (optional)
-            Fraction of maximum accelerator application. Default: 0
-
-        Returns
-        -------
-        r_RM2LE : array of float, shape (N,3) [unitless]
-            The riser midpoint `RM` with respect to the canopy origin.
-        """
         # The accelerator shortens the A lines, while C remains fixed
         delta_a = np.asarray(delta_a)
         RM_x = (
@@ -187,36 +233,9 @@ class SimpleLineGeometry:
         return r_RM2LE
 
     def control_points(self):
-        """
-        Compute the control points for the line geometry dynamics.
-
-        Returns
-        -------
-        r_CP2LE : float, shape (K,3) [m]
-            Control points relative to the central leading edge `LE`.
-            Coordinates are in canopy frd, and `K` is the number of points
-            being used to distribute the surface area of the lines.
-        """
         return self._r_L2LE
 
     def delta_d(self, s, delta_bl, delta_br):
-        """
-        Compute the trailing edge deflection distance due to brake inputs.
-
-        Parameters
-        ----------
-        s : array_like of float
-            Section index, where `-1 <= s <= 1`
-        delta_bl : array_like of float [percentage]
-            Left brake application as a fraction of maximum braking
-        delta_br : array_like of float [percentage]
-            Right brake application as a fraction of maximum braking
-
-        Returns
-        -------
-        delta_d : float [m]
-            The deflection distance of the trailing edge.
-        """
         def _interp(A, B, d):
             # Interpolate from A to B as function of 0 <= d <= 1
             return A + (B - A) * d
@@ -320,7 +339,7 @@ class ParagliderWing:
 
     def __init__(
         self,
-        lines: SimpleLineGeometry,
+        lines: LineGeometry,
         canopy: SimpleFoil,
         rho_upper: float = 0,
         rho_lower: float = 0,
