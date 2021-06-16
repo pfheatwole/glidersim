@@ -1,11 +1,19 @@
 """FIXME: add module docstring."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.integrate
 import scipy.optimize
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3, crossmat
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.paraglider_wing import ParagliderWing
 
 
 __all__ = [
@@ -40,12 +48,18 @@ class Paraglider6a:
         Whether to estimate the effects of apparent inertia. Default: True
     """
 
-    def __init__(self, wing, payload, *, use_apparent_mass=True):
+    def __init__(
+        self,
+        wing: ParagliderWing,
+        payload,
+        *,
+        use_apparent_mass: bool = True,
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, delta_a=0, delta_w=0):
+    def control_points(self, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -76,14 +90,14 @@ class Paraglider6a:
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -303,13 +317,13 @@ class Paraglider6a:
 
     def equilibrium_state(
         self,
-        delta_a=0,
-        delta_b=0,
-        rho_air=1.225,
-        alpha_0=None,
-        theta_0=0,
-        v_0=10,
-        reference_solution=None,
+        delta_a: float = 0,
+        delta_b: float = 0,
+        rho_air: float = 1.225,
+        alpha_0: float = None,
+        theta_0: float = 0,
+        v_0: float = 10,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the equilibrium glider state for given inputs.
@@ -422,7 +436,7 @@ class Paraglider6b(Paraglider6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing: ParagliderWing, payload) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -431,11 +445,11 @@ class Paraglider6b(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -650,7 +664,7 @@ class Paraglider6c(Paraglider6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing: ParagliderWing, payload) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -659,14 +673,14 @@ class Paraglider6c(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -877,20 +891,20 @@ class Paraglider9a:
 
     def __init__(
         self,
-        wing,
+        wing: ParagliderWing,
         payload,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
         *,
-        use_apparent_mass=True,
-    ):
+        use_apparent_mass: bool = True,
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self._kappa_RM = np.asarray(kappa_RM[:])
         self._kappa_RM_dot = np.asarray(kappa_RM_dot[:])
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, Theta_p2b, delta_a=0, delta_w=0):
+    def control_points(self, Theta_p2b, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -926,14 +940,14 @@ class Paraglider9a:
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -1205,12 +1219,12 @@ class Paraglider9a:
 
     def equilibrium_state(
         self,
-        delta_a=0,
-        delta_b=0,
-        rho_air=1.225,
-        alpha_0=None,
-        theta_0=0,
-        v_0=10,
+        delta_a: float = 0,
+        delta_b: float = 0,
+        rho_air: float = 1.225,
+        alpha_0: float | None = None,
+        theta_0: float = 0,
+        v_0: float = 10,
         reference_solution=None,
     ):
         """
@@ -1339,7 +1353,13 @@ class Paraglider9b(Paraglider9a):
         Spring-damper coefficients for the derivative of Theta_p2b
     """
 
-    def __init__(self, wing, payload, kappa_RM=(0, 0, 0), kappa_RM_dot=(0, 0, 0)):
+    def __init__(
+        self,
+        wing: ParagliderWing,
+        payload,
+        kappa_RM=(0, 0, 0),
+        kappa_RM_dot=(0, 0, 0),
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self._kappa_RM = np.asarray(kappa_RM[:])
@@ -1352,14 +1372,14 @@ class Paraglider9b(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -1615,14 +1635,14 @@ class Paraglider9c(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.

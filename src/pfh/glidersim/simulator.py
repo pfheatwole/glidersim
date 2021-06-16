@@ -1,12 +1,20 @@
 """FIXME: add module docstring."""
 
+from __future__ import annotations
+
+import abc
 import time
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import scipy.integrate
 
 from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.paraglider import Paraglider6a, Paraglider9a
 
 
 __all__ = [
@@ -26,7 +34,19 @@ def __dir__():
 # Dynamics Models
 
 
-class ParagliderModel6a:
+class DynamicsModel(abc.ABC):
+    state_dtype: Any  # FIXME: declare properly and use it for type hinting
+
+    @abc.abstractmethod
+    def cleanup(self, state, t):
+        """Any work necessary at the end of each timestep."""
+
+    @abc.abstractmethod
+    def derivatives(self, t: float, state, params):
+        """The state derivatives."""
+
+
+class ParagliderModel6a(DynamicsModel):
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
     state_dtype = [
@@ -38,12 +58,12 @@ class ParagliderModel6a:
 
     def __init__(
         self,
-        paraglider,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        paraglider: Paraglider6a,
+        delta_a: float | Callable = 0,
+        delta_bl: float | Callable = 0,
+        delta_br: float | Callable = 0,
+        delta_w: float | Callable = 0,
+        rho_air: float | Callable = 1.225,
         v_W2e=(0, 0, 0),
     ):
         self.paraglider = paraglider
@@ -193,7 +213,7 @@ class ParagliderModel6a:
         return state
 
 
-class ParagliderModel9a:
+class ParagliderModel9a(DynamicsModel):
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
     state_dtype = [
@@ -207,12 +227,12 @@ class ParagliderModel9a:
 
     def __init__(
         self,
-        paraglider,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        paraglider: Paraglider9a,
+        delta_a: float | Callable = 0,
+        delta_bl: float | Callable = 0,
+        delta_br: float | Callable = 0,
+        delta_w: float | Callable = 0,
+        rho_air: float | Callable = 1.225,
         v_W2e=(0, 0, 0),
     ):
         self.paraglider = paraglider
@@ -387,7 +407,15 @@ class ParagliderModel9a:
 # Simulator
 
 
-def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
+def simulate(
+    model: DynamicsModel,
+    state0,
+    T: float = 10,
+    T0: float = 0,
+    dt: float = 0.5,
+    first_step: float = 0.25,
+    max_step: float = 0.5,
+):
     """
     Generate a state trajectory using the model's state derivatives.
 
@@ -468,7 +496,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     return times, states
 
 
-def recompute_derivatives(model, times, states):
+def recompute_derivatives(model: DynamicsModel, times, states):
     """
     Re-run the dynamics to access the state derivatives (accelerations).
 
@@ -502,9 +530,9 @@ def recompute_derivatives(model, times, states):
     return derivatives
 
 
-def prettyprint_state(state, header=None, footer=None):
+def prettyprint_state(state, header: str = None, footer: str = None) -> None:
     """
-    Pretty-print the `state_dtype` for `ParagliderModel6a` and `ParagliderModel9a`.
+    Pretty-print a state for a `ParagliderModel6a` or `ParagliderModel9a`.
 
     Parameters
     ----------
