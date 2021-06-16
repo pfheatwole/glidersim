@@ -9,10 +9,13 @@ Coefficient models are for evaluating the section coefficients for lift, drag,
 and pitching moment.
 """
 
+from __future__ import annotations
+
 import abc
 import pathlib
 import re
 from itertools import product
+from typing import Any, Callable, TextIO
 
 import numpy as np
 import scipy.optimize
@@ -164,10 +167,14 @@ class GridCoefficients(AirfoilCoefficientsInterpolator):
     FIXME: requires a valid `ai` column name
     """
 
-    def __init__(self, filename, ai="delta_d"):
-        names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
+    def __init__(
+        self,
+        file: str | pathlib.Path | TextIO,
+        ai: str = "delta_d",
+    ) -> None:
+        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=',')
         data = np.genfromtxt(
-            filename, skip_header=1, names=list(names), delimiter=",",
+            file, skip_header=1, names=list(names), delimiter=",",
         )
         data.sort(order=[ai, "alpha", "Re"])
 
@@ -282,10 +289,14 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
     FIXME: requires a valid `ai` column name
     """
 
-    def __init__(self, filename, ai="delta_d"):
-        names = np.loadtxt(filename, max_rows=1, dtype=str, delimiter=',')
+    def __init__(
+        self,
+        file: str | pathlib.Path | TextIO,
+        ai: str = "delta_d",
+    ) -> None:
+        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=',')
         data = np.genfromtxt(
-            filename, skip_header=1, names=list(names), delimiter=",",
+            file, skip_header=1, names=list(names), delimiter=",",
         )
         data.sort(order=[ai, 'alpha', 'Re'])
 
@@ -390,7 +401,7 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
     FIXME: doesn't support clamping
     """
-    def __init__(self, dirname, flapped):
+    def __init__(self, dirname: str, flapped: bool) -> None:
         self.flapped = flapped
         polars = self._load_xflr5_polar_set(dirname, flapped)
         self.polars = polars
@@ -407,7 +418,7 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
         self._Cl_alpha = LinearNDInterpolator(points, polars["Cl_alpha"])
 
     @staticmethod
-    def _load_xflr5_polar_set(dirname, flapped):
+    def _load_xflr5_polar_set(dirname: str, flapped: bool):
         d = pathlib.Path(dirname)
 
         if not (d.exists() and d.is_dir()):
@@ -433,8 +444,10 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
         polars = []
         for polar_file in polar_files:
-            Re = re.search(r"_Re(\d+\.\d+)_", polar_file.name).group(1)
-            Re = float(Re)
+            if (match := re.search(r"_Re(\d+\.\d+)_", polar_file.name)):
+                Re = float(match.group(1))
+            else:
+                raise ValueError(f"Invalid filename {polar_file}; needs `Re`")
             data = np.genfromtxt(polar_file, skip_header=11, names=names)
             data['alpha'] = np.deg2rad(data['alpha'])
 
@@ -448,8 +461,13 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
             data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
 
             if flapped:
-                deltastr = re.search(r"_deltad(\d+\.\d+)_", polar_file.name)
-                delta_d = np.deg2rad(float(deltastr.group(1)))
+                if (match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name)):
+                    delta_d = np.deg2rad(float(match.group(1)))
+                else:
+                    raise ValueError(
+                        f"Invalid filename {polar_file}; needs `deltad`",
+                    )
+
                 data = rfn.append_fields(
                     data,
                     "delta_d",
@@ -492,7 +510,7 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 # ---------------------------------------------------------------------------
 
 
-def find_leading_edge(curve, definition):
+def find_leading_edge(curve, definition: str):
     """
     Find the parametric coordinate defining the leading edge of an airfoil.
 
@@ -534,7 +552,7 @@ def find_leading_edge(curve, definition):
         raise ValueError(f"`definition` must be one of `{definitions}`")
 
     # For all methods, assume the LE is between 40-60% of the total length
-    bracket = [0.4 * curve.x[-1], 0.6 * curve.x[-1]]
+    bracket = (0.4 * curve.x[-1], 0.6 * curve.x[-1])
 
     if definition == "smallest-radius":
         # The second derivative of a PchipInterpolator is very noisy, so it's a
@@ -568,16 +586,18 @@ class AirfoilGeometry:
 
     Parameters
     ----------
-    profile_curve : PchipInterpolator
+    profile_curve : callable
         Profile xy-coordinates as a curve parametrized by the normalized
         arc-length `-1 <= r <= 1`, where `r = 0` is the leading edge, `r = 1`
         is the tip of the upper surface, and `r = -1` is the tip of the lower
         surface. Midpoints by length of the upper and lower surface curves are
         given by `r = 0.5` and `r = -0.5`.
-    camber_curve : PchipInterpolator
+    camber_curve : callable
         Mean camber curve xy-coordinates as a function of normalized arc-length
         `0 <= r <= 1`, where `r = 0` is the leading edge, `r = 1` is
         the trailing edge, and `r = 0.5` is the midpoint by length.
+    thickness : callable
+        Airfoil thickness as a function of `r`.
     convention : {"perpendicular", "vertical"}
         Whether the airfoil thickness is measured perpendicular to the mean
         camber line or vertically (perpendicular to the chord).
@@ -592,8 +612,14 @@ class AirfoilGeometry:
     """
 
     def __init__(
-        self, profile_curve, camber_curve, thickness, convention, theta=0, scale=1,
-    ):
+        self,
+        profile_curve: Callable[[float], Any],
+        camber_curve: Callable[[float], Any],
+        thickness: Callable[[float], Any],
+        convention: str,
+        theta: float = 0,
+        scale: float = 1,
+    ) -> None:
         self._profile_curve = profile_curve
         self._camber_curve = camber_curve
         self._thickness = thickness
@@ -603,8 +629,13 @@ class AirfoilGeometry:
 
     @classmethod
     def from_points(
-        cls, points, convention, center=False, derotate=False, normalize=False,
-    ):
+        cls,
+        points,
+        convention: str,
+        center: bool = False,
+        derotate: bool = False,
+        normalize: bool = False,
+    ) -> AirfoilGeometry:
         """
         Construct an AirfoilGeometry from a set of airfoil xy-coordinates.
 
@@ -790,46 +821,53 @@ class AirfoilGeometry:
 
 
 class NACA(AirfoilGeometry):
-    def __init__(self, code, *, open_TE=False, convention="perpendicular", N_points=300):
-        """
-        Generate an airfoil using a NACA4 or NACA5 parameterization.
+    """
+    Generate an airfoil using a NACA4 or NACA5 parameterization.
 
-        Parameters
-        ----------
-        code : integer or string
-            A 4- or 5-digit NACA code. If the code is an integer less than
-            1000, leading zeros are implicitly added; for example, 12 becomes
-            the NACA4 code 0012.
+    Parameters
+    ----------
+    code : integer or string
+        A 4- or 5-digit NACA code. If the code is an integer less than
+        1000, leading zeros are implicitly added; for example, 12 becomes
+        the NACA4 code 0012.
 
-            Only a subset of NACA5 codes are supported. A NACA5 code can be
-            expressed as LPSTT; valid codes for this implementation are
-            restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
-        open_TE : bool, optional
-            Generate airfoils with an open trailing edge. Default: False.
-        convention : {"perpendicular", "vertical"}, optional
-            The convention to use for defining the airfoil thickness.
-            Default: "perpendicular".
+        Only a subset of NACA5 codes are supported. A NACA5 code can be
+        expressed as LPSTT; valid codes for this implementation are
+        restricted to ``L = 2``, ``1 <= P <= 5``, and ``S = 0``.
+    open_TE : bool, optional
+        Generate airfoils with an open trailing edge. Default: False.
+    convention : {"perpendicular", "vertical"}, optional
+        The convention to use for defining the airfoil thickness.
+        Default: "perpendicular".
 
-            The "perpendicular" convention (sometimes called the "American"
-            convention) measures airfoil thickness perpendicular to the mean
-            camber line. The "vertical" convention (sometimes called the
-            "British" convention) measures airfoil thickness in vertical strips
-            (the y-axis distance between points on the upper and lower
-            surfaces).
+        The "perpendicular" convention (sometimes called the "American"
+        convention) measures airfoil thickness perpendicular to the mean
+        camber line. The "vertical" convention (sometimes called the
+        "British" convention) measures airfoil thickness in vertical strips
+        (the y-axis distance between points on the upper and lower
+        surfaces).
 
-            The "American" convention is used here since it was the original
-            definition (see [0]_), but the "British" convention is available
-            in case the output needs to match the popular tool "XFOIL".
-        N_points : integer
-            The number of sample points from each surface. Default: 300
+        The "American" convention is used here since it was the original
+        definition (see [0]_), but the "British" convention is available
+        in case the output needs to match the popular tool "XFOIL".
+    N_points : integer
+        The number of sample points from each surface. Default: 300
 
-        References
-        ----------
+    References
+    ----------
+    .. [0] Jacobs, Eastman N., Ward, Kenneth E., Pinkerton, Robert M. "The
+       characteristics of 78 related airfoil sections from tests in the
+       variable-density wind tunnel". NACA Technical Report 460. 1933.
+    """
 
-        .. [0] Jacobs, Eastman N., Ward, Kenneth E., Pinkerton, Robert M. "The
-           characteristics of 78 related airfoil sections from tests in the
-           variable-density wind tunnel". NACA Technical Report 460. 1933.
-        """
+    def __init__(
+        self,
+        code: int | str,
+        *,
+        open_TE: bool = False,
+        convention: str = "perpendicular",
+        N_points: int = 300,
+    ) -> None:
         if not isinstance(code, int):
             try:
                 code = int(code)
@@ -1075,7 +1113,7 @@ class NACA(AirfoilGeometry):
 class AirfoilGeometryInterpolator:
     """Simple airfoil geometry interpolator."""
 
-    def __init__(self, airfoils: dict):
+    def __init__(self, airfoils: dict[float, AirfoilGeometry]) -> None:
         ai = np.array(list(airfoils))
         ix = np.argsort(ai)
         self.ai = ai[ix]  # Airfoil indices, such as normalized `delta_d`
@@ -1084,7 +1122,7 @@ class AirfoilGeometryInterpolator:
         self._ai_max = ai.max()
 
     @property
-    def index_bounds(self):
+    def index_bounds(self) -> tuple[float, float]:
         return (self._ai_min, self._ai_max)
 
     def _neighbors(self, ai):
