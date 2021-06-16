@@ -1,6 +1,18 @@
 """FIXME: add docstring."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable
+
 import numpy as np
+import numpy.typing as npt
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.airfoil import (
+        AirfoilCoefficientsInterpolator,
+        AirfoilGeometryInterpolator,
+    )
 
 
 __all__ = [
@@ -38,7 +50,7 @@ class SimpleIntakes:
         follow `-1 <= r_lower <= r_upper <= 1`.
     """
 
-    def __init__(self, s_end, r_upper, r_lower):
+    def __init__(self, s_end: float, r_upper: float, r_lower: float) -> None:
         # FIXME: support more types of definition:
         #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
         #  2. midpoint (in airfoil coordinates) and width
@@ -48,7 +60,7 @@ class SimpleIntakes:
         self.r_upper = r_upper
         self.r_lower = r_lower
 
-    def __call__(self, s, r, surface):
+    def __call__(self, s, r, surface: str):
         """
         Convert parafoil surface coordinates into airfoil coordinates.
 
@@ -112,15 +124,15 @@ class FoilSections:
 
     def __init__(
         self,
-        profiles,
-        coefficients=None,
-        intakes=None,
-    ):
+        profiles: AirfoilGeometryInterpolator,
+        coefficients: AirfoilCoefficientsInterpolator = None,
+        intakes: Callable | None = None,
+    ) -> None:
         self.profiles = profiles
         self.coefficients = coefficients
         self.intakes = intakes if intakes else self._no_intakes
 
-    def _no_intakes(self, s, r, surface):
+    def _no_intakes(self, s, r, surface: str):
         # For foils with no air intakes the canopy upper and lower surfaces map
         # directly to the airfoil upper and lower surfaces, which were defined
         # by the airfoil leading edge.
@@ -128,7 +140,7 @@ class FoilSections:
             r = -r
         return np.broadcast_arrays(s, r)[1]
 
-    def surface_xz(self, s, ai, r, surface):
+    def surface_xz(self, s, ai, r, surface: str):
         """
         Compute unscaled surface coordinates along section profiles.
 
@@ -172,7 +184,7 @@ class FoilSections:
             raise ValueError("Surface coordinates must be between 0 and 1.")
 
         if surface in {"upper", "lower"}:
-            r = self.intakes(s, r, surface)
+            r = self.intakes(s, r, surface)  # type: ignore [operator]
             r_P2LE = self.profiles.profile_curve(ai, r)
         else:
             r = np.broadcast_arrays(s, r)[1]

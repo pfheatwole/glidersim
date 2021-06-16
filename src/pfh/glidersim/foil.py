@@ -1,9 +1,19 @@
 """FIXME: add docstring."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Type
+
 import numpy as np
 from scipy.spatial import Delaunay
 
-from pfh.glidersim.util import cross3
+from .util import cross3
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
+    from pfh.glidersim.foil_layout import FoilLayout
+    from pfh.glidersim.foil_sections import FoilSections
 
 
 __all__ = [
@@ -23,34 +33,31 @@ class SimpleFoil:
     profiles. Such an idealized shape is only possible for rigid foils that can
     enforce absolute geometry, unlike flexible foils, which can only attempt to
     create the target shape through internal structure.
+
+    Parameters
+    ----------
+    layout : FoilLayout
+        FIXME: docstring
+    sections : FoilSections
+        The geometry and coefficients for the section profiles.
+    b, b_flat : float
+        The arched and flattened spans of the chords. Specify only one. These
+        function as scaling factors for the FoilLayout.
+    aerodynamics_method : foil_aerodynamics.FoilAerodynamics, optional
+        Estimator for the aerodynamic forces and moments.
+    aerodynamics_config : dictionary, optional
+        Keyword arguments for instantiating `aerodynamics_method`
     """
 
     def __init__(
         self,
-        layout,
-        sections,
-        b=None,
-        b_flat=None,
+        layout: FoilLayout,
+        sections: FoilSections,
+        b: float | None = None,
+        b_flat: float | None = None,
         aerodynamics_method=None,
-        aerodynamics_config={},
-    ):
-        """
-        Add a docstring.
-
-        Parameters
-        ----------
-        layout : FoilLayout
-            FIXME: docstring
-        sections : FoilSections
-            The geometry and coefficients for the section profiles.
-        b, b_flat : float
-            The arched and flattened spans of the chords. Specify only one.
-            These function as scaling factors for the FoilLayout.
-        aerodynamics_method : foil_aerodynamics.FoilAerodynamics, optional
-            Estimator for the aerodynamic forces and moments.
-        aerodynamics_config : dictionary, optional
-            Keyword arguments for instantiating `aerodynamics_method`
-        """
+        aerodynamics_config: dict = {},  # noqa: B006
+    ) -> None:
         self._layout = layout
         self.sections = sections
 
@@ -60,8 +67,10 @@ class SimpleFoil:
         # FIXME: support `S` and `S_flat` as scaling factors
         if b:
             self.b = b
-        else:  # b_flat
+        elif b_flat:
             self.b_flat = b_flat
+        else:
+            raise ValueError("Specify one of `b` or `b_flat`")
 
         if aerodynamics_method is not None:
             self.aerodynamics = aerodynamics_method(self, **aerodynamics_config)
@@ -69,37 +78,37 @@ class SimpleFoil:
             self.aerodynamics = None
 
     @property
-    def b(self):
+    def b(self) -> float:
         """The projected span of the foil."""
         return self._b
 
     @b.setter
-    def b(self, new_b):
+    def b(self, new_b: float) -> None:
         self._b = new_b
         self._b_flat = new_b * self._layout.b_flat / self._layout.b
 
     @property
-    def b_flat(self):
+    def b_flat(self) -> float:
         """The projected span of the foil with section dihedral removed."""
         return self._b_flat
 
     @b_flat.setter
-    def b_flat(self, new_b_flat):
+    def b_flat(self, new_b_flat) -> None:
         self._b_flat = new_b_flat
         self._b = new_b_flat * self._layout.b / self._layout.b_flat
 
     @property
-    def AR(self):
+    def AR(self) -> float:
         """The aspect ratio of the foil."""
         return self.b ** 2 / self.S
 
     @property
-    def AR_flat(self):
+    def AR_flat(self) -> float:
         """The aspect ratio of the foil with section dihedral removed."""
         return self.b_flat ** 2 / self.S_flat
 
     @property
-    def S(self):
+    def S(self) -> float:
         """
         The projected area of the surface.
 
@@ -109,7 +118,7 @@ class SimpleFoil:
         return self._layout.S * (self.b_flat / 2) ** 2
 
     @property
-    def S_flat(self):
+    def S_flat(self) -> float:
         """
         The projected area of the surface with section dihedral removed.
 
@@ -134,7 +143,7 @@ class SimpleFoil:
         """
         return self._layout.c(s) * (self.b_flat / 2)
 
-    def section_orientation(self, s, flatten=False):
+    def section_orientation(self, s, flatten: bool = False):
         """
         Compute section coordinate axes as rotation matrices.
 
@@ -142,7 +151,7 @@ class SimpleFoil:
         ----------
         s : array_like of float, shape (N,)
             Section index
-        flatten : bool
+        flatten : bool, optional
             Whether to ignore dihedral. Default: False
 
         Returns
@@ -184,7 +193,7 @@ class SimpleFoil:
             raise ValueError("Airfoil indices must be zero. See docstring.")
         return self.sections.thickness(s, ai, r) * self.chord_length(s)
 
-    def surface_xyz(self, s, ai, r, surface, flatten=False):
+    def surface_xyz(self, s, ai, r, surface: str, flatten: bool = False):
         """
         Sample points on section surfaces in foil frd.
 
@@ -231,7 +240,7 @@ class SimpleFoil:
         r_LE2O = self._layout.xyz(s, 0, flatten=flatten) * (self.b_flat / 2)
         return r_P2LE + r_LE2O
 
-    def mass_properties(self, N_s=301, N_r=301):
+    def mass_properties(self, N_s: int = 301, N_r: int = 301):
         """
         Compute the quantities that control inertial behavior.
 
@@ -415,7 +424,12 @@ class SimpleFoil:
 
         return mass_properties
 
-    def _mesh_vertex_lists(self, N_s=131, N_r=151, filename=None):
+    def _mesh_vertex_lists(
+        self,
+        N_s: int = 131,
+        N_r: int = 151,
+        filename: str = None,
+    ):
         """
         Generate sets of triangle faces on the upper and lower surfaces.
 
@@ -509,7 +523,12 @@ class SimpleFoil:
 
         return vu, vl, simplices
 
-    def _mesh_triangles(self, N_s=131, N_r=151, filename=None):
+    def _mesh_triangles(
+        self,
+        N_s: int = 131,
+        N_r: int = 151,
+        filename: str = None,
+    ):
         """Generate triangle meshes over the upper and lower surfaces.
 
         Parameters
