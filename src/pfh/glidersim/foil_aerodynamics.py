@@ -5,7 +5,6 @@ from __future__ import annotations
 import abc
 
 import numpy as np
-import numpy.typing as npt
 import scipy.optimize
 
 from pfh.glidersim.foil import SimpleFoil
