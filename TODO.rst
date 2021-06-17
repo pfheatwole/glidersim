@@ -1,3 +1,8 @@
+* When numpy 1.21 is released, review using `numpy.typing.NDArray` to type
+  hint `array_like` inputs. You can currently use `npt.ArrayLike`, but with
+  not type qualifier like `np.float`, so I'm holding off. (I don't think
+  `NDArray` will allow specifying the shape, but that's less important.)
+
 * The `FoilSections` is really a section interpolator. It's naming should make
   that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
   it also adds `s` to beginning of the function signatures. While I'm at it,
@@ -95,6 +100,11 @@ Documentation
 General
 -------
 
+* Create `.git_archival.txt` once `setuptools_scm` supports the new
+  `%(describe)` git log formatter
+
+  https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
+
 * Not sure I like relying on git tags for the versions. An alternative would
   be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
   use `version = attr: pfh.glidersim.__version__`. See
@@ -138,8 +148,6 @@ General
 
   * Do the wing+glider functions always parametrize like (<wing stuff>,
     <environment stuff>)? Can they?
-
-* Typing info (mypy). See also `numpy.typing`, `nptyping`, etc.
 
 * According to PEP8, module-level dunders should come after `from __future__`
   imports but **before** normal imports. My `__all__` are technically wrong.
