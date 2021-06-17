@@ -14,12 +14,15 @@ from pfh.glidersim.util import cross3
 
 
 if TYPE_CHECKING:
-    from pfh.glidersim.paraglider import Paraglider6a, Paraglider9a
+    from pfh.glidersim.paraglider import (
+        ParagliderSystemDynamics6a,
+        ParagliderSystemDynamics9a,
+    )
 
 
 __all__ = [
-    "ParagliderModel6a",
-    "ParagliderModel9a",
+    "ParagliderStateDynamics6a",
+    "ParagliderStateDynamics9a",
     "simulate",
     "prettyprint_state",
     "recompute_derivatives",
@@ -34,7 +37,7 @@ def __dir__():
 # Dynamics Models
 
 
-class DynamicsModel(abc.ABC):
+class StateDynamics(abc.ABC):
     state_dtype: Any  # FIXME: declare properly and use it for type hinting
 
     @abc.abstractmethod
@@ -46,7 +49,7 @@ class DynamicsModel(abc.ABC):
         """The state derivatives."""
 
 
-class ParagliderModel6a(DynamicsModel):
+class ParagliderStateDynamics6a(StateDynamics):
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
     state_dtype = [
@@ -58,7 +61,7 @@ class ParagliderModel6a(DynamicsModel):
 
     def __init__(
         self,
-        paraglider: Paraglider6a,
+        paraglider: ParagliderSystemDynamics6a,
         delta_a: float | Callable = 0,
         delta_bl: float | Callable = 0,
         delta_br: float | Callable = 0,
@@ -107,7 +110,7 @@ class ParagliderModel6a(DynamicsModel):
         ----------
         t : float [s]
             Time
-        state : ParagliderModel6a.state_dtype
+        state : ParagliderStateDynamics6a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -117,7 +120,7 @@ class ParagliderModel6a(DynamicsModel):
 
         Returns
         -------
-        state_dot : ParagliderModel6a.state_dtype
+        state_dot : ParagliderStateDynamics6a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
@@ -184,7 +187,7 @@ class ParagliderModel6a(DynamicsModel):
 
         Returns
         -------
-        gsim.simulator.ParagliderModel6a.state_dtype
+        gsim.simulator.ParagliderStateDynamics6a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -213,7 +216,7 @@ class ParagliderModel6a(DynamicsModel):
         return state
 
 
-class ParagliderModel9a(DynamicsModel):
+class ParagliderStateDynamics9a(StateDynamics):
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
     state_dtype = [
@@ -227,7 +230,7 @@ class ParagliderModel9a(DynamicsModel):
 
     def __init__(
         self,
-        paraglider: Paraglider9a,
+        paraglider: ParagliderSystemDynamics9a,
         delta_a: float | Callable = 0,
         delta_bl: float | Callable = 0,
         delta_br: float | Callable = 0,
@@ -277,7 +280,7 @@ class ParagliderModel9a(DynamicsModel):
         ----------
         t : float [s]
             Time
-        state : ParagliderModel9a.state_dtype
+        state : ParagliderStateDynamics9a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -287,7 +290,7 @@ class ParagliderModel9a(DynamicsModel):
 
         Returns
         -------
-        state_dot : ParagliderModel9a.state_dtype
+        state_dot : ParagliderStateDynamics9a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
@@ -371,7 +374,7 @@ class ParagliderModel9a(DynamicsModel):
 
         Returns
         -------
-        gsim.simulator.ParagliderModel9a.state_dtype
+        gsim.simulator.ParagliderStateDynamics9a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -408,7 +411,7 @@ class ParagliderModel9a(DynamicsModel):
 
 
 def simulate(
-    model: DynamicsModel,
+    model: StateDynamics,
     state0,
     T: float = 10,
     T0: float = 0,
@@ -496,7 +499,7 @@ def simulate(
     return times, states
 
 
-def recompute_derivatives(model: DynamicsModel, times, states):
+def recompute_derivatives(model: StateDynamics, times, states):
     """
     Re-run the dynamics to access the state derivatives (accelerations).
 
@@ -506,8 +509,8 @@ def recompute_derivatives(model: DynamicsModel, times, states):
 
     Parameters
     ----------
-    model : dynamics model
-        For now, this is either ParagliderModel6a or ParagliderModel9a
+    model : StateDynamics
+        The state dynamics model that generated the derivatives.
     times : array of float
         The time value at each step.
     states : array of model.state_dtype
@@ -532,11 +535,11 @@ def recompute_derivatives(model: DynamicsModel, times, states):
 
 def prettyprint_state(state, header: str = None, footer: str = None) -> None:
     """
-    Pretty-print a state for a `ParagliderModel6a` or `ParagliderModel9a`.
+    Pretty-print a single instance of a StateDynamics.state_dtype
 
     Parameters
     ----------
-    state : ParagliderModel6a.state_dtype or ParagliderModel9a.state_dtype
+    state : StateDynamics.state_dtype
         The state to pretty-print.
     header : string, optional
         A string to print on a separate line preceding the states.

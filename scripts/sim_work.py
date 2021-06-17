@@ -268,13 +268,14 @@ def build_paragliders(use_apparent_mass=True):
     )
 
     # 6 DoF models
-    paraglider_6a = gsim.paraglider.Paraglider6a(
+    paraglider_6a = gsim.paraglider.ParagliderSystemDynamics6a(
         wing,
         harness,
         use_apparent_mass=use_apparent_mass,
     )
-    paraglider_6b = gsim.paraglider.Paraglider6b(wing, harness)  # No apparent mass
-    paraglider_6c = gsim.paraglider.Paraglider6c(wing, harness)  # No apparent mass
+    # 6b and 6c do not account for apparent mass
+    paraglider_6b = gsim.paraglider.ParagliderSystemDynamics6b(wing, harness)
+    paraglider_6c = gsim.paraglider.ParagliderSystemDynamics6c(wing, harness)
 
     # Coefficients for the spring-damper connection (9DoF models)
     # FIXME: naming?
@@ -282,21 +283,21 @@ def build_paragliders(use_apparent_mass=True):
     kappa_RM_dot = [-50, -5, -50]  # Coefficients for dot{Theta_p2b}
 
     # 9 DoF models
-    paraglider_9a = gsim.paraglider.Paraglider9a(
+    paraglider_9a = gsim.paraglider.ParagliderSystemDynamics9a(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         use_apparent_mass=use_apparent_mass,
     )
-    paraglider_9b = gsim.paraglider.Paraglider9b(
+    paraglider_9b = gsim.paraglider.ParagliderSystemDynamics9b(
         wing,
         harness,
         kappa_RM=kappa_RM,
         kappa_RM_dot=kappa_RM_dot,
         # No apparent mass
     )
-    paraglider_9c = gsim.paraglider.Paraglider9c(
+    paraglider_9c = gsim.paraglider.ParagliderSystemDynamics9c(
         wing,
         harness,
         kappa_RM=kappa_RM,
@@ -360,12 +361,25 @@ def main():
         "v_W2e": (0, 0, 0),
     }
     sim_parameters.update(inputs)
-    model = gsim.simulator.ParagliderModel6a(paragliders["6a"], **sim_parameters)
-    # model = gsim.simulator.ParagliderModel6a(paragliders["6b"], **sim_parameters)
-    # model = gsim.simulator.ParagliderModel6a(paragliders["6c"], **sim_parameters)
-    # model = gsim.simulator.ParagliderModel9a(paragliders["9a"], **sim_parameters)
-    # model = gsim.simulator.ParagliderModel9a(paragliders["9b"], **sim_parameters)
-    # model = gsim.simulator.ParagliderModel9a(paragliders["9c"], **sim_parameters)
+
+    paraglider = paragliders["6a"]
+    # paraglider = paragliders["6b"]  # Same state dynamics as 6a
+    # paraglider = paragliders["6c"]  # Same state dynamics as 6a
+    # paraglider = paragliders["9a"]
+    # paraglider = paragliders["9b"]  # Same state dynamics as 9a
+    # paraglider = paragliders["9c"]  # Same state dynamics as 9a
+    if isinstance(paraglider, gsim.paraglider.ParagliderSystemDynamics6a):
+        model = gsim.simulator.ParagliderStateDynamics6a(
+            paraglider,
+            **sim_parameters,
+        )
+    elif isinstance(paraglider, gsim.paraglider.ParagliderSystemDynamics9a):
+        model = gsim.simulator.ParagliderStateDynamics9a(
+            paraglider,
+            **sim_parameters,
+        )
+    else:
+        raise RuntimeError(f"Unsupported paraglider model {type(paraglider)}")
 
     print("\nPreparing the simulation...\n")
     state0 = model.starting_equilibrium()

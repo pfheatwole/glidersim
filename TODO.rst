@@ -58,13 +58,12 @@ Documentation
   `:py:class:`; think of `:class:` as being a role scoped inside the `:py`
   domain.) Not sure if I like fully-specified sphinx markup; it makes the
   docstrings a lot more messy (eg, instead of `LineGeometry` it's a concrete
-  class like `:py:class:`pfh.glidersim.paraglider.Paraglider6a`)
+  class like `:py:class:`pfh.glidersim.paraglider.ParagliderSystemDynamics6a`)
 
 * Review all (sub)package, module, and class docstrings. They should have
   summaries, descriptions, parameters, attributes, etc.
 
-* How should I document `simulator.ParagliderModel6a.state_dtype`?
-
+* How should I document `simulator.StateDynamics.state_dtype`?
 
 * Should docstring types be "array of" or "ndarray of"? I lean towards
   "array", but would it be better to use the canonical name so sphinx can link

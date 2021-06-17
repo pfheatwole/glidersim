@@ -9,6 +9,7 @@ import scipy.integrate
 import scipy.optimize
 
 from pfh.glidersim import orientation
+from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
 from pfh.glidersim.util import cross3, crossmat
 
 
@@ -17,12 +18,12 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "Paraglider6a",
-    "Paraglider6b",
-    "Paraglider6c",
-    "Paraglider9a",
-    "Paraglider9b",
-    "Paraglider9c",
+    "ParagliderSystemDynamics6a",
+    "ParagliderSystemDynamics6b",
+    "ParagliderSystemDynamics6c",
+    "ParagliderSystemDynamics9a",
+    "ParagliderSystemDynamics9b",
+    "ParagliderSystemDynamics9c",
 ]
 
 
@@ -30,7 +31,7 @@ def __dir__():
     return __all__
 
 
-class Paraglider6a:
+class ParagliderSystemDynamics6a:
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -227,7 +228,7 @@ class Paraglider6a:
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -415,7 +416,7 @@ class Paraglider6a:
         return equilibrium
 
 
-class Paraglider6b(Paraglider6a):
+class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -585,7 +586,7 @@ class Paraglider6b(Paraglider6a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -643,7 +644,7 @@ class Paraglider6b(Paraglider6a):
         return a_RM2e, alpha_b2e, ref
 
 
-class Paraglider6c(Paraglider6a):
+class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -808,7 +809,7 @@ class Paraglider6c(Paraglider6a):
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -865,7 +866,7 @@ class Paraglider6c(Paraglider6a):
         return a_RM2e, alpha_b2e, ref
 
 
-class Paraglider9a:
+class ParagliderSystemDynamics9a:
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
@@ -1102,7 +1103,7 @@ class Paraglider9a:
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -1323,7 +1324,7 @@ class Paraglider9a:
         return equilibrium
 
 
-class Paraglider9b(Paraglider9a):
+class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
@@ -1338,7 +1339,7 @@ class Paraglider9b(Paraglider9a):
     `RM` as the reference point, not `B`). I suppose you could (assuming `B`
     lies in the xz-plane as is assumed by Barrows), but I just haven't done it
     yet. This class is mostly for practice and to help catch implementation
-    mistakes in `Paraglider9a`.
+    mistakes in `ParagliderSystemDynamics9a`.
 
     Parameters
     ----------
@@ -1531,7 +1532,7 @@ class Paraglider9b(Paraglider9a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -1604,18 +1605,18 @@ class Paraglider9b(Paraglider9a):
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
 
-class Paraglider9c(Paraglider9a):
+class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
 
-    Similar to Paraglider9a, this version uses the riser connection midpoint
+    Similar to ParagliderSystemDynamics9a, this version uses the riser connection midpoint
     `RM` as the reference point for both the body and the payload, and includes
-    the effects of apparent mass. Unlike Paraglider9a, this model computes
+    the effects of apparent mass. Unlike ParagliderSystemDynamics9a, this model computes
     \dot{omega_p2b} instead of \dot{omega_p2e} and converts.
 
     Unfortunately it also appears to be broken; at least, it doesn't agree with
-    Paraglider9a or Paraglider9b, which are mathematically less complicated so
+    ParagliderSystemDynamics9a or ParagliderSystemDynamics9b, which are mathematically less complicated so
     I tend to believe them. See the end of `accelerations` for a discussion.
 
     Also, note that it computes everything in body frd and converts omega_p2e
@@ -1801,7 +1802,7 @@ class Paraglider9c(Paraglider9a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
