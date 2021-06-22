@@ -17,6 +17,7 @@ explicit_package_bases = true
 mypy_path = "src"
 exclude = "venv"
 
+show_error_codes = true
 allow_redefinition = true  # Redefine arguments with `np.asarray`, `np.broadcast_arrays`, etc
 ignore_missing_imports = true
 warn_return_any = true
