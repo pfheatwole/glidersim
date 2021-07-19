@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import abc
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import numpy as np
 import scipy.optimize
 
-from pfh.glidersim.foil import SimpleFoil
 from pfh.glidersim.util import cross3
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.foil import SimpleFoil
 
 
 __all__ = [
@@ -21,7 +25,18 @@ def __dir__():
     return __all__
 
 
+# FIXME: using `runtime_checkable` causes mypy to crash because of the embedded
+# `ConvergenceError` class. See https://github.com/python/mypy/issues/10522
+# @runtime_checkable
+# class FoilAerodynamics(Protocol):
 class FoilAerodynamics(abc.ABC):
+    """Interface for classes that implement a FoilAerodynamics model."""
+
+    # FIXME: is this compatible with, eg, `Phillips.__init__`? Especially the
+    # way I pass the args in `SimpleFoil.__init__`.
+    @abc.abstractmethod
+    def __init__(self, foil: SimpleFoil, **kwargs) -> None:
+        """FIXME: docstring."""
 
     @abc.abstractmethod
     def __call__(self, ai, v_W2f, rho_air):
@@ -41,7 +56,6 @@ class FoilAerodynamics(abc.ABC):
             Air density
         """
 
-    @property
     @abc.abstractmethod
     def control_points(self):
         """

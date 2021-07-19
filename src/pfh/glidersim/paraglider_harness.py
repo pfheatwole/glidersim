@@ -1,6 +1,7 @@
 """FIXME: add module docstring"""
 
 import abc
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -15,10 +16,9 @@ def __dir__():
     return __all__
 
 
-class Harness(abc.ABC):
-    """
-    FIXME: docstring
-    """
+@runtime_checkable
+class Harness(Protocol):
+    """Interface for classes that implement a Harness model."""
 
     @abc.abstractmethod
     def control_points(self, delta_w):

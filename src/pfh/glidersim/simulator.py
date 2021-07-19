@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 import time
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Protocol, runtime_checkable
 
 import numpy as np
 import scipy.integrate
@@ -37,7 +37,14 @@ def __dir__():
 # Dynamics Models
 
 
-class StateDynamics(abc.ABC):
+@runtime_checkable
+class StateDynamics(Protocol):
+    """
+    Interface for classes that implement a StateDynamics model.
+
+    StateDynamics are used to `simulate` state trajectories.
+    """
+
     state_dtype: Any  # FIXME: declare properly and use it for type hinting
 
     @abc.abstractmethod

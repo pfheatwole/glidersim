@@ -15,7 +15,7 @@ import abc
 import pathlib
 import re
 from itertools import product
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, Protocol, TextIO, runtime_checkable
 
 import numpy as np
 import scipy.optimize
@@ -43,8 +43,10 @@ def __dir__():
     return __all__
 
 
-class AirfoilCoefficientsInterpolator(abc.ABC):
-    """Defines the API for classes that provide airfoil coefficients.
+@runtime_checkable
+class AirfoilCoefficientsInterpolator(Protocol):
+    """
+    Interface for classes that provide airfoil coefficients.
 
     Aerodynamic coefficients for a single airfoil are typicall calculated over
     a range of angle of attack and Reynolds number. For wings with control

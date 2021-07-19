@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
 
 import numpy as np
 from scipy.optimize import minimize, minimize_scalar, root_scalar
@@ -28,8 +28,9 @@ def __dir__():
     return __all__
 
 
-class LineGeometry(abc.ABC):
-    """Abstract base class to define the LineGeometry interface."""
+@runtime_checkable
+class LineGeometry(Protocol):
+    """Interface for classes that define a LineGeometry model."""
 
     @abc.abstractmethod
     def r_RM2LE(self, delta_a=0):

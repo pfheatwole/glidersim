@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.spatial import Delaunay
+
+from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
 
 from .util import cross3
 
 
 if TYPE_CHECKING:
-    from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
     from pfh.glidersim.foil_layout import FoilLayout
     from pfh.glidersim.foil_sections import FoilSections
 
@@ -55,7 +56,7 @@ class SimpleFoil:
         sections: FoilSections,
         b: float | None = None,
         b_flat: float | None = None,
-        aerodynamics_method=None,
+        aerodynamics_method: type[FoilAerodynamics] | None = None,
         aerodynamics_config: dict = {},  # noqa: B006
     ) -> None:
         self._layout = layout
@@ -72,10 +73,15 @@ class SimpleFoil:
         else:
             raise ValueError("Specify one of `b` or `b_flat`")
 
-        if aerodynamics_method is not None:
+        if aerodynamics_method is None:
+            self.aerodynamics = None
+        elif issubclass(aerodynamics_method, FoilAerodynamics):
             self.aerodynamics = aerodynamics_method(self, **aerodynamics_config)
         else:
-            self.aerodynamics = None
+            raise ValueError(
+                "`aerodynamics_method` must be a class that implements the "
+                "FoilAerodynamics Protocol",
+            )
 
     @property
     def b(self) -> float:
