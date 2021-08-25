@@ -1,20 +1,29 @@
 """FIXME: add module docstring."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.integrate
 import scipy.optimize
 
 from pfh.glidersim import orientation
+from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
 from pfh.glidersim.util import cross3, crossmat
 
 
+if TYPE_CHECKING:
+    from pfh.glidersim.paraglider_wing import ParagliderWing
+
+
 __all__ = [
-    "Paraglider6a",
-    "Paraglider6b",
-    "Paraglider6c",
-    "Paraglider9a",
-    "Paraglider9b",
-    "Paraglider9c",
+    "ParagliderSystemDynamics6a",
+    "ParagliderSystemDynamics6b",
+    "ParagliderSystemDynamics6c",
+    "ParagliderSystemDynamics9a",
+    "ParagliderSystemDynamics9b",
+    "ParagliderSystemDynamics9c",
 ]
 
 
@@ -22,7 +31,7 @@ def __dir__():
     return __all__
 
 
-class Paraglider6a:
+class ParagliderSystemDynamics6a:
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -40,12 +49,18 @@ class Paraglider6a:
         Whether to estimate the effects of apparent inertia. Default: True
     """
 
-    def __init__(self, wing, payload, *, use_apparent_mass=True):
+    def __init__(
+        self,
+        wing: ParagliderWing,
+        payload,
+        *,
+        use_apparent_mass: bool = True,
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, delta_a=0, delta_w=0):
+    def control_points(self, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -76,14 +91,14 @@ class Paraglider6a:
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -213,7 +228,7 @@ class Paraglider6a:
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -303,13 +318,13 @@ class Paraglider6a:
 
     def equilibrium_state(
         self,
-        delta_a=0,
-        delta_b=0,
-        rho_air=1.225,
-        alpha_0=None,
-        theta_0=0,
-        v_0=10,
-        reference_solution=None,
+        delta_a: float = 0,
+        delta_b: float = 0,
+        rho_air: float = 1.225,
+        alpha_0: float = None,
+        theta_0: float = 0,
+        v_0: float = 10,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the equilibrium glider state for given inputs.
@@ -401,7 +416,7 @@ class Paraglider6a:
         return equilibrium
 
 
-class Paraglider6b(Paraglider6a):
+class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -422,7 +437,7 @@ class Paraglider6b(Paraglider6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing: ParagliderWing, payload) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -431,11 +446,11 @@ class Paraglider6b(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
         reference_solution=None,
@@ -571,7 +586,7 @@ class Paraglider6b(Paraglider6a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -629,7 +644,7 @@ class Paraglider6b(Paraglider6a):
         return a_RM2e, alpha_b2e, ref
 
 
-class Paraglider6c(Paraglider6a):
+class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
     """
     A 6 degrees-of-freedom paraglider model; there is no relative motion
     between the wing and the harness.
@@ -650,7 +665,7 @@ class Paraglider6c(Paraglider6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing, payload):
+    def __init__(self, wing: ParagliderWing, payload) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -659,14 +674,14 @@ class Paraglider6c(Paraglider6a):
         v_RM2e,
         omega_b2e,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -794,7 +809,7 @@ class Paraglider6c(Paraglider6a):
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
                 delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -851,7 +866,7 @@ class Paraglider6c(Paraglider6a):
         return a_RM2e, alpha_b2e, ref
 
 
-class Paraglider9a:
+class ParagliderSystemDynamics9a:
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
@@ -877,20 +892,20 @@ class Paraglider9a:
 
     def __init__(
         self,
-        wing,
+        wing: ParagliderWing,
         payload,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
         *,
-        use_apparent_mass=True,
-    ):
+        use_apparent_mass: bool = True,
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self._kappa_RM = np.asarray(kappa_RM[:])
         self._kappa_RM_dot = np.asarray(kappa_RM_dot[:])
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, Theta_p2b, delta_a=0, delta_w=0):
+    def control_points(self, Theta_p2b, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -926,14 +941,14 @@ class Paraglider9a:
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -1088,7 +1103,7 @@ class Paraglider9a:
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -1205,12 +1220,12 @@ class Paraglider9a:
 
     def equilibrium_state(
         self,
-        delta_a=0,
-        delta_b=0,
-        rho_air=1.225,
-        alpha_0=None,
-        theta_0=0,
-        v_0=10,
+        delta_a: float = 0,
+        delta_b: float = 0,
+        rho_air: float = 1.225,
+        alpha_0: float | None = None,
+        theta_0: float = 0,
+        v_0: float = 10,
         reference_solution=None,
     ):
         """
@@ -1309,7 +1324,7 @@ class Paraglider9a:
         return equilibrium
 
 
-class Paraglider9b(Paraglider9a):
+class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
@@ -1324,7 +1339,7 @@ class Paraglider9b(Paraglider9a):
     `RM` as the reference point, not `B`). I suppose you could (assuming `B`
     lies in the xz-plane as is assumed by Barrows), but I just haven't done it
     yet. This class is mostly for practice and to help catch implementation
-    mistakes in `Paraglider9a`.
+    mistakes in `ParagliderSystemDynamics9a`.
 
     Parameters
     ----------
@@ -1339,7 +1354,13 @@ class Paraglider9b(Paraglider9a):
         Spring-damper coefficients for the derivative of Theta_p2b
     """
 
-    def __init__(self, wing, payload, kappa_RM=(0, 0, 0), kappa_RM_dot=(0, 0, 0)):
+    def __init__(
+        self,
+        wing: ParagliderWing,
+        payload,
+        kappa_RM=(0, 0, 0),
+        kappa_RM_dot=(0, 0, 0),
+    ) -> None:
         self.wing = wing
         self.payload = payload
         self._kappa_RM = np.asarray(kappa_RM[:])
@@ -1352,14 +1373,14 @@ class Paraglider9b(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -1511,7 +1532,7 @@ class Paraglider9b(Paraglider9a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()
@@ -1584,18 +1605,18 @@ class Paraglider9b(Paraglider9a):
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
 
-class Paraglider9c(Paraglider9a):
+class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
     """
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
 
-    Similar to Paraglider9a, this version uses the riser connection midpoint
+    Similar to ParagliderSystemDynamics9a, this version uses the riser connection midpoint
     `RM` as the reference point for both the body and the payload, and includes
-    the effects of apparent mass. Unlike Paraglider9a, this model computes
+    the effects of apparent mass. Unlike ParagliderSystemDynamics9a, this model computes
     \dot{omega_p2b} instead of \dot{omega_p2e} and converts.
 
     Unfortunately it also appears to be broken; at least, it doesn't agree with
-    Paraglider9a or Paraglider9b, which are mathematically less complicated so
+    ParagliderSystemDynamics9a or ParagliderSystemDynamics9b, which are mathematically less complicated so
     I tend to believe them. See the end of `accelerations` for a discussion.
 
     Also, note that it computes everything in body frd and converts omega_p2e
@@ -1615,14 +1636,14 @@ class Paraglider9c(Paraglider9a):
         omega_p2e,
         Theta_p2b,
         g,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        delta_a: float = 0,
+        delta_bl: float = 0,
+        delta_br: float = 0,
+        delta_w: float = 0,
+        rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
         r_CP2RM=None,
-        reference_solution=None,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
@@ -1781,7 +1802,7 @@ class Paraglider9c(Paraglider9a):
                 rho_air,
                 reference_solution,
             )
-        except Exception:
+        except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             # breakpoint()

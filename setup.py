@@ -9,7 +9,7 @@ if __name__ == "__main__":
         package_dir={"": "src"},
         packages=find_namespace_packages(where="src"),
         include_package_data=True,
-        python_requires="~=3.7",
+        python_requires="~=3.8",
         install_requires=[
             "numpy >= 1.20.0",
             "scipy >= 1.6.0",
@@ -28,6 +28,7 @@ if __name__ == "__main__":
                 "isort >= 5.6.4",
                 "pre-commit >= 2.10.0",
                 "Sphinx >= 3.4.3",
+                "mypy >= 0.902",
                 "numpydoc >= 1.1.0",
                 "sphinx-rtd-theme >= 0.5.1",
             ],

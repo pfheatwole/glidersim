@@ -1,6 +1,9 @@
 """FIXME: add docstring."""
 
+from __future__ import annotations
+
 import warnings
+from typing import Callable, cast
 
 import numpy as np
 import scipy
@@ -32,7 +35,7 @@ class EllipticalChord:
         The length of the wing tips
     """
 
-    def __init__(self, root, tip):
+    def __init__(self, root: float, tip: float) -> None:
         self.A = 1 / np.sqrt(1 - (tip / root) ** 2)
         self.B = root
 
@@ -71,7 +74,11 @@ class EllipticalArc:
         default is `2 * mean_anhedral`, which results in a circular arc.
     """
 
-    def __init__(self, mean_anhedral, tip_anhedral=None):
+    def __init__(
+        self,
+        mean_anhedral: float,
+        tip_anhedral: float | None = None,
+    ) -> None:
         if tip_anhedral is None:  # Assume circular
             tip_anhedral = 2 * mean_anhedral
 
@@ -84,9 +91,9 @@ class EllipticalArc:
 
         # Very small angles produce divide-by-zero, just assume the user wants
         # a zero-angle and "do the right thing".
-        if mean_anhedral < 0.01:
-            warnings.warn("Very small mean_anhedral. Returning a FlatYZ.")
-            return FlatYZ()
+        if mean_anhedral < 0.001:
+            warnings.warn("Very small mean_anhedral. Use a FlatYZ.")
+            mean_anhedral = 0.001
 
         mean_anhedral = np.deg2rad(mean_anhedral)
         tip_anhedral = np.deg2rad(tip_anhedral)
@@ -164,7 +171,7 @@ class PolynomialTorsion:
         The peak value of the curve at `s = 1`.
     """
 
-    def __init__(self, start, exponent, peak):
+    def __init__(self, start: float, exponent: float, peak: float) -> None:
         self.start = start
         self.exponent = exponent
         self.peak = np.deg2rad(peak)
@@ -224,7 +231,8 @@ class FoilLayout:
         of the quarter-chord.
     yz : callable
         The yz-coordinates of each section as a function of the section index.
-        This curve shapes the yz-plane view of the inflated wing.
+        This curve shapes the yz-plane view of the inflated wing. Must be a
+        functor with a `derivative` method.
     c : float or callable
         The section chord lengths as a function of section index.
     theta : float or callable, optional
@@ -244,28 +252,28 @@ class FoilLayout:
 
     def __init__(
         self,
-        r_x,
-        x,
-        r_yz,
-        yz,
-        c,
-        theta=0,
-        center=True,
-    ):
+        r_x: float | Callable,
+        x: float | Callable,
+        r_yz: float | Callable,
+        yz,  # Must be a functor and include a `derivative` method
+        c: float | Callable,
+        theta: float | Callable = 0,
+        center: bool = True,
+    ) -> None:
         if callable(r_x):
             self.r_x = r_x
         else:
-            self.r_x = lambda s: np.full(np.shape(s), float(r_x))
+            self.r_x = lambda s: np.full(np.shape(s), float(r_x))  # type: ignore [arg-type]
 
         if callable(x):
             self.x = x
         else:
-            self.x = lambda s: np.full(np.shape(s), float(x))
+            self.x = lambda s: np.full(np.shape(s), float(x))  # type: ignore [arg-type]
 
         if callable(r_yz):
             self.r_yz = r_yz
         else:
-            self.r_yz = lambda s: np.full(np.shape(s), float(r_yz))
+            self.r_yz = lambda s: np.full(np.shape(s), float(r_yz))  # type: ignore [arg-type]
 
         if callable(yz):
             self.yz = yz
@@ -279,12 +287,12 @@ class FoilLayout:
         if callable(c):
             self.c = c
         else:
-            self.c = lambda s: np.full(np.shape(s), float(c))
+            self.c = lambda s: np.full(np.shape(s), float(c))  # type: ignore [arg-type]
 
         if callable(theta):
             self.theta = theta
         else:
-            self.theta = lambda s: np.full(np.shape(s), float(theta))
+            self.theta = lambda s: np.full(np.shape(s), float(theta))  # type: ignore [arg-type]
 
         # Set the origin to the central chord leading edge. A default value of
         # zeros must be set before calling `xyz` to find the real offset.
@@ -295,21 +303,21 @@ class FoilLayout:
         # TODO: this `b` calculation is a reasonable placeholder for average
         # foil shapes, but it assumes the arc is symmetric and that it is the
         # wing-tip section that defines the span.
-        self.b = 2 * max(self.xyz(1, [0, 1]).T[1])
-        self.b_flat = 2  # FIXME: poor design? I like making it explicit.
+        self.b: float = 2 * max(self.xyz(1, [0, 1]).T[1])
+        self.b_flat: float = 2  # FIXME: poor design? I like making it explicit.
 
     @property
-    def AR(self):
+    def AR(self) -> float:
         """Compute the projected aspect ratio of the foil."""
         return self.b ** 2 / self.S
 
     @property
-    def AR_flat(self):
+    def AR_flat(self) -> float:
         """Compute the flattened aspect ratio of the foil."""
         return self.b_flat ** 2 / self.S_flat
 
     @property
-    def S(self):
+    def S(self) -> float:
         """
         Compute the projected area of the surface.
 
@@ -324,10 +332,10 @@ class FoilLayout:
         LE_area = scipy.integrate.simps(LEx - LEx.min(), LEy)
         mid_area = (LEy.ptp() + TEy.ptp()) / 2 * (LEx.min() - TEx.max())
         TE_area = -scipy.integrate.simps(TEx - TEx.max(), TEy)
-        return LE_area + mid_area + TE_area
+        return cast(float, LE_area + mid_area + TE_area)
 
     @property
-    def S_flat(self):
+    def S_flat(self) -> float:
         """
         Compute the projected area of the flattened surface.
 
@@ -337,7 +345,7 @@ class FoilLayout:
         s = np.linspace(-1, 1, 1000)
         c = self.c(s)
         lengths = (self._section_pitch(s)[..., 0] * c[:, np.newaxis]).T[0]
-        return scipy.integrate.simps(lengths, s) * self.b_flat / 2
+        return cast(float, scipy.integrate.simps(lengths, s) * self.b_flat / 2)
 
     def _section_pitch(self, s):
         """
@@ -388,7 +396,7 @@ class FoilLayout:
         Gamma = np.moveaxis(Gamma, [0, 1], [-2, -1])
         return Gamma
 
-    def orientation(self, s, flatten=False):
+    def orientation(self, s, flatten: bool = False):
         """
         Compute section coordinate axes as rotation matrices.
 
@@ -410,7 +418,7 @@ class FoilLayout:
             C_c2s = self._section_roll(s) @ C_c2s
         return C_c2s
 
-    def xyz(self, s, r, flatten=False):
+    def xyz(self, s, r, flatten: bool = False):
         """
         Compute the coordinates of points on section chords in canopy frd.
 

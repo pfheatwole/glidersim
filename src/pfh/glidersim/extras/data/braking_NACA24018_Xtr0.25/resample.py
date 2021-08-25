@@ -35,8 +35,14 @@ polars = []
 for polar_file in pathlib.Path(".").glob("*.txt"):
     print(polar_file)
     data = np.genfromtxt(polar_file, skip_header=11, names=names)
-    delta_d = float(re.search(r"_deltad(\d+\.\d+)_", polar_file.name).group(1))
-    Re = float(re.search(r"_Re(\d\.\d\d\d)_", polar_file.name).group(1))
+    if (match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name)):
+        delta_d = float(match.group(1))
+    else:
+        raise ValueError(f"Invalid filename {polar_file}; needs `deltad`.")
+    if (match := re.search(r"_Re(\d\.\d\d\d)_", polar_file.name)):
+        Re = float(match.group(1))
+    else:
+        raise ValueError(f"Invalid filename {polar_file}; needs `Re`.")
     data = rfn.append_fields(data, "delta_d", np.full(data.shape[0], delta_d))
     data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
     columns = ['delta_d', 'alpha', 'Re', 'Cl', 'Cm', 'Cd']
@@ -46,17 +52,17 @@ for polar_file in pathlib.Path(".").glob("*.txt"):
 # Compute the ranges over the full dataset
 data = np.concatenate(polars)
 data.sort(order=['delta_d', 'alpha', 'Re'])
-alpha = np.unique(data['alpha'])  # Angle of attack in degrees
-delta_d = np.unique(data['delta_d'])  # Normalized vertical deflection distance
-Re = np.unique(data['Re'])  # Reynolds number
+alphas = np.unique(data['alpha'])  # Angle of attack in degrees
+delta_ds = np.unique(data['delta_d'])  # Normalized vertical deflection distance
+Res = np.unique(data['Re'])  # Reynolds number
 
 # Compute uniform spacings for each dimension  (FIXME: hacky strategies)
-step_deltad = delta_d.ptp() / np.ceil(delta_d.max() / np.diff(delta_d).min())
-step_alpha = np.diff(alpha).min()
-step_Re = np.diff(Re).min()  # FIXME: not guaranteed to work well
-pdeltad = np.arange(delta_d.min(), delta_d.max() + step_deltad, step_deltad)
-palpha = np.arange(alpha.min(), alpha.max() + step_alpha, step_alpha)
-pRe = np.arange(Re.min(), Re.max() + step_Re, step_Re)
+step_deltad = delta_ds.ptp() / np.ceil(delta_ds.max() / np.diff(delta_ds).min())
+step_alpha = np.diff(alphas).min()
+step_Re = np.diff(Res).min()  # FIXME: not guaranteed to work well
+pdeltad = np.arange(delta_ds.min(), delta_ds.max() + step_deltad, step_deltad)
+palpha = np.arange(alphas.min(), alphas.max() + step_alpha, step_alpha)
+pRe = np.arange(Res.min(), Res.max() + step_Re, step_Re)
 newshape = (len(pdeltad), len(palpha), len(pRe))
 
 # Resample the entire grid with unstructured linear interpolation to fill holes

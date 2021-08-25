@@ -1,12 +1,17 @@
 """FIXME: add module docstring"""
 
+from __future__ import annotations
+
 import numpy as np
 
 import pfh.glidersim as gsim
 from pfh.glidersim.extras import plots
 
 
-def build_hook3(num_control_points=31, verbose=True):
+def build_hook3(
+    num_control_points: int = 31,
+    verbose: bool = True,
+) -> gsim.paraglider_wing.ParagliderWing:
     """Build an approximate Niviuk Hook 3, size 23."""
     if verbose:
         print("Building an (approximate) Niviuk Hook 3 23\n")
@@ -17,7 +22,6 @@ def build_hook3(num_control_points=31, verbose=True):
     if verbose:
         print("Airfoil: braking_NACA24018_Xtr0.25\n")
     airfoils = gsim.extras.airfoils.load_datfile_set("braking_NACA24018_Xtr0.25")
-    airfoils = {d: airfoils[d]['airfoil'] for d in airfoils}
     airfoil_geo = gsim.airfoil.AirfoilGeometryInterpolator(airfoils)
     airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
     delta_d_max = 0.20273  # FIXME: magic number from the set of coefficients
@@ -98,7 +102,7 @@ def build_hook3(num_control_points=31, verbose=True):
     # limit `kappa_b` to roughly 45cm; using the video to observe deflections
     # at ~45cm (the risers are 47cm) produce `start1` and `stop1`.
     brake_parameters = {
-        "kappa_b": None,  # Set later with `maximize_kappa_b`
+        "kappa_b": 0,  # Set later with `maximize_kappa_b`
         "s_delta_start0": 0.30,
         "s_delta_start1": 0.08,
         "s_delta_stop0": 0.70,
@@ -117,7 +121,7 @@ def build_hook3(num_control_points=31, verbose=True):
     lines = gsim.paraglider_wing.SimpleLineGeometry(
         **riser_position_parameters,
         **brake_parameters,
-        **line_drag_parameters,
+        **line_drag_parameters,  # type: ignore [arg-type]
     )
     lines.maximize_kappa_b(delta_d_max, canopy.chord_length)
 

@@ -1,6 +1,10 @@
 """FIXME: add module docstring."""
 
+from __future__ import annotations
+
+import abc
 import time
+from typing import TYPE_CHECKING, Any, Callable, Protocol, runtime_checkable
 
 import numpy as np
 import scipy.integrate
@@ -9,9 +13,16 @@ from pfh.glidersim import orientation
 from pfh.glidersim.util import cross3
 
 
+if TYPE_CHECKING:
+    from pfh.glidersim.paraglider import (
+        ParagliderSystemDynamics6a,
+        ParagliderSystemDynamics9a,
+    )
+
+
 __all__ = [
-    "ParagliderModel6a",
-    "ParagliderModel9a",
+    "ParagliderStateDynamics6a",
+    "ParagliderStateDynamics9a",
     "simulate",
     "prettyprint_state",
     "recompute_derivatives",
@@ -26,7 +37,26 @@ def __dir__():
 # Dynamics Models
 
 
-class ParagliderModel6a:
+@runtime_checkable
+class StateDynamics(Protocol):
+    """
+    Interface for classes that implement a StateDynamics model.
+
+    StateDynamics are used to `simulate` state trajectories.
+    """
+
+    state_dtype: Any  # FIXME: declare properly and use it for type hinting
+
+    @abc.abstractmethod
+    def cleanup(self, state, t):
+        """Any work necessary at the end of each timestep."""
+
+    @abc.abstractmethod
+    def derivatives(self, t: float, state, params):
+        """The state derivatives."""
+
+
+class ParagliderStateDynamics6a(StateDynamics):
     """Defines the state dynamics for a 6 DoF paraglider model."""
 
     state_dtype = [
@@ -38,12 +68,12 @@ class ParagliderModel6a:
 
     def __init__(
         self,
-        paraglider,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        paraglider: ParagliderSystemDynamics6a,
+        delta_a: float | Callable = 0,
+        delta_bl: float | Callable = 0,
+        delta_br: float | Callable = 0,
+        delta_w: float | Callable = 0,
+        rho_air: float | Callable = 1.225,
         v_W2e=(0, 0, 0),
     ):
         self.paraglider = paraglider
@@ -87,7 +117,7 @@ class ParagliderModel6a:
         ----------
         t : float [s]
             Time
-        state : ParagliderModel6a.state_dtype
+        state : ParagliderStateDynamics6a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -97,7 +127,7 @@ class ParagliderModel6a:
 
         Returns
         -------
-        state_dot : ParagliderModel6a.state_dtype
+        state_dot : ParagliderStateDynamics6a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
@@ -164,7 +194,7 @@ class ParagliderModel6a:
 
         Returns
         -------
-        gsim.simulator.ParagliderModel6a.state_dtype
+        gsim.simulator.ParagliderStateDynamics6a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -193,7 +223,7 @@ class ParagliderModel6a:
         return state
 
 
-class ParagliderModel9a:
+class ParagliderStateDynamics9a(StateDynamics):
     """Defines the state dynamics for a 9 DoF paraglider model."""
 
     state_dtype = [
@@ -207,12 +237,12 @@ class ParagliderModel9a:
 
     def __init__(
         self,
-        paraglider,
-        delta_a=0,
-        delta_bl=0,
-        delta_br=0,
-        delta_w=0,
-        rho_air=1.225,
+        paraglider: ParagliderSystemDynamics9a,
+        delta_a: float | Callable = 0,
+        delta_bl: float | Callable = 0,
+        delta_br: float | Callable = 0,
+        delta_w: float | Callable = 0,
+        rho_air: float | Callable = 1.225,
         v_W2e=(0, 0, 0),
     ):
         self.paraglider = paraglider
@@ -257,7 +287,7 @@ class ParagliderModel9a:
         ----------
         t : float [s]
             Time
-        state : ParagliderModel9a.state_dtype
+        state : ParagliderStateDynamics9a.state_dtype
             The current state
         params : dictionary
             Any extra non-state parameters for computing the derivatives. Be
@@ -267,7 +297,7 @@ class ParagliderModel9a:
 
         Returns
         -------
-        state_dot : ParagliderModel9a.state_dtype
+        state_dot : ParagliderStateDynamics9a.state_dtype
             The state derivatives
         """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
@@ -351,7 +381,7 @@ class ParagliderModel9a:
 
         Returns
         -------
-        gsim.simulator.ParagliderModel9a.state_dtype
+        gsim.simulator.ParagliderStateDynamics9a.state_dtype
             The equilibrium state
         """
         if not np.isclose(self.delta_bl(0), self.delta_br(0)):
@@ -387,7 +417,15 @@ class ParagliderModel9a:
 # Simulator
 
 
-def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
+def simulate(
+    model: StateDynamics,
+    state0,
+    T: float = 10,
+    T0: float = 0,
+    dt: float = 0.5,
+    first_step: float = 0.25,
+    max_step: float = 0.5,
+):
     """
     Generate a state trajectory using the model's state derivatives.
 
@@ -468,7 +506,7 @@ def simulate(model, state0, T=10, T0=0, dt=0.5, first_step=0.25, max_step=0.5):
     return times, states
 
 
-def recompute_derivatives(model, times, states):
+def recompute_derivatives(model: StateDynamics, times, states):
     """
     Re-run the dynamics to access the state derivatives (accelerations).
 
@@ -478,8 +516,8 @@ def recompute_derivatives(model, times, states):
 
     Parameters
     ----------
-    model : dynamics model
-        For now, this is either ParagliderModel6a or ParagliderModel9a
+    model : StateDynamics
+        The state dynamics model that generated the derivatives.
     times : array of float
         The time value at each step.
     states : array of model.state_dtype
@@ -502,13 +540,13 @@ def recompute_derivatives(model, times, states):
     return derivatives
 
 
-def prettyprint_state(state, header=None, footer=None):
+def prettyprint_state(state, header: str = None, footer: str = None) -> None:
     """
-    Pretty-print the `state_dtype` for `ParagliderModel6a` and `ParagliderModel9a`.
+    Pretty-print a single instance of a StateDynamics.state_dtype
 
     Parameters
     ----------
-    state : ParagliderModel6a.state_dtype or ParagliderModel9a.state_dtype
+    state : StateDynamics.state_dtype
         The state to pretty-print.
     header : string, optional
         A string to print on a separate line preceding the states.

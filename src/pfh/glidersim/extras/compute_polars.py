@@ -1,12 +1,14 @@
 """FIXME: add module docstring"""
 
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 from pfh.glidersim import foil_aerodynamics, orientation
 
 
-def plot_polar_curve(glider, rho_air=1.225, N=21):
+def plot_polar_curve(glider, rho_air: float = 1.225, N: int = 21):
     """Compute the equilibrium conditions and plot the polar curves."""
 
     eqs_a = []
@@ -93,7 +95,12 @@ def plot_polar_curve(glider, rho_air=1.225, N=21):
     return accelerating, braking
 
 
-def plot_wing_coefficients(wing, delta_b=0, v_mag=10, rho_air=1.225):
+def plot_wing_coefficients(
+    wing,
+    delta_b: float = 0,
+    v_mag: float = 10,
+    rho_air: float = 1.225,
+) -> None:
     alphas = np.deg2rad(np.linspace(-10, 25, 50))
     Fs, Ms = [], []
     reference_solution = None

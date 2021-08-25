@@ -17,9 +17,9 @@ if __name__ == "__main__":
         mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
     )
     if use_6a:
-        paraglider = gsim.paraglider.Paraglider6a(wing, harness)
+        paraglider = gsim.paraglider.ParagliderSystemDynamics6a(wing, harness)
     else:
-        paraglider = gsim.paraglider.Paraglider9a(wing, harness)
+        paraglider = gsim.paraglider.ParagliderSystemDynamics9a(wing, harness)
 
     print("Computing the glider equilibrium state...\n")
     eq = paraglider.equilibrium_state()

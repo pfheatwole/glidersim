@@ -1,11 +1,18 @@
 """FIXME: add docstring."""
 
+from __future__ import annotations
+
 import abc
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import numpy as np
 import scipy.optimize
 
 from pfh.glidersim.util import cross3
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.foil import SimpleFoil
 
 
 __all__ = [
@@ -18,7 +25,18 @@ def __dir__():
     return __all__
 
 
+# FIXME: using `runtime_checkable` causes mypy to crash because of the embedded
+# `ConvergenceError` class. See https://github.com/python/mypy/issues/10522
+# @runtime_checkable
+# class FoilAerodynamics(Protocol):
 class FoilAerodynamics(abc.ABC):
+    """Interface for classes that implement a FoilAerodynamics model."""
+
+    # FIXME: is this compatible with, eg, `Phillips.__init__`? Especially the
+    # way I pass the args in `SimpleFoil.__init__`.
+    @abc.abstractmethod
+    def __init__(self, foil: SimpleFoil, **kwargs) -> None:
+        """FIXME: docstring."""
 
     @abc.abstractmethod
     def __call__(self, ai, v_W2f, rho_air):
@@ -34,11 +52,10 @@ class FoilAerodynamics(abc.ABC):
             The velocity of the wind relative to the control points in foil frd
             coordinates. The shape must be able to broadcast to (K, 3), where
             `K` is the number of control points being used by the estimator.
-        rho_air : float [kg/m^3]
+        rho_air : array_like of float [kg/m^3]
             Air density
         """
 
-    @property
     @abc.abstractmethod
     def control_points(self):
         """
@@ -46,7 +63,7 @@ class FoilAerodynamics(abc.ABC):
 
         Returns
         -------
-        r_CP2LE : float, shape (K,3) [m]
+        r_CP2LE : ndarray of float, shape (K,3) [m]
             Control points relative to the central leading edge `LE`.
             Coordinates are in canopy frd, and `K` is the number of points
             being used by the estimation method.
@@ -74,7 +91,7 @@ class Phillips(FoilAerodynamics):
         The reference solution angle of attack
     K : integer
         The number of bound vortex segments. Default: 51
-    s_clamp : float
+    s_clamp : float, optional
         Section index to enable clamped output of the aerodynamic coefficients
         for section indices `abs(s) >= s_clamp`. Instead of returning `nan`,
         clamping uses the value of the largest `alpha` that produces a
@@ -114,7 +131,14 @@ class Phillips(FoilAerodynamics):
     or for a poorly chosen point distribution). See _[2], section 8.2.3.
     """
 
-    def __init__(self, foil, v_ref_mag, alpha_ref=5, K=51, s_clamp=None):
+    def __init__(
+        self,
+        foil,
+        v_ref_mag,
+        alpha_ref: float = 5,
+        K: int = 51,
+        s_clamp: float | None = None,
+    ) -> None:
         self.foil = foil
         self.K = K
 
@@ -350,7 +374,14 @@ class Phillips(FoilAerodynamics):
 
         return res["x"], v
 
-    def __call__(self, ai, v_W2f, rho_air, reference_solution=None, max_splits=10):
+    def __call__(
+        self,
+        ai,
+        v_W2f,
+        rho_air,
+        reference_solution: dict | None = None,
+        max_splits: int = 10,
+    ):
         # FIXME: this doesn't match the FoilAerodynamics.__call__ signature
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
         Re = self._compute_Reynolds(v_W2f, rho_air)

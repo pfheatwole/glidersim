@@ -1,7 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import PolyCollection
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
+
+
+if TYPE_CHECKING:
+    from pfh.glidersim.airfoil import (
+        AirfoilCoefficientsInterpolator,
+        AirfoilGeometry,
+    )
 
 
 __all__ = [
@@ -9,7 +20,6 @@ __all__ = [
     "plot_airfoil_coef",
     "plot_foil",
     "plot_foil_topdown",
-    "plot_paraglider_wing",
 ]
 
 
@@ -91,7 +101,7 @@ def _create_3d_axes(figsize=(12, 12), dpi=96):
     return fig, ax
 
 
-def plot_airfoil_geo(foil_geo, N_points=200):
+def plot_airfoil_geo(foil_geo: AirfoilGeometry, N_points: int = 200) -> None:
     r = (1 - np.cos(np.linspace(0, np.pi, N_points))) / 2
     upper = foil_geo.profile_curve(r).T
     lower = foil_geo.profile_curve(-r).T
@@ -120,7 +130,13 @@ def plot_airfoil_geo(foil_geo, N_points=200):
     plt.show()
 
 
-def plot_airfoil_coef(coefficients, coef, ai=0, clamp=False, N=100):
+def plot_airfoil_coef(
+    coefficients: AirfoilCoefficientsInterpolator,
+    coef: str,
+    ai: float = 0,
+    clamp: bool = False,
+    N: int = 100,
+) -> None:
     """
     Parameters
     ----------
@@ -128,8 +144,10 @@ def plot_airfoil_coef(coefficients, coef, ai=0, clamp=False, N=100):
         The airfoil coefficients to plot.
     coef : {'cl', 'cl_alpha', 'cd', 'cm'}
         The airfoil coefficient to plot. Case-insensitive.
-    ai
+    ai : float
         Airfoil index
+    clamp : bool
+        FIXME: docstring
     N : integer
         The number of sample points per dimension
     """
@@ -163,9 +181,9 @@ def plot_foil(
     foil,
     s=51,
     ai=0,
-    N_points=50,
-    surface="airfoil",
-    flatten=False,
+    N_points: int = 50,
+    surface: str = "airfoil",
+    flatten: bool = False,
     ax=None,
 ):
     """Plot a FoilGeometry in 3D."""
@@ -224,7 +242,7 @@ def plot_foil(
     ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
 
     # Quarter-chord projection onto the yz-pane (`x` held fixed)
-    x = np.full(*c4[1].shape, min(xlim))
+    x = np.full(c4[1].shape, min(xlim))
     x *= 1.035  # Fix distortion due to small distance from the yz-pane
     ax.plot(x, c4[1], c4[2], "g--", lw=0.8, label="quarter-chord")
 
@@ -242,7 +260,13 @@ def plot_foil(
         return (*ax.lines, *ax.collections)
 
 
-def plot_foil_topdown(foil, s=51, flatten=False, rotate=0, ax=None):
+def plot_foil_topdown(
+    foil,
+    s=51,
+    flatten: bool = False,
+    rotate: float = 0,
+    ax=None,
+):
     """
     Plot a 3D foil in topdown projection.
 
@@ -299,7 +323,7 @@ def plot_foil_topdown(foil, s=51, flatten=False, rotate=0, ax=None):
         return ax.lines
 
 
-def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show=True):
+def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show: bool = True):
     """
     Plot glider positions over time with lines to the wing and harness.
 

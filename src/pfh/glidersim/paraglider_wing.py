@@ -1,5 +1,10 @@
 """FIXME: add module docstring."""
 
+from __future__ import annotations
+
+import abc
+from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
+
 import numpy as np
 from scipy.optimize import minimize, minimize_scalar, root_scalar
 from scipy.spatial import Delaunay
@@ -8,7 +13,12 @@ from pfh.glidersim import foil, foil_aerodynamics
 from pfh.glidersim.util import cross3, crossmat
 
 
+if TYPE_CHECKING:
+    from pfh.glidersim.foil import SimpleFoil
+
+
 __all__ = [
+    "LineGeometry",
     "SimpleLineGeometry",
     "ParagliderWing",
 ]
@@ -18,7 +28,65 @@ def __dir__():
     return __all__
 
 
-class SimpleLineGeometry:
+@runtime_checkable
+class LineGeometry(Protocol):
+    """Interface for classes that define a LineGeometry model."""
+
+    @abc.abstractmethod
+    def r_RM2LE(self, delta_a=0):
+        """
+        Compute the position of the riser midpoint `RM` in body frd.
+
+        Parameters
+        ----------
+        delta_a : array_like of float, shape (N,) [percentage] (optional)
+            Fraction of maximum accelerator application. Default: 0
+
+        Returns
+        -------
+        r_RM2LE : array of float, shape (N,3) [unitless]
+            The riser midpoint `RM` with respect to the canopy origin.
+        """
+
+    @abc.abstractmethod
+    def control_points(self):
+        """
+        Compute the control points for the line geometry dynamics.
+
+        Returns
+        -------
+        r_CP2LE : float, shape (K,3) [m]
+            Control points relative to the central leading edge `LE`.
+            Coordinates are in canopy frd, and `K` is the number of points
+            being used to distribute the surface area of the lines.
+        """
+
+    @abc.abstractmethod
+    def delta_d(self, s, delta_bl, delta_br):
+        """
+        Compute the trailing edge deflection distance due to brake inputs.
+
+        Parameters
+        ----------
+        s : array_like of float
+            Section index, where `-1 <= s <= 1`
+        delta_bl : array_like of float [percentage]
+            Left brake application as a fraction of maximum braking
+        delta_br : array_like of float [percentage]
+            Right brake application as a fraction of maximum braking
+
+        Returns
+        -------
+        delta_d : float [m]
+            The deflection distance of the trailing edge.
+        """
+
+    @abc.abstractmethod
+    def aerodynamics(self, v_W2b, rho_air: float):
+        """FIXME: docstring."""
+
+
+class SimpleLineGeometry(LineGeometry):
     """
     FIXME: document the design.
 
@@ -104,20 +172,20 @@ class SimpleLineGeometry:
 
     def __init__(
         self,
-        kappa_x,
-        kappa_z,
-        kappa_A,
-        kappa_C,
-        kappa_a,
-        kappa_b,
-        total_line_length,
-        average_line_diameter,
+        kappa_x: float,
+        kappa_z: float,
+        kappa_A: float,
+        kappa_C: float,
+        kappa_a: float,
+        kappa_b: float,
+        total_line_length: float,
+        average_line_diameter: float,
         r_L2LE,
-        Cd_lines,
-        s_delta_start0,
-        s_delta_start1,
-        s_delta_stop0,
-        s_delta_stop1,
+        Cd_lines: float,
+        s_delta_start0: float,
+        s_delta_start1: float,
+        s_delta_stop0: float,
+        s_delta_stop1: float,
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
@@ -152,19 +220,6 @@ class SimpleLineGeometry:
         self._K3 = self._K1
 
     def r_RM2LE(self, delta_a=0):
-        """
-        Compute the position of the riser midpoint `RM` in body frd.
-
-        Parameters
-        ----------
-        delta_a : array_like of float, shape (N,) [percentage] (optional)
-            Fraction of maximum accelerator application. Default: 0
-
-        Returns
-        -------
-        r_RM2LE : array of float, shape (N,3) [unitless]
-            The riser midpoint `RM` with respect to the canopy origin.
-        """
         # The accelerator shortens the A lines, while C remains fixed
         delta_a = np.asarray(delta_a)
         RM_x = (
@@ -179,36 +234,9 @@ class SimpleLineGeometry:
         return r_RM2LE
 
     def control_points(self):
-        """
-        Compute the control points for the line geometry dynamics.
-
-        Returns
-        -------
-        r_CP2LE : float, shape (K,3) [m]
-            Control points relative to the central leading edge `LE`.
-            Coordinates are in canopy frd, and `K` is the number of points
-            being used to distribute the surface area of the lines.
-        """
         return self._r_L2LE
 
     def delta_d(self, s, delta_bl, delta_br):
-        """
-        Compute the trailing edge deflection distance due to brake inputs.
-
-        Parameters
-        ----------
-        s : float, or array_like of float, shape (N,)
-            Section index, where `-1 <= s <= 1`
-        delta_bl : float [percentage]
-            Left brake application as a fraction of maximum braking
-        delta_br : float [percentage]
-            Right brake application as a fraction of maximum braking
-
-        Returns
-        -------
-        delta_d : float [m]
-            The deflection distance of the trailing edge.
-        """
         def _interp(A, B, d):
             # Interpolate from A to B as function of 0 <= d <= 1
             return A + (B - A) * d
@@ -233,7 +261,7 @@ class SimpleLineGeometry:
         qr = q(s, s_start_r, s_stop_r)
         return (delta_bl * ql + delta_br * qr) * self.kappa_b
 
-    def aerodynamics(self, v_W2b, rho_air):
+    def aerodynamics(self, v_W2b, rho_air: float):
         K_lines = self._r_L2LE.shape[0]
 
         # Simplistic model for line drag using `K_lines` isotropic points
@@ -251,7 +279,12 @@ class SimpleLineGeometry:
         dM_lines = np.zeros((K_lines, 3))
         return dF_lines, dM_lines
 
-    def maximize_kappa_b(self, delta_d_max, chord_length, margin=1e-6):
+    def maximize_kappa_b(
+        self,
+        delta_d_max: float,
+        chord_length: Callable,
+        margin: float = 1e-6,
+    ) -> None:
         """Maximze kappa_b such that delta_d never exceeds delta_d_max.
 
         Useful to ensure the deflections don't exceed the maximum delta_d
@@ -307,12 +340,12 @@ class ParagliderWing:
 
     def __init__(
         self,
-        lines,
-        canopy,
-        rho_upper=0,
-        rho_lower=0,
-        rho_ribs=0,
-        N_cells=1,
+        lines: LineGeometry,
+        canopy: SimpleFoil,
+        rho_upper: float = 0,
+        rho_lower: float = 0,
+        rho_ribs: float = 0,
+        N_cells: int = 1,
     ):
         self.lines = lines
         self.canopy = canopy
@@ -523,7 +556,13 @@ class ParagliderWing:
         }
 
     def aerodynamics(
-        self, delta_a, delta_bl, delta_br, v_W2b, rho_air, reference_solution=None,
+        self,
+        delta_a: float,
+        delta_bl: float,
+        delta_br: float,
+        v_W2b,
+        rho_air: float,
+        reference_solution: dict | None = None,
     ):
         """
         FIXME: add docstring.
@@ -579,13 +618,13 @@ class ParagliderWing:
 
     def equilibrium_alpha(
         self,
-        delta_a,
-        delta_b,
-        v_mag,
-        rho_air=1.225,
-        alpha_0=9,
-        alpha_1=6,
-        reference_solution=None,
+        delta_a: float,
+        delta_b: float,
+        v_mag: float,
+        rho_air: float = 1.225,
+        alpha_0: float = 9,
+        alpha_1: float = 6,
+        reference_solution: dict | None = None,
     ):
         """
         Compute the angle of attack with zero aerodynamic pitching moment.
@@ -638,7 +677,7 @@ class ParagliderWing:
 
         Parameters
         ----------
-        delta_a : float or array of float, shape (N,) [percentage] (optional)
+        delta_a : array_like of float, shape (K,) [percentage] (optional)
             Fraction of maximum accelerator application
 
         Returns
@@ -656,17 +695,17 @@ class ParagliderWing:
 
         Parameters
         ----------
-        delta_a : array_like of float, shape (N,) [percentage] (optional)
+        delta_a : array_like of float, shape (K,) [percentage] (optional)
             Fraction of maximum accelerator application. Default: 0
 
         Returns
         -------
-        r_RM2LE : array of float, shape (N,3) [meters]
+        r_RM2LE : array of float, shape (K,3) [meters]
             The riser midpoint `RM` with respect to the canopy origin.
         """
         return self.lines.r_RM2LE(delta_a)
 
-    def mass_properties(self, rho_air, delta_a=0):
+    def mass_properties(self, rho_air: float, delta_a: float = 0):
         """
         Compute the inertial properties of the wing about `RM`.
 

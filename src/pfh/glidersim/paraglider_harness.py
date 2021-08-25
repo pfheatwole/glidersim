@@ -1,6 +1,7 @@
 """FIXME: add module docstring"""
 
 import abc
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
@@ -15,10 +16,9 @@ def __dir__():
     return __all__
 
 
-class Harness(abc.ABC):
-    """
-    FIXME: docstring
-    """
+@runtime_checkable
+class Harness(Protocol):
+    """Interface for classes that implement a Harness model."""
 
     @abc.abstractmethod
     def control_points(self, delta_w):
@@ -114,12 +114,19 @@ class Spherical(Harness):
     .. [1] Benedetti, Diego Muniz. "Paragliders Flight Dynamics". 2012. pg 85
     """
 
-    def __init__(self, mass, z_riser, S, CD, kappa_w):
+    def __init__(
+        self,
+        mass: float,
+        z_riser: float,
+        S: float,
+        CD: float,
+        kappa_w: float,
+    ) -> None:
         self._mass = mass
         self._z_riser = z_riser
         self._S = S
         self._CD = CD
-        self._kappa_w = kappa_w  # FIXME: Strange notation to match `kappa_a`
+        self._kappa_w = kappa_w
 
     def control_points(self, delta_w=0):
         delta_w = np.asarray(delta_w)
@@ -137,7 +144,7 @@ class Spherical(Harness):
         dM = np.zeros(3)
         return dF, dM
 
-    def mass_properties(self, delta_w=0):
+    def mass_properties(self, delta_w: float = 0):
         # Treats the mass as a uniform density solid sphere
         return {
             "m_p": self._mass,
