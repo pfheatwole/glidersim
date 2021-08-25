@@ -9,6 +9,8 @@ from pfh.glidersim.extras import plots
 
 
 def build_hook3(
+    *,
+    size=23,
     num_control_points: int = 31,
     verbose: bool = True,
 ) -> gsim.paraglider_wing.ParagliderWing:
@@ -29,16 +31,64 @@ def build_hook3(
     # -----------------------------------------------------------------------
     # Canopy
 
-    # True technical specs
-    chord_tip, chord_root, chord_mean = 0.52, 2.58, 2.06
-    S_flat, b_flat, AR_flat = 23, 11.15, 5.40
-    SMC_flat = b_flat / AR_flat
-    S, b, AR = 19.55, 8.84, 4.00
-    m_s = 4.7  # Solid mass [kg]
+    # True specs from the Niviuk Hook 3 User Manual, p14, "Technical Data"
+    technical_specs: dict[int, dict] = {}
+
+    technical_specs[23] = {
+        "chord_tip": 0.52,
+        "chord_root": 2.58,
+        "chord_mean": 2.06,
+        "S_flat": 23,
+        "b_flat": 11.15,
+        "AR_flat": 5.40,
+        "S": 19.55,
+        "b": 8.84,
+        "AR": 4.00,
+        "m_s": 4.9,  # Solid mass [kg]
+        "kappa_z": 6.8,
+        "total_line_length": 218,
+    }
+
+    technical_specs[25] = {
+        "chord_tip": 0.54,
+        "chord_root": 2.69,
+        "chord_mean": 2.14,
+        "S_flat": 25,
+        "b_flat": 11.62,
+        "AR_flat": 5.40,
+        "S": 21.25,
+        "b": 9.22,
+        "AR": 4.00,
+        "m_s": 5.3,  # Solid mass [kg]
+        "kappa_z": 7.09,
+        "total_line_length": 227,
+    }
+
+    technical_specs[27] = {
+        "chord_tip": 0.56,
+        "chord_root": 2.8,
+        "chord_mean": 2.23,
+        "S_flat": 27,
+        "b_flat": 12.08,
+        "AR_flat": 5.40,
+        "S": 22.95,
+        "b": 9.58,
+        "AR": 4.00,
+        "m_s": 5.5,  # Solid mass [kg]
+        "kappa_z": 7.36,
+        "total_line_length": 236,
+    }
+
+    if size not in technical_specs:
+        raise ValueError(
+            f"Invalid canopy size {size}, must be in {tuple(technical_specs.keys())}",
+        )
+
+    specs = technical_specs[size]
 
     c = gsim.foil_layout.EllipticalChord(
-        root=chord_root / (b_flat / 2),
-        tip=chord_tip / (b_flat / 2),
+        root=specs["chord_root"] / (specs["b_flat"] / 2),
+        tip=specs["chord_tip"] / (specs["b_flat"] / 2),
     )
 
     # Geometric torsion
@@ -72,7 +122,7 @@ def build_hook3(
         layout=layout,
         sections=sections,
         # b=b,  # Option 1: Scale the using the projected span
-        b_flat=b_flat,  # Option 2: Scale the using the flattened span
+        b_flat=specs["b_flat"],  # Option 2: Scale the using the flattened span
         aerodynamics_method=gsim.foil_aerodynamics.Phillips,
         aerodynamics_config={
             "v_ref_mag": 10,
@@ -87,11 +137,11 @@ def build_hook3(
     # better glide ratios with small amounts of accelerator, but without
     # evidence this a reasonable assumption).
     riser_position_parameters = {
-        "kappa_x": 0.50 * chord_root,
-        "kappa_z": 6.8,  # "Technical specs", pg 2
-        "kappa_A": 0.11 * chord_root,  # "Users manual", "Line plan", pg 17
-        "kappa_C": 0.59 * chord_root,  # "Users manual", "Line plan", pg 17
-        "kappa_a": 0.15,  # "Technical specs", pg 2
+        "kappa_x": 0.45 * specs["chord_root"],
+        "kappa_z": specs["kappa_z"],  # Users manual::Technical specs, p14
+        "kappa_A": 0.11 * specs["chord_root"],  # Users manual::Line plan, p17
+        "kappa_C": 0.59 * specs["chord_root"],  # Users manual::Line plan, p17
+        "kappa_a": 0.15,  # Users manual::Technical specs, p14
     }
 
     # Estimated from https://www.youtube.com/watch?v=D-OyGZbOmS0
@@ -110,11 +160,12 @@ def build_hook3(
     }
 
     # Crude guesses to account for the bulk of the line drag.
+    # FIXME: needs a serious review
     line_drag_parameters = {
-        "total_line_length": 218,  # "Technical specs", pg 2
+        "total_line_length": specs["total_line_length"],
         "average_line_diameter": 1e-3,  # Blind guess
-        "r_L2LE": np.array([[-0.5 * chord_root, -1.75, 1.75],  # FIXME: review
-                            [-0.5 * chord_root,  1.75, 1.75]]),
+        "r_L2LE": np.array([[-0.5 * specs["chord_root"], -1.75, 1.75],
+                            [-0.5 * specs["chord_root"],  1.75, 1.75]]),
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
     }
 
@@ -160,21 +211,21 @@ def build_hook3(
 
     if verbose:
         print("Canopy geometry:           [Target]")
-        print(f"  flattened span: {canopy.b_flat:>6.3f}   [{b_flat:>6.3f}]")
-        print(f"  flattened area: {canopy.S_flat:>6.3f}   [{S_flat:>6.3f}]")
-        print(f"  flattened AR:   {canopy.AR_flat:>6.3f}   [{AR_flat:>6.3f}]")
+        print(f"  flattened span: {canopy.b_flat:>6.3f}   [{specs['b_flat']:>6.3f}]")
+        print(f"  flattened area: {canopy.S_flat:>6.3f}   [{specs['S_flat']:>6.3f}]")
+        print(f"  flattened AR:   {canopy.AR_flat:>6.3f}   [{specs['AR_flat']:>6.3f}]")
         # print(f"  planform flat SMC   {canopy.SMC:>6.3f}")
         # print(f"  planform flat MAC:  {canopy.MAC:>6.3f}")
-        print(f"  projected span: {canopy.b:>6.3f}   [{b:>6.3f}]")
-        print(f"  projected area: {canopy.S:>6.3f}   [{S:>6.3f}]")
-        print(f"  projected AR:   {canopy.AR:>6.3f}   [{AR:>6.3f}]")
+        print(f"  projected span: {canopy.b:>6.3f}   [{specs['b']:>6.3f}]")
+        print(f"  projected area: {canopy.S:>6.3f}   [{specs['S']:>6.3f}]")
+        print(f"  projected AR:   {canopy.AR:>6.3f}   [{specs['AR']:>6.3f}]")
         print()
 
         # Reminder that I'm not accounting for mass from things like the lines,
         # internal vribs, internal horizontal straps, caribiners, etc.
         wmp = wing.mass_properties(rho_air=1.225)
         print("Wing inertia:              [Target]")
-        print(f"  solid mass:     {wmp['m_s']:>6.3f}   [{m_s:>6.3f}]")
+        print(f"  solid mass:     {wmp['m_s']:>6.3f}   [{specs['m_s']:>6.3f}]")
         print()
 
         print("Finished building the glider.\n")
