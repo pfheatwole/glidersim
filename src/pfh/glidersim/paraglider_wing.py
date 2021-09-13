@@ -642,10 +642,10 @@ class ParagliderWing:
             Airspeed
         rho_air : float [kg/m^3], optional
             Air density
-        alpha_0 : float [rad], optional
+        alpha_0 : float [deg], optional
             First guess for the equilibrium alpha search.
-        alpha_1 : float [rad], optional
-            First guess for the equilibrium alpha search.
+        alpha_1 : float [deg], optional
+            Second guess for the equilibrium alpha search.
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
