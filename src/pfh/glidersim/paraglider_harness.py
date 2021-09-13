@@ -112,6 +112,9 @@ class Spherical(Harness):
     References
     ----------
     .. [1] Benedetti, Diego Muniz. "Paragliders Flight Dynamics". 2012. pg 85
+
+    .. [2] Babinsky, Holger. "The aerodynamic performance of paragliders".
+           1999. pg 422
     """
 
     def __init__(
@@ -129,6 +132,7 @@ class Spherical(Harness):
         self._kappa_w = kappa_w
 
     def control_points(self, delta_w=0):
+        # FIXME: Weight shift probably shouldn't move the AERODYNAMIC control point
         delta_w = np.asarray(delta_w)
         r_P2RM = [
             np.zeros(delta_w.shape),
