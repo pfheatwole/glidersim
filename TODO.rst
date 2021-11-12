@@ -1,7 +1,20 @@
-* When numpy 1.21 is released, review using `numpy.typing.NDArray` to type
-  hint `array_like` inputs. You can currently use `npt.ArrayLike`, but with
-  not type qualifier like `np.float`, so I'm holding off. (I don't think
-  `NDArray` will allow specifying the shape, but that's less important.)
+* Use `surface: typing.Literal["upper", "lower", "camber", "airfoil"]` typing.
+  Unlike the assertion-based checking, this alerts the programmer when they're
+  writing the code instead of crashing at runtime (assuming they use `mypy`).
+
+* Why does this crash? ``canopy.surface_xyz(0, 0, 0, "upper")``
+
+* I think I need a `Foil(FoilGeometry, FoilAerodynamics)` or similar. I've
+  NEVER liked this design where `SimpleFoil` passes `self` to initialize the
+  `FoilAerodynamics`. I do like the symmetry of `harness.aerodynamics` and
+  `foil.aerodynamics` though.
+
+  While I'm at it, why just the `aerodynamics` and not the total `dynamics`?
+
+* Rename `reference_solution`. It should be a generic `dict` that the
+  aerodynamics method can stuff with whatever they need (like `solution`).
+
+* Should I use `np.asfarray` instead of `np.asarray`?
 
 * The `FoilSections` is really a section interpolator. It's naming should make
   that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
@@ -97,20 +110,9 @@ Documentation
 
   [0] https://github.com/sphinx-doc/sphinx/tree/master/sphinx/ext/autosummary/templates/autosummary
 
+
 General
 -------
-
-* Create `.git_archival.txt` once `setuptools_scm` supports the new
-  `%(describe)` git log formatter
-
-  https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
-
-* Not sure I like relying on git tags for the versions. An alternative would
-  be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
-  use `version = attr: pfh.glidersim.__version__`. See
-  https://packaging.python.org/guides/single-sourcing-package-version/
-
-  Deal-breaker: you need a `setup.py` to enable `pip install -e .`
 
 * Fix the "magic indexing" in `paraglider_wing` and `paraglider`
 
@@ -153,6 +155,26 @@ General
   imports but **before** normal imports. My `__all__` are technically wrong.
 
 
+Static typing
+-------------
+
+* Some functions have their return types marked `array_like`, but I think the
+  numpy convention is to return "scalar or ndarray".
+
+* When numpy 1.21 is released, consider using `numpy.typing.NDArray` for
+  return values. It's a little ambiguous because if most functions return
+  a scalar given scalar inputs, but I think this is consistent with how most
+  numpy functions are typed. (related: numpy#19064)
+
+* Type hint `array_like` inputs. Numpy 1.20 provides `npt.ArrayLike`, but it
+  allows all scalar types; I need hinting like `ArrayLike[Any, bool]`.
+
+* You can currently use `npt.ArrayLike`, but with not type qualifier like
+  `np.float`, so I'm holding off. (I don't think `NDArray` will allow
+  specifying the shape, but that's less important.)
+
+
+
 Low priority
 ------------
 
@@ -167,6 +189,28 @@ Low priority
 
 Packaging
 ---------
+
+* pip 21.3 added `pip install -e .` for projects with only `pyproject.toml`
+
+  Spec added in PEP 660
+
+  Not sure if this works with `pip-tools`, but I don't think `pip-tools`
+  parses `setup.py` anymore (parses the output of `pip install`). See
+  https://github.com/jazzband/pip-tools/issues/908
+
+  Can I eliminate `setup.py` now?
+
+* Create `.git_archival.txt` once `setuptools_scm` supports the new
+  `%(describe)` git log formatter
+
+  https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
+
+* Not sure I like relying on git tags for the versions. An alternative would
+  be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
+  use `version = attr: pfh.glidersim.__version__`. See
+  https://packaging.python.org/guides/single-sourcing-package-version/
+
+  Deal-breaker: you need a `setup.py` to enable `pip install -e .`
 
 * Complete `README.rst`
 
