@@ -42,12 +42,10 @@ def sweep(vstart, vstop, T, fps, reverse=True):
     else:
         values = np.linspace(vstart, vstop, N)  # Linear sweep
 
-    for n in range(N):
-        yield values[n]
+    yield from values
 
     if reverse:
-        for n in range(N):
-            yield values[::-1][n]
+        yield from reversed(values)
 
 
 def sweep_scalar(name, vstart, vstop, T, fps, reverse=True):
