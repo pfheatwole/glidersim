@@ -6,4 +6,4 @@ docs/_build/
 
 *.egg-info/
 dist/
-venv/
+.venv/
