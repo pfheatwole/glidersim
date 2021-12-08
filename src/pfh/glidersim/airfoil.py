@@ -353,6 +353,8 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
 
     def _query(self, f, clamp, ai, alpha, Re):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        ai.flags.writeable = False  # Silence deprecation warnings
+        Re.flags.writeable = False
 
         # Set clamped sections to their maximum non-nan values by setting alpha
         # to be just inside the cube associated with the maximum valid alpha.
@@ -377,6 +379,8 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
 
     def Cl_alpha(self, ai, alpha, Re, clamp=False):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        ai.flags.writeable = False  # Silence deprecation warnings
+        Re.flags.writeable = False
         out = self._Cl_alpha(ai, alpha, Re)
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, out.shape)
