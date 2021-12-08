@@ -97,7 +97,6 @@ class ParagliderSystemDynamics6a:
         delta_w: float = 0,
         rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
-        r_CP2RM=None,
         reference_solution: dict | None = None,
     ):
         """
@@ -126,22 +125,9 @@ class ParagliderSystemDynamics6a:
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -153,39 +139,17 @@ class ParagliderSystemDynamics6a:
             Angular acceleration of the body, in body frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-
-        1. Uniform global wind across the wing (v_W2e.shape == (3,))
-
-        2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the riser connection midpoint `RM`
@@ -452,7 +416,6 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         delta_w: float = 0,
         rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
-        r_CP2RM=None,
         reference_solution=None,
     ):
         """
@@ -481,22 +444,9 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -508,37 +458,17 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
             Angular acceleration of the body, in body frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
@@ -709,22 +639,9 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -736,37 +653,17 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
             Angular acceleration of the body, in body frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
@@ -947,7 +844,6 @@ class ParagliderSystemDynamics9a:
         delta_w: float = 0,
         rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
-        r_CP2RM=None,
         reference_solution: dict | None = None,
     ):
         """
@@ -981,22 +877,9 @@ class ParagliderSystemDynamics9a:
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -1010,39 +893,18 @@ class ParagliderSystemDynamics9a:
             Angular acceleration of the payload, in payload frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
         C_b2p = C_p2b.T
@@ -1379,7 +1241,6 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         delta_w: float = 0,
         rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
-        r_CP2RM=None,
         reference_solution: dict | None = None,
     ):
         """
@@ -1413,22 +1274,9 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -1442,39 +1290,18 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             Angular acceleration of the payload, in payload frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
         C_b2p = C_p2b.T
@@ -1642,7 +1469,6 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         delta_w: float = 0,
         rho_air: float = 1.225,
         v_W2e=(0, 0, 0),
-        r_CP2RM=None,
         reference_solution: dict | None = None,
     ):
         """
@@ -1676,22 +1502,9 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         rho_air : float [kg/m^3], optional
             Air density
         v_W2e : ndarray of float, shape (3,) or (K,3) [m/s], optional
-            The wind relative to the earth, in body frd coordinates. If it is a
-            single vector, then the wind is uniform everywhere on the wing. If
-            it is an ndarray, then it is the wind at each control point.
-        r_CP2RM : ndarray of float, shape (K,3) [m] (optional)
-            Position vectors of the control points, in body frd coordinates.
-            These are optional if the wind field is uniform, but for
-            non-uniform wind fields the simulator used these coordinates to
-            determine the wind vectors at each control point.
-
-            FIXME: This docstring is wrong; they are useful if delta_a != 0,
-            they have nothing to do with wind field uniformity. And really, why
-            do I even have both `r_CP2RM` and `delta_a` as inputs? The only
-            purpose of `delta_a` is to compute the r_CP2RM. Using `delta_a`
-            alone would be the more intuitive, but would incur extra
-            computation time for finding the control points; the only point of
-            `r_CP2RM` is to avoid recomputing them.
+            The wind relative to the earth, in body frd coordinates. If it is
+            a (3,) array then the wind is uniform at every control point. If
+            it is a (K,3) array then it is the vectors for each control point.
         reference_solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
 
@@ -1705,39 +1518,18 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             Angular acceleration of the payload, in payload frd coordinates.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
-
-        Notes
-        -----
-        There are two use cases:
-         1. Uniform global wind across the wing (v_W2e.shape == (3,))
-         2. Non-uniform global wind across the wing (v_W2e.shape == (K,3))
-
-        If the wind is locally uniform across the wing, then the simulator
-        can pass the wind vector with no knowledge of the control points.
-        If the wind is non-uniform across the wing, then the simulator will
-        need the control point coordinates in order to query the global wind
-        field; for the non-uniform case, the control points are a required
-        parameter to eliminate their redundant computation.
         """
+        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asarray(v_W2e)
-        if v_W2e.ndim > 1 and r_CP2RM is None:
-            # FIXME: needs a design review. The idea was that if `v_W2e` is
-            #        given for each individual control point, then require the
-            #        values of those control points to ensure they match the
-            #        current state of the wing (including the current control
-            #        inputs, `delta_a` and `delta_w`, which move the CPs). I've
-            #        never liked this design.
-            raise ValueError("Control point relative winds require r_CP2RM")
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
-            raise ValueError("Different number of wind and r_CP2RM vectors")
-        if r_CP2RM is None:
-            r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-
+            raise ValueError(
+                "Number of distinct wind vectors in v_W2e do not match the "
+                "number of control points",
+            )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-
         v_RM2e = np.asarray(v_RM2e)
         if v_RM2e.shape != (3,):
-            raise ValueError("v_RM2e must be a 3-vector velocity of the body cm")  # FIXME: awkward phrasing
+            raise ValueError("v_RM2e.shape != (3,)")
 
         C_p2b = orientation.euler_to_dcm(Theta_p2b)
         C_b2p = C_p2b.T

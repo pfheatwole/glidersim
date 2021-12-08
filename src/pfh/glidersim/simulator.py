@@ -149,7 +149,6 @@ class ParagliderStateDynamics6a(StateDynamics):
             delta_w=delta_w,
             rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
-            r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
         a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
@@ -324,7 +323,6 @@ class ParagliderStateDynamics9a(StateDynamics):
             delta_w=delta_w,
             rho_air=self.rho_air(t),
             v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
-            r_CP2RM=r_CP2RM,
             reference_solution=params["solution"],
         )
         a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
