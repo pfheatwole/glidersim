@@ -43,10 +43,10 @@ class ParagliderSystemDynamics6a:
     ----------
     wing : ParagliderWing
     payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+        This uses a `Harness`, but since there is no model for the pilot the
+        harness should include the pilot mass.
     use_apparent_mass : bool, optional
-        Whether to estimate the effects of apparent inertia. Default: True
+        Whether to estimate the effects of apparent inertia.
     """
 
     def __init__(
@@ -78,7 +78,7 @@ class ParagliderSystemDynamics6a:
 
         Returns
         -------
-        r_CP2RM : array of float, shape (N,3) [m]
+        r_CP2RM : array of float, shape (K,3) [m]
             The position of the control points with respect to `RM`.
         """
         r_LE2RM = -self.wing.r_RM2LE(delta_a)
@@ -102,14 +102,11 @@ class ParagliderSystemDynamics6a:
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
-
         Parameters
         ----------
         v_RM2e : array of float, shape (3,) [m/s]
-            Translational velocity of `RM` in body frd coordinates, where `RM` is
-            the midpoint between the two riser connection points.
+            Translational velocity of `RM` in body frd coordinates, where `RM`
+            is the midpoint between the two riser connection points.
         omega_b2e : array of float, shape (3,) [rad/s]
             Angular velocity of the body, in body frd coordinates.
         g : array of float, shape (3,) [m/s^s]
@@ -173,7 +170,7 @@ class ParagliderSystemDynamics6a:
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2RM = (pmp["J_p2P"] + pmp["m_p"] * D_p)
+        J_p2RM = pmp["J_p2P"] + pmp["m_p"] * D_p
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -190,15 +187,22 @@ class ParagliderSystemDynamics6a:
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
+                reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -337,7 +341,7 @@ class ParagliderSystemDynamics6a:
                 delta_b=delta_b,
                 v_mag=v_0,
                 rho_air=rho_air,
-                reference_solution=reference_solution
+                reference_solution=reference_solution,
             )
 
         _state = {
@@ -421,9 +425,6 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
-
         Parameters
         ----------
         v_RM2e : array of float, shape (3,) [m/s]
@@ -492,7 +493,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2B = (pmp["J_p2P"] + pmp["m_p"] * D_p)
+        J_p2B = pmp["J_p2P"] + pmp["m_p"] * D_p
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -519,10 +520,12 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_s"] * g
@@ -616,9 +619,6 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
-
         Parameters
         ----------
         v_RM2e : array of float, shape (3,) [m/s]
@@ -687,7 +687,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2B = (pmp["J_p2P"] + pmp["m_p"] * D_p)
+        J_p2B = pmp["J_p2P"] + pmp["m_p"] * D_p
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -704,15 +704,22 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         # Compute the forces and moments of the wing
         try:
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air, reference_solution,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
+                reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_wing, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_wing,
+                rho_air,
             )
         F_wing_aero = dF_wing_aero.sum(axis=0)
         F_wing_weight = wmp["m_s"] * g
@@ -823,7 +830,8 @@ class ParagliderSystemDynamics9a:
 
         Returns
         -------
-        FIXME: describe
+        r_CP2RM : array of float, shape (K,3) [m]
+            The position of the control points with respect to `RM`.
         """
         r_LE2RM = -self.wing.r_RM2LE(delta_a)
         wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
@@ -848,9 +856,6 @@ class ParagliderSystemDynamics9a:
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
-
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
 
         Parameters
         ----------
@@ -968,10 +973,12 @@ class ParagliderSystemDynamics9a:
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1075,9 +1082,6 @@ class ParagliderSystemDynamics9a:
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
 
-        # breakpoint()
-        # 1/0
-
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
     def equilibrium_state(
@@ -1137,7 +1141,7 @@ class ParagliderSystemDynamics9a:
                 delta_b=delta_b,
                 v_mag=v_0,
                 rho_air=rho_air,
-                reference_solution=reference_solution
+                reference_solution=reference_solution,
             )
 
         _state = {
@@ -1245,9 +1249,6 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     ):
         """
         Compute the translational and angular accelerations about the center of mass.
-
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
 
         Parameters
         ----------
@@ -1362,10 +1363,12 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1426,25 +1429,24 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
 
-        # breakpoint()
-        # 1/0
-
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
 
 class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
-    """
+    r"""
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
 
-    Similar to ParagliderSystemDynamics9a, this version uses the riser connection midpoint
-    `RM` as the reference point for both the body and the payload, and includes
-    the effects of apparent mass. Unlike ParagliderSystemDynamics9a, this model computes
-    \dot{omega_p2b} instead of \dot{omega_p2e} and converts.
+    Similar to ParagliderSystemDynamics9a, this version uses the riser
+    connection midpoint `RM` as the reference point for both the body and the
+    payload, and includes the effects of apparent mass. Unlike
+    ParagliderSystemDynamics9a, this model computes \dot{omega_p2b} instead of
+    \dot{omega_p2e} and converts.
 
-    Unfortunately it also appears to be broken; at least, it doesn't agree with
-    ParagliderSystemDynamics9a or ParagliderSystemDynamics9b, which are mathematically less complicated so
-    I tend to believe them. See the end of `accelerations` for a discussion.
+    Unfortunately it also appears to be broken; at least, it doesn't quite
+    agree with ParagliderSystemDynamics9a or ParagliderSystemDynamics9b, which
+    are mathematically less complicated so I tend to believe them. See the end
+    of `accelerations` for a discussion.
 
     Also, note that it computes everything in body frd and converts omega_p2e
     back to payload frd at the very end.
@@ -1456,6 +1458,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
     """
+
     def accelerations(
         self,
         v_RM2e,
@@ -1474,14 +1477,11 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         """
         Compute the translational and angular accelerations about the center of mass.
 
-        FIXME: the input sanitation is messy
-        FIXME: review the docstring
-
         Parameters
         ----------
         v_RM2e : array of float, shape (3,) [m/s]
-            Translational velocity of `RM` in body frd coordinates, where `RM` is
-            the midpoint between the two riser connection points.
+            Translational velocity of `RM` in body frd coordinates, where `RM`
+            is the midpoint between the two riser connection points.
         omega_b2e : array of float, shape (3,) [rad/s]
             Angular velocity of the body, in body frd coordinates.
         omega_p2e : array of float, shape (3,) [rad/s]
@@ -1597,10 +1597,12 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            # breakpoint()
-            # 1/0
             dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
-                delta_a, delta_bl, delta_br, v_W2CP_b, rho_air,
+                delta_a,
+                delta_bl,
+                delta_br,
+                v_W2CP_b,
+                rho_air,
             )
 
         F_wing_aero = dF_wing_aero.sum(axis=0)
@@ -1707,8 +1709,5 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         # Dynamics9a expects `^p dot{omega}_{p/e}^p`
         alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
         alpha_p2e = C_p2b @ alpha_p2e  # In frames F_p and F_e
-
-        # breakpoint()
-        # 1/0
 
         return a_RM2e, alpha_b2e, alpha_p2e, ref
