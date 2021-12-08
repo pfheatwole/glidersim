@@ -83,7 +83,21 @@ class LineGeometry(Protocol):
 
     @abc.abstractmethod
     def aerodynamics(self, v_W2b, rho_air: float):
-        """FIXME: docstring."""
+        """
+        Calculate the aerodynamic forces and moments at each control point.
+
+        Parameters
+        ----------
+        v_W2b : array of float, shape (K,3) [m/s]
+            The wind velocity at each of the K control points.
+        rho_air : float [kg/m^3]
+            Air density
+
+        Returns
+        -------
+        dF, dM : array of float, shape (K,3) [N, N m]
+            Aerodynamic forces and moments for each control point.
+        """
 
 
 class SimpleLineGeometry(LineGeometry):

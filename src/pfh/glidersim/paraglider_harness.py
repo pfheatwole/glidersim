@@ -39,14 +39,16 @@ class Harness(Protocol):
         """
 
     @abc.abstractmethod
-    def aerodynamics(self, v_W2h, rho_air):
+    def aerodynamics(self, v_W2h, rho_air: float):
         """
-        Calculate the aerodynamic forces and moments at the control points.
+        Calculate the aerodynamic forces and moments at each control point.
 
         Parameters
         ----------
         v_W2h : array of float, shape (K,3) [m/s]
             The wind velocity at each of the control points in harness frd.
+        rho_air : float [kg/m^3]
+            Air density
 
         Returns
         -------
