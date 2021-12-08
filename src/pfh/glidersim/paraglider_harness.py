@@ -144,9 +144,14 @@ class Spherical(Harness):
         return np.atleast_2d(np.array(r_P2RM).T)
 
     def aerodynamics(self, v_W2h, rho_air):
+        v_W2h = np.asarray(v_W2h)
+        assert v_W2h.shape == (3,)
         v2 = (v_W2h ** 2).sum()
-        u_drag = v_W2h / np.sqrt(v2)  # Drag force unit vector
-        dF = 0.5 * rho_air * v2 * self._S * self._CD * u_drag
+        if not np.isclose(v2, 0.0):
+            u_drag = v_W2h / np.sqrt(v2)  # Drag force unit vector
+            dF = 0.5 * rho_air * v2 * self._S * self._CD * u_drag
+        else:
+            dF = np.zeros(3)
         dM = np.zeros(3)
         return dF, dM
 

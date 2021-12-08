@@ -736,6 +736,8 @@ Coefficient Estimation
 Phillips
 ^^^^^^^^
 
+* Review what happens if `v_W2f` is all zeros
+
 * Add a `control_point_section_indices` or somesuch to `Phillips`. Should
   return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
 
