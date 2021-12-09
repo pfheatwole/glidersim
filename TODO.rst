@@ -2,7 +2,6 @@
   Unlike the assertion-based checking, this alerts the programmer when they're
   writing the code instead of crashing at runtime (assuming they use `mypy`).
 
-* Why does this crash? ``canopy.surface_xyz(0, 0, 0, "upper")``
 
 * I think I need a `Foil(FoilGeometry, FoilAerodynamics)` or similar. I've
   NEVER liked this design where `SimpleFoil` passes `self` to initialize the

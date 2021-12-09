@@ -228,13 +228,9 @@ class SimpleFoil:
         -------
         array of float
             Coordinates on the section surface in foil frd. The shape is
-            determined by standard numpy broadcasting of `s` and `r`.
+            determined by standard numpy broadcasting of `s`, `ai`, and `r`.
         """
-        s = np.asarray(s)
-        r = np.asarray(r)
-        if s.min() < -1 or s.max() > 1:
-            raise ValueError("Section indices must be between -1 and 1.")
-
+        s, ai, r = np.broadcast_arrays(s, ai, r)
         c = self.chord_length(s)
         r_P2LE_a = self.sections.surface_xz(s, ai, r, surface)  # Unscaled airfoil
         r_P2LE_s = np.stack(  # In section-local frd coordinates
