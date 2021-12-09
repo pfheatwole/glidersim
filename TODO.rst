@@ -1,8 +1,12 @@
-* Use `surface: typing.Literal["upper", "lower", "camber", "airfoil"]` typing.
-  Unlike the assertion-based checking, this alerts the programmer when they're
-  writing the code instead of crashing at runtime (assuming they use `mypy`).
+* Why is importing `pfh.glidersim` so slow?
 
-* Why does this crash? ``canopy.surface_xyz(0, 0, 0, "upper")``
+* Verify that setting `ai.flags.writeable = False` to silence Numpy warnings
+  about `broadcast_arrays` is okay. I'm not sure who triggers the warning, but
+  Numba doesn't seem to respect the `writeable` flag, so I need to verify that
+  `interp3d` doesn't modify its arguments.
+
+* `2013-01-23_hook3_23_en` says the "symmetric control travel" is `>60cm`.
+  I've got `kappa_b = 0.43m`, so I'm hitting 60% or so brake input?
 
 * I think I need a `Foil(FoilGeometry, FoilAerodynamics)` or similar. I've
   NEVER liked this design where `SimpleFoil` passes `self` to initialize the
@@ -114,12 +118,12 @@ Documentation
 General
 -------
 
-* Fix the "magic indexing" in `paraglider_wing` and `paraglider`
+* Eliminate the "magic indexing" in `paraglider_wing` and `paraglider`
 
 * Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
   a bug because I used `r_LE2RM` instead of a vague function name.)
 
-* Replace `print` with `logging`
+* Replace `print` with `logging` where suitable
 
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like
   that term. It's more like the "parameter" of a parametric curve. When I read
@@ -139,8 +143,8 @@ General
   components gets higher, but for now I'll just make each class keep track of
   its own "magic" indices.
 
-* Define an `njit` wrapper that replaces `njit` with a noop if Numba isn't
-  installed
+* Define an `njit` wrapper that replaces `njit` with a noop if Numba can't be
+  imported
 
 * How much do 'C' vs 'F' arrays affect dot product performance? Enough for
   Numba to warn me about it, at least. (see the error when defining
@@ -157,6 +161,10 @@ General
 
 Static typing
 -------------
+
+* Use `surface: typing.Literal["upper", "lower", "camber", "airfoil"]` typing.
+  Unlike the assertion-based checking, this alerts the programmer when they're
+  writing the code instead of crashing at runtime (assuming they use `mypy`).
 
 * Some functions have their return types marked `array_like`, but I think the
   numpy convention is to return "scalar or ndarray".
@@ -190,7 +198,10 @@ Low priority
 Packaging
 ---------
 
+* Lower the `python_requires` to 3.8..3.9 until Numba supports 3.10
+
 * pip 21.3 added `pip install -e .` for projects with only `pyproject.toml`
+  Can I eliminate `setup.py`?
 
   Spec added in PEP 660
 
@@ -198,19 +209,10 @@ Packaging
   parses `setup.py` anymore (parses the output of `pip install`). See
   https://github.com/jazzband/pip-tools/issues/908
 
-  Can I eliminate `setup.py` now?
-
 * Create `.git_archival.txt` once `setuptools_scm` supports the new
   `%(describe)` git log formatter
 
   https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
-
-* Not sure I like relying on git tags for the versions. An alternative would
-  be to eliminate `setup.py` completely, push everything into `setup.cfg`, and
-  use `version = attr: pfh.glidersim.__version__`. See
-  https://packaging.python.org/guides/single-sourcing-package-version/
-
-  Deal-breaker: you need a `setup.py` to enable `pip install -e .`
 
 * Complete `README.rst`
 
@@ -229,7 +231,7 @@ Packaging
   ahead of time. See https://numba.readthedocs.io/en/stable/user/pycc.html
 
 * I looked into `flit` for packaging, but they don't support namespace
-  packages. I'm using the `pfh` namespace for my various projects, so this is
+  packages. I use the `pfh` namespace for my various projects, so this is
   disappointing. Recall why I started using a namespace in the first place:
   https://www.python.org/dev/peps/pep-0423/#individual-projects-use-a-namespace
 
@@ -255,14 +257,31 @@ Plots
 Testing
 -------
 
-* `tox`: Learn it. Use it. Going to take some time to think up how to test this
-  sort of project though.
+* Create a set of unit tests:
+
+  1. Create several test harnesses:
+
+     * mass=0.0, z_riser=0.0, CD==0.0, kappa_w=0.0
+     * mass=1.0, z_riser=0.0, CD==0.0, kappa_w=0.0
+     * mass=0.0, z_riser=1.0, CD==0.0, kappa_w=0.0
+     * mass=0.0, z_riser=0.0, CD==1.0, kappa_w=0.0
+
+     ... etc.
+
+  2. Write tests for `control_points`, `aerodynamics`, and `mass_properties`
+
+  This should give me a good starting point. Ultimately I want tests for full
+  `Paraglider` objects. A Paraglider is composed of a wing and payload, so
+  write tests for those first.
 
   Will probably need some special tooling, like an
   `AirfoilCoefficientsInterpolator` that just returns `1`,
   a `FoilAerodynamics` that just returns `1`, a wing model that weighs 1kg
   with the cg 1m below the wing, etc. (In other words, how to build a model
   for which you can compute accelerations manually.)
+
+* `tox`: Learn it. Use it. Going to take some time to think up how to test this
+  sort of project though.
 
 * What if the sensation of being "pushed out of a thermal" is a combination of
   effects: the wing yawing away and a *decrease in centripetal acceleration*?
@@ -289,13 +308,6 @@ Testing
 
   * ref: "Apsects of control for a parafoil and payload system", Slegers and
     Costello, 2003
-
-* Finish reproducing "Wind Tunnel Investigation of a Rigid Paraglider
-  Reference Wing" (Belloc, 2015)
-
-  * Why don't my results match as well as in
-    `kulhanek2019IdentificationDegradationAerodynamic`? They use Phillips'
-    method just like I do! I'm guessing my airfoil data is junk.
 
 
 Tooling
@@ -352,7 +364,7 @@ Geometry
 Coefficients
 ------------
 
-* `GridCoefficients` and `GridCoefficients` **require** the CSV to contain an
+* `GridCoefficients` and `GridCoefficients2` **require** the CSV to contain an
   "airfoil index" column; you can't use them to interpolate coefficients for
   a single airfoil geometry. They'll need special logic for calling the grid
   interpolators.
@@ -383,15 +395,15 @@ Low priority
 
 * Consider Gaussian quadratures or other more efficient arc-length methods?
 
-* Why does `s` go clockwise? Why not just keep the counter-clockwise
+* Why does `r` go clockwise? Why not just keep the counter-clockwise
   convention? I do like that there is a sort of right-hand rule that points in
   the +y direction though.
 
-* Should I provide `s2d` and `d2s` functions? (Recall, `d` is the linear
-  distance along the entire surface, `s` is the linear distance along each
+* Should I provide `r2d` and `d2r` functions? (Recall, `d` is the linear
+  distance along the entire surface, `r` is the linear distance along each
   upper or lower surface) Suppose a user wanted to step along the curve in
-  equal steps; they'd need to convert those equally spaced `d` into `s`, which
-  is weird since the upper and lower surfaces use different spacings for `s`.
+  equal steps; they'd need to convert those equally spaced `d` into `r`, which
+  is weird since the upper and lower surfaces use different spacings for `r`.
 
 * Add Joukowski airfoil builders? Those are typically defined in terms of
   their surface coordinates, not mean camber and thickness curves. Neat
@@ -736,8 +748,10 @@ Coefficient Estimation
 Phillips
 ^^^^^^^^
 
-* Add a `control_point_section_indices` or somesuch to `Phillips`. Should
-  return a copy of `s_cps` so `ParagliderWing` will stop grabbing it directly.
+* Review what happens if `v_W2f` is all zeros
+
+* Add a `control_point_section_indices()` or somesuch to `Phillips`. Should
+  return a view of `s_cps` so `ParagliderWing` can stop grabbing it directly.
 
 * Review Phillips paper: he says not to use the spatial midpoints of the
   segments for the control points, and that "a significant improvement in
@@ -804,9 +818,10 @@ Phillips
 Harness
 =======
 
-* Redefine the `SphericalHarness` to use the radius, not the projected area.
-  The projected area is not a common way to define a sphere; using the radius
-  just makes more sense.
+* Reparametrize `SphericalHarness` to use the radius instead of the projected
+  area? Projected area is not a common way to define a sphere; using the
+  radius just makes more sense. Then again, projected area is the common way
+  for papers that suggest coefficients of drag for paraglider harnesses.
 
 
 Line geometry
@@ -884,7 +899,7 @@ Wing mass properties
 Wing mass moment
 ----------------
 
-Technically, the mass of the wing materials add an extra moment.
+Technically, the weight of the wing materials add an extra moment.
 Unfortunately, this means that you can't calculate `alpha_eq` by itself
 anymore, since the moment created by the mass will depend on the orientation
 of the wing, not just the angle of attack. Thus, you have to solve for
@@ -906,22 +921,23 @@ Paraglider
 
 * Fix the "magic layout" for the control points in the paraglider models
 
-* The call signature for ``Paraglider.accelerations`` needs review. I pass
-  `delta_a` since that determines the control points and the wing inertia, but
-  `r_CP2RM` is only there to avoid recomputing them. (I think.) Is that
-  confusion-inducing redundancy worth saving the time to recompute the
-  `r_CP2RM`?
+* Review the `Paraglider.accelerations` API. In particular, the simulator
+  needed `r_CP2RM` to lookup the wind vectors at each point, but no longer
+  passes it them, so `Paraglider.accelerations` must recompute them from
+  `delta_a` and `delta_w`. Not passing them costs a bit of compute time in
+  exchange for a simpler API. Could add caching to `Paraglider.control_points`
+  but I don't love the interface in the first place.
 
 
 Models
 ------
 
-* **Why don't `ParagliderWing` and `Harness` compute their own weight forces
-  and moments?** If they don't include all the forces and moments, then the
-  name `forces_and_moments` is misleading. I would probably need to pass the
-  reference point for computing the moments, but so what? The `Paraglider`
-  should know that. Would clean up the `Paraglider.forces_and_moments` quite
-  a bit.
+* I don't like that `ParagliderWing` and `Harness` only compute individual
+  aerodynamic forces and moments at control points; they would be more
+  convenient to use in paraglider models and easier to test if they determined
+  the entire *resultant* about some reference point (they're all pseudo-rigid
+  bodies anyway so this should be fine). Replace the `aerodynamics` methods
+  with `resultant`.
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
   moment in the 9DoF models. The linear relationship is probably fine for
@@ -1085,10 +1101,6 @@ Scenarios
 
 Scripts
 =======
-
-* Review `scripts/flat_wings.py`. Depends on pandas, hard coded paths to
-  airfoil data, etc. Maybe just delete it? If it's going to stick around it
-  should be more obvious that it's for checking `Phillips` against XFLR5.
 
 * Convert `convert_xflr5_coefs_to_grid.py` into a proper CLI tool. Probably
   start by renaming it to `resample_xfoil_polars.py` or similar.

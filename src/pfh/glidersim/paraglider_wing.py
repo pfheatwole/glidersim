@@ -83,7 +83,21 @@ class LineGeometry(Protocol):
 
     @abc.abstractmethod
     def aerodynamics(self, v_W2b, rho_air: float):
-        """FIXME: docstring."""
+        """
+        Calculate the aerodynamic forces and moments at each control point.
+
+        Parameters
+        ----------
+        v_W2b : array of float, shape (K,3) [m/s]
+            The wind velocity at each of the K control points.
+        rho_air : float [kg/m^3]
+            Air density
+
+        Returns
+        -------
+        dF, dM : array of float, shape (K,3) [N, N m]
+            Aerodynamic forces and moments for each control point.
+        """
 
 
 class SimpleLineGeometry(LineGeometry):
@@ -234,7 +248,7 @@ class SimpleLineGeometry(LineGeometry):
         return r_RM2LE
 
     def control_points(self):
-        return self._r_L2LE
+        return self._r_L2LE  # FIXME: return a read-only view?
 
     def delta_d(self, s, delta_bl, delta_br):
         def _interp(A, B, d):
@@ -262,22 +276,24 @@ class SimpleLineGeometry(LineGeometry):
         return (delta_bl * ql + delta_br * qr) * self.kappa_b
 
     def aerodynamics(self, v_W2b, rho_air: float):
-        K_lines = self._r_L2LE.shape[0]
-
-        # Simplistic model for line drag using `K_lines` isotropic points
-        V = v_W2b[-K_lines:]  # FIXME: uses "magic" indexing
-        V2 = (V ** 2).sum(axis=1)
-        u_drag = V.T / np.sqrt(V2)
-        dF_lines = (
-            0.5
-            * rho_air
-            * V2
-            * self._S_lines  # Line area per control point
-            * self._Cd_lines
-            * u_drag
-        ).T
-        dM_lines = np.zeros((K_lines, 3))
-        return dF_lines, dM_lines
+        v_W2b = np.asarray(v_W2b)
+        assert v_W2b.shape == self._r_L2LE.shape
+        dF = np.zeros(np.shape(v_W2b))
+        v2 = (v_W2b ** 2).sum(axis=-1)
+        mask = ~np.isclose(v2, 0.0)
+        if np.any(mask):
+            v2m = v2[mask][..., np.newaxis]
+            u_drag = v_W2b[mask] / np.sqrt(v2m)  # Drag force unit vectors
+            dF[mask] = (
+                0.5
+                * rho_air
+                * v2m
+                * self._S_lines  # Line area per control point
+                * self._Cd_lines
+                * u_drag
+            )
+        dM = np.zeros(dF.shape)
+        return dF, dM
 
     def maximize_kappa_b(
         self,

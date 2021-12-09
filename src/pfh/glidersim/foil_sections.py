@@ -167,11 +167,9 @@ class FoilSections:
         -------
         array of float
             A set of points from the section surface in foil frd. The shape is
-            determined by standard numpy broadcasting of `s` and `r`.
+            determined by standard numpy broadcasting of `s`, `ai`, and `r`.
         """
-        s = np.asarray(s)
-        ai = np.asarray(ai)
-        r = np.asarray(r)
+        s, ai, r = np.broadcast_arrays(s, ai, r)
         valid_surfaces = {"chord", "camber", "upper", "lower", "airfoil"}
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
@@ -186,7 +184,6 @@ class FoilSections:
             r = self.intakes(s, r, surface)  # type: ignore [operator]
             r_P2LE = self.profiles.profile_curve(ai, r)
         else:
-            r = np.broadcast_arrays(s, r)[1]
             if surface == "chord":
                 r_P2LE = np.stack((r, np.zeros(r.shape)), -1)
             elif surface == "camber":

@@ -353,6 +353,8 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
 
     def _query(self, f, clamp, ai, alpha, Re):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        ai.flags.writeable = False  # Silence deprecation warnings
+        Re.flags.writeable = False
 
         # Set clamped sections to their maximum non-nan values by setting alpha
         # to be just inside the cube associated with the maximum valid alpha.
@@ -377,6 +379,8 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
 
     def Cl_alpha(self, ai, alpha, Re, clamp=False):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
+        ai.flags.writeable = False  # Silence deprecation warnings
+        Re.flags.writeable = False
         out = self._Cl_alpha(ai, alpha, Re)
         if np.any(clamp):
             clamped = np.broadcast_to(clamp, out.shape)
@@ -1153,8 +1157,15 @@ class AirfoilGeometryInterpolator:
         if np.any(ai < self._ai_min) or np.any(ai > self._ai_max):
             raise ValueError(f"Airfoil index {ai} is out of bounds")
 
+        # FIXME: hack to work with scalar `ai` and `r`. Indexing doesn't work
+        # with scalars and arrays of dimension 0 so those get reshaped to 1D,
+        # but that add an extra outter dimension into the output that should
+        # be dropped.
+        squeeze = np.ndim(ai) == 0 and np.ndim(r) == 0
+
+        ai = np.atleast_1d(ai)
+        r = np.atleast_1d(r)
         ai, r = np.broadcast_arrays(ai, r)
-        i0, i1, p0, p1 = self._neighbors(ai)
         if func in {"profile_curve", "camber_curve"}:
             out = np.zeros((*np.shape(r), 2))
         else:
@@ -1162,6 +1173,7 @@ class AirfoilGeometryInterpolator:
 
         # Function calls are expensive, so coalesce them across the groups.
         # FIXME: could group both f0 and f1 calls, but good enough for now.
+        i0, i1, p0, p1 = self._neighbors(ai)
         for i in range(len(self.ai)):
             if func == "profile_curve":
                 f0 = self.airfoils[i].profile_curve
@@ -1182,6 +1194,9 @@ class AirfoilGeometryInterpolator:
             else:
                 out[_i0] += p0[_i0] * f0(r[_i0])
                 out[_i1] += p1[_i1] * f1(r[_i1])
+
+        if squeeze:
+            out = out[0]  # Drop the first dimension of size 1
 
         return out
 
