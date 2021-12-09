@@ -248,7 +248,7 @@ class SimpleLineGeometry(LineGeometry):
         return r_RM2LE
 
     def control_points(self):
-        return self._r_L2LE
+        return self._r_L2LE  # FIXME: return a read-only view?
 
     def delta_d(self, s, delta_bl, delta_br):
         def _interp(A, B, d):
