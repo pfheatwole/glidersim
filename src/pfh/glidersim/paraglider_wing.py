@@ -721,7 +721,7 @@ class ParagliderWing:
         """
         return self.lines.r_RM2LE(delta_a)
 
-    def mass_properties(self, rho_air: float, delta_a: float = 0):
+    def mass_properties(self, delta_a: float, rho_air: float):
         """
         Compute the inertial properties of the wing about `RM`.
 
@@ -732,10 +732,10 @@ class ParagliderWing:
 
         Parameters
         ----------
+        delta_a : float [percentage]
+            Fraction of accelerator application, from 0 to 1
         rho_air : float [kg/m^3]
             Air density
-        delta_a : float [percentage], optional
-            Fraction of accelerator application, from 0 to 1
 
         Returns
         -------

@@ -150,7 +150,7 @@ class ParagliderSystemDynamics6a:
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the riser connection midpoint `RM`
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
@@ -473,7 +473,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
@@ -667,7 +667,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
@@ -918,7 +918,7 @@ class ParagliderSystemDynamics9a:
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload about `RM`
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2RM"]
@@ -1309,7 +1309,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2RM"]
@@ -1537,7 +1537,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
-        wmp = self.wing.mass_properties(rho_air, delta_a)
+        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
             wmp["m_s"] * wmp["r_S2RM"]
