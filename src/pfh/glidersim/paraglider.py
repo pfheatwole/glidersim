@@ -230,7 +230,7 @@ class ParagliderSystemDynamics6a:
         # Compute the real mass momentums
         J_b2RM = J_wing2RM + J_p2RM  # Real mass inertia matrix about `RM`
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
-        p_B2e = m_b * v_B2e  # Linear momentum
+        p_b2e = m_b * v_B2e  # Linear momentum
         h_b2RM = J_b2RM @ omega_b2e + m_b * cross3(r_B2RM, v_RM2e)  # Angular momentum
 
         # Build the system matrices for the real mass
@@ -242,12 +242,12 @@ class ParagliderSystemDynamics6a:
             + F_wing_weight
             + F_p_aero
             + F_p_weight
-            - cross3(omega_b2e, p_B2e)
+            - cross3(omega_b2e, p_b2e)
         )
         B2 = (  # ref: Hughes Eq:13, pg 58 (67)
             M_wing
             + M_p
-            - cross3(v_RM2e, p_B2e)
+            - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
         )
 
