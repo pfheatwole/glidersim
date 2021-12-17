@@ -390,7 +390,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     between the wing and the harness.
 
     This version uses the body center of mass `B` as the reference point for
-    the angular momentum. It does not includes the effects of apparent mass.
+    the angular momentum. It does not include the effects of apparent mass.
     Neglecting apparent mass and using the center of mass means the linear and
     angular momentum are fully decoupled and can be solved independently. The
     system produces `a_B2e` which is then used to compute `a_RM2e`.
