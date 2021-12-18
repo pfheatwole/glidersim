@@ -150,16 +150,17 @@ class ParagliderSystemDynamics6a:
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the riser connection midpoint `RM`
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["m_p"] * pmp["r_P2RM"]
         ) / m_b
-        r_S2RM = wmp["r_S2RM"]  # Displacement of the wing solid mass
-        r_V2RM = wmp["r_V2RM"]  # Displacement of the wing enclosed air
+        r_S2RM = wmp["r_S2R"]  # Displacement of the wing solid mass
+        r_V2RM = wmp["r_V2R"]  # Displacement of the wing enclosed air
         r_P2RM = pmp["r_P2RM"]  # Displacement of the payload mass
         D_s = (r_S2RM @ r_S2RM) * np.eye(3) - np.outer(r_S2RM, r_S2RM)
         D_v = (r_V2RM @ r_V2RM) * np.eye(3) - np.outer(r_V2RM, r_V2RM)
@@ -209,7 +210,7 @@ class ParagliderSystemDynamics6a:
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2RM_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
@@ -253,20 +254,20 @@ class ParagliderSystemDynamics6a:
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2RM"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2RM"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2RM"])
+            S_RC2RM = crossmat(wmp["r_RC2R"])
             p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
                 v_RM2e
-                - cross3(wmp["r_RC2RM"], omega_b2e)
+                - cross3(wmp["r_RC2R"], omega_b2e)
                 - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
             )
             h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
             )
-            A += wmp["A_a2RM"]  # Incorporate the apparent inertia
+            A += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
@@ -473,16 +474,18 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        # FIXME: should use r_R2LE=r_B2LE if including apparent mass effects
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["m_p"] * pmp["r_P2RM"]
         ) / m_b
-        r_S2B = wmp["r_S2RM"] - r_B2RM  # Displacement of the wing solid mass
-        r_V2B = wmp["r_V2RM"] - r_B2RM  # Displacement of the wing enclosed air
+        r_S2B = wmp["r_S2R"] - r_B2RM  # Displacement of the wing solid mass
+        r_V2B = wmp["r_V2R"] - r_B2RM  # Displacement of the wing enclosed air
         r_P2B = pmp["r_P2RM"] - r_B2RM  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
@@ -531,7 +534,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
@@ -667,16 +670,18 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
 
         # -------------------------------------------------------------------
         # Compute the inertia matrices about the glider cm
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        # FIXME: should use r_R2LE=r_B2LE if including apparent mass effects
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         pmp = self.payload.mass_properties(delta_w)
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
             + pmp["m_p"] * pmp["r_P2RM"]
         ) / m_b
-        r_S2B = wmp["r_S2RM"] - r_B2RM  # Displacement of the wing solid mass
-        r_V2B = wmp["r_V2RM"] - r_B2RM  # Displacement of the wing enclosed air
+        r_S2B = wmp["r_S2R"] - r_B2RM  # Displacement of the wing solid mass
+        r_V2B = wmp["r_V2R"] - r_B2RM  # Displacement of the wing enclosed air
         r_P2B = pmp["r_P2RM"] - r_B2RM  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
@@ -725,7 +730,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
@@ -918,14 +923,15 @@ class ParagliderSystemDynamics9a:
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload about `RM`
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
-        r_S2RM = wmp["r_S2RM"]  # Displacement of the wing solid mass
-        r_V2RM = wmp["r_V2RM"]  # Displacement of the wing enclosed air
+        r_S2RM = wmp["r_S2R"]  # Displacement of the wing solid mass
+        r_V2RM = wmp["r_V2R"]  # Displacement of the wing enclosed air
         D_s = (r_S2RM @ r_S2RM) * np.eye(3) - np.outer(r_S2RM, r_S2RM)
         D_v = (r_V2RM @ r_V2RM) * np.eye(3) - np.outer(r_V2RM, r_V2RM)
         J_b2RM = (
@@ -985,7 +991,7 @@ class ParagliderSystemDynamics9a:
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
@@ -1053,20 +1059,20 @@ class ParagliderSystemDynamics9a:
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2RM"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2RM"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2RM"])
+            S_RC2RM = crossmat(wmp["r_RC2R"])
             p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
                 v_RM2e
-                - cross3(wmp["r_RC2RM"], omega_b2e)
+                - cross3(wmp["r_RC2R"], omega_b2e)
                 - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
             )
             h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
             )
-            A[:6, :6] += wmp["A_a2RM"]  # Incorporate the apparent inertia
+            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
@@ -1309,14 +1315,16 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        # FIXME: should use r_R2LE=r_B2LE if including apparent mass effects
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
-        r_S2B = wmp["r_S2RM"] - r_B2RM  # Displacement of the wing solid mass
-        r_V2B = wmp["r_V2RM"] - r_B2RM  # Displacement of the wing enclosed air
+        r_S2B = wmp["r_S2R"] - r_B2RM  # Displacement of the wing solid mass
+        r_V2B = wmp["r_V2R"] - r_B2RM  # Displacement of the wing enclosed air
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
         J_b2B = (  # Inertia of the body about `B`
@@ -1375,7 +1383,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2B_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"] - r_B2RM, F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
@@ -1537,14 +1545,15 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
 
         # -------------------------------------------------------------------
         # Compute the inertia properties of the body and payload
-        wmp = self.wing.mass_properties(delta_a=delta_a, rho_air=rho_air)
+        r_RM2LE = self.wing.r_RM2LE(delta_a)
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
         m_b = wmp["m_s"] + wmp["m_air"]
         r_B2RM = (  # Center of mass of the body in body frd
-            wmp["m_s"] * wmp["r_S2RM"]
-            + wmp["m_air"] * wmp["r_V2RM"]
+            wmp["m_s"] * wmp["r_S2R"]
+            + wmp["m_air"] * wmp["r_V2R"]
         ) / m_b
-        r_S2RM = wmp["r_S2RM"]  # Displacement of the wing solid mass
-        r_V2RM = wmp["r_V2RM"]  # Displacement of the wing enclosed air
+        r_S2RM = wmp["r_S2R"]  # Displacement of the wing solid mass
+        r_V2RM = wmp["r_V2R"]  # Displacement of the wing enclosed air
         D_s = (r_S2RM @ r_S2RM) * np.eye(3) - np.outer(r_S2RM, r_S2RM)
         D_v = (r_V2RM @ r_V2RM) * np.eye(3) - np.outer(r_V2RM, r_V2RM)
         J_b2RM = (
@@ -1609,7 +1618,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         F_wing_weight = wmp["m_s"] * g
         M_wing = dM_wing_aero.sum(axis=0)
         M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2RM"], F_wing_weight)
+        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         # Forces and moments of the payload in payload frd
         dF_p_aero, dM_p_aero = self.payload.aerodynamics(C_p2b @ v_W2CP_p, rho_air)
@@ -1677,20 +1686,20 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2RM"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2RM"][3:, 3:]  # Apparent angular inertia matrix
+            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
+            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
             S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
             S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2RM"])
+            S_RC2RM = crossmat(wmp["r_RC2R"])
             p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
                 v_RM2e
-                - cross3(wmp["r_RC2RM"], omega_b2e)
+                - cross3(wmp["r_RC2R"], omega_b2e)
                 - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
             )
             h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
                 (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
             )
-            A[:6, :6] += wmp["A_a2RM"]  # Incorporate the apparent inertia
+            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
                 -cross3(omega_b2e, p_a2e)
             )
