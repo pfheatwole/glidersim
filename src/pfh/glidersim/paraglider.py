@@ -152,7 +152,7 @@ class ParagliderSystemDynamics6a:
         # Compute the inertia matrices about the riser connection midpoint `RM`
         r_RM2LE = self.wing.r_RM2LE(delta_a)
         wmp = self.wing.mass_properties(rho_air, r_RM2LE)
-        pmp = self.payload.mass_properties(delta_w)
+        pmp = self.payload.mass_properties(delta_w, [0, 0, 0])
         m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
         r_B2RM = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
@@ -161,17 +161,14 @@ class ParagliderSystemDynamics6a:
         ) / m_b
         r_S2RM = wmp["r_S2R"]  # Displacement of the wing solid mass
         r_V2RM = wmp["r_V2R"]  # Displacement of the wing enclosed air
-        r_P2RM = pmp["r_P2RM"]  # Displacement of the payload mass
         D_s = (r_S2RM @ r_S2RM) * np.eye(3) - np.outer(r_S2RM, r_S2RM)
         D_v = (r_V2RM @ r_V2RM) * np.eye(3) - np.outer(r_V2RM, r_V2RM)
-        D_p = (r_P2RM @ r_P2RM) * np.eye(3) - np.outer(r_P2RM, r_P2RM)
         J_wing2RM = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2RM = pmp["J_p2P"] + pmp["m_p"] * D_p
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -212,15 +209,14 @@ class ParagliderSystemDynamics6a:
         M_wing += cross3(r_CP2RM_wing, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
-        # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
-        dF_p_aero = np.atleast_2d(dF_p_aero)
-        dM_p_aero = np.atleast_2d(dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2RM_payload, dF_p_aero).sum(axis=0)
-        M_p += cross3(pmp["r_P2RM"], F_p_weight)
+        f_p, g_p2RM = self.payload.resultant_force(
+            delta_w=delta_w,
+            v_W2h=v_W2CP_payload,
+            rho_air=rho_air,
+            g=g,
+            r_R2RM=[0, 0, 0],
+            mp=pmp,
+        )
 
         # ------------------------------------------------------------------
         # Compute the accelerations \dot{v_RM2e} and \dot{omega_b2e}
@@ -229,7 +225,7 @@ class ParagliderSystemDynamics6a:
         # and angular momentum to the forces and moments.
 
         # Compute the real mass momentums
-        J_b2RM = J_wing2RM + J_p2RM  # Real mass inertia matrix about `RM`
+        J_b2RM = J_wing2RM + pmp["J_p2R"]
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         p_b2e = m_b * v_B2e  # Linear momentum
         h_b2RM = J_b2RM @ omega_b2e + m_b * cross3(r_B2RM, v_RM2e)  # Angular momentum
@@ -241,13 +237,12 @@ class ParagliderSystemDynamics6a:
         B1 = (
             F_wing_aero
             + F_wing_weight
-            + F_p_aero
-            + F_p_weight
+            + f_p
             - cross3(omega_b2e, p_b2e)
         )
         B2 = (  # ref: Hughes Eq:13, pg 58 (67)
             M_wing
-            + M_p
+            + g_p2RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
         )
@@ -473,30 +468,34 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
             raise ValueError("v_RM2e.shape != (3,)")
 
         # -------------------------------------------------------------------
-        # Compute the inertia matrices about the glider cm
-        # FIXME: should use r_R2LE=r_B2LE if including apparent mass effects
+        # Compute the inertia matrices about the glider cm `B`. Because `B`
+        # depends on the masses of both components, this model must query those
+        # values and compute `B` before computing properties with respect to
+        # `B`. This is wasteful, but this model is mostly about checking the
+        # other models anyway.
         r_RM2LE = self.wing.r_RM2LE(delta_a)
-        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
-        pmp = self.payload.mass_properties(delta_w)
-        m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)  # wrt `RM`
+        pmp0 = self.payload.mass_properties(delta_w, [0, 0, 0])  # wrt `RM`
+        m_b = wmp["m_s"] + wmp["m_air"] + pmp0["m_p"]
         r_B2RM = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["r_V2R"]
-            + pmp["m_p"] * pmp["r_P2RM"]
+            + pmp0["m_p"] * pmp0["r_P2R"]
         ) / m_b
+
         r_S2B = wmp["r_S2R"] - r_B2RM  # Displacement of the wing solid mass
         r_V2B = wmp["r_V2R"] - r_B2RM  # Displacement of the wing enclosed air
-        r_P2B = pmp["r_P2RM"] - r_B2RM  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
-        D_p = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2B = pmp["J_p2P"] + pmp["m_p"] * D_p
+
+        # Recompute the mass properties using `B` as the reference point
+        pmp = self.payload.mass_properties(delta_w, r_B2RM)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -536,15 +535,14 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
-        # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
-        dF_p_aero = np.atleast_2d(dF_p_aero)
-        dM_p_aero = np.atleast_2d(dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2B_payload, dF_p_aero).sum(axis=0)
-        M_p += cross3(pmp["r_P2RM"] - r_B2RM, F_p_weight)
+        f_p, g_p2B = self.payload.resultant_force(
+            delta_w=delta_w,
+            v_W2h=v_W2CP_payload,
+            rho_air=rho_air,
+            g=g,
+            r_R2RM=r_B2RM,
+            mp=pmp,
+        )
 
         # ------------------------------------------------------------------
         # Compute the accelerations \dot{v_RM2e} and \dot{omega_b2e}
@@ -553,7 +551,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         # and angular momentum to the net forces and moments.
 
         # Compute the real mass inertias
-        J_b2B = J_wing2B + J_p2B  # Total inertia matrix about `B`
+        J_b2B = J_wing2B + pmp["J_p2R"]  # Total inertia matrix about `B`
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         p_b2e = m_b * v_B2e  # Linear momentum
         h_b2B = J_b2B @ omega_b2e  # Angular momentum
@@ -565,11 +563,10 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         B1 = (
             F_wing_aero
             + F_wing_weight
-            + F_p_aero
-            + F_p_weight
+            + f_p
             - cross3(omega_b2e, p_b2e)
         )
-        B2 = M_wing + M_p - np.cross(omega_b2e, h_b2B)
+        B2 = M_wing + g_p2B - np.cross(omega_b2e, h_b2B)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -669,30 +666,34 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
             raise ValueError("v_RM2e.shape != (3,)")
 
         # -------------------------------------------------------------------
-        # Compute the inertia matrices about the glider cm
-        # FIXME: should use r_R2LE=r_B2LE if including apparent mass effects
+        # Compute the inertia matrices about the glider cm `B`. Because `B`
+        # depends on the masses of both components, this model must query those
+        # values and compute `B` before computing properties with respect to
+        # `B`. This is wasteful, but this model is mostly about checking the
+        # other models anyway.
         r_RM2LE = self.wing.r_RM2LE(delta_a)
-        wmp = self.wing.mass_properties(rho_air, r_RM2LE)
-        pmp = self.payload.mass_properties(delta_w)
-        m_b = wmp["m_s"] + wmp["m_air"] + pmp["m_p"]
+        wmp = self.wing.mass_properties(rho_air, r_RM2LE)  # wrt `RM`
+        pmp0 = self.payload.mass_properties(delta_w, [0, 0, 0])  # wrt `RM`
+        m_b = wmp["m_s"] + wmp["m_air"] + pmp0["m_p"]
         r_B2RM = (  # Center of mass of the body system
             wmp["m_s"] * wmp["r_S2R"]
             + wmp["m_air"] * wmp["r_V2R"]
-            + pmp["m_p"] * pmp["r_P2RM"]
+            + pmp0["m_p"] * pmp0["r_P2R"]
         ) / m_b
+
         r_S2B = wmp["r_S2R"] - r_B2RM  # Displacement of the wing solid mass
         r_V2B = wmp["r_V2R"] - r_B2RM  # Displacement of the wing enclosed air
-        r_P2B = pmp["r_P2RM"] - r_B2RM  # Displacement of the payload mass
         D_s = (r_S2B @ r_S2B) * np.eye(3) - np.outer(r_S2B, r_S2B)
         D_v = (r_V2B @ r_V2B) * np.eye(3) - np.outer(r_V2B, r_V2B)
-        D_p = (r_P2B @ r_P2B) * np.eye(3) - np.outer(r_P2B, r_P2B)
         J_wing2B = (
             wmp["J_s2S"]
             + wmp["m_s"] * D_s
             + wmp["J_v2V"] * rho_air
             + wmp["m_air"] * D_v
         )
-        J_p2B = pmp["J_p2P"] + pmp["m_p"] * D_p
+
+        # Recompute the mass properties using `B` as the reference point
+        pmp = self.payload.mass_properties(delta_w, r_B2RM)
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -732,15 +733,14 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
-        # Forces and moments of the payload
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_payload, rho_air)
-        dF_p_aero = np.atleast_2d(dF_p_aero)
-        dM_p_aero = np.atleast_2d(dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2B_payload, dF_p_aero).sum(axis=0)
-        M_p += cross3(pmp["r_P2RM"] - r_B2RM, F_p_weight)
+        f_p, g_p2B = self.payload.resultant_force(
+            delta_w=delta_w,
+            v_W2h=v_W2CP_payload,
+            rho_air=rho_air,
+            g=g,
+            r_R2RM=r_B2RM,
+            mp=pmp,
+        )
 
         # ------------------------------------------------------------------
         # Compute the accelerations \dot{v_RM2e} and \dot{omega_b2e}
@@ -749,7 +749,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         # and angular momentum to the net forces and moments.
 
         # Compute the real mass inertias
-        J_b2B = J_wing2B + J_p2B  # Total inertia matrix about `B`
+        J_b2B = J_wing2B + pmp["J_p2R"]  # Total inertia matrix about `B`
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         p_b2e = m_b * v_B2e  # Linear momentum
         h_b2B = J_b2B @ omega_b2e  # Angular momentum
@@ -761,11 +761,10 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         B1 = (
             F_wing_aero
             + F_wing_weight
-            + F_p_aero
-            + F_p_weight
+            + f_p
             - cross3(omega_b2e, p_b2e)
         )
-        B2 = M_wing + M_p - np.cross(omega_b2e, h_b2B)
+        B2 = M_wing + g_p2B - np.cross(omega_b2e, h_b2B)
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -941,11 +940,9 @@ class ParagliderSystemDynamics9a:
             + wmp["m_air"] * D_v
         )
 
-        pmp = self.payload.mass_properties(delta_w)
-        m_p = pmp["m_p"]
-        r_P2RM = pmp["r_P2RM"]
-        D_p = (r_P2RM @ r_P2RM) * np.eye(3) - np.outer(r_P2RM, r_P2RM)
-        J_p2RM = pmp["J_p2P"] + pmp["m_p"] * D_p
+        pmp = self.payload.mass_properties(delta_w, [0, 0, 0])
+        m_p = pmp["m_p"]  # Shorthand
+        r_P2RM = pmp["r_P2RM"]  # Shorthand
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -993,15 +990,14 @@ class ParagliderSystemDynamics9a:
         M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
-        # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
-        dF_p_aero = np.atleast_2d(dF_p_aero)
-        dM_p_aero = np.atleast_2d(dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * C_p2b @ g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2RM_p, dF_p_aero).sum(axis=0)
-        M_p += cross3(pmp["r_P2RM"], F_p_weight)
+        f_p, g_p2RM = self.payload.resultant_force(  # In payload frd
+            delta_w=delta_w,
+            v_W2h=v_W2CP_p,
+            rho_air=rho_air,
+            g=C_p2b @ g,
+            r_R2RM=[0, 0, 0],
+            mp=pmp,
+        )
 
         # Moment at the connection point `RM` modeled as a spring+damper system
         M_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
@@ -1019,7 +1015,7 @@ class ParagliderSystemDynamics9a:
         p_b2e = m_b * v_B2e
         p_p2e = m_p * v_P2e
         h_b2RM = m_b * cross3(r_B2RM, v_RM2e) + J_b2RM @ omega_b2e
-        h_p2RM = m_p * cross3(r_P2RM, C_p2b @ v_RM2e) + J_p2RM @ omega_p2e
+        h_p2RM = m_p * cross3(r_P2RM, C_p2b @ v_RM2e) + pmp["J_p2R"] @ omega_p2e
 
         # Build the system matrices for the real mass. A1 and A2 are the forces
         # and moments on the body, A3 and A4 are the forces and moments on the
@@ -1028,7 +1024,7 @@ class ParagliderSystemDynamics9a:
         A1 = [m_b * I3, -m_b * crossmat(r_B2RM), Z3, I3]
         A2 = [m_b * crossmat(r_B2RM), J_b2RM, Z3, Z3]
         A3 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2RM), -C_p2b]
-        A4 = [m_p * crossmat(r_P2RM) @ C_p2b, Z3, J_p2RM, Z3]
+        A4 = [m_p * crossmat(r_P2RM) @ C_p2b, Z3, pmp["J_p2R"], Z3]
         A = np.block([A1, A2, A3, A4])
 
         B1 = (
@@ -1043,13 +1039,12 @@ class ParagliderSystemDynamics9a:
             - cross3(omega_b2e, h_b2RM)
         )
         B3 = (
-            F_p_aero
-            + F_p_weight
+            f_p
             - m_p * C_p2b @ cross3(omega_b2p, v_RM2e)
             - cross3(omega_p2e, p_p2e)
         )
         B4 = (
-            M_p
+            g_p2RM
             + C_p2b @ M_RM
             - cross3(C_p2b @ v_RM2e, p_p2e)
             - m_p * cross3(r_P2RM, C_p2b @ cross3(omega_b2p, v_RM2e))
@@ -1334,10 +1329,13 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             + wmp["m_air"] * D_v
         )
 
-        pmp = self.payload.mass_properties(delta_w)
+        # This is wasteful since it computes the entire `mass_properties` just
+        # to get `r_P2RM`, but it's simple and this model is primarily for
+        # validation anyway.
+        pmp0 = self.payload.mass_properties(delta_w, [0, 0, 0])
+        pmp = self.payload.mass_properties(delta_w, pmp0["r_P2RM"])
         m_p = pmp["m_p"]
         r_P2RM = pmp["r_P2RM"]  # Center of mass of the payload in payload frd
-        J_p2P = pmp["J_p2P"]  # Inertia of the payload about `P`
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1385,15 +1383,14 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         M_wing += cross3(r_CP2B_b, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"] - r_B2RM, F_wing_weight)
 
-        # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(v_W2CP_p, rho_air)
-        dF_p_aero = np.atleast_2d(dF_p_aero)
-        dM_p_aero = np.atleast_2d(dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * C_p2b @ g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2P_p, dF_p_aero).sum(axis=0)
-        M_p += cross3(pmp["r_P2RM"] - r_P2RM, F_p_weight)
+        f_p, g_p2P = self.payload.resultant_force(  # In payload frd
+            delta_w=delta_w,
+            v_W2h=v_W2CP_p,
+            rho_air=rho_air,
+            g=C_p2b @ g,
+            r_R2RM=pmp["r_P2RM"],
+            mp=pmp,
+        )
 
         # Moment at the connection point `RM` modeled as a spring+damper system
         omega_p2b = C_b2p @ omega_p2e - omega_b2e
@@ -1412,7 +1409,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         A1 = [m_b * I3, -m_b * crossmat(r_B2RM), Z3, I3]
         A2 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2RM), -C_p2b]
         A3 = [Z3, J_b2B, Z3, -crossmat(r_B2RM)]
-        A4 = [Z3, Z3, J_p2P, crossmat(r_P2RM) @ C_p2b]
+        A4 = [Z3, Z3, pmp["J_p2P"], crossmat(r_P2RM) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
 
         B1 = (
@@ -1422,13 +1419,12 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2RM))
         )
         B2 = (
-            F_p_aero
-            + F_p_weight
+            f_p
             - m_p * C_p2b @ cross3(omega_b2e, v_RM2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2RM))
         )
         B3 = M_wing - M_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
-        B4 = M_p + C_p2b @ M_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
+        B4 = g_p2P + C_p2b @ M_RM - cross3(omega_p2e, pmp["J_p2P"] @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
@@ -1563,14 +1559,11 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             + wmp["m_air"] * D_v
         )
 
-        pmp = self.payload.mass_properties(delta_w)
+        pmp = self.payload.mass_properties(delta_w, [0, 0, 0])
         m_p = pmp["m_p"]
-        r_P2RM = pmp["r_P2RM"]  # Center of mass of the payload in payload frd
-        D_p = (r_P2RM @ r_P2RM) * np.eye(3) - np.outer(r_P2RM, r_P2RM)
-        J_p2RM = pmp["J_p2P"] + pmp["m_p"] * D_p  # In payload frd
 
-        r_P2RM = C_b2p @ r_P2RM  # In body frd
-        J_p2RM = C_b2p @ J_p2RM @ C_p2b  # In body frd
+        r_P2RM = C_b2p @ pmp["r_P2RM"]  # In body frd
+        J_p2RM = C_b2p @ pmp["J_p2R"] @ C_p2b  # In body frd
 
         # -------------------------------------------------------------------
         # Compute the relative wind vectors for each control point.
@@ -1620,15 +1613,14 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
         M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
-        # Forces and moments of the payload in payload frd
-        dF_p_aero, dM_p_aero = self.payload.aerodynamics(C_p2b @ v_W2CP_p, rho_air)
-        dF_p_aero = np.atleast_2d(C_b2p @ dF_p_aero)
-        dM_p_aero = np.atleast_2d(C_b2p @ dM_p_aero)
-        F_p_aero = dF_p_aero.sum(axis=0)
-        F_p_weight = pmp["m_p"] * g
-        M_p = dM_p_aero.sum(axis=0)
-        M_p += cross3(r_CP2RM_p, dF_p_aero).sum(axis=0)
-        M_p += cross3(r_P2RM, F_p_weight)
+        f_p, g_p2RM = self.payload.resultant_force(  # In payload frd
+            delta_w=delta_w,
+            v_W2h=C_p2b @ v_W2CP_p,
+            rho_air=rho_air,
+            g=C_p2b @ g,
+            r_R2RM=[0, 0, 0],
+            mp=pmp,
+        )
 
         # Moment at the connection point `RM` modeled as a spring+damper system
         M_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
@@ -1667,15 +1659,14 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             - cross3(omega_b2e, h_b2RM)
         )
         B3 = (
-            F_p_aero
-            + F_p_weight
+            C_b2p @ f_p
             - m_p * cross3(omega_b2p, v_RM2e)
             - m_p * cross3(cross3(omega_b2p, omega_b2e), r_P2RM)
             # - m_p * cross3(cross3(omega_b2p, omega_p2e), r_P2RM)  # equivalent
             - cross3(omega_p2e, p_p2e)
         )
         B4 = (
-            M_p
+            C_b2p @ g_p2RM
             + M_RM
             - cross3(v_RM2e, p_p2e)
             - m_p * cross3(r_P2RM, cross3(omega_b2p, v_RM2e))
