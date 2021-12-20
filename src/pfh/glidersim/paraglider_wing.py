@@ -332,6 +332,11 @@ class ParagliderWing:
     """
     FIXME: add class docstring.
 
+    The system is referred to as the "body" since that is conventional in
+    aeronautics literature. Vectors are in "body frd", a coordinate system
+    inherited from the canopy: the xyz axes are oriented front-right-down with
+    the origin at the central leading edge `LE`.
+
     Parameters
     ----------
     lines : LineGeometry
@@ -346,12 +351,6 @@ class ParagliderWing:
         The number of canopy cells. This is only used for estimating the mass
         of the internal ribs. Proper support for ribs requires a new `Foil`
         with native support for cells, ribs, profile distortions, etc.
-
-    Notes
-    -----
-    The ParagliderWing coordinate axes are parallel to the canopy axes, but the
-    origin is translated from `LE`, the central leading edge of the canopy, to
-    `RM`, the midpoint between the two riser connections.
     """
 
     def __init__(
