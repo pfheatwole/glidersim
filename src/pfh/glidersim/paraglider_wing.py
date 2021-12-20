@@ -695,7 +695,7 @@ class ParagliderWing:
 
         Returns
         -------
-        r_CP2LE : array of floats, shape (K,3) [meters]
+        r_CP2LE : array of floats, shape (K,3) [m]
             The control points in frd coordinates
         """
         foil_cps = self.canopy.control_points()
@@ -713,7 +713,7 @@ class ParagliderWing:
 
         Returns
         -------
-        r_RM2LE : array of float, shape (K,3) [meters]
+        r_RM2LE : array of float, shape (K,3) [m]
             The riser midpoint `RM` with respect to the canopy origin.
         """
         return self.lines.r_RM2LE(delta_a)
