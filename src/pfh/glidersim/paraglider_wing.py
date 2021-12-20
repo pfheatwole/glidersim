@@ -758,14 +758,27 @@ class ParagliderWing:
             A_a2R : array of float, shape (6,6)
                 The apparent inertia matrix of the volume about `R`
         """
-        r_LE2R = -r_R2LE  # Unnecessary, but the vector addition looks nicer
-        r_LE2R[1] = 0  # FIXME: log a warning if `r_R2LE[1] != 0`
+        r_LE2R = -np.asarray(r_R2LE)
         mp = self._real_mass_properties.copy()
-        mp["r_S2R"] = mp["r_S2LE"] + r_LE2R
-        mp["r_V2R"] = mp["r_V2LE"] + r_LE2R
+
         mp["m_air"] = mp["v"] * rho_air
+        mp["m_b"] = mp["m_s"] + mp["m_air"]
+        r_S2R = mp["r_S2LE"] + r_LE2R
+        r_V2R = mp["r_V2LE"] + r_LE2R
+        mp["r_S2R"] = r_S2R
+        mp["r_V2R"] = r_V2R
+        mp["r_B2R"] = (mp["m_s"] * r_S2R + mp["m_air"] * r_V2R) / mp["m_b"]
+        D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
+        D_v = (r_V2R @ r_V2R) * np.eye(3) - np.outer(r_V2R, r_V2R)
+        mp["J_b2R"] = (
+            mp["J_s2S"]
+            + mp["m_s"] * D_s
+            + mp["J_v2V"] * rho_air
+            + mp["m_air"] * D_v
+        )
 
         # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
+        r_LE2R[1] = 0  # FIXME: log a warning if `r_R2LE[1] != 0`
         ai = self._apparent_mass_properties  # Dictionary of precomputed values
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
         r_RC2R = ai["r_RC2LE"] + r_LE2R
