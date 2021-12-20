@@ -802,3 +802,68 @@ class ParagliderWing:
         mp["A_a2R"] = A_a2R * rho_air
 
         return mp
+
+    def resultant_force(
+        self,
+        delta_a,
+        delta_bl,
+        delta_br,
+        v_W2b,
+        rho_air,
+        g,
+        r_R2LE,
+        mp=None,
+        reference_solution=None,
+    ):
+        """
+        Calculate the net force and moment due to wind and gravity.
+
+        Parameters
+        ----------
+        delta_a : float [percentage]
+            Fraction of accelerator, from 0 to 1
+        delta_bl : float [percentage]
+            Fraction of left brake, from 0 to 1
+        delta_br : float [percentage]
+            Fraction of right brake, from 0 to 1
+        v_W2b : array of float, shape (K,3) [m/s]
+            The wind vector at each control point in body frd
+        rho_air : float [kg/m^3]
+            The ambient air density
+        g : array of float, shape (3,) [m/s^s]
+            The gravity vector in body frd
+        r_R2LE : array of float, shape (3,) [m]
+            Reference point `R` with respect to the canopy origin in body frd.
+        mp : dictionary, optional
+            The mass properties of the body associated with the given air
+            density and reference point. Used to avoid recomputation.
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        f_b, g_B2R : array of float, shape (3,) [N, N m]
+           The net force and moment on the body with respect to `R`.
+        """
+        if mp is None:
+            mp = self.mass_properties(rho_air, r_R2LE)
+
+        r_CP2R = self.control_points(delta_a) - r_R2LE
+        if v_W2b.shape not in [(3,), r_CP2R.shape]:
+            raise ValueError(f"v_W2h must be a (3,) or a {r_CP2R.shape}")
+        v_W2b = np.broadcast_to(v_W2b, r_CP2R.shape)
+        df_aero, dg_aero, ref = self.aerodynamics(
+            delta_a=delta_a,
+            delta_bl=delta_bl,
+            delta_br=delta_br,
+            v_W2b=v_W2b,
+            rho_air=rho_air,
+            reference_solution=reference_solution,
+        )
+        f_aero = df_aero.sum(axis=0)
+        f_weight = mp["m_s"] * g
+        f_b = f_aero + f_weight
+        g_b2R = dg_aero.sum(axis=0)
+        g_b2R += cross3(r_CP2R, df_aero).sum(axis=0)
+        g_b2R += cross3(mp["r_S2R"], f_weight)
+        return f_b, g_b2R, ref

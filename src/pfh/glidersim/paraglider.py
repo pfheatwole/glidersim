@@ -164,38 +164,36 @@ class ParagliderSystemDynamics6a:
         v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
-        r_CP2RM_wing = r_CP2RM[:-1]
-        r_CP2RM_payload = r_CP2RM[-1]
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
             )
-
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2RM_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2RM = self.payload.resultant_force(
             delta_w=delta_w,
@@ -221,14 +219,9 @@ class ParagliderSystemDynamics6a:
         A1 = [m_b * np.eye(3), -m_b * crossmat(r_B2RM)]
         A2 = [m_b * crossmat(r_B2RM), J_b2RM]
         A = np.block([A1, A2])
-        B1 = (
-            F_wing_aero
-            + F_wing_weight
-            + f_p
-            - cross3(omega_b2e, p_b2e)
-        )
-        B2 = (  # ref: Hughes Eq:13, pg 58 (67)
-            M_wing
+        B1 = f_b + f_p - cross3(omega_b2e, p_b2e)
+        B2 = (  # ref: Hughes Eq:13, p58
+            g_b2RM
             + g_p2RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
@@ -478,37 +471,36 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
-        r_CP2B_wing = r_CP2RM[:-1] - r_B2RM
-        r_CP2B_payload = r_CP2RM[-1] - r_B2RM
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
             )
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2B = self.payload.resultant_force(
             delta_w=delta_w,
@@ -534,13 +526,8 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         A2 = [np.zeros((3, 3)), J_b2B]
         A = np.block([A1, A2])
 
-        B1 = (
-            F_wing_aero
-            + F_wing_weight
-            + f_p
-            - cross3(omega_b2e, p_b2e)
-        )
-        B2 = M_wing + g_p2B - np.cross(omega_b2e, h_b2B)
+        B1 = f_b + f_p - cross3(omega_b2e, p_b2e)
+        B2 = g_b2B + g_p2B - np.cross(omega_b2e, h_b2B)  # ref: Hughes Eq:13, p58
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -663,37 +650,36 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         v_W2CP = v_W2e - v_CP2e
 
         # FIXME: "magic" indexing established by `self.control_points`
-        r_CP2B_wing = r_CP2RM[:-1] - r_B2RM
-        r_CP2B_payload = r_CP2RM[-1] - r_B2RM
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
         # -------------------------------------------------------------------
         # Compute the forces and moments of the wing
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_wing,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
             )
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2B_wing, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2B = self.payload.resultant_force(
             delta_w=delta_w,
@@ -719,13 +705,8 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         A2 = [np.zeros((3, 3)), J_b2B]
         A = np.block([A1, A2])
 
-        B1 = (
-            F_wing_aero
-            + F_wing_weight
-            + f_p
-            - cross3(omega_b2e, p_b2e)
-        )
-        B2 = M_wing + g_p2B - np.cross(omega_b2e, h_b2B)
+        B1 = f_b + f_p - cross3(omega_b2e, p_b2e)
+        B2 = g_b2B + g_p2B - np.cross(omega_b2e, h_b2B)  # ref: Hughes Eq:13, p58
         B = np.r_[B1, B2]
 
         derivatives = np.linalg.solve(A, B)
@@ -913,30 +894,30 @@ class ParagliderSystemDynamics9a:
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
             )
-
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2RM = self.payload.resultant_force(  # In payload frd
             delta_w=delta_w,
@@ -975,13 +956,9 @@ class ParagliderSystemDynamics9a:
         A4 = [m_p * crossmat(r_P2RM) @ C_p2b, Z3, J_p2RM, Z3]
         A = np.block([A1, A2, A3, A4])
 
-        B1 = (
-            F_wing_aero
-            + F_wing_weight
-            - cross3(omega_b2e, p_b2e)
-        )
-        B2 = (
-            M_wing
+        B1 = f_b - cross3(omega_b2e, p_b2e)
+        B2 = (  # ref: Hughes Eq:13, p58
+            g_b2RM
             - M_RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
@@ -1267,6 +1244,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         m_b = wmp["m_b"]
         J_b2B = wmp["J_b2R"]
         r_B2RM = wmp0["r_B2R"] - r_RM2LE
+        r_B2LE = r_B2RM + r_RM2LE
 
         pmp0 = self.payload.mass_properties(delta_w, [0, 0, 0])  # R = RM
         pmp = self.payload.mass_properties(delta_w, pmp0["r_P2R"])  # R = P
@@ -1293,30 +1271,30 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2B, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_B2LE,
+                wmp,
             )
-
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2B_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2P = self.payload.resultant_force(  # In payload frd
             delta_w=delta_w,
@@ -1348,17 +1326,16 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         A = np.block([A1, A2, A3, A4])
 
         B1 = (
-            F_wing_aero
-            + F_wing_weight
+            f_b
             - m_b * cross3(omega_b2e, v_RM2e)
             - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2RM))
         )
-        B2 = (
+        B2 = (  # ref: Hughes Eq:13, p58
             f_p
             - m_p * C_p2b @ cross3(omega_b2e, v_RM2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2RM))
         )
-        B3 = M_wing - M_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
+        B3 = g_b2B - M_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
         B4 = g_p2P + C_p2b @ M_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
 
@@ -1508,30 +1485,30 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         # -------------------------------------------------------------------
         # Forces and moments of the wing in body frd
         try:
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
                 reference_solution,
             )
         except FoilAerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
-            dF_wing_aero, dM_wing_aero, ref = self.wing.aerodynamics(
+            f_b, g_b2RM, ref = self.wing.resultant_force(
                 delta_a,
                 delta_bl,
                 delta_br,
                 v_W2CP_b,
                 rho_air,
+                g,
+                r_RM2LE,
+                wmp,
             )
-
-        F_wing_aero = dF_wing_aero.sum(axis=0)
-        F_wing_weight = wmp["m_s"] * g
-        M_wing = dM_wing_aero.sum(axis=0)
-        M_wing += cross3(r_CP2RM_b, dF_wing_aero).sum(axis=0)
-        M_wing += cross3(wmp["r_S2R"], F_wing_weight)
 
         f_p, g_p2RM = self.payload.resultant_force(  # In payload frd
             delta_w=delta_w,
@@ -1567,13 +1544,9 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         A4 = [m_p * crossmat(r_P2RM), J_p2RM, J_p2RM, Z3]
         A = np.block([A1, A2, A3, A4])
 
-        B1 = (
-            F_wing_aero
-            + F_wing_weight
-            - cross3(omega_b2e, p_b2e)
-        )
-        B2 = (
-            M_wing
+        B1 = f_b - cross3(omega_b2e, p_b2e)
+        B2 = (  # ref: Hughes Eq:13, p58
+            g_b2RM
             - M_RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
