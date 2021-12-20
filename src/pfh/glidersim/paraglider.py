@@ -975,7 +975,6 @@ class ParagliderSystemDynamics9a:
             - m_p * cross3(r_P2RM, C_p2b @ cross3(omega_b2p, v_RM2e))
             - cross3(omega_p2e, h_p2RM)
         )
-        B = np.r_[B1, B2, B3, B4]
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
@@ -1001,6 +1000,8 @@ class ParagliderSystemDynamics9a:
                 - cross3(omega_b2e, h_a2RM)
                 + cross3(v_RM2e, M_a @ v_RM2e)  # Remove the steady-state term
             )
+
+        B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
@@ -1566,7 +1567,6 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             - cross3(omega_b2p, J_p2RM @ omega_p2e)
             - cross3(omega_p2e, h_p2RM)
         )
-        B = np.r_[B1, B2, B3, B4]
 
         if self.use_apparent_mass:
             # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
@@ -1592,6 +1592,8 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
                 - cross3(omega_b2e, h_a2RM)
                 + cross3(v_RM2e, M_a @ v_RM2e)  # Remove the steady-state term
             )
+
+        B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
