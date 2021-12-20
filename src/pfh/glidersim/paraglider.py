@@ -929,7 +929,7 @@ class ParagliderSystemDynamics9a:
         )
 
         # Moment at the connection point `RM` modeled as a spring+damper system
-        M_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
+        g_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -959,7 +959,7 @@ class ParagliderSystemDynamics9a:
         B1 = f_b - cross3(omega_b2e, p_b2e)
         B2 = (  # ref: Hughes Eq:13, p58
             g_b2RM
-            - M_RM
+            - g_RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
         )
@@ -970,7 +970,7 @@ class ParagliderSystemDynamics9a:
         )
         B4 = (
             g_p2RM
-            + C_p2b @ M_RM
+            + C_p2b @ g_RM
             - cross3(C_p2b @ v_RM2e, p_p2e)
             - m_p * cross3(r_P2RM, C_p2b @ cross3(omega_b2p, v_RM2e))
             - cross3(omega_p2e, h_p2RM)
@@ -1307,7 +1307,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
 
         # Moment at the connection point `RM` modeled as a spring+damper system
         omega_p2b = C_b2p @ omega_p2e - omega_b2e
-        M_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
+        g_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -1335,8 +1335,8 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             - m_p * C_p2b @ cross3(omega_b2e, v_RM2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2RM))
         )
-        B3 = g_b2B - M_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
-        B4 = g_p2P + C_p2b @ M_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
+        B3 = g_b2B - g_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
+        B4 = g_p2P + C_p2b @ g_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
 
         x = np.linalg.solve(A, B)
@@ -1520,7 +1520,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         )
 
         # Moment at the connection point `RM` modeled as a spring+damper system
-        M_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
+        g_RM = Theta_p2b * self._kappa_RM + omega_p2b * self._kappa_RM_dot
 
         # ------------------------------------------------------------------
         # Build a system of equations by equating the time derivatives of the
@@ -1547,7 +1547,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         B1 = f_b - cross3(omega_b2e, p_b2e)
         B2 = (  # ref: Hughes Eq:13, p58
             g_b2RM
-            - M_RM
+            - g_RM
             - cross3(v_RM2e, p_b2e)
             - cross3(omega_b2e, h_b2RM)
         )
@@ -1560,7 +1560,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         )
         B4 = (
             C_b2p @ g_p2RM
-            + M_RM
+            + g_RM
             - cross3(v_RM2e, p_p2e)
             - m_p * cross3(r_P2RM, cross3(omega_b2p, v_RM2e))
             - cross3(omega_b2p, J_p2RM @ omega_p2e)
