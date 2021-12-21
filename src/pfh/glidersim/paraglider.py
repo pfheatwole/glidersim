@@ -38,7 +38,7 @@ class ParagliderSystemDynamics6a:
     between the wing and the harness.
 
     This version uses the riser connection midpoint `RM` as the reference point
-    for the angular momentum, and includes the effects of apparent mass.
+    for the angular momentum, and can include the effects of apparent mass.
 
     Parameters
     ----------
@@ -100,7 +100,7 @@ class ParagliderSystemDynamics6a:
         v_W2e=(0, 0, 0),
         reference_solution: dict | None = None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -134,7 +134,9 @@ class ParagliderSystemDynamics6a:
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -357,12 +359,15 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     between the wing and the harness.
 
     This version uses the body center of mass `B` as the reference point for
-    the angular momentum. It does not include the effects of apparent mass.
-    Neglecting apparent mass and using the center of mass means the linear and
-    angular momentum are fully decoupled and can be solved independently. The
-    system produces `a_B2e` which is then used to compute `a_RM2e`.
+    the angular momentum. Using the center of mass produces a decoupled linear
+    system, which is easier to reason about, making this model useful for
+    validating other models. The system solves for `a_B2e` which is then used
+    to compute `a_RM2e`.
 
-    Identical to 6c, except it uses `v_RM2e` for the linear momentum.
+    This model does not support apparent mass; the apparent mass model requires
+    that the reference point lies in the xz-plane, which is not the case for
+    `B` during weight shift control. As a result, this model is intended to
+    help validate other models involving the real mass only.
 
     Parameters
     ----------
@@ -370,6 +375,8 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    use_apparent_mass : bool, optional
+        Whether to estimate the effects of apparent inertia.
     """
 
     def __init__(self, wing: ParagliderWing, payload: Harness) -> None:
@@ -389,7 +396,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         v_W2e=(0, 0, 0),
         reference_solution=None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -423,7 +430,9 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -532,12 +541,12 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
     between the wing and the harness.
 
     This version uses the body center of mass `B` as the reference point for
-    the angular momentum. It does not includes the effects of apparent mass.
-    Neglecting apparent mass and using the center of mass means the linear and
-    angular momentum are fully decoupled and can be solved independently. The
-    system produces `a_B2e` which is then used to compute `a_RM2e`.
+    the angular momentum. Similar to 6b, except it solves for v_RM2e directly.
 
-    Identical to 6b, except it uses `v_B2e` for the linear momentum.
+    This model does not support apparent mass; the apparent mass model requires
+    that the reference point lies in the xz-plane, which is not the case for
+    `B` during weight shift control. As a result, this model is intended to
+    help validate other models involving the real mass only.
 
     Parameters
     ----------
@@ -565,7 +574,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         r_CP2RM=None,
         reference_solution: dict | None = None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -599,7 +608,9 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -707,8 +718,8 @@ class ParagliderSystemDynamics9a:
     and the harness, with the connection modelled by spring-damper dynamics.
 
     This version uses the riser connection midpoint `RM` as the reference point
-    for both the body and the payload. It includes the effects of apparent
-    mass.
+    for the angular momentum of both the body (the wing system) and the payload
+    (the harness and pilot).
 
     Parameters
     ----------
@@ -785,7 +796,7 @@ class ParagliderSystemDynamics9a:
         v_W2e=(0, 0, 0),
         reference_solution: dict | None = None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -824,9 +835,13 @@ class ParagliderSystemDynamics9a:
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload, in payload frd coordinates.
+            Angular acceleration of the payload as the time derivative of its
+            angular velocity taken with respect to the payload frame, expressed
+            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -1098,17 +1113,15 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
 
-    This version uses the body center of mass `B` as the reference point for
-    the "body" (the wing) and the payload center of mass `P` as the reference
-    point for the payload. It does not include the effects of apparent mass.
+    This model uses the body center of mass `B` as the reference point for the
+    angular momentum of the body (the wing system) and the payload center of
+    mass `P` for the angular momentum of the payload (the harness and pilot).
 
-    Using the centers of mass makes the derivation of the linear system of
-    equations more intuitive, but it also makes using the apparent mass a bit
-    more work (since `ParagliderWing` returns the apparent inertia matrix using
-    `RM` as the reference point, not `B`). I suppose you could (assuming `B`
-    lies in the xz-plane as is assumed by Barrows), but I just haven't done it
-    yet. This class is mostly for practice and to help catch implementation
-    mistakes in `ParagliderSystemDynamics9a`.
+    This model does not support apparent mass. (Because it uses `B` as the
+    reference point for the body dynamics, the system of equations for apparent
+    mass would be in terms of `a_B2e`, which makes the equations involving the
+    payload dynamics significantly messier.) Its purpose is to check for
+    implementation errors in other models involving the real mass only.
 
     Parameters
     ----------
@@ -1150,7 +1163,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         v_W2e=(0, 0, 0),
         reference_solution: dict | None = None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -1189,9 +1202,13 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload, in payload frd coordinates.
+            Angular acceleration of the payload as the time derivative of its
+            angular velocity taken with respect to the payload frame, expressed
+            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -1331,19 +1348,14 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
     A 9 degrees-of-freedom paraglider model, allowing rotation between the wing
     and the harness, with the connection modelled by spring-damper dynamics.
 
-    Similar to ParagliderSystemDynamics9a, this version uses the riser
-    connection midpoint `RM` as the reference point for both the body and the
-    payload, and includes the effects of apparent mass. Unlike
+    Similar to ParagliderSystemDynamics9a, this version uses the riser midpoint
+    `RM` as the reference point for both the body and the payload. Unlike
     ParagliderSystemDynamics9a, this model computes \dot{omega_p2b} instead of
-    \dot{omega_p2e} and converts.
+    \dot{omega_p2e} and converts. Also, note that it computes everything in
+    body frd and converts omega_p2e back to payload frd at the very end.
 
-    Unfortunately it also appears to be broken; at least, it doesn't quite
-    agree with ParagliderSystemDynamics9a or ParagliderSystemDynamics9b, which
-    are mathematically less complicated so I tend to believe them. See the end
-    of `accelerations` for a discussion.
-
-    Also, note that it computes everything in body frd and converts omega_p2e
-    back to payload frd at the very end.
+    FIXME: although 9a and 9b agree, this model produces slightly different
+    answers, which might be worth looking into.
 
     Parameters
     ----------
@@ -1351,6 +1363,13 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
     payload : Harness
         This uses a `Harness`, but since there is no model for the pilot
         the harness should include the pilot mass.
+    kappa_RM : array of float, shape (3,), optional
+        Spring-damper coefficients for Theta_p2b (force as a linear function
+        of angular displacement).
+    kappa_RM_dot : array of float, shape (3,), optional
+        Spring-damper coefficients for the derivative of Theta_p2b
+    use_apparent_mass : bool, optional
+        Whether to estimate the effects of apparent inertia. Default: True
     """
 
     def accelerations(
@@ -1368,7 +1387,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         v_W2e=(0, 0, 0),
         reference_solution: dict | None = None,
     ):
-        """
+        r"""
         Compute the translational and angular accelerations about the center of mass.
 
         Parameters
@@ -1407,9 +1426,13 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body, in body frd coordinates.
+            Angular acceleration of the body as the time derivative of its
+            angular velocity taken with respect to the body frame, expressed in
+            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload, in payload frd coordinates.
+            Angular acceleration of the payload as the time derivative of its
+            angular velocity taken with respect to the payload frame, expressed
+            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
