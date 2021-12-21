@@ -228,28 +228,20 @@ class ParagliderSystemDynamics6a:
         )
 
         if self.use_apparent_mass:
-            # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
-            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
-            S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2R"])
-            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
-                v_RM2e
-                - cross3(wmp["r_RC2R"], omega_b2e)
-                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            amp = self.wing.apparent_mass_properties(
+                rho_air,
+                r_RM2LE,
+                v_RM2e,
+                omega_b2e,
             )
-            h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
-                (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
-            )
-            A += wmp["A_a2R"]  # Incorporate the apparent inertia
+            A += amp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
-                -cross3(omega_b2e, p_a2e)
+                -cross3(omega_b2e, amp["p_a2e"])
             )
             B2 += (  # Apparent inertial moment (Barrows Eq:64)
-                -cross3(v_RM2e, p_a2e)
-                - cross3(omega_b2e, h_a2RM)
-                + cross3(v_RM2e, M_a @ v_RM2e)  # Remove the steady-state term
+                -cross3(v_RM2e, amp["p_a2e"])
+                - cross3(omega_b2e, amp["h_a2R"])
+                + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
 
         B = np.r_[B1, B2]
@@ -977,28 +969,20 @@ class ParagliderSystemDynamics9a:
         )
 
         if self.use_apparent_mass:
-            # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
-            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
-            S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2R"])
-            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
-                v_RM2e
-                - cross3(wmp["r_RC2R"], omega_b2e)
-                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            amp = self.wing.apparent_mass_properties(
+                rho_air,
+                r_RM2LE,
+                v_RM2e,
+                omega_b2e,
             )
-            h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
-                (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
-            )
-            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
+            A[:6, :6] += amp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
-                -cross3(omega_b2e, p_a2e)
+                -cross3(omega_b2e, amp["p_a2e"])
             )
             B2 += (  # Apparent inertial moment (Barrows Eq:64)
-                -cross3(v_RM2e, p_a2e)
-                - cross3(omega_b2e, h_a2RM)
-                + cross3(v_RM2e, M_a @ v_RM2e)  # Remove the steady-state term
+                -cross3(v_RM2e, amp["p_a2e"])
+                - cross3(omega_b2e, amp["h_a2R"])
+                + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
 
         B = np.r_[B1, B2, B3, B4]
@@ -1569,28 +1553,20 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         )
 
         if self.use_apparent_mass:
-            # Extract M_a and J_a2RM from A_a2RM (Barrows Eq:27)
-            M_a = wmp["A_a2R"][:3, :3]  # Apparent mass matrix
-            J_a2RM = wmp["A_a2R"][3:, 3:]  # Apparent angular inertia matrix
-            S2 = np.diag([0, 1, 0])  # Selection matrix (Barrows Eq:15)
-            S_PC2RC = crossmat(wmp["r_PC2RC"])
-            S_RC2RM = crossmat(wmp["r_RC2R"])
-            p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
-                v_RM2e
-                - cross3(wmp["r_RC2R"], omega_b2e)
-                - crossmat(wmp["r_PC2RC"]) @ S2 @ omega_b2e
+            amp = self.wing.apparent_mass_properties(
+                rho_air,
+                r_RM2LE,
+                v_RM2e,
+                omega_b2e,
             )
-            h_a2RM = (  # Apparent angular momentum (Barrows Eq:24)
-                (S2 @ S_PC2RC + S_RC2RM) @ M_a @ v_RM2e + J_a2RM @ omega_b2e
-            )
-            A[:6, :6] += wmp["A_a2R"]  # Incorporate the apparent inertia
+            A[:6, :6] += amp["A_a2R"]  # Incorporate the apparent inertia
             B1 += (  # Apparent inertial force (Barrows Eq:61)
-                -cross3(omega_b2e, p_a2e)
+                -cross3(omega_b2e, amp["p_a2e"])
             )
             B2 += (  # Apparent inertial moment (Barrows Eq:64)
-                -cross3(v_RM2e, p_a2e)
-                - cross3(omega_b2e, h_a2RM)
-                + cross3(v_RM2e, M_a @ v_RM2e)  # Remove the steady-state term
+                -cross3(v_RM2e, amp["p_a2e"])
+                - cross3(omega_b2e, amp["h_a2R"])
+                + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
 
         B = np.r_[B1, B2, B3, B4]

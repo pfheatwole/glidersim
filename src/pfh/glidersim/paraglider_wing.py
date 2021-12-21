@@ -750,12 +750,6 @@ class ParagliderWing:
                 The moment of inertia matrix of the volume about its centroid
             m_air : float [kg m^3]
                 The enclosed air mass.
-            r_PC2RC : array of float, shape (3,) [m]
-                Vector to the pitch center from the roll center
-            r_RC2R : array of float, shape (3,) [m]
-                Vector to the roll center from the riser connection point
-            A_a2R : array of float, shape (6,6)
-                The apparent inertia matrix of the volume about `R`
         """
         r_LE2R = -np.asarray(r_R2LE)
         mp = self._real_mass_properties.copy()
@@ -776,31 +770,79 @@ class ParagliderWing:
             + mp["m_air"] * D_v
         )
 
-        # Apparent moment of inertia matrix about `R` (Barrows Eq:25)
-        r_LE2R[1] = 0  # FIXME: log a warning if `r_R2LE[1] != 0`
+        return mp
+
+    def apparent_mass_properties(self, rho_air: float, r_R2LE, v_R2e, omega_b2e):
+        """
+        Compute the apparent mass matrix and momentum of the canopy.
+
+        Parameters
+        ----------
+        rho_air : float [kg/m^3]
+            Air density
+        r_R2LE : array of float, shape (3,) [m]
+            Reference point `R` with respect to the canopy origin in body frd.
+        v_R2e : array of float, shape (3,) [m/s]
+            The velocity of the `R` with respect to the inertial frame.
+        omega_b2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in body frd coordinates.
+
+        Returns
+        -------
+        dictionary
+            r_PC2RC : array of float, shape (3,) [m]
+                Vector to the pitch center from the roll center
+            r_RC2R : array of float, shape (3,) [m]
+                Vector to the roll center from the riser connection point
+            M_a : array of float, shape (3,3)
+                The apparent mass matrix
+            A_a2R : array of float, shape (6,6)
+                The apparent inertia matrix of the volume with respect to `R`
+            p_a2e : array of float, shape (3,)
+                The apparent linear momentum with respect to the inertial frame
+            h_a2R : array of float, shape (3,3)
+                The angular momentum of the apparent mass with respect to `R`
+        """
+        # FIXME: log a warning if `R` does not lie in the # xz-plane
+        r_LE2R = -np.asarray(r_R2LE)
         ai = self._apparent_mass_properties  # Dictionary of precomputed values
-        S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
         r_RC2R = ai["r_RC2LE"] + r_LE2R
-        S_PC2RC = crossmat(ai["r_PC2RC"])
+        r_PC2RC = ai["r_PC2RC"]
+        S_PC2RC = crossmat(r_PC2RC)
         S_RC2R = crossmat(r_RC2R)
-        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2R
-        J_a2R = (  # Barrows Eq:25
-            ai["I"]
-            - S_RC2R @ ai["M"] @ S_RC2R
-            - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
+        S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
+
+        # Apparent inertia
+        M_a = ai["M"] * rho_air  # Apparent mass matrix
+        Q = S2 @ S_PC2RC @ M_a @ S_RC2R
+        J_a2R = (  # Apparent moment of inertia matrix about `R`; Barrows Eq:25
+            ai["I"] * rho_air
+            - S_RC2R @ M_a @ S_RC2R
+            - S_PC2RC @ M_a @ S_PC2RC @ S2
             - Q
             - Q.T
         )
-        MC = -ai["M"] @ (S_RC2R + S_PC2RC @ S2)
-        A_a2R = np.block([[ai["M"], MC], [MC.T, J_a2R]])  # Barrows Eq:27
+        MC = -M_a @ (S_RC2R + S_PC2RC @ S2)
+        A_a2R = np.block([[M_a, MC], [MC.T, J_a2R]])  # Barrows Eq:27
 
-        # The vectors to the roll and pitch centers are required to compute the
-        # apparent inertias. See Barrows Eq:16 and Eq:24.
-        mp["r_RC2R"] = r_RC2R
-        mp["r_PC2RC"] = ai["r_PC2RC"]
-        mp["A_a2R"] = A_a2R * rho_air
+        # Apparent momentum
+        p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
+            v_R2e
+            - cross3(r_RC2R, omega_b2e)
+            - crossmat(r_PC2RC) @ S2 @ omega_b2e
+        )
+        h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
+            (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+        )
 
-        return mp
+        return {
+            "r_PC2RC": r_PC2RC,
+            "r_RC2R": r_RC2R,
+            "M_a": M_a,
+            "A_a2R": A_a2R,
+            "p_a2e": p_a2e,
+            "h_a2R": h_a2R,
+        }
 
     def resultant_force(
         self,
