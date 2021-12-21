@@ -332,6 +332,11 @@ class ParagliderWing:
     """
     FIXME: add class docstring.
 
+    The system is referred to as the "body" since that is conventional in
+    aeronautics literature. Vectors are in "body frd", a coordinate system
+    inherited from the canopy: the xyz axes are oriented front-right-down with
+    the origin at the central leading edge `LE`.
+
     Parameters
     ----------
     lines : LineGeometry
@@ -346,12 +351,6 @@ class ParagliderWing:
         The number of canopy cells. This is only used for estimating the mass
         of the internal ribs. Proper support for ribs requires a new `Foil`
         with native support for cells, ribs, profile distortions, etc.
-
-    Notes
-    -----
-    The ParagliderWing coordinate axes are parallel to the canopy axes, but the
-    origin is translated from `LE`, the central leading edge of the canopy, to
-    `RM`, the midpoint between the two riser connections.
     """
 
     def __init__(
@@ -475,7 +474,7 @@ class ParagliderWing:
           * circular confluence point: `c` is now `C`
           * arc semi-angle: `Theta` is now `theta`
           * radius: `R` is now `r`
-          * origin: `o` is now `RM` (the riser connection point)
+          * origin: `o` is now `R` (a reference point in the xz-plane)
 
         Dynamics models that want to incorporate these effects can use
         equations 16, 24, 61, and 64 (making sure to remove the steady-state
@@ -492,7 +491,6 @@ class ParagliderWing:
         # theta = np.deg2rad(35)
         # hstar = eta / 4
 
-        # Values for the Hook 3 23
         S = self.canopy.S
         b = self.canopy.b
         AR = self.canopy.AR
@@ -538,11 +536,9 @@ class ParagliderWing:
         If33 = 0.055 * b ** 3 * t ** 2
 
         # Compute the pitch and roll centers, treating the wing as a circular
-        # arch with fore-and-aft (yz) and lateral (xz) planes of symmetry.
-        # The roll center, pitch center, and the "confluence point" all lie on
-        # the z-axis of the idealized circular arch. The rest of the derivation
-        # requires that the "origin" (the riser midpoint `RM`, in this case)
-        # lies in the xz-plane of symmetry.
+        # arch with fore-aft (yz) and lateral (xz) planes of symmetry. The roll
+        # center, pitch center, and the "confluence point" all lie on the
+        # z-axis of the idealized circular arch.
         z_PC2C = -r * np.sin(theta) / theta  # Barrows Eq:44
         z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r ** 2)  # Barrows Eq:50
         z_PC2RC = z_PC2C - z_RC2C
@@ -558,10 +554,10 @@ class ParagliderWing:
         I22 = If22
         I33 = 0.055 * (1 + 8 * hstar ** 2) * b ** 3 * t ** 2
 
-        # Save the precomputed values for use in `mass_properties`. The vectors
-        # are defined with respect to `C` and the canopy origin (the central
-        # leading edge), but the final apparent inertia matrix is about `RM`,
-        # which depends on `delta_a`.
+        # These values are constants for the geometry and choice of coordinate
+        # system, and are used to compute the apparent inertia matrix about
+        # `R`, a reference point that must lie in the xz-plane of symmetry. See
+        # `ParagliderWing.mass_properties` for the calculation.
         r_C2LE = np.array([-0.5 * self.canopy.chord_length(0), 0, r])
         r_RC2C = np.array([0, 0, z_RC2C])
         self._apparent_mass_properties = {
@@ -698,7 +694,7 @@ class ParagliderWing:
 
         Returns
         -------
-        r_CP2LE : array of floats, shape (K,3) [meters]
+        r_CP2LE : array of floats, shape (K,3) [m]
             The control points in frd coordinates
         """
         foil_cps = self.canopy.control_points()
@@ -716,26 +712,24 @@ class ParagliderWing:
 
         Returns
         -------
-        r_RM2LE : array of float, shape (K,3) [meters]
+        r_RM2LE : array of float, shape (K,3) [m]
             The riser midpoint `RM` with respect to the canopy origin.
         """
         return self.lines.r_RM2LE(delta_a)
 
-    def mass_properties(self, rho_air: float, delta_a: float = 0):
+    def mass_properties(self, rho_air: float, r_R2LE):
         """
-        Compute the inertial properties of the wing about `RM`.
+        Compute inertia-related properties of the wing about a reference point.
 
         Includes terms for the solid mass, the enclosed air, and the apparent
         mass (which appears due to the inertial acceleration of the air).
-
-        FIXME: make the reference point a parameter?
 
         Parameters
         ----------
         rho_air : float [kg/m^3]
             Air density
-        delta_a : float [percentage], optional
-            Fraction of accelerator application, from 0 to 1
+        r_R2LE : array of float, shape (3,) [m]
+            Reference point `R` with respect to the canopy origin in body frd.
 
         Returns
         -------
@@ -744,52 +738,173 @@ class ParagliderWing:
                 The solid mass of the wing
             r_S2LE : array of float, shape (3,) [m]
                 Vector from the canopy origin to the solid mass centroid
-            r_S2RM : array of float, shape (3,) [m]
+            r_S2R : array of float, shape (3,) [m]
                 Vector from the reference point to the solid mass centroid
             J_s2S : array of float, shape (3,3) [kg m^2]
                 The moment of inertia matrix of the solid mass about its cm
             v : float [m^3]
                 The enclosed volume
-            r_V2RM : array of float, shape (3,) [m]
+            r_V2R : array of float, shape (3,) [m]
                 Vector from the reference point to the volume centroid V
             J_v2V : array of float, shape (3,3) [m^2]
                 The moment of inertia matrix of the volume about its centroid
             m_air : float [kg m^3]
                 The enclosed air mass.
+        """
+        r_LE2R = -np.asarray(r_R2LE)
+        mp = self._real_mass_properties.copy()
+
+        mp["m_air"] = mp["v"] * rho_air
+        mp["m_b"] = mp["m_s"] + mp["m_air"]
+        r_S2R = mp["r_S2LE"] + r_LE2R
+        r_V2R = mp["r_V2LE"] + r_LE2R
+        mp["r_S2R"] = r_S2R
+        mp["r_V2R"] = r_V2R
+        mp["r_B2R"] = (mp["m_s"] * r_S2R + mp["m_air"] * r_V2R) / mp["m_b"]
+        D_s = (r_S2R @ r_S2R) * np.eye(3) - np.outer(r_S2R, r_S2R)
+        D_v = (r_V2R @ r_V2R) * np.eye(3) - np.outer(r_V2R, r_V2R)
+        mp["J_b2R"] = (
+            mp["J_s2S"]
+            + mp["m_s"] * D_s
+            + mp["J_v2V"] * rho_air
+            + mp["m_air"] * D_v
+        )
+
+        return mp
+
+    def apparent_mass_properties(self, rho_air: float, r_R2LE, v_R2e, omega_b2e):
+        """
+        Compute the apparent mass matrix and momentum of the canopy.
+
+        Parameters
+        ----------
+        rho_air : float [kg/m^3]
+            Air density
+        r_R2LE : array of float, shape (3,) [m]
+            Reference point `R` with respect to the canopy origin in body frd.
+        v_R2e : array of float, shape (3,) [m/s]
+            The velocity of the `R` with respect to the inertial frame.
+        omega_b2e : array of float, shape (3,) [rad/s]
+            Angular velocity of the body, in body frd coordinates.
+
+        Returns
+        -------
+        dictionary
             r_PC2RC : array of float, shape (3,) [m]
                 Vector to the pitch center from the roll center
-            r_RC2RM : array of float, shape (3,) [m]
+            r_RC2R : array of float, shape (3,) [m]
                 Vector to the roll center from the riser connection point
-            A_a2RM : array of float, shape (6,6)
-                The apparent inertia matrix of the volume about `RM`
+            M_a : array of float, shape (3,3)
+                The apparent mass matrix
+            A_a2R : array of float, shape (6,6)
+                The apparent inertia matrix of the volume with respect to `R`
+            p_a2e : array of float, shape (3,)
+                The apparent linear momentum with respect to the inertial frame
+            h_a2R : array of float, shape (3,3)
+                The angular momentum of the apparent mass with respect to `R`
         """
-        r_LE2RM = -self.r_RM2LE(delta_a)
-        mp = self._real_mass_properties.copy()
-        mp["r_S2RM"] = mp["r_S2LE"] + r_LE2RM
-        mp["r_V2RM"] = mp["r_V2LE"] + r_LE2RM
-        mp["m_air"] = mp["v"] * rho_air
-
-        # Apparent moment of inertia matrix about `RM` (Barrows Eq:25)
+        # FIXME: log a warning if `R` does not lie in the # xz-plane
+        r_LE2R = -np.asarray(r_R2LE)
         ai = self._apparent_mass_properties  # Dictionary of precomputed values
+        r_RC2R = ai["r_RC2LE"] + r_LE2R
+        r_PC2RC = ai["r_PC2RC"]
+        S_PC2RC = crossmat(r_PC2RC)
+        S_RC2R = crossmat(r_RC2R)
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
-        r_RC2RM = r_LE2RM + ai["r_RC2LE"]
-        S_PC2RC = crossmat(ai["r_PC2RC"])
-        S_RC2RM = crossmat(r_RC2RM)
-        Q = S2 @ S_PC2RC @ ai["M"] @ S_RC2RM
-        J_a2RM = (  # Barrows Eq:25
-            ai["I"]
-            - S_RC2RM @ ai["M"] @ S_RC2RM
-            - S_PC2RC @ ai["M"] @ S_PC2RC @ S2
+
+        # Apparent inertia
+        M_a = ai["M"] * rho_air  # Apparent mass matrix
+        Q = S2 @ S_PC2RC @ M_a @ S_RC2R
+        J_a2R = (  # Apparent moment of inertia matrix about `R`; Barrows Eq:25
+            ai["I"] * rho_air
+            - S_RC2R @ M_a @ S_RC2R
+            - S_PC2RC @ M_a @ S_PC2RC @ S2
             - Q
             - Q.T
         )
-        MC = -ai["M"] @ (S_RC2RM + S_PC2RC @ S2)
-        A_a2RM = np.block([[ai["M"], MC], [MC.T, J_a2RM]])  # Barrows Eq:27
+        MC = -M_a @ (S_RC2R + S_PC2RC @ S2)
+        A_a2R = np.block([[M_a, MC], [MC.T, J_a2R]])  # Barrows Eq:27
 
-        # The vectors to the roll and pitch centers are required to compute the
-        # apparent inertias. See Barrows Eq:16 and Eq:24.
-        mp["r_RC2RM"] = r_RC2RM
-        mp["r_PC2RC"] = ai["r_PC2RC"]
-        mp["A_a2RM"] = A_a2RM * rho_air
+        # Apparent momentum
+        p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
+            v_R2e
+            - cross3(r_RC2R, omega_b2e)
+            - crossmat(r_PC2RC) @ S2 @ omega_b2e
+        )
+        h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
+            (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+        )
 
-        return mp
+        return {
+            "r_PC2RC": r_PC2RC,
+            "r_RC2R": r_RC2R,
+            "M_a": M_a,
+            "A_a2R": A_a2R,
+            "p_a2e": p_a2e,
+            "h_a2R": h_a2R,
+        }
+
+    def resultant_force(
+        self,
+        delta_a,
+        delta_bl,
+        delta_br,
+        v_W2b,
+        rho_air,
+        g,
+        r_R2LE,
+        mp=None,
+        reference_solution=None,
+    ):
+        """
+        Calculate the net force and moment due to wind and gravity.
+
+        Parameters
+        ----------
+        delta_a : float [percentage]
+            Fraction of accelerator, from 0 to 1
+        delta_bl : float [percentage]
+            Fraction of left brake, from 0 to 1
+        delta_br : float [percentage]
+            Fraction of right brake, from 0 to 1
+        v_W2b : array of float, shape (K,3) [m/s]
+            The wind vector at each control point in body frd
+        rho_air : float [kg/m^3]
+            The ambient air density
+        g : array of float, shape (3,) [m/s^s]
+            The gravity vector in body frd
+        r_R2LE : array of float, shape (3,) [m]
+            Reference point `R` with respect to the canopy origin in body frd.
+        mp : dictionary, optional
+            The mass properties of the body associated with the given air
+            density and reference point. Used to avoid recomputation.
+        reference_solution : dictionary, optional
+            FIXME: docstring. See `Phillips.__call__`
+
+        Returns
+        -------
+        f_b, g_B2R : array of float, shape (3,) [N, N m]
+           The net force and moment on the body with respect to `R`.
+        """
+        if mp is None:
+            mp = self.mass_properties(rho_air, r_R2LE)
+
+        r_CP2R = self.control_points(delta_a) - r_R2LE
+        if v_W2b.shape not in [(3,), r_CP2R.shape]:
+            raise ValueError(f"v_W2h must be a (3,) or a {r_CP2R.shape}")
+        v_W2b = np.broadcast_to(v_W2b, r_CP2R.shape)
+        df_aero, dg_aero, ref = self.aerodynamics(
+            delta_a=delta_a,
+            delta_bl=delta_bl,
+            delta_br=delta_br,
+            v_W2b=v_W2b,
+            rho_air=rho_air,
+            reference_solution=reference_solution,
+        )
+        f_aero = df_aero.sum(axis=0)
+        f_weight = mp["m_s"] * g
+        f_b = f_aero + f_weight
+        g_b2R = dg_aero.sum(axis=0)
+        g_b2R += cross3(r_CP2R, df_aero).sum(axis=0)
+        g_b2R += cross3(mp["r_S2R"], f_weight)
+        return f_b, g_b2R, ref

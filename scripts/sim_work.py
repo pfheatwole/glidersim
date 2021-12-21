@@ -382,6 +382,8 @@ def main():
         raise RuntimeError(f"Unsupported paraglider model {type(paraglider)}")
 
     print("\nPreparing the simulation...\n")
+    modelname = str(type(paraglider)).split('.')[-1].split("'")[0]
+    print(f"Model: {modelname}(use_apparent_mass={use_apparent_mass})")
     state0 = model.starting_equilibrium()
     gsim.simulator.prettyprint_state(state0, "Initial state:", "")
     t_start = time.perf_counter()

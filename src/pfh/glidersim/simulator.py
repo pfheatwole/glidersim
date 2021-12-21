@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import sys
 import time
 from typing import TYPE_CHECKING, Any, Callable, Protocol, runtime_checkable
 
@@ -470,14 +471,15 @@ def simulate(
     msg = ""
     k = 1  # Number of completed states (including the initial state)
     print("Running the simulation...")
+    is_interactive = sys.stdout.isatty()
     try:
         while solver.successful() and k < K:
-            if k % 25 == 0:  # Update every 25 iterations
-                avg_rate = (k - 1) / (time.perf_counter() - t_start)  # k=0 was free
-                rem = (K - k) / avg_rate  # Time remaining in seconds
-                msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
-            print(f"\rStep: {k}/{K} (t = {k*dt:.2f}). {msg}", end="")
-
+            if is_interactive:
+                if k % 25 == 0:  # Update every 25 iterations
+                    avg_rate = (k - 1) / (time.perf_counter() - t_start)  # k=0 was free
+                    rem = (K - k) / avg_rate  # Time remaining in seconds
+                    msg = f"ETA: {int(rem // 60)}m{int(rem % 60):02d}s"
+                print(f"\rStep: {k}/{K} (t = {k*dt:.2f}). {msg}", end="")
             # WARNING: `solver.integrate` returns a *reference* to `_y`, so
             #          modifying `state` modifies `solver._y` directly.
             # FIXME: Is that valid for all `integrate` methods (eg, Adams)?
@@ -493,13 +495,15 @@ def simulate(
         print(f"\n--- Simulation failed: {type(e).__name__}:", e)
     except KeyboardInterrupt:
         print("\n--- Simulation interrupted. ---")
+    if is_interactive:
+        print()
 
     # Truncate if the simulation did not complete
     if k < K:
         times = times[:k]
         states = states[:k]
 
-    print(f"\nTotal simulation time: {time.perf_counter() - t_start:.2f}")
+    print(f"Total simulation time: {time.perf_counter() - t_start:.2f}")
 
     return times, states
 
@@ -530,10 +534,13 @@ def recompute_derivatives(model: StateDynamics, times, states):
     K = len(times)
     derivatives = np.empty((K,), dtype=model.state_dtype)
     params = {"solution": None}  # Is modified by `model.dynamics`
+    is_interactive = sys.stdout.isatty()
     for k in range(K):
-        print(f"\rStep: {k}/{K}", end="")
+        if is_interactive:
+            print(f"\rStep: {k}/{K}", end="")
         derivatives[k] = model.derivatives(times[k], states[k], params)
-    print()
+    if is_interactive:
+        print()
 
     return derivatives
 
