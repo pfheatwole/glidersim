@@ -246,11 +246,9 @@ class ParagliderSystemDynamics6a:
             )
 
         B = np.r_[B1, B2]
-
-        derivatives = np.linalg.solve(A, B)
-        a_RM2e = derivatives[:3]  # In frame F_b
-        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
-
+        x = np.linalg.solve(A, B)  # Solve for the derivatives
+        a_RM2e = x[:3]  # In frame F_b
+        alpha_b2e = x[3:]  # In frames F_b and F_e
         return a_RM2e, alpha_b2e, ref
 
     def equilibrium_state(
@@ -518,16 +516,13 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         A1 = [m_b * np.eye(3), np.zeros((3, 3))]
         A2 = [np.zeros((3, 3)), J_b2B]
         A = np.block([A1, A2])
-
         B1 = f_b + f_p - cross3(omega_b2e, p_b2e)
         B2 = g_b2B + g_p2B - np.cross(omega_b2e, h_b2B)  # ref: Hughes Eq:13, p58
         B = np.r_[B1, B2]
-
-        derivatives = np.linalg.solve(A, B)
-        a_B2e = derivatives[:3]  # In frame F_b
-        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
+        x = np.linalg.solve(A, B)  # Solve for the derivatives
+        a_B2e = x[:3]  # In frame F_b
+        alpha_b2e = x[3:]  # In frames F_b and F_e
         a_RM2e = a_B2e - np.cross(alpha_b2e, r_B2RM)  # In frame F_b
-
         return a_RM2e, alpha_b2e, ref
 
 
@@ -697,15 +692,12 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         A1 = [m_b * np.eye(3), -m_b * crossmat(r_B2RM)]
         A2 = [np.zeros((3, 3)), J_b2B]
         A = np.block([A1, A2])
-
         B1 = f_b + f_p - cross3(omega_b2e, p_b2e)
         B2 = g_b2B + g_p2B - np.cross(omega_b2e, h_b2B)  # ref: Hughes Eq:13, p58
         B = np.r_[B1, B2]
-
-        derivatives = np.linalg.solve(A, B)
-        a_RM2e = derivatives[:3]  # In frame F_b
-        alpha_b2e = derivatives[3:]  # In frames F_b and F_e
-
+        x = np.linalg.solve(A, B)  # Solve for the derivatives
+        a_RM2e = x[:3]  # In frame F_b
+        alpha_b2e = x[3:]  # In frames F_b and F_e
         return a_RM2e, alpha_b2e, ref
 
 
@@ -993,7 +985,6 @@ class ParagliderSystemDynamics9a:
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
-
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
     def equilibrium_state(
@@ -1306,31 +1297,32 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
 
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2RM), Z3, I3]
-        A2 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2RM), -C_p2b]
-        A3 = [Z3, J_b2B, Z3, -crossmat(r_B2RM)]
+        A2 = [Z3, J_b2B, Z3, -crossmat(r_B2RM)]
+        A3 = [m_p * C_p2b, Z3, -m_p * crossmat(r_P2RM), -C_p2b]
         A4 = [Z3, Z3, J_p2P, crossmat(r_P2RM) @ C_p2b]
         A = np.block([A1, A2, A3, A4])
-
         B1 = (
             f_b
             - m_b * cross3(omega_b2e, v_RM2e)
             - m_b * cross3(omega_b2e, cross3(omega_b2e, r_B2RM))
         )
         B2 = (  # ref: Hughes Eq:13, p58
+            g_b2B
+            - g_RM
+            - cross3(omega_b2e, J_b2B @ omega_b2e)
+        )
+        B3 = (
             f_p
             - m_p * C_p2b @ cross3(omega_b2e, v_RM2e)
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2RM))
         )
-        B3 = g_b2B - g_RM - cross3(omega_b2e, J_b2B @ omega_b2e)
         B4 = g_p2P + C_p2b @ g_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
         B = np.r_[B1, B2, B3, B4]
-
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2e = x[6:9]  # In frames F_p and F_e
         F_RM = x[9:]  # For debugging
-
         return a_RM2e, alpha_b2e, alpha_p2e, ref
 
 
@@ -1571,15 +1563,11 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             )
 
         B = np.r_[B1, B2, B3, B4]
-
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
         alpha_b2e = x[3:6]  # In frames F_b and F_e
         alpha_p2b = x[6:9]  # In frames F_b and F_p
         F_RM = x[9:]  # For debugging
-
-        # Dynamics9a expects `^p dot{omega}_{p/e}^p`
         alpha_p2e = alpha_p2b + alpha_b2e + cross3(omega_b2e, omega_p2b)
         alpha_p2e = C_p2b @ alpha_p2e  # In frames F_p and F_e
-
         return a_RM2e, alpha_b2e, alpha_p2e, ref
