@@ -14,6 +14,7 @@ from pfh.glidersim.util import cross3, crossmat
 
 
 if TYPE_CHECKING:
+    from pfh.glidersim.paraglider_harness import Harness
     from pfh.glidersim.paraglider_wing import ParagliderWing
 
 
@@ -52,7 +53,7 @@ class ParagliderSystemDynamics6a:
     def __init__(
         self,
         wing: ParagliderWing,
-        payload,
+        payload: Harness,
         *,
         use_apparent_mass: bool = True,
     ) -> None:
@@ -373,7 +374,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing: ParagliderWing, payload) -> None:
+    def __init__(self, wing: ParagliderWing, payload: Harness) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -551,7 +552,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         the harness should include the pilot mass.
     """
 
-    def __init__(self, wing: ParagliderWing, payload) -> None:
+    def __init__(self, wing: ParagliderWing, payload: Harness) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -735,7 +736,7 @@ class ParagliderSystemDynamics9a:
     def __init__(
         self,
         wing: ParagliderWing,
-        payload,
+        payload: Harness,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
         *,
@@ -1134,7 +1135,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     def __init__(
         self,
         wing: ParagliderWing,
-        payload,
+        payload: Harness,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
     ) -> None:
