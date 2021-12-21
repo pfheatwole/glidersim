@@ -14,7 +14,7 @@ from pfh.glidersim.util import cross3, crossmat
 
 
 if TYPE_CHECKING:
-    from pfh.glidersim.paraglider_harness import Harness
+    from pfh.glidersim.paraglider_harness import ParagliderHarness
     from pfh.glidersim.paraglider_wing import ParagliderWing
 
 
@@ -43,9 +43,8 @@ class ParagliderSystemDynamics6a:
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot the
-        harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     use_apparent_mass : bool, optional
         Whether to estimate the effects of apparent inertia.
     """
@@ -53,7 +52,7 @@ class ParagliderSystemDynamics6a:
     def __init__(
         self,
         wing: ParagliderWing,
-        payload: Harness,
+        payload: ParagliderHarness,
         *,
         use_apparent_mass: bool = True,
     ) -> None:
@@ -372,14 +371,13 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     use_apparent_mass : bool, optional
         Whether to estimate the effects of apparent inertia.
     """
 
-    def __init__(self, wing: ParagliderWing, payload: Harness) -> None:
+    def __init__(self, wing: ParagliderWing, payload: ParagliderHarness) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -551,12 +549,11 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     """
 
-    def __init__(self, wing: ParagliderWing, payload: Harness) -> None:
+    def __init__(self, wing: ParagliderWing, payload: ParagliderHarness) -> None:
         self.wing = wing
         self.payload = payload
 
@@ -724,9 +721,8 @@ class ParagliderSystemDynamics9a:
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     kappa_RM : array of float, shape (3,), optional
         Spring-damper coefficients for Theta_p2b (force as a linear function
         of angular displacement).
@@ -739,7 +735,7 @@ class ParagliderSystemDynamics9a:
     def __init__(
         self,
         wing: ParagliderWing,
-        payload: Harness,
+        payload: ParagliderHarness,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
         *,
@@ -1126,9 +1122,8 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     kappa_RM : array of float, shape (3,), optional
         Spring-damper coefficients for Theta_p2b (force as a linear function
         of angular displacement).
@@ -1139,7 +1134,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     def __init__(
         self,
         wing: ParagliderWing,
-        payload: Harness,
+        payload: ParagliderHarness,
         kappa_RM=(0, 0, 0),
         kappa_RM_dot=(0, 0, 0),
     ) -> None:
@@ -1360,9 +1355,8 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
     Parameters
     ----------
     wing : ParagliderWing
-    payload : Harness
-        This uses a `Harness`, but since there is no model for the pilot
-        the harness should include the pilot mass.
+    payload : ParagliderHarness
+        The harness model includes the mass of the pilot.
     kappa_RM : array of float, shape (3,), optional
         Spring-damper coefficients for Theta_p2b (force as a linear function
         of angular displacement).

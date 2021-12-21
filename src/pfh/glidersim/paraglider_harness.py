@@ -11,7 +11,7 @@ from pfh.glidersim.util import cross3
 
 
 __all__ = [
-    "Harness",
+    "ParagliderHarness",
     "Spherical",
 ]
 
@@ -21,8 +21,8 @@ def __dir__():
 
 
 @runtime_checkable
-class Harness(Protocol):
-    """Interface for classes that implement a Harness model."""
+class ParagliderHarness(Protocol):
+    """Interface for classes that implement a ParagliderHarness model."""
 
     @abc.abstractmethod
     def control_points(self, delta_w):
@@ -109,7 +109,7 @@ class Harness(Protocol):
         """
 
 
-class Spherical(Harness):
+class Spherical(ParagliderHarness):
     """
     Model a harness as a uniform density sphere.
 
