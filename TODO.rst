@@ -1,59 +1,3 @@
-* Why is importing `pfh.glidersim` so slow?
-
-* Verify that setting `ai.flags.writeable = False` to silence Numpy warnings
-  about `broadcast_arrays` is okay. I'm not sure who triggers the warning, but
-  Numba doesn't seem to respect the `writeable` flag, so I need to verify that
-  `interp3d` doesn't modify its arguments.
-
-* `2013-01-23_hook3_23_en` says the "symmetric control travel" is `>60cm`.
-  I've got `kappa_b = 0.43m`, so I'm hitting 60% or so brake input?
-
-* I think I need a `Foil(FoilGeometry, FoilAerodynamics)` or similar. I've
-  NEVER liked this design where `SimpleFoil` passes `self` to initialize the
-  `FoilAerodynamics`. I do like the symmetry of `harness.aerodynamics` and
-  `foil.aerodynamics` though.
-
-  While I'm at it, why just the `aerodynamics` and not the total `dynamics`?
-
-* Rename `reference_solution`. It should be a generic `dict` that the
-  aerodynamics method can stuff with whatever they need (like `solution`).
-
-* Should I use `np.asfarray` instead of `np.asarray`?
-
-* The `FoilSections` is really a section interpolator. It's naming should make
-  that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
-  it also adds `s` to beginning of the function signatures. While I'm at it,
-  it should take a dictionary `{s: {"geometry": g, "coefficients": c}}`, and
-  probably have a `symmetric : bool` property.
-
-* In `simulator.py` some variable names confuse frames with coordinate
-  systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
-  For example, `q_b2e` should be `q_b2tp`.
-
-  Think of it this way: you would say how two coordinate systems are oriented
-  relative to each other, but you don't say how they are rotating relative to
-  each other: they're embedded in frames, so you specify rotation rates using
-  frames. **The rotation of frames are the same regardless of of coordinate
-  system.** (I think.)
-
-  Conversely, what is the absolute orientation of one frame relative to
-  another? It's undefined: their only have relative orientations in the sense
-  that you can attach coordinate systems to each frame and describe the
-  orientation of those two coordinate systems.
-
-* Aerodynamic centers exist for lifting bodies with linear lift coefficient
-  and constant pitching moment? How useful is this concept for paragliders?
-  (ie, over what range can you treat it as having an aerodynamic center, and
-  what value would there be?)
-
-* Note to self: different airfoils can have significantly different pitching
-  coefficients (eg, the NACA 24018 vs the LS(1)-0417), which should produce
-  significantly different equilibrium pitching angles. The arc of the wing
-  will likely give those different wings noticeably different dynamics in the
-  presence of a cross-wind, and **may have a significant impact on how the
-  wing respond to encountering a thermal during a turn**.
-
-
 Development
 ===========
 
@@ -118,7 +62,7 @@ Documentation
 General
 -------
 
-* Eliminate the "magic indexing" in `paraglider_wing` and `paraglider`
+* Performance: why is importing `pfh.glidersim` so slow?
 
 * Replace `print` with `logging` where suitable
 
@@ -159,6 +103,9 @@ General
 Static typing
 -------------
 
+* A variety of functions take a callable as an argument. Add the callable
+  parameters and return type, and document the signature in the docstring.
+
 * Use `surface: typing.Literal["upper", "lower", "camber", "airfoil"]` typing.
   Unlike the assertion-based checking, this alerts the programmer when they're
   writing the code instead of crashing at runtime (assuming they use `mypy`).
@@ -174,10 +121,12 @@ Static typing
 * Type hint `array_like` inputs. Numpy 1.20 provides `npt.ArrayLike`, but it
   allows all scalar types; I need hinting like `ArrayLike[Any, bool]`.
 
+  I think numpy v1.22 fixes this: "`ndarray`, `dtype`, and `number` are now
+  runtime-subscriptable", allowing `np.ndarray[Any, np.dtype[np.float64]]`
+
 * You can currently use `npt.ArrayLike`, but with not type qualifier like
   `np.float`, so I'm holding off. (I don't think `NDArray` will allow
   specifying the shape, but that's less important.)
-
 
 
 Low priority
@@ -194,8 +143,6 @@ Low priority
 
 Packaging
 ---------
-
-* Lower the `python_requires` to 3.8..3.9 until Numba supports 3.10
 
 * pip 21.3 added `pip install -e .` for projects with only `pyproject.toml`
   Can I eliminate `setup.py`?
@@ -280,32 +227,6 @@ Testing
 * `tox`: Learn it. Use it. Going to take some time to think up how to test this
   sort of project though.
 
-* What if the sensation of being "pushed out of a thermal" is a combination of
-  effects: the wing yawing away and a *decrease in centripetal acceleration*?
-  Maybe what's being interpreted as "being pushed out" is more a "lack of
-  being pulled in"? All you know is that if feels like you're deviating from
-  your desired course, that the radius of your turn is being increased.
-
-  Oh, another interpretation: there is a reverse-pendulum after the initial
-  reaction: first you roll right, yaw left (into the thermal on your right) as
-  well as accelerating to your right, but then the wing snap quickly rolls
-  left once you're past the thermal. A pilot might interpret this delayed
-  roll-left motion as being pushed out?
-
-* Does my model demonstrate "control reversal" for small brake deflections?
-
-  * aka, "roll steering" instead of "skid steering"
-
-  * Tends to happen for flatter wings and/or as the angle of incidence becomes
-    more negative (ie, the equilibrium `theta`, in my case)
-
-    * It would be interesting to have a flat wing with the risers placed
-      forward of the c4 (thus a very negative `theta_eq` to observe this
-      behavior)
-
-  * ref: "Apsects of control for a parafoil and payload system", Slegers and
-    Costello, 2003
-
 
 Tooling
 -------
@@ -335,6 +256,13 @@ Airfoil
   laminar flow? That is, they might **only** provide superior performance
   **if** the flow is laminar? Seems like laminar flows are unlikely on
   a paraglider.
+
+* Different airfoils can have significantly different pitching coefficients
+  (eg, the NACA 24018 vs the LS(1)-0417), which should produce significantly
+  different equilibrium pitching angles. The arc of the wing will likely give
+  those different wings noticeably different dynamics in the presence of
+  a cross-wind, and **may have a significant impact on how the wing respond to
+  encountering a thermal during a turn**.
 
 
 Geometry
@@ -468,6 +396,8 @@ FoilGeometry
   airfoil, chord, camber}`)? Right now it just assumes you want both `upper`
   and `lower`.
 
+* The mesh functions don't support airfoil indices (they fix `ai = 0`)
+
 * In `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in my
   paper I'm referring to the airfoil as the unit-chord shape and "section
   profile" for the scaled shape. Should I rename `airfoil` -> `profile`?
@@ -483,6 +413,12 @@ FoilSections
 ============
 
 * Rename `FoilSections` to `ParafoilSections`? They have intakes.
+
+* The `FoilSections` is really a section interpolator. It's naming should make
+  that clear, ala `AirfoilGeometryInterpolator`. It's the same concept, except
+  it also adds `s` to beginning of the function signatures. While I'm at it,
+  it should take a dictionary `{s: {"geometry": g, "coefficients": c}}`, and
+  probably have a `symmetric : bool` property.
 
 * Document `FoilSections`; focus on how it uses section indices with no
   knowledge of spanwise coordinates (y-coordinates), it's xz coordinates have
@@ -520,11 +456,11 @@ Profiles
 Intakes
 ^^^^^^^
 
-* Design review the air `intakes`. Possibly reconsider the name "intakes":
-  this concept doesn't *require* that `s_upper != s_lower`; it simply means
-  the upper/lower surface boundaries are different from the airfoil leading
-  edge. Might even be useful for **single surface designs**, which discard the
-  lower portion of the majority of the section profiles.
+* Design review the air `intakes`. Possibly reconsider the name "intakes": this
+  concept doesn't require that `s_upper != s_lower`; it simply means the
+  upper/lower surface boundaries are different from the airfoil leading edge.
+  Might even be useful for *single surface* designs, which discard the lower
+  portion of the majority of the section profiles.
 
 * Document the air intake functions (eg, `SimpleIntakes` and `_no_intakes`)
 
@@ -532,9 +468,23 @@ Intakes
 Coefficients
 ------------
 
+* Performance: precompute the "size" of the air intakes for `FoilSections.Cd`.
+  It's surprisingly slow to recompute every call. Should probably be done as
+  part of the larger work to factor out coefficients modifiers. At the same
+  time I might want to consider the more general design issue of spanwise
+  variation of coefficient adjustments.
+
 * Review `kulhanek2019IdentificationDegradationAerodynamic` and compare his
   `C_d,f` to my "air intakes and skin friction drag" adjustments in
   `FoilSections.Cd`
+
+
+FoilAerodynamics
+================
+
+* Verify `Phillips._J`. It doesn't match the finite-difference approximation in
+  `Phillips._J_finite`. Should review `_J_finite` by comparing it to
+  `scipy.optimize.approx_fprime` (which, sadly, is univariate only).
 
 
 Parafoil
@@ -543,6 +493,13 @@ Parafoil
 * The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
   originally planning to create a `Parafoil` class which includes the cells
   and accounts for cell billowing).
+
+* I think I need a class `Foil(FoilGeometry, FoilAerodynamics)` or similar.
+  I've NEVER liked this design where `SimpleFoil` passes `self` to initialize
+  the `FoilAerodynamics`.
+
+* Rename `reference_solution`. It should be a generic `dict` that the
+  aerodynamics method can stuff with whatever they need (like `solution`).
 
 
 Geometry
@@ -567,11 +524,11 @@ Geometry
 Inertia
 ^^^^^^^
 
-* The new mesh-based `SimpleFoil.mass_properties2` uses triangles which are
-  not symmetric outwards from the central section, so small numerical
-  differences produce significantly non-zero Ixy/Iyz terms in the inertia
-  tensors. Once I fix this I should also remove the manual symmetry
-  corrections in `ParagliderWing.__init__`.
+* The new mesh-based `SimpleFoil.mass_properties` uses triangles which are not
+  symmetric outwards from the central section, so small numerical differences
+  produce significantly non-zero Ixy/Iyz terms in the inertia tensors. Once
+  I fix this I should also remove the manual symmetry corrections in
+  `ParagliderWing.__init__`.
 
 * Why doesn't the old `mass_properties` agree with the mesh-based method? See
   `scripts/validate_inertia.properties.py`
@@ -727,8 +684,6 @@ Low Priority
 Coefficient Estimation
 ----------------------
 
-* **Add section-wise adjustments to coefficients.** (eg, air intake drag)
-
 * Design review how the coefficient estimator signals non-convergence. (All
   users that call `Phillips.__call__` should be exception-aware.)
 
@@ -846,13 +801,10 @@ Line geometry
 ParagliderWing
 ==============
 
+* Eliminate "magic indexing"
+
 * Canopy parameters (`rho_upper`, `N_cells`, etc) should belong to the canopy,
   but first I need a foil with native support for internal ribs.
-
-* Why doesn't the `ParagliderWing` compute the net force and moment? It'd need
-  `g` and the reference point, but it'd save the users a lot of work. Maybe
-  add a `forces_and_moments` that sums all the aerodynamic and gravitational
-  forces and moments wrt some reference point (`RM`, `B`, etc)
 
 * My definition of *pitching angle* conflicts with the notion of a *rigging
   angle* (see `iacomini1999InvestigationLargeScale`), which is essentially
@@ -863,19 +815,24 @@ ParagliderWing
   flatten; do they?
 
 * *Design* the "query control points, compute wind vectors, query dynamics"
-  sequence and API
+  sequence and API. Pretty ad hoc right now.
 
-* Check if paragliders have aerodynamic centers. See "Aircraft Performance and
-  Design" (Anderson; 1999), page 70 (89) for an equation that works **for
-  airfoils**. The key requirement is that the foil has linear lift and moment
-  curves, in which case the x-coordinate of the aerodynamic center is given by
-  the slope of the pitching coefficient divided by the slope of the lift
-  coefficient. But **is this accurate for an arched wing?** If so, what is the
-  z-component?
+* Check if paragliders have aerodynamic centers in any meaningful sense. See
+  "Aircraft Performance and Design" (Anderson; 1999), page 70 (89) for an
+  equation that works **for airfoils**. The key requirement is that the foil
+  has linear lift and moment curves, in which case the x-coordinate of the
+  aerodynamic center is given by the slope of the pitching coefficient divided
+  by the slope of the lift coefficient. But **is this accurate for an arched
+  wing?** If so, what is the z-component?
 
 
 Wing mass properties
 --------------------
+
+* Verify that setting `ai.flags.writeable = False` to silence Numpy warnings
+  about `broadcast_arrays` is okay. I'm not sure who triggers the warning, but
+  Numba doesn't seem to respect the `writeable` flag, so I need to verify that
+  `interp3d` doesn't modify its arguments.
 
 * My implementation of Barrows needs a design review. The thickness parameter
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
@@ -911,30 +868,23 @@ contribution is (probably?) negligible.
 Paraglider
 ==========
 
+* Eliminate "magic indexing"
+
 * I don't like integrating `omega_b2e` and `omega_p2e` separately. Seems like
   `Theta_p2b` (and by extension, the rest of the model dynamics) would
   accumulate error more slowly if it used `omega_p2b` (relative motion)
   instead of `omega_p2e`, but I could be wrong.
 
-* Fix the "magic layout" for the control points in the paraglider models
-
 * Review the `Paraglider.accelerations` API. In particular, the simulator
   needed `r_CP2RM` to lookup the wind vectors at each point, but no longer
   passes it them, so `Paraglider.accelerations` must recompute them from
   `delta_a` and `delta_w`. Not passing them costs a bit of compute time in
-  exchange for a simpler API. Could add caching to `Paraglider.control_points`
-  but I don't love the interface in the first place.
+  exchange for a simpler API. Could add caching to `Paraglider.r_CP2RM` but
+  I don't love the interface in the first place.
 
 
 Models
 ------
-
-* I don't like that `ParagliderWing` and `Harness` only compute individual
-  aerodynamic forces and moments at control points; they would be more
-  convenient to use in paraglider models and easier to test if they determined
-  the entire *resultant* about some reference point (they're all pseudo-rigid
-  bodies anyway so this should be fine). Replace the `aerodynamics` methods
-  with `resultant`.
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
   moment in the 9DoF models. The linear relationship is probably fine for
@@ -1033,6 +983,21 @@ Apparent Inertia
 Simulator
 =========
 
+* In `simulator.py` some variable names confuse frames with coordinate
+  systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
+  For example, `q_b2e` should be `q_b2tp`.
+
+  Think of it this way: you would say how two coordinate systems are oriented
+  relative to each other, but you don't say how they are rotating relative to
+  each other: they're embedded in frames, so you specify rotation rates using
+  frames. **The rotation of frames are the same regardless of of coordinate
+  system.** (I think.)
+
+  Conversely, what is the absolute orientation of one frame relative to
+  another? It's undefined: their only have relative orientations in the sense
+  that you can attach coordinate systems to each frame and describe the
+  orientation of those two coordinate systems.
+
 * The simulator should use `R` instead of `RM`. The dynamics model can choose
   which a particular reference point, but the simulator itself shouldn't care.
   (Maybe you wanted a dynamics model that uses the center of mass, or you
@@ -1052,6 +1017,14 @@ Simulator
 Pre-built models
 ----------------
 
+* `extras/simulator.py:sample_paraglider_positions` should use the `kappa_x`
+  point on the chord so the vertical line shows the true relative pitch angle.
+  As it is, the line is ways pointing forwards, which makes the pitch angle
+  harder to distinguish.
+
+* `2013-01-23_hook3_23_en.pdf` says the "symmetric control travel" is `>60cm`.
+  I've got `kappa_b = 0.43m`, so I'm hitting 60% or so brake input?
+
 * Right now the only wing I've coded is a "Niviuk Hook 3 23". I need more
   wings (preferably at least one each from class A and C) for comparison and
   demonstration (both of how to use the library and of the difference in wing
@@ -1063,6 +1036,11 @@ Pre-built models
 
 * For the prebuilt wings, should I have `hook3_23.canopy`, `hook3_23.wing`,
   `hook3_23.glider6a`, etc?
+
+* Aerodynamic centers exist for lifting bodies with linear lift coefficient
+  and constant pitching moment? How useful is this concept for paragliders?
+  (ie, over what range can you treat it as having an aerodynamic center, and
+  what value would there be?)
 
 
 Scenarios
@@ -1094,6 +1072,32 @@ Scenarios
   a "maneuver" variable.
 
 * Verify the roll-yaw coupling induced by the accelerator.
+
+* What if the sensation of being "pushed out of a thermal" is a combination of
+  effects: the wing yawing away and a *decrease in centripetal acceleration*?
+  Maybe what's being interpreted as "being pushed out" is more a "lack of
+  being pulled in"? All you know is that if feels like you're deviating from
+  your desired course, that the radius of your turn is being increased.
+
+  Oh, another interpretation: there is a reverse-pendulum after the initial
+  reaction: first you roll right, yaw left (into the thermal on your right) as
+  well as accelerating to your right, but then the wing snap quickly rolls
+  left once you're past the thermal. A pilot might interpret this delayed
+  roll-left motion as being pushed out?
+
+* Does my model demonstrate "control reversal" for small brake deflections?
+
+  * aka, "roll steering" instead of "skid steering"
+
+  * Tends to happen for flatter wings and/or as the angle of incidence becomes
+    more negative (ie, the equilibrium `theta`, in my case)
+
+    * It would be interesting to have a flat wing with the risers placed
+      forward of the c4 (thus a very negative `theta_eq` to observe this
+      behavior)
+
+  * ref: "Apsects of control for a parafoil and payload system", Slegers and
+    Costello, 2003
 
 
 Scripts
