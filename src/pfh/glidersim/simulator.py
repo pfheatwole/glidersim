@@ -135,7 +135,7 @@ class ParagliderStateDynamics6a(StateDynamics):
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.paraglider.control_points(delta_a, delta_w)  # In body frd
+        r_CP2RM = self.paraglider.r_CP2RM(delta_a, delta_w)  # In body frd
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 
@@ -307,7 +307,7 @@ class ParagliderStateDynamics9a(StateDynamics):
 
         delta_a = self.delta_a(t)
         delta_w = self.delta_w(t)
-        r_CP2RM = self.paraglider.control_points(Theta_p2b, delta_a, delta_w)  # In body frd
+        r_CP2RM = self.paraglider.r_CP2RM(Theta_p2b, delta_a, delta_w)  # In body frd
         r_CP2O = state["r_RM2O"] + orientation.quaternion_rotate(q_e2b, r_CP2RM)
         v_W2e = self.v_W2e(t, r_CP2O)  # Wind vectors at each ned coordinate
 

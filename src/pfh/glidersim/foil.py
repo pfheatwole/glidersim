@@ -592,5 +592,5 @@ class SimpleFoil:
 
         return triangles_upper, triangles_lower
 
-    def control_points(self):
-        return self.aerodynamics.control_points()
+    def r_CP2LE(self):
+        return self.aerodynamics.r_CP2LE()

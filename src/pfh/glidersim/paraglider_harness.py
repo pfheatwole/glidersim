@@ -25,7 +25,7 @@ class ParagliderHarness(Protocol):
     """Interface for classes that implement a ParagliderHarness model."""
 
     @abc.abstractmethod
-    def control_points(self, delta_w):
+    def r_CP2RM(self, delta_w):
         """
         Compute the control points for the harness model dynamics.
 
@@ -36,7 +36,7 @@ class ParagliderHarness(Protocol):
 
         Returns
         -------
-        r_CP2RM : float, shape (K,3) [m]
+        ndarray of float, shape (K,3) [m]
             Control points relative to the riser midpoint `RM`. Coordinates are
             in payload frd, and `K` is the number of control points for the
             harness model.
@@ -179,7 +179,7 @@ class Spherical(ParagliderHarness):
         self._CD = CD
         self._kappa_w = kappa_w
 
-    def control_points(self, delta_w=0):
+    def r_CP2RM(self, delta_w=0):
         # FIXME: Weight shift probably shouldn't move the AERODYNAMIC control point
         delta_w = np.asfarray(delta_w)
         r_P2RM = [
@@ -195,7 +195,7 @@ class Spherical(ParagliderHarness):
         J_p2P = (2 / 5 * m_p * self._S / np.pi) * np.eye(3)
 
         # Use the parallel axis theorem to also compute J_p2R
-        r_P2RM = self.control_points(delta_w)[0]
+        r_P2RM = self.r_CP2RM(delta_w)[0]
         r_P2R = r_P2RM - r_R2RM
         D_p = (r_P2R @ r_P2R) * np.eye(3) - np.outer(r_P2R, r_P2R)
         J_p2R = J_p2P + self._mass * D_p
@@ -217,7 +217,7 @@ class Spherical(ParagliderHarness):
             raise ValueError("v_W2h must be a (3,) or a (1,3)")
         if v_W2h.shape == (1, 3):
             v_W2h = v_W2h[0]
-        r_CP2RM = self.control_points(delta_w)[0]  # (1,3) -> (3,)
+        r_CP2RM = self.r_CP2RM(delta_w)[0]  # (1,3) -> (3,)
 
         v2 = (v_W2h ** 2).sum()
         if not np.isclose(v2, 0.0):

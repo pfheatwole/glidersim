@@ -49,13 +49,13 @@ class LineGeometry(Protocol):
         """
 
     @abc.abstractmethod
-    def control_points(self):
+    def r_CP2LE(self):
         """
         Compute the control points for the line geometry dynamics.
 
         Returns
         -------
-        r_CP2LE : float, shape (K,3) [m]
+        ndarray of float, shape (K,3) [m]
             Control points relative to the central leading edge `LE`.
             Coordinates are in canopy frd, and `K` is the number of points
             being used to distribute the surface area of the lines.
@@ -247,7 +247,7 @@ class SimpleLineGeometry(LineGeometry):
         r_RM2LE = np.array([-RM_x, RM_y, RM_z]).T
         return r_RM2LE
 
-    def control_points(self):
+    def r_CP2LE(self):
         return self._r_L2LE  # FIXME: return a read-only view?
 
     def delta_d(self, s, delta_bl, delta_br):
@@ -601,12 +601,12 @@ class ParagliderWing:
         solution : dictionary, optional
             FIXME: docstring. See `Phillips.__call__`
         """
-        # FIXME: (1) duplicates `self.control_points`
+        # FIXME: (1) duplicates `self.r_CP2LE`
         #        (2) only used to get the shapes of the control point arrays
-        foil_cps = self.canopy.control_points()
-        line_cps = self.lines.control_points()
+        foil_cps = self.canopy.r_CP2LE()
+        line_cps = self.lines.r_CP2LE()
 
-        # FIXME: uses "magic" indexing established in `self.control_points()`
+        # FIXME: uses "magic" indexing established in `self.r_CP2LE()`
         K_foil = foil_cps.shape[0]
         K_lines = line_cps.shape[0]
 
@@ -666,7 +666,7 @@ class ParagliderWing:
         float [rad]
             The angle of attack where the section pitching moments sum to zero.
         """
-        r_CP2RM = self.control_points(delta_a) - self.r_RM2LE(delta_a)
+        r_CP2RM = self.r_CP2LE(delta_a) - self.r_RM2LE(delta_a)
 
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
@@ -681,7 +681,7 @@ class ParagliderWing:
             raise foil_aerodynamics.FoilAerodynamics.ConvergenceError
         return res.root
 
-    def control_points(self, delta_a=0):
+    def r_CP2LE(self, delta_a=0):
         """
         Compute the FoilGeometry control points in frd.
 
@@ -694,11 +694,11 @@ class ParagliderWing:
 
         Returns
         -------
-        r_CP2LE : array of floats, shape (K,3) [m]
+        ndarray of floats, shape (K,3) [m]
             The control points in frd coordinates
         """
-        foil_cps = self.canopy.control_points()
-        line_cps = self.lines.control_points()
+        foil_cps = self.canopy.r_CP2LE()
+        line_cps = self.lines.r_CP2LE()
         return np.vstack((foil_cps, line_cps))
 
     def r_RM2LE(self, delta_a=0):
@@ -889,7 +889,7 @@ class ParagliderWing:
         if mp is None:
             mp = self.mass_properties(rho_air, r_R2LE)
 
-        r_CP2R = self.control_points(delta_a) - r_R2LE
+        r_CP2R = self.r_CP2LE(delta_a) - r_R2LE
         if v_W2b.shape not in [(3,), r_CP2R.shape]:
             raise ValueError(f"v_W2h must be a (3,) or a {r_CP2R.shape}")
         v_W2b = np.broadcast_to(v_W2b, r_CP2R.shape)

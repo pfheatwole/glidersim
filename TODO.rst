@@ -120,9 +120,6 @@ General
 
 * Eliminate the "magic indexing" in `paraglider_wing` and `paraglider`
 
-* Rename the `control_points` functions `r_CP2LE`? (Just tonight I caught
-  a bug because I used `r_LE2RM` instead of a vague function name.)
-
 * Replace `print` with `logging` where suitable
 
 * I refer to "airfoil coordinates" in quite a few places. I'm not sure I like

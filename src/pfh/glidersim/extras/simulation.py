@@ -111,7 +111,7 @@ def sample_paraglider_positions(
     r_LE2RM = -model.paraglider.wing.r_RM2LE(model.delta_a(times))
 
     # FIXME: assumes the payload has only one control point (r_P2RM^p)
-    r_P2RM = model.paraglider.payload.control_points(delta_w=0)
+    r_P2RM = model.paraglider.payload.r_CP2RM(delta_w=0)
 
     q_e2b = states["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
     if "q_p2e" in states.dtype.names:  # 9 DoF model

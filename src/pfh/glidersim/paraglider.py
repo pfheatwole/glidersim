@@ -60,7 +60,7 @@ class ParagliderSystemDynamics6a:
         self.payload = payload
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, delta_a: float = 0, delta_w: float = 0):
+    def r_CP2RM(self, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -78,12 +78,12 @@ class ParagliderSystemDynamics6a:
 
         Returns
         -------
-        r_CP2RM : array of float, shape (K,3) [m]
+        ndarray of float, shape (K,3) [m]
             The position of the control points with respect to `RM`.
         """
         r_LE2RM = -self.wing.r_RM2LE(delta_a)
-        wing_cps = self.wing.control_points(delta_a=delta_a) + r_LE2RM
-        payload_cps = self.payload.control_points(delta_w)
+        wing_cps = self.wing.r_CP2LE(delta_a=delta_a) + r_LE2RM
+        payload_cps = self.payload.r_CP2RM(delta_w)
         return np.vstack((wing_cps, payload_cps))
 
     def accelerations(
@@ -139,7 +139,7 @@ class ParagliderSystemDynamics6a:
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -165,7 +165,7 @@ class ParagliderSystemDynamics6a:
         v_CP2e = v_RM2e + cross3(omega_b2e, r_CP2RM)
         v_W2CP = v_W2e - v_CP2e
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
@@ -434,7 +434,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -468,7 +468,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         v_CP2e = v_RM2e + cross3(omega_b2e, r_CP2RM)
         v_W2CP = v_W2e - v_CP2e
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
@@ -611,7 +611,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -645,7 +645,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         v_CP2e = v_RM2e + cross3(omega_b2e, r_CP2RM)
         v_W2CP = v_W2e - v_CP2e
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         v_W2CP_wing = v_W2CP[:-1]
         v_W2CP_payload = v_W2CP[-1]
 
@@ -747,7 +747,7 @@ class ParagliderSystemDynamics9a:
         self._kappa_RM_dot = np.asfarray(kappa_RM_dot[:])
         self.use_apparent_mass = use_apparent_mass
 
-    def control_points(self, Theta_p2b, delta_a: float = 0, delta_w: float = 0):
+    def r_CP2RM(self, Theta_p2b, delta_a: float = 0, delta_w: float = 0):
         """
         Compute the reference points for the composite Paraglider system.
 
@@ -768,12 +768,12 @@ class ParagliderSystemDynamics9a:
 
         Returns
         -------
-        r_CP2RM : array of float, shape (K,3) [m]
+        ndarray of float, shape (K,3) [m]
             The position of the control points with respect to `RM`.
         """
         r_LE2RM = -self.wing.r_RM2LE(delta_a)
-        wing_cps = self.wing.control_points(delta_a=delta_a)  # In body frd
-        payload_cps = self.payload.control_points(delta_w)  # In payload frd
+        wing_cps = self.wing.r_CP2LE(delta_a=delta_a)  # In body frd
+        payload_cps = self.payload.r_CP2RM(delta_w)  # In payload frd
         C_b2p = orientation.euler_to_dcm(Theta_p2b).T
         return np.vstack((wing_cps + r_LE2RM, (C_b2p @ payload_cps.T).T))
 
@@ -841,7 +841,7 @@ class ParagliderSystemDynamics9a:
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -877,7 +877,7 @@ class ParagliderSystemDynamics9a:
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         v_P2e = C_p2b @ v_RM2e + cross3(omega_p2e, r_P2RM)
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         r_CP2RM_b = r_CP2RM[:-1]
         r_CP2RM_p = C_p2b @ r_CP2RM[-1]
 
@@ -1207,7 +1207,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -1247,7 +1247,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         v_P2e = C_p2b @ v_RM2e + cross3(omega_p2e, r_P2RM)
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         r_CP2B_b = r_CP2RM[:-1] - r_B2RM
         r_CP2P_p = C_p2b @ r_CP2RM[-1] - r_P2RM
 
@@ -1430,7 +1430,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
-        r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
+        r_CP2RM = self.r_CP2RM(Theta_p2b, delta_a, delta_w)
         v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
@@ -1467,7 +1467,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         v_P2e = v_RM2e + cross3(omega_p2e, r_P2RM)
 
-        # FIXME: "magic" indexing established by `self.control_points`
+        # FIXME: "magic" indexing established by `self.r_CP2RM`
         r_CP2RM_b = r_CP2RM[:-1]
         r_CP2RM_p = r_CP2RM[-1]
 

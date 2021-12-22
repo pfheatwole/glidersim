@@ -57,13 +57,13 @@ class FoilAerodynamics(abc.ABC):
         """
 
     @abc.abstractmethod
-    def control_points(self):
+    def r_CP2LE(self):
         """
         Compute the control points for the section aerodynamics.
 
         Returns
         -------
-        r_CP2LE : ndarray of float, shape (K,3) [m]
+        ndarray of float, shape (K,3) [m]
             Control points relative to the central leading edge `LE`.
             Coordinates are in canopy frd, and `K` is the number of points
             being used by the estimation method.
@@ -218,7 +218,7 @@ class Phillips(FoilAerodynamics):
         # print("\nDEBUG> Re:", Re, "\n")
         return Re
 
-    def control_points(self):
+    def r_CP2LE(self):
         cps = self.cps.view()  # FIXME: better than making a copy?
         cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
         return cps
