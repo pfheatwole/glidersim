@@ -96,7 +96,7 @@ class ParagliderStateDynamics6a(StateDynamics):
         if callable(v_W2e):
             self.v_W2e = v_W2e
         elif np.shape(v_W2e) == (3,):
-            v_W2e = np.asarray(v_W2e, dtype=float)
+            v_W2e = np.asfarray(v_W2e)
             # FIXME: kludgy, assumes r.shape[-1] == 3
             self.v_W2e = lambda t, r: np.broadcast_to(
                 v_W2e,
@@ -264,7 +264,7 @@ class ParagliderStateDynamics9a(StateDynamics):
         if callable(v_W2e):
             self.v_W2e = v_W2e
         elif np.shape(v_W2e) == (3,):
-            v_W2e = np.asarray(v_W2e, dtype=float)
+            v_W2e = np.asfarray(v_W2e)
             # FIXME: kludgy, assumes r.shape[-1] == 3
             self.v_W2e = lambda t, r: np.broadcast_to(
                 v_W2e,

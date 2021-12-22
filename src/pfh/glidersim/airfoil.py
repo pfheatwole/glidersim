@@ -949,7 +949,7 @@ class NACA(AirfoilGeometry):
         Whether the thickness is measured orthogonal to the camber curve or the
         chord depends on the convention. See the docstring for this class.
         """
-        x = np.asarray(x, dtype=float)
+        x = np.asfarray(x)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
@@ -974,7 +974,7 @@ class NACA(AirfoilGeometry):
         m = self.m
         p = self.p
 
-        x = np.asarray(x)
+        x = np.asfarray(x)
         assert np.all(x >= 0) and np.all(x <= 1)
 
         if self.series == 4:
@@ -1011,7 +1011,7 @@ class NACA(AirfoilGeometry):
             directly above the chord line, regardless of the convention.
             (The convention only changes the definition of the surface curves.)
         """
-        x = np.asarray(x)
+        x = np.asfarray(x)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
@@ -1056,7 +1056,7 @@ class NACA(AirfoilGeometry):
         xy : array_like of float, shape (N, 2)
             The x- and y-coordinatess of the points on the upper surface.
         """
-        x = np.asarray(x, dtype=float)
+        x = np.asfarray(x)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 
@@ -1097,7 +1097,7 @@ class NACA(AirfoilGeometry):
         xy : array_like of float, shape (N, 2)
             The x- and y-coordinatess of the points on the upper surface.
         """
-        x = np.asarray(x, dtype=float)
+        x = np.asfarray(x)
         if np.any(x < 0) or np.any(x > 1):
             raise ValueError("x must be between 0 and 1")
 

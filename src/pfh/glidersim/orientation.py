@@ -41,7 +41,7 @@ def euler_to_dcm(euler):
            [-cp * sg + sp * st * cg,  cp * cg + sp * st * sg, sp * ct],
            [sp * sg + cp * st * cg,  -sp * cg + cp * st * sg, cp * ct]]
 
-    return np.asarray(dcm)
+    return np.asfarray(dcm)
 
 
 def dcm_to_euler(dcm):
@@ -79,15 +79,15 @@ def euler_to_quaternion(euler):
     q : array of float, shape (4,)
         The quaternion that encodes the given rotation
     """
-    euler = np.asarray(euler)
+    euler = np.asfarray(euler)
     sp, st, sg = np.sin(euler / 2)
     cp, ct, cg = np.cos(euler / 2)
 
     # ref: Stevens, Equation on pg 52 (66)
-    q = np.asarray([cp * ct * cg + sp * st * sg,
-                    sp * ct * cg - cp * st * sg,
-                    cp * st * cg + sp * ct * sg,
-                    cp * ct * sg - sp * st * cg])
+    q = np.asfarray([cp * ct * cg + sp * st * sg,
+                     sp * ct * cg - cp * st * sg,
+                     cp * st * cg + sp * ct * sg,
+                     cp * ct * sg - sp * st * cg])
     return q
 
 
@@ -100,7 +100,7 @@ def quaternion_to_dcm(q):
     # ref: Stevens, Eq:1.8-16, pg 53 (67)
     dcm = 2 * qv @ qv.T + (qw ** 2 - qv.T @ qv) * np.eye(3) - 2 * qw * crossmat(qv)
 
-    return np.asarray(dcm)
+    return np.asfarray(dcm)
 
 
 def quaternion_to_euler(q):
@@ -118,7 +118,7 @@ def quaternion_to_euler(q):
         yaw-pitch-roll sequence.
     """
     # assert np.isclose(np.linalg.norm(q), 1)
-    q = np.asarray(q)
+    q = np.asfarray(q)
     w, x, y, z = q.T
 
     # ref: Merwe, Eq:B.5:7, p363 (382)

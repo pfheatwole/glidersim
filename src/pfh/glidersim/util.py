@@ -124,4 +124,4 @@ def crossmat(v):
     sv = [[0, -vz, vy],
           [vz, 0, -vx],
           [-vy, vx, 0]]
-    return np.asarray(sv)
+    return np.asfarray(sv)

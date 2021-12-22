@@ -78,8 +78,8 @@ class SimpleIntakes:
         array_like of float, shape (N,)
             The normalized (unscaled) airfoil coordinates.
         """
-        s = np.asarray(s)
-        r = np.asarray(r)
+        s = np.asfarray(s)
+        r = np.asfarray(r)
 
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")

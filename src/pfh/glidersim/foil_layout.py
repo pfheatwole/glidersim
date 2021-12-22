@@ -40,7 +40,7 @@ class EllipticalChord:
         self.B = root
 
     def __call__(self, s):
-        s = np.asarray(s)
+        s = np.asfarray(s)
         c = self.B * np.sqrt(1 - (s / self.A) ** 2)
         return c
 
@@ -178,7 +178,7 @@ class PolynomialTorsion:
 
     def __call__(self, s):
         # FIXME: design review? Not a fan of these asarray
-        s = np.asarray(s)
+        s = np.asfarray(s)
         values = np.zeros(s.shape)
         m = abs(s) > self.start  # Mask
         if np.any(m):
@@ -434,8 +434,8 @@ class FoilLayout:
             (curvature in the yz-plane). This is useful for inflatable wings,
             such as parafoils. Default: False.
         """
-        s = np.asarray(s)
-        r = np.asarray(r)
+        s = np.asfarray(s)
+        r = np.asfarray(r)
         if s.min() < -1 or s.max() > 1:
             raise ValueError("Section indices must be between -1 and 1.")
         if r.min() < 0 or r.max() > 1:

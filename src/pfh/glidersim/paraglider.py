@@ -140,13 +140,13 @@ class ParagliderSystemDynamics6a:
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 
@@ -435,13 +435,13 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 
@@ -612,13 +612,13 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 
@@ -743,8 +743,8 @@ class ParagliderSystemDynamics9a:
     ) -> None:
         self.wing = wing
         self.payload = payload
-        self._kappa_RM = np.asarray(kappa_RM[:])
-        self._kappa_RM_dot = np.asarray(kappa_RM_dot[:])
+        self._kappa_RM = np.asfarray(kappa_RM[:])
+        self._kappa_RM_dot = np.asfarray(kappa_RM_dot[:])
         self.use_apparent_mass = use_apparent_mass
 
     def control_points(self, Theta_p2b, delta_a: float = 0, delta_w: float = 0):
@@ -842,14 +842,14 @@ class ParagliderSystemDynamics9a:
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 
@@ -1140,8 +1140,8 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
     ) -> None:
         self.wing = wing
         self.payload = payload
-        self._kappa_RM = np.asarray(kappa_RM[:])
-        self._kappa_RM_dot = np.asarray(kappa_RM_dot[:])
+        self._kappa_RM = np.asfarray(kappa_RM[:])
+        self._kappa_RM_dot = np.asfarray(kappa_RM_dot[:])
 
     def accelerations(
         self,
@@ -1208,14 +1208,14 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 
@@ -1431,14 +1431,14 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
             FIXME: docstring. See `Phillips.__call__`
         """
         r_CP2RM = self.control_points(Theta_p2b, delta_a, delta_w)
-        v_W2e = np.asarray(v_W2e)
+        v_W2e = np.asfarray(v_W2e)
         if v_W2e.ndim > 1 and v_W2e.shape[0] != r_CP2RM.shape[0]:
             raise ValueError(
                 "Number of distinct wind vectors in v_W2e do not match the "
                 "number of control points",
             )
         v_W2e = np.broadcast_to(v_W2e, r_CP2RM.shape)
-        v_RM2e = np.asarray(v_RM2e)
+        v_RM2e = np.asfarray(v_RM2e)
         if v_RM2e.shape != (3,):
             raise ValueError("v_RM2e.shape != (3,)")
 

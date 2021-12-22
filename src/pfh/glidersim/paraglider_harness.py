@@ -181,7 +181,7 @@ class Spherical(ParagliderHarness):
 
     def control_points(self, delta_w=0):
         # FIXME: Weight shift probably shouldn't move the AERODYNAMIC control point
-        delta_w = np.asarray(delta_w)
+        delta_w = np.asfarray(delta_w)
         r_P2RM = [
             np.zeros(delta_w.shape),
             delta_w * self._kappa_w,
@@ -212,7 +212,7 @@ class Spherical(ParagliderHarness):
         if mp is None:
             mp = self.mass_properties(delta_w, r_R2RM)
 
-        v_W2h = np.asarray(v_W2h)
+        v_W2h = np.asfarray(v_W2h)
         if v_W2h.shape not in [(3,), (1, 3)]:
             raise ValueError("v_W2h must be a (3,) or a (1,3)")
         if v_W2h.shape == (1, 3):

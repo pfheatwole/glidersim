@@ -235,7 +235,7 @@ class SimpleLineGeometry(LineGeometry):
 
     def r_RM2LE(self, delta_a=0):
         # The accelerator shortens the A lines, while C remains fixed
-        delta_a = np.asarray(delta_a)
+        delta_a = np.asfarray(delta_a)
         RM_x = (
             (self.A - delta_a * self.kappa_a) ** 2
             - self.C ** 2
@@ -276,7 +276,7 @@ class SimpleLineGeometry(LineGeometry):
         return (delta_bl * ql + delta_br * qr) * self.kappa_b
 
     def aerodynamics(self, v_W2b, rho_air: float):
-        v_W2b = np.asarray(v_W2b)
+        v_W2b = np.asfarray(v_W2b)
         assert v_W2b.shape == self._r_L2LE.shape
         dF = np.zeros(np.shape(v_W2b))
         v2 = (v_W2b ** 2).sum(axis=-1)
@@ -751,7 +751,7 @@ class ParagliderWing:
             m_air : float [kg m^3]
                 The enclosed air mass.
         """
-        r_LE2R = -np.asarray(r_R2LE)
+        r_LE2R = -np.asfarray(r_R2LE)
         mp = self._real_mass_properties.copy()
 
         mp["m_air"] = mp["v"] * rho_air
@@ -804,7 +804,7 @@ class ParagliderWing:
                 The angular momentum of the apparent mass with respect to `R`
         """
         # FIXME: log a warning if `R` does not lie in the # xz-plane
-        r_LE2R = -np.asarray(r_R2LE)
+        r_LE2R = -np.asfarray(r_R2LE)
         ai = self._apparent_mass_properties  # Dictionary of precomputed values
         r_RC2R = ai["r_RC2LE"] + r_LE2R
         r_PC2RC = ai["r_PC2RC"]
