@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "FoilAerodynamics",
+    "ConvergenceError",
     "Phillips",
 ]
 
@@ -25,11 +26,8 @@ def __dir__():
     return __all__
 
 
-# FIXME: using `runtime_checkable` causes mypy to crash because of the embedded
-# `ConvergenceError` class. See https://github.com/python/mypy/issues/10522
-# @runtime_checkable
-# class FoilAerodynamics(Protocol):
-class FoilAerodynamics(abc.ABC):
+@runtime_checkable
+class FoilAerodynamics(Protocol):
     """Interface for classes that implement a FoilAerodynamics model."""
 
     # FIXME: is this compatible with, eg, `Phillips.__init__`? Especially the
@@ -69,8 +67,9 @@ class FoilAerodynamics(abc.ABC):
             being used by the estimation method.
         """
 
-    class ConvergenceError(RuntimeError):
-        """The estimator failed to converge on a solution."""
+
+class ConvergenceError(RuntimeError):
+    """The estimator failed to converge on a solution."""
 
 
 class Phillips(FoilAerodynamics):
@@ -203,7 +202,7 @@ class Phillips(FoilAerodynamics):
         }
         try:
             _, _, self._reference_solution = self.__call__(0, v_W2f_ref, 1.2)
-        except FoilAerodynamics.ConvergenceError as e:
+        except ConvergenceError as e:
             raise RuntimeError("Phillips: failed to initialize base case")
 
     def _compute_Reynolds(self, v_W2f, rho_air):
@@ -370,7 +369,7 @@ class Phillips(FoilAerodynamics):
         res = scipy.optimize.root(self._f, Gamma0, args, jac=self._J, tol=1e-4)
 
         if not res["success"]:
-            raise FoilAerodynamics.ConvergenceError
+            raise ConvergenceError
 
         return res["x"], v
 
@@ -404,9 +403,9 @@ class Phillips(FoilAerodynamics):
         while True:
             try:
                 Gamma, v = self._solve_circulation(ai, v_W2f, Re, Gamma_ref)
-            except FoilAerodynamics.ConvergenceError:
+            except ConvergenceError:
                 if num_splits == max_splits:
-                    raise FoilAerodynamics.ConvergenceError("max splits reached")
+                    raise ConvergenceError("max splits reached")
                 num_splits += 1
                 target_backlog.append((ai, v_W2f))
                 P = 0.5  # Ratio, a point between the reference and the target

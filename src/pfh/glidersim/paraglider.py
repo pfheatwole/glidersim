@@ -8,8 +8,7 @@ import numpy as np
 import scipy.integrate
 import scipy.optimize
 
-from pfh.glidersim import orientation
-from pfh.glidersim.foil_aerodynamics import FoilAerodynamics
+from pfh.glidersim import foil_aerodynamics, orientation
 from pfh.glidersim.util import cross3, crossmat
 
 
@@ -183,7 +182,7 @@ class ParagliderSystemDynamics6a:
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2RM, ref = self.wing.resultant_force(
@@ -486,7 +485,7 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2B, ref = self.wing.resultant_force(
@@ -663,7 +662,7 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2B, ref = self.wing.resultant_force(
@@ -901,7 +900,7 @@ class ParagliderSystemDynamics9a:
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2RM, ref = self.wing.resultant_force(
@@ -1271,7 +1270,7 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2B, ref = self.wing.resultant_force(
@@ -1491,7 +1490,7 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
                 wmp,
                 reference_solution,
             )
-        except FoilAerodynamics.ConvergenceError:
+        except foil_aerodynamics.ConvergenceError:
             # Maybe it can't recover once Gamma is jacked?
             print("\nBonk! Retrying with the default reference solution")
             f_b, g_b2RM, ref = self.wing.resultant_force(

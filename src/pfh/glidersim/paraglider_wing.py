@@ -678,7 +678,7 @@ class ParagliderWing:
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
-            raise foil_aerodynamics.FoilAerodynamics.ConvergenceError
+            raise foil_aerodynamics.ConvergenceError
         return res.root
 
     def r_CP2LE(self, delta_a=0):
