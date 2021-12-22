@@ -119,6 +119,18 @@ class FoilSections:
     intakes : function, optional
         A function that defines the upper and lower intake positions in
         airfoil profile coordinates as a function of the section index.
+    Cd_intakes : float, optional
+        Additional drag coefficient due to air intake openings. See [1]_.
+    Cd_surface : float, optional
+        Additional drag coefficient due to surface characteristics. See [2]_.
+
+    References
+    ----------
+    .. [1] Holger Babinsky, "The aerodynamic performance of paragliders", 1999.
+           DOI: 10.1017/S0001924000027974
+
+    .. [2] George M. Ware, "Wind-tunnel investigation of ram-air inflated all
+           flexible wings of aspect ratios 1.0 to 3.0", 1969.
     """
 
     def __init__(
@@ -126,10 +138,14 @@ class FoilSections:
         profiles: AirfoilGeometryInterpolator,
         coefficients: AirfoilCoefficientsInterpolator = None,
         intakes: Callable | None = None,
+        Cd_intakes : float = 0,
+        Cd_surface : float = 0,
     ) -> None:
         self.profiles = profiles
         self.coefficients = coefficients
         self.intakes = intakes if intakes else self._no_intakes
+        self.Cd_intakes = Cd_intakes
+        self.Cd_surface = Cd_surface
 
     def _no_intakes(self, s, r, surface: str):
         # For foils with no air intakes the canopy upper and lower surfaces map
@@ -273,12 +289,12 @@ class FoilSections:
             - self.surface_xz(s, ai, 0, 'lower'),
             axis=-1,
         )
-        Cd += 0.07 * la  # Drag due to air intakes
+        Cd += self.Cd_intakes * la  # Drag due to air intakes
 
         # Additional drag from "surface characteristics"
         #
         # Ref: `ware1969WindtunnelInvestigationRamair`
-        Cd += 0.004
+        Cd += self.Cd_surface
 
         return Cd
 

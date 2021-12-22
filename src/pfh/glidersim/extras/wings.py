@@ -116,6 +116,8 @@ def build_hook3(
         profiles=airfoil_geo,
         coefficients=airfoil_coefs,
         intakes=gsim.foil_sections.SimpleIntakes(0.85, -0.04, -0.09),  # FIXME: guess
+        Cd_intakes=0.07,  # ref: babinsky1999AerodynamicPerformanceParagliders
+        Cd_surface=0.004,  # ref: ware1969WindtunnelInvestigationRamair
     )
 
     canopy = gsim.foil.SimpleFoil(
