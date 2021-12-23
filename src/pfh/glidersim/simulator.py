@@ -49,7 +49,7 @@ class StateDynamics(Protocol):
     state_dtype: Any  # FIXME: declare properly and use it for type hinting
 
     @abc.abstractmethod
-    def cleanup(self, state, t: float) -> None:
+    def cleanup(self, t: float, state) -> None:
         """
         Perform any necessary cleanup after each integration step.
 
@@ -57,15 +57,37 @@ class StateDynamics(Protocol):
 
         Parameters
         ----------
-        state : model.state_dtype
-            The `state_dtype` of the state dynamics model.
         t : float [s]
             The timestamp of the completed integration step.
+        state : model.state_dtype
+            The `state_dtype` of the state dynamics model.
         """
 
     @abc.abstractmethod
     def derivatives(self, t: float, state, params):
-        """The state derivatives."""
+        """
+        Compute the state derivatives given a specific state at time `t`.
+
+        The inputs to the system at time `t` are given the by the control
+        functions internal to the model.
+
+        Parameters
+        ----------
+        t : float [s]
+            The current time
+        state : model.state_dtype
+            The current state
+        params : dictionary
+            Any extra non-state parameters for computing the derivatives. Be
+            aware that 'solution' is an in-out parameter: solutions for the
+            current Gamma distribution are passed forward (output) to be used
+            as the proposal to the next time step.
+
+        Returns
+        -------
+        state_dot : model.state_dtype
+            The state derivatives
+        """
 
 
 class ParagliderStateDynamics6a(StateDynamics):
@@ -116,30 +138,10 @@ class ParagliderStateDynamics6a(StateDynamics):
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
-    def cleanup(self, state, t):
+    def cleanup(self, t: float, state):
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
     def derivatives(self, t, state, params):
-        """
-        Compute the state derivatives from the model.
-
-        Parameters
-        ----------
-        t : float [s]
-            Time
-        state : ParagliderStateDynamics6a.state_dtype
-            The current state
-        params : dictionary
-            Any extra non-state parameters for computing the derivatives. Be
-            aware that 'solution' is an in-out parameter: solutions for the
-            current Gamma distribution are passed forward (output) to be used
-            as the proposal to the next time step.
-
-        Returns
-        -------
-        state_dot : ParagliderStateDynamics6a.state_dtype
-            The state derivatives
-        """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
 
         delta_a = self.delta_a(t)
@@ -282,31 +284,11 @@ class ParagliderStateDynamics9a(StateDynamics):
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
-    def cleanup(self, state, t):
+    def cleanup(self, t, state):
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
     def derivatives(self, t, state, params):
-        """
-        Compute the state derivatives from the model.
-
-        Parameters
-        ----------
-        t : float [s]
-            Time
-        state : ParagliderStateDynamics9a.state_dtype
-            The current state
-        params : dictionary
-            Any extra non-state parameters for computing the derivatives. Be
-            aware that 'solution' is an in-out parameter: solutions for the
-            current Gamma distribution are passed forward (output) to be used
-            as the proposal to the next time step.
-
-        Returns
-        -------
-        state_dot : ParagliderStateDynamics9a.state_dtype
-            The state derivatives
-        """
         q_e2b = state["q_b2e"] * [1, -1, -1, -1]  # Encodes `C_ned/frd`
         Theta_p2b = orientation.quaternion_to_euler(
             orientation.quaternion_product(q_e2b, state["q_p2e"])
@@ -493,7 +475,7 @@ def simulate(
             #        Using `solver.set_initial_value` would reset the
             #        integrator, but that's not what we want here.
             state = solver.integrate(solver.t + dt).view(model.state_dtype)
-            model.cleanup(state, solver.t)  # Modifies `solver._y`!!
+            model.cleanup(solver.t, state)  # Modifies `solver._y`!!
             states[k] = state  # Makes a copy of `solver._y`
             times[k] = solver.t
             k += 1
