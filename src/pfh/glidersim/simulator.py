@@ -48,6 +48,18 @@ class StateDynamics(Protocol):
 
     state_dtype: Any  # FIXME: declare properly and use it for type hinting
 
+    @abc.abstractclassmethod
+    def extra_arguments(self):
+        """
+        Any additional arguments used to compute the state derivatives.
+
+        Returns
+        -------
+        tuple
+            Additional arguments that the integrator should pass to the
+            `StateDynamics.derivatives` method.
+        """
+
     @abc.abstractmethod
     def cleanup(self, t: float, state) -> None:
         """
@@ -64,7 +76,7 @@ class StateDynamics(Protocol):
         """
 
     @abc.abstractmethod
-    def derivatives(self, t: float, state, params):
+    def derivatives(self, t: float, state, *args):
         """
         Compute the state derivatives given a specific state at time `t`.
 
@@ -77,11 +89,9 @@ class StateDynamics(Protocol):
             The current time
         state : model.state_dtype
             The current state
-        params : dictionary
-            Any extra non-state parameters for computing the derivatives. Be
-            aware that 'solution' is an in-out parameter: solutions for the
-            current Gamma distribution are passed forward (output) to be used
-            as the proposal to the next time step.
+        args : tuple
+            Extra arguments for computing the derivatives as defined by
+            `StateDynamics.extra_arguments`.
 
         Returns
         -------
@@ -137,6 +147,12 @@ class ParagliderStateDynamics6a(StateDynamics):
             )
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
+
+    def extra_arguments(self):
+        # Note that `solution` is an in-out parameter to `derivatives`: each
+        # aerodynamic solution is saved so it can be used as the proposal
+        # solution at the next step.
+        return ({"solution": None},)
 
     def cleanup(self, t: float, state):
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
@@ -283,6 +299,12 @@ class ParagliderStateDynamics9a(StateDynamics):
             )
         else:
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
+
+    def extra_arguments(self):
+        # Note that `solution` is an in-out parameter to `derivatives`: each
+        # aerodynamic solution is saved so it can be used as the proposal
+        # solution at the next step.
+        return ({"solution": None},)
 
     def cleanup(self, t, state):
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
@@ -454,7 +476,7 @@ def simulate(
     solver = scipy.integrate.ode(_flattened_derivatives)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
     solver.set_initial_value(state0.flatten().view(float))
-    solver.set_f_params({"solution": None})  # Is modified by `model.derivatives`
+    solver.set_f_params(*model.extra_arguments())
 
     t_start = time.perf_counter()
     msg = ""
