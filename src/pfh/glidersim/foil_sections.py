@@ -50,7 +50,7 @@ class SimpleIntakes:
     """
 
     def __init__(self, s_end: float, r_upper: float, r_lower: float) -> None:
-        # FIXME: support more types of definition:
+        # TODO: support more types of definition:
         #  1. su/sl : explicit upper/lower cuts in airfoil coordinates
         #  2. midpoint (in airfoil coordinates) and width
         #  3. Upper and lower cuts as a fraction of the chord (the "Paraglider

@@ -30,14 +30,8 @@ def __dir__():
 class FoilAerodynamics(Protocol):
     """Interface for classes that implement a FoilAerodynamics model."""
 
-    # FIXME: is this compatible with, eg, `Phillips.__init__`? Especially the
-    # way I pass the args in `SimpleFoil.__init__`.
     @abc.abstractmethod
-    def __init__(self, foil: SimpleFoil, **kwargs) -> None:
-        """FIXME: docstring."""
-
-    @abc.abstractmethod
-    def __call__(self, ai, v_W2f, rho_air):
+    def __call__(self, ai, v_W2f, rho_air, **kwargs):
         """
         Estimate the forces and moments on a foil.
 
@@ -214,12 +208,11 @@ class Phillips(FoilAerodynamics):
         u = np.linalg.norm(v_W2f, axis=-1)  # airspeed [m/s]
         mu = 1.81e-5  # Standard dynamic viscosity of air
         Re = rho_air * u * self.c_avg / mu
-        # print("\nDEBUG> Re:", Re, "\n")
         return Re
 
     def r_CP2LE(self):
-        cps = self.cps.view()  # FIXME: better than making a copy?
-        cps.flags.writeable = False  # FIXME: make the base ndarray immutable?
+        cps = self.cps.view()
+        cps.flags.writeable = False
         return cps
 
     def _induced_velocities(self, u_inf):
@@ -320,7 +313,7 @@ class Phillips(FoilAerodynamics):
         --------
         >>> J1 = self._J(Gamma, v_W2f, v, ai)
         >>> J2 = self._J_finite(Gamma, v_W2f, v, ai)
-        >>> np.allclose(J1, J2)  # FIXME: tune the tolerances?
+        >>> np.allclose(J1, J2)
         True
         """
         # This uses the same method as `scipy.optimize.approx_fprime`, but that
@@ -378,10 +371,10 @@ class Phillips(FoilAerodynamics):
         ai,
         v_W2f,
         rho_air,
+        *,
         reference_solution: dict | None = None,
         max_splits: int = 10,
     ):
-        # FIXME: this doesn't match the FoilAerodynamics.__call__ signature
         v_W2f = np.broadcast_to(v_W2f, (self.K, 3))
         Re = self._compute_Reynolds(v_W2f, rho_air)
 

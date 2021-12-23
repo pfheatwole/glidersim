@@ -177,7 +177,6 @@ class PolynomialTorsion:
         self.peak = np.deg2rad(peak)
 
     def __call__(self, s):
-        # FIXME: design review? Not a fan of these asarray
         s = np.asfarray(s)
         values = np.zeros(s.shape)
         m = abs(s) > self.start  # Mask
@@ -441,7 +440,6 @@ class FoilLayout:
         if r.min() < 0 or r.max() > 1:
             raise ValueError("Chord ratios must be between 0 and 1.")
 
-        # FIXME? Written this way for clarity, but some terms may be unused.
         r_x = self.r_x(s)
         r_yz = self.r_yz(s)
         x = self.x(s)

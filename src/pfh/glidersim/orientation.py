@@ -162,8 +162,20 @@ def quaternion_rotate(q, u, v):
 @guvectorize([(float64[:], float64[:], float64[:])],
              '(n),(m)->(m)', nopython=True, cache=True)
 def quaternion_product(p, q, v):
-    """Multiply two quaternions."""
-    # FIXME: document and test
+    r"""
+    Multiply two quaternions.
+
+    Parameters
+    ----------
+    p, q : array_like of float, shape (...,4)
+        The quaternions to multiply. Inputs may be ndarrays compatible under
+        normal numpy broadcasting rules.
+
+    Returns
+    -------
+    ndarray of float, shape (...,4)
+        The quaternion product, :math:`v = p \ast q`.
+    """
     pw, pv = p[0], p[1:]
     qw, qv = q[0], q[1:]
     v[0] = pw * qw - pv @ qv

@@ -49,8 +49,19 @@ class StateDynamics(Protocol):
     state_dtype: Any  # FIXME: declare properly and use it for type hinting
 
     @abc.abstractmethod
-    def cleanup(self, state, t):
-        """Any work necessary at the end of each timestep."""
+    def cleanup(self, state, t: float) -> None:
+        """
+        Perform any necessary cleanup after each integration step.
+
+        NOTE: this will directly modify the integrator's internal state.
+
+        Parameters
+        ----------
+        state : model.state_dtype
+            The `state_dtype` of the state dynamics model.
+        t : float [s]
+            The timestamp of the completed integration step.
+        """
 
     @abc.abstractmethod
     def derivatives(self, t: float, state, params):
@@ -106,8 +117,6 @@ class ParagliderStateDynamics6a(StateDynamics):
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
-        # FIXME: hack that runs after each integration step. Assumes it can
-        #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
 
     def derivatives(self, t, state, params):
@@ -274,8 +283,6 @@ class ParagliderStateDynamics9a(StateDynamics):
             raise ValueError("`v_W2e` must be a callable or 3-tuple of float")
 
     def cleanup(self, state, t):
-        # FIXME: hack that runs after each integration step. Assumes it can
-        #        modify the integrator state directly.
         state["q_b2e"] /= np.sqrt((state["q_b2e"] ** 2).sum())  # Normalize
         state["q_p2e"] /= np.sqrt((state["q_p2e"] ** 2).sum())  # Normalize
 
@@ -491,7 +498,6 @@ def simulate(
             times[k] = solver.t
             k += 1
     except RuntimeError as e:  # The model blew up
-        # FIXME: refine this idea
         print(f"\n--- Simulation failed: {type(e).__name__}:", e)
     except KeyboardInterrupt:
         print("\n--- Simulation interrupted. ---")
@@ -564,7 +570,6 @@ def prettyprint_state(state, header: str = None, footer: str = None) -> None:
     in some scripting, but overall I'm not a fan of hard-coding this
     information. Then again, I'm in crunch mode, so...
     """
-    # FIXME: Review the existence/design of this function
     Theta_b2e = orientation.quaternion_to_euler(state["q_b2e"])
     with np.printoptions(precision=4, suppress=True):
         if header is not None:

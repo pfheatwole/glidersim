@@ -102,7 +102,7 @@ class LineGeometry(Protocol):
 
 class SimpleLineGeometry(LineGeometry):
     """
-    FIXME: document the design.
+    FIXME: add docstring.
 
     Parameters
     ----------
@@ -148,8 +148,7 @@ class SimpleLineGeometry(LineGeometry):
 
     Notes
     -----
-
-    FIXME: describe the design, and maybe reference the sections in my thesis.
+    FIXME: describe the design, and reference the sections in my thesis.
 
     Accelerator
     ^^^^^^^^^^^
@@ -203,7 +202,7 @@ class SimpleLineGeometry(LineGeometry):
     ):
         self.kappa_A = kappa_A
         self.kappa_C = kappa_C
-        self.kappa_a = kappa_a  # FIXME: strange notation. Why `kappa`?
+        self.kappa_a = kappa_a
 
         # Default lengths of the A and C lines (when `delta_a = 0`)
         self.A = np.sqrt(kappa_z ** 2 + (kappa_x - kappa_A) ** 2)
@@ -248,7 +247,9 @@ class SimpleLineGeometry(LineGeometry):
         return r_RM2LE
 
     def r_CP2LE(self):
-        return self._r_L2LE  # FIXME: return a read-only view?
+        r_L2LE = self._r_L2LE.view()
+        r_L2LE.flags.writeable = False
+        return r_L2LE
 
     def delta_d(self, s, delta_bl, delta_br):
         def _interp(A, B, d):
@@ -619,7 +620,7 @@ class ParagliderWing:
         delta_d = self.lines.delta_d(s_cps, delta_bl, delta_br)
         ai = delta_d / self.canopy.chord_length(s_cps)
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
-            ai, v_W2b_foil, rho_air, reference_solution,
+            ai, v_W2b_foil, rho_air, reference_solution=reference_solution,
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)

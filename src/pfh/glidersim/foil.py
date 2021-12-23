@@ -38,7 +38,7 @@ class SimpleFoil:
     Parameters
     ----------
     layout : FoilLayout
-        FIXME: docstring
+        Provides the scale, position, and orientation of the section profiles.
     sections : FoilSections
         The geometry and coefficients for the section profiles.
     b, b_flat : float
@@ -65,7 +65,7 @@ class SimpleFoil:
         if b is not None and b_flat is not None:
             raise ValueError("Specify only one of `b` or `b_flat`")
 
-        # FIXME: support `S` and `S_flat` as scaling factors
+        # TODO: support `S` and `S_flat` as scaling factors
         if b:
             self.b = b
         elif b_flat:
@@ -176,7 +176,7 @@ class SimpleFoil:
         this value may be measured perpendicular to either the chord line or
         to the camber line. Be careful relying on these values.
 
-        FIXME: the airfoil thickness "convention" can dramatically affect this
+        NOTE: the airfoil thickness "convention" can dramatically affect this
         value. For normalized and derotated airfoils with relatively mild
         camber the convention does not dramatically affect the thickness, but
         for airfoils with deflected trailing edges it can vary quite a lot.
@@ -190,7 +190,7 @@ class SimpleFoil:
         s : array_like of float
             Section index.
         ai
-            Airfoil index. Must be zero. (See FIXME above.)
+            Airfoil index. Must be zero. (See NOTE above.)
         r : float
             Position along the chord or camber line as a percentage, where `r =
             0` is the leading edge, and `r = 1` is the trailing edge.

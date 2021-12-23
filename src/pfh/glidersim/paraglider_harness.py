@@ -180,7 +180,6 @@ class Spherical(ParagliderHarness):
         self._kappa_w = kappa_w
 
     def r_CP2RM(self, delta_w=0):
-        # FIXME: Weight shift probably shouldn't move the AERODYNAMIC control point
         delta_w = np.asfarray(delta_w)
         r_P2RM = [
             np.zeros(delta_w.shape),
