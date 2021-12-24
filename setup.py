@@ -27,10 +27,10 @@ if __name__ == "__main__":
                 "flake8-rst-docstrings >= 0.0.14",
                 "isort >= 5.10.0",
                 "pre-commit >= 2.10.0",
-                "Sphinx >= 3.4.3",
                 "mypy >= 0.920",
+                "Sphinx >= 4.3.0",
+                "sphinx-rtd-theme >= 1.0.0",
                 "numpydoc >= 1.1.0",
-                "sphinx-rtd-theme >= 0.5.1",
             ],
         },
         classifiers=[
