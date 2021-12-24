@@ -15,7 +15,7 @@ python_version = "3.8"
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
-exclude = "venv"
+exclude = ".venv"
 
 show_error_codes = true
 allow_redefinition = true  # Redefine arguments with `np.asarray`, `np.broadcast_arrays`, etc
