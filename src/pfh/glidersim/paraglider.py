@@ -132,9 +132,10 @@ class ParagliderSystemDynamics6a:
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -430,9 +431,10 @@ class ParagliderSystemDynamics6b(ParagliderSystemDynamics6a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -607,9 +609,10 @@ class ParagliderSystemDynamics6c(ParagliderSystemDynamics6a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -833,13 +836,15 @@ class ParagliderSystemDynamics9a:
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload as the time derivative of its
-            angular velocity taken with respect to the payload frame, expressed
-            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
+            Angular acceleration of the payload with respect to Earth as the
+            time derivative of angular velocity taken with respect to the
+            payload frame, expressed in payload frd coordinates
+            :math:`\left( ^p \dot{\omega}_{p/e}^p \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -1201,13 +1206,15 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload as the time derivative of its
-            angular velocity taken with respect to the payload frame, expressed
-            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
+            Angular acceleration of the payload with respect to Earth as the
+            time derivative of angular velocity taken with respect to the
+            payload frame, expressed in payload frd coordinates
+            :math:`\left( ^p \dot{\omega}_{p/e}^p \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
@@ -1429,13 +1436,15 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         a_RM2e : array of float, shape (3,) [m/s^2]
             Translational acceleration of `RM` in body frd coordinates.
         alpha_b2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the body as the time derivative of its
-            angular velocity taken with respect to the body frame, expressed in
-            body frd coordinates (:math:`^b \dot{omega}_{b/e}^b`).
+            Angular acceleration of the body with respect to Earth as the time
+            derivative of angular velocity taken with respect to the body
+            frame, expressed in body frd coordinates
+            :math:`\left( ^b \dot{\omega}_{b/e}^b \right)`.
         alpha_p2e : array of float, shape (3,) [rad/s^2]
-            Angular acceleration of the payload as the time derivative of its
-            angular velocity taken with respect to the payload frame, expressed
-            in payload frd coordinates (:math:`^p \dot{omega}_{p/e}^p`).
+            Angular acceleration of the payload with respect to Earth as the
+            time derivative of angular velocity taken with respect to the
+            payload frame, expressed in payload frd coordinates
+            :math:`\left( ^p \dot{\omega}_{p/e}^p \right)`.
         solution : dictionary
             FIXME: docstring. See `Phillips.__call__`
         """
