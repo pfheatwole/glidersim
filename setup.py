@@ -14,7 +14,7 @@ if __name__ == "__main__":
             "numpy >= 1.20.0",
             "scipy >= 1.6.0",
             "numba >= 0.54.0",
-            "matplotlib >= 3.3.3",
+            "matplotlib >= 3.4.3",
         ],
         extras_require={
             "dev": [
