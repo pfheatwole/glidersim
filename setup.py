@@ -9,7 +9,7 @@ if __name__ == "__main__":
         package_dir={"": "src"},
         packages=find_namespace_packages(where="src"),
         include_package_data=True,
-        python_requires="~=3.8",
+        python_requires=">=3.8",
         install_requires=[
             "numpy >= 1.20.0",
             "scipy >= 1.6.0",
