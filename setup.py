@@ -25,7 +25,7 @@ if __name__ == "__main__":
                 "flake8-docstrings >= 1.5.0",
                 "flake8-isort >= 4.0.0",
                 "flake8-rst-docstrings >= 0.0.14",
-                "isort >= 5.6.4",
+                "isort >= 5.10.0",
                 "pre-commit >= 2.10.0",
                 "Sphinx >= 3.4.3",
                 "mypy >= 0.902",
