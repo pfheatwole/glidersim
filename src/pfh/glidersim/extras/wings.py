@@ -225,7 +225,8 @@ def build_hook3(
 
         # Reminder that I'm not accounting for mass from things like the lines,
         # internal vribs, internal horizontal straps, caribiners, etc.
-        wmp = wing.mass_properties(rho_air=1.225)
+        r_RM2LE = wing.r_RM2LE(delta_a=0)
+        wmp = wing.mass_properties(rho_air=1.225, r_R2LE=r_RM2LE)
         print("Wing inertia:              [Target]")
         print(f"  solid mass:     {wmp['m_s']:>6.3f}   [{specs['m_s']:>6.3f}]")
         print()
