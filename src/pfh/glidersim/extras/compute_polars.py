@@ -10,7 +10,6 @@ from pfh.glidersim import foil_aerodynamics, orientation
 
 def plot_polar_curve(glider, rho_air: float = 1.225, N: int = 21):
     """Compute the equilibrium conditions and plot the polar curves."""
-
     eqs_a = []
     delta_as = np.linspace(0, 1, N)
     equilibrium = {  # Initial guesses
@@ -129,11 +128,7 @@ def plot_wing_coefficients(
         CL = L / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
         CD = D / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
         CM = Ms[n][1] / (
-            0.5
-            * rho_air
-            * v_mag ** 2
-            * wing.canopy.S
-            * wing.canopy.chord_length(0)
+            0.5 * rho_air * v_mag ** 2 * wing.canopy.S * wing.canopy.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)

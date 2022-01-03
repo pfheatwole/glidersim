@@ -349,7 +349,7 @@ class SimpleFoil:
         surface_vertices = self.surface_xyz(s[:, None], 0, r, "airfoil")
 
         # Using Delaunay is too slow as the number of vertices increases.
-        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_r - 2), indexing='ij')
+        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(2 * N_r - 2), indexing="ij")
         triangle_indices = np.concatenate(
             (
                 [[S, R], [S + 1, R + 1], [S + 1, R]],
@@ -371,8 +371,8 @@ class SimpleFoil:
         # Verson 1: use scipy.spatial.Delaunay. This version will automatically
         # discard coplanar points if the trailing edge is closed.
         #
-        left_points = self.sections.surface_xz(-1, 0, r, 'airfoil')
-        right_points = self.sections.surface_xz(1, 0, r, 'airfoil')
+        left_points = self.sections.surface_xz(-1, 0, r, "airfoil")
+        right_points = self.sections.surface_xz(1, 0, r, "airfoil")
         left_tris = left_vertices[Delaunay(left_points).simplices]
         right_tris = right_vertices[Delaunay(right_points).simplices[:, ::-1]]
 
@@ -500,11 +500,11 @@ class SimpleFoil:
         # which is important for computing the enclosed volume of air between
         # the two surfaces, and for 3D programs in general (which tend to
         # expect the normals to point "out" of the volume).
-        vu = self.surface_xyz(s[:, np.newaxis], 0, r, 'upper').reshape(-1, 3)
-        vl = self.surface_xyz(s[::-1, np.newaxis], 0, r, 'lower').reshape(-1, 3)
+        vu = self.surface_xyz(s[:, np.newaxis], 0, r, "upper").reshape(-1, 3)
+        vl = self.surface_xyz(s[::-1, np.newaxis], 0, r, "lower").reshape(-1, 3)
 
         # Compute the vertex lists for all of the faces (the triangles).
-        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(N_r - 1), indexing='ij')
+        S, R = np.meshgrid(np.arange(N_s - 1), np.arange(N_r - 1), indexing="ij")
         triangle_indices = np.concatenate(
             (
                 [[S, R], [S + 1, R + 1], [S + 1, R]],

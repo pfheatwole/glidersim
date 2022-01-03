@@ -112,10 +112,13 @@ def airfoil_mass_properties(airfoil, r_upper=0, r_lower=0, N=200):
     Izz = Ixx + Iyy  # Perpendicular axis theorem
 
     # Inertia matrix for the area about the origin
-    area_inertia = np.array(
-        [[ Ixx, -Ixy,   0],
-         [-Ixy,  Iyy,   0],
-         [   0,    0, Izz]])
+    # fmt: off
+    area_inertia = np.array([
+        [ Ixx, -Ixy,   0],  # noqa: E201, E241
+        [-Ixy,  Iyy,   0],  # noqa: E201, E241
+        [   0,    0, Izz],  # noqa: E201, E241
+    ])
+    # fmt: on
 
     # -------------------------------------------------------------------
     # 2. Surface line calculations
@@ -154,31 +157,32 @@ def airfoil_mass_properties(airfoil, r_upper=0, r_lower=0, N=200):
     Izz_L = Ixx_L + Iyy_L
 
     # Inertia matrices for the lines about the origin
-    upper_inertia = np.array(
-        [[ Ixx_U, -Ixy_U,     0],
-         [-Ixy_U,  Iyy_U,     0],
-         [     0,      0, Izz_U]])
-
-    lower_inertia = np.array(
-        [[ Ixx_L, -Ixy_L,     0],
-         [-Ixy_L,  Iyy_L,     0],
-         [     0,      0, Izz_L]])
+    # fmt: off
+    upper_inertia = np.array([
+        [ Ixx_U, -Ixy_U,     0],  # noqa: E201, E241
+        [-Ixy_U,  Iyy_U,     0],  # noqa: E201, E241
+        [     0,      0, Izz_U],  # noqa: E201, E241
+    ])
+    lower_inertia = np.array([
+        [ Ixx_L, -Ixy_L,     0],  # noqa: E201, E241
+        [-Ixy_L,  Iyy_L,     0],  # noqa: E201, E241
+        [     0,      0, Izz_L],  # noqa: E201, E241
+    ])
+    # fmt: on
 
     properties = {
-        'upper_length': upper_length,
-        'upper_centroid': upper_centroid,
-        'upper_inertia': upper_inertia,
-        'area': area,
-        'area_centroid': area_centroid,
-        'area_inertia': area_inertia,
-        'lower_length': lower_length,
-        'lower_centroid': lower_centroid,
-        'lower_inertia': lower_inertia,
+        "upper_length": upper_length,
+        "upper_centroid": upper_centroid,
+        "upper_inertia": upper_inertia,
+        "area": area,
+        "area_centroid": area_centroid,
+        "area_inertia": area_inertia,
+        "lower_length": lower_length,
+        "lower_centroid": lower_centroid,
+        "lower_inertia": lower_inertia,
     }
 
     return properties
-
-
 
 
 # Yanked from `SimpleFoil`
@@ -264,10 +268,13 @@ def canopy_mass_properties(canopy, amp, N=250):
     u_inv = np.linalg.inv(u)
 
     # Segment centroids
-    airfoil_centroids = np.array([
-        [*amp["upper_centroid"], 0],
-        [*amp["area_centroid"], 0],
-        [*amp["lower_centroid"], 0]])
+    airfoil_centroids = np.array(
+        [
+            [*amp["upper_centroid"], 0],
+            [*amp["area_centroid"], 0],
+            [*amp["lower_centroid"], 0],
+        ]
+    )
     segment_origins = canopy.surface_xyz(s_mid_nodes, 0, 0, surface="chord")
     segment_upper_cm, segment_volume_cm, segment_lower_cm = (
         np.einsum("K,Kij,jk,Gk->GKi", chords, u, T, airfoil_centroids)
@@ -292,9 +299,20 @@ def canopy_mass_properties(canopy, amp, N=250):
     lower_area = segment_lower_area.sum()
 
     # The upper/volume/lower centroids for the entire foil
-    upper_centroid = (segment_upper_area * segment_upper_cm.T).T.sum(axis=0) / upper_area
-    volume_centroid = (segment_volume * segment_volume_cm.T).T.sum(axis=0) / volume
-    lower_centroid = (segment_lower_area * segment_lower_cm.T).T.sum(axis=0) / lower_area
+    # fmt: off
+    upper_centroid = (
+        (segment_upper_area * segment_upper_cm.T).T.sum(axis=0)
+        / upper_area
+    )
+    volume_centroid = (
+        (segment_volume * segment_volume_cm.T).T.sum(axis=0)
+        / volume
+    )
+    lower_centroid = (
+        (segment_lower_area * segment_lower_cm.T).T.sum(axis=0)
+        / lower_area
+    )
+    # fmt: on
 
     # Segment inertia matrices in body frd coordinates
     Kl, Ka = Kl.reshape(-1, 1, 1), Ka.reshape(-1, 1, 1)
@@ -309,8 +327,10 @@ def canopy_mass_properties(canopy, amp, N=250):
 
     # Segment distances to the group centroids
     R = np.array([Ru, Rv, Rl])
-    D = (np.einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
-         - np.einsum("Rki,Rkj->Rkij", R, R))
+    D = (
+        np.einsum("Rij,Rij->Ri", R, R)[..., None, None] * np.eye(3)
+        - np.einsum("Rki,Rkj->Rkij", R, R)  # fmt: skip
+    )
     Du, Dv, Dl = D
 
     # And finally, apply the parallel axis theorem
@@ -327,7 +347,7 @@ def canopy_mass_properties(canopy, amp, N=250):
         "volume_inertia": volume_J,
         "lower_area": lower_area,
         "lower_centroid": lower_centroid,
-        "lower_inertia": lower_J
+        "lower_inertia": lower_J,
     }
 
     return mass_properties

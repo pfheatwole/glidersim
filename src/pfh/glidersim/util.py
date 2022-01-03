@@ -27,13 +27,17 @@ def integrate(f, a, b, N):
         raise ValueError("trapezoid integration requires odd N")
         # Wait, what? Why?
     x = np.linspace(a, b, N)
-    dx = (b - a)/(N - 1)  # Include the endpoints
+    dx = (b - a) / (N - 1)  # Include the endpoints
     y = f(x)
     return trapz(y, dx)
 
 
-@guvectorize([(float64[:], float64[:], float64[:])], '(n),(n)->(n)',
-             nopython=True, cache=True)
+@guvectorize(
+    [(float64[:], float64[:], float64[:])],
+    "(n),(n)->(n)",
+    nopython=True,
+    cache=True,
+)
 def cross3(a, b, result):
     """Calculate the cross product of 3d vectors.
 
@@ -121,7 +125,9 @@ def crossmat(v):
     """
     assert v.shape in ((3,), (3, 1))
     vx, vy, vz = v.flatten()
-    sv = [[0, -vz, vy],
-          [vz, 0, -vx],
-          [-vy, vx, 0]]
+    # fmt: off
+    sv = [[  0, -vz,  vy],  # noqa: 201, 241
+          [ vz,   0, -vx],  # noqa: 201, 241
+          [-vy,  vx,   0]]  # noqa: 201, 241
+    # fmt: on
     return np.asfarray(sv)

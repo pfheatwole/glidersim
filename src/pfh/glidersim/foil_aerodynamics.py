@@ -174,14 +174,17 @@ class Phillips(FoilAerodynamics):
         self.c_avg = (node_chords[1:] + node_chords[:-1]) / 2
         self.dA = self.c_avg * np.linalg.norm(cross3(self.u_a, self.dl), axis=1)
 
-        # Precompute the `v` terms that do not depend on `u_inf`
+        # Precompute the `v` terms that do not depend on `u_inf`, which are the
+        # first bracketed term in Hunsaker Eq:6.
         R1, R2, r1, r2 = self.R1, self.R2, self.r1, self.r2  # Shorthand
         self.v_ij = np.zeros((self.K, self.K, 3))  # Extra terms when `i != j`
         for ij in [(i, j) for i in range(self.K) for j in range(self.K)]:
             if ij[0] == ij[1]:  # Skip singularities when `i == j`
                 continue
-            self.v_ij[ij] = ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij])) / \
-                (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
+            self.v_ij[ij] = (
+                ((r1[ij] + r2[ij]) * cross3(R1[ij], R2[ij]))  # fmt: skip
+                / (r1[ij] * r2[ij] * (r1[ij] * r2[ij] + np.dot(R1[ij], R2[ij])))
+            )
 
         # Precompute a reference solution from a (hopefully easy) base case.
         # Sets an initial "solution" (which isn't actually a solution) just to
@@ -190,9 +193,9 @@ class Phillips(FoilAerodynamics):
         v_mag = np.broadcast_to(v_ref_mag, (self.K, 3))
         v_W2f_ref = -v_mag * np.array([np.cos(alpha_ref), 0, np.sin(alpha_ref)])
         self._reference_solution = {
-            'ai': 0,
-            'v_W2f': v_W2f_ref,
-            'Gamma': np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
+            "ai": 0,
+            "v_W2f": v_W2f_ref,
+            "Gamma": np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
         }
         try:
             _, _, self._reference_solution = self.__call__(0, v_W2f_ref, 1.2)
@@ -201,7 +204,6 @@ class Phillips(FoilAerodynamics):
 
     def _compute_Reynolds(self, v_W2f, rho_air):
         """Compute the Reynolds number at each control point."""
-
         # FIXME: verify that using the total airspeed (including spanwise flow)
         #        is okay. A few tests show minimal differences, so for now I'm
         #        not wasting time computing the normal and chordwise flows.
@@ -285,8 +287,10 @@ class Phillips(FoilAerodynamics):
 
         J = 2 * np.diag(W_norm)  # Additional terms for i==j
         J2 = 2 * np.einsum("i,ik,i,jik->ij", Gamma, W, 1 / W_norm, cross3(v, self.dl))
-        J3 = (np.einsum("i,jik,ik->ij", V_a, v, self.u_n)
-              - np.einsum("i,jik,ik->ij", V_n, v, self.u_a))
+        J3 = (
+            np.einsum("i,jik,ik->ij", V_a, v, self.u_n)
+            - np.einsum("i,jik,ik->ij", V_n, v, self.u_a)  # fmt: skip
+        )
         J3 *= (
             (self.dA * Cl_alpha)[:, None]
             * np.einsum("ik,ik->i", V, V)
@@ -381,9 +385,9 @@ class Phillips(FoilAerodynamics):
         if reference_solution is None:
             reference_solution = self._reference_solution
 
-        ai_ref = reference_solution['ai']
-        v_W2f_ref = reference_solution['v_W2f']
-        Gamma_ref = reference_solution['Gamma']
+        ai_ref = reference_solution["ai"]
+        v_W2f_ref = reference_solution["v_W2f"]
+        Gamma_ref = reference_solution["Gamma"]
 
         # Try to solve for the target (`Gamma` as a function of `v_W2f` and
         # `ai`) directly using the `reference_solution`. If that fails, pick a
@@ -463,9 +467,9 @@ class Phillips(FoilAerodynamics):
         dM = -0.5 * V2 * self.dA * self.c_avg * Cm * self.u_s.T
 
         solution = {
-            'ai': ai,
-            'v_W2f': v_W2f_ref,
-            'Gamma': Gamma_ref,
+            "ai": ai,
+            "v_W2f": v_W2f_ref,
+            "Gamma": Gamma_ref,
         }
 
         # print("\nFinished `Phillips.__call__`")

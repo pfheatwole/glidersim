@@ -419,11 +419,13 @@ class ParagliderWing:
             rib_centroids_n - r_RIB2LE,
         )
         J_rib2RIB = np.trace(cov_ribs) * np.eye(3) - cov_ribs
-        cmp.update({
-            "rib_area": rib_area,
-            "rib_centroid": r_RIB2LE,
-            "rib_inertia": J_rib2RIB,
-        })
+        cmp.update(
+            {
+                "rib_area": rib_area,
+                "rib_centroid": r_RIB2LE,
+                "rib_inertia": J_rib2RIB,
+            }
+        )
 
         m_upper = cmp["upper_area"] * self.rho_upper
         m_lower = cmp["lower_area"] * self.rho_lower
@@ -516,9 +518,11 @@ class ParagliderWing:
         # Assuming the arch is circular, find its radius and arc angle using
         # the quarter-chords of the central section and the wing tip. See
         # Barrows Figure:5 for a diagram.
-        r_tip2center = (self.canopy.surface_xyz(1, 0, 0.25, surface="chord")
-                        - self.canopy.surface_xyz(0, 0, 0.25, surface="chord"))
-        dz = (r_tip2center[1]**2 - r_tip2center[2]**2) / (2 * r_tip2center[2])
+        r_tip2center = (
+            self.canopy.surface_xyz(1, 0, 0.25, surface="chord")
+            - self.canopy.surface_xyz(0, 0, 0.25, surface="chord")  # fmt: skip
+        )
+        dz = (r_tip2center[1] ** 2 - r_tip2center[2] ** 2) / (2 * r_tip2center[2])
         r = dz + r_tip2center[2]  # Arch radius
         theta = np.arctan2(r_tip2center[1], dz)  # Symmetric arch semi-angle
         h = r_tip2center[2]  # Height from the central section to the tip
@@ -531,7 +535,7 @@ class ParagliderWing:
         # Flat wing values, Barrows Eqs:34-39
         mf11 = k_A * np.pi * t ** 2 * b / 4
         mf22 = k_B * np.pi * t ** 2 * c / 4
-        mf33 = AR / (1 + AR) * np.pi * c**2 * b / 4
+        mf33 = AR / (1 + AR) * np.pi * c ** 2 * b / 4
         If11 = 0.055 * AR / (1 + AR) * b * S ** 2
         If22 = 0.0308 * AR / (1 + AR) * c ** 3 * S
         If33 = 0.055 * b ** 3 * t ** 2
@@ -545,7 +549,7 @@ class ParagliderWing:
         z_PC2RC = z_PC2C - z_RC2C
 
         # Arched wing values, Barrows Eqs:51-55
-        m11 = k_A * (1 + 8 / 3 * hstar ** 2) * np.pi * t**2 * b / 4
+        m11 = k_A * (1 + 8 / 3 * hstar ** 2) * np.pi * t ** 2 * b / 4
         m22 = (r ** 2 * mf22 + If11) / z_PC2C ** 2
         m33 = mf33
         I11 = (
@@ -620,7 +624,7 @@ class ParagliderWing:
         delta_d = self.lines.delta_d(s_cps, delta_bl, delta_br)
         ai = delta_d / self.canopy.chord_length(s_cps)
         dF_foil, dM_foil, solution = self.canopy.aerodynamics(
-            ai, v_W2b_foil, rho_air, reference_solution=reference_solution,
+            ai, v_W2b_foil, rho_air, reference_solution=reference_solution
         )
 
         dF_lines, dM_lines = self.lines.aerodynamics(v_W2b_lines, rho_air)
@@ -672,10 +676,11 @@ class ParagliderWing:
         def target(alpha):
             v_W2b = -v_mag * np.array([np.cos(alpha), 0, np.sin(alpha)])
             dF_wing, dM_wing, _ = self.aerodynamics(
-                delta_a, delta_b, delta_b, v_W2b, rho_air, reference_solution,
+                delta_a, delta_b, delta_b, v_W2b, rho_air, reference_solution
             )
             M = dM_wing.sum(axis=0) + cross3(r_CP2RM, dF_wing).sum(axis=0)
             return M[1]  # Wing pitching moment
+
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
         res = root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
@@ -768,7 +773,7 @@ class ParagliderWing:
             mp["J_s2S"]
             + mp["m_s"] * D_s
             + mp["J_v2V"] * rho_air
-            + mp["m_air"] * D_v
+            + mp["m_air"] * D_v  # fmt: skip
         )
 
         return mp
@@ -813,6 +818,8 @@ class ParagliderWing:
         S_RC2R = crossmat(r_RC2R)
         S2 = np.diag([0, 1, 0])  # "Selection matrix", Barrows Eq:15
 
+        # fmt: off
+
         # Apparent inertia
         M_a = ai["M"] * rho_air  # Apparent mass matrix
         Q = S2 @ S_PC2RC @ M_a @ S_RC2R
@@ -825,16 +832,17 @@ class ParagliderWing:
         )
         MC = -M_a @ (S_RC2R + S_PC2RC @ S2)
         A_a2R = np.block([[M_a, MC], [MC.T, J_a2R]])  # Barrows Eq:27
-
-        # Apparent momentum
         p_a2e = M_a @ (  # Apparent linear momentum (Barrows Eq:16)
             v_R2e
             - cross3(r_RC2R, omega_b2e)
             - crossmat(r_PC2RC) @ S2 @ omega_b2e
         )
         h_a2R = (  # Apparent angular momentum (Barrows Eq:24)
-            (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e + J_a2R @ omega_b2e
+            (S2 @ S_PC2RC + S_RC2R) @ M_a @ v_R2e
+            + J_a2R @ omega_b2e
         )
+
+        # fmt: on
 
         return {
             "r_PC2RC": r_PC2RC,
