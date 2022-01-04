@@ -32,6 +32,7 @@ author = "Peter Heatwole"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "numpydoc",
 ]
 
@@ -45,6 +46,10 @@ autodoc_default_options = {
 }
 
 autosummary_generate = True
+
+intersphinx_mapping = {
+    "thesis": ("/home/peter/thesis/sphinx/build/html", None),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
