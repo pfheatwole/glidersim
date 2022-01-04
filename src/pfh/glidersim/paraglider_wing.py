@@ -1,4 +1,8 @@
-"""FIXME: add module docstring."""
+"""
+Models of paraglider wings.
+
+FIXME: explain "wing = canopy + suspension lines"
+"""
 
 from __future__ import annotations
 

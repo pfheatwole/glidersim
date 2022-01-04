@@ -1,12 +1,12 @@
 """
-Models for airfoil geometries and airfoil coefficients.
+Models for the geometry and aerodynamic coefficients of 2D wing sections.
 
-Geometry models are for computing mass distributions (for moments of inertia),
-points on reference lines (such as the quarter-chord position, frequently used
-by lifting line methods), and graphical purposes.
+Geometry models are for computing mass distributions (for moments of
+inertia), points on reference lines (such as the quarter-chord position,
+frequently used by lifting line methods), and graphical purposes.
 
-Coefficient models are for evaluating the section coefficients for lift, drag,
-and pitching moment.
+Coefficient models are for querying the section coefficients for lift,
+drag, and pitching moment.
 """
 
 from __future__ import annotations

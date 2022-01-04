@@ -1,4 +1,8 @@
-"""FIXME: add module docstring."""
+"""
+Models for simulating flight trajectories.
+
+FIXME: explain *state dynamics* models
+"""
 
 from __future__ import annotations
 

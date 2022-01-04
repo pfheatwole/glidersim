@@ -1,4 +1,4 @@
-"""FIXME: add module docstring"""
+"""Prebuilt wing models."""
 
 from __future__ import annotations
 

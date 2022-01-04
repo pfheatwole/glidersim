@@ -1,4 +1,4 @@
-"""FIXME: add module docstring."""
+"""Models of complete paraglider systems."""
 
 from __future__ import annotations
 

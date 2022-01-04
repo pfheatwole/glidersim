@@ -1,4 +1,4 @@
-"""A scratchpad for orientation-related work."""
+"""Utility functions for manipulating orientation encodings."""
 
 import numpy as np
 from numba import float64, guvectorize

@@ -1,4 +1,4 @@
-"""FIXME: add docstring."""
+"""Models for estimating the aerodynamics of a 3D foil from its sections."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""FIXME: add module docstring"""
+"""Utility functions for loading airfoil coefficient data from text files."""
 
 from __future__ import annotations
 

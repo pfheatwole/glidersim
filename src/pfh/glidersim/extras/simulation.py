@@ -1,4 +1,4 @@
-"""A collection of useful functions when working with glider simulations."""
+"""Utility functions for generating glider simulations."""
 
 from __future__ import annotations
 
