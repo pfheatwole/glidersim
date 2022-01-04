@@ -154,13 +154,11 @@ class SimpleLineGeometry(LineGeometry):
     -----
     FIXME: describe the design, and reference the sections in my thesis.
 
-    Accelerator
-    ^^^^^^^^^^^
+    **Accelerator**
 
     FIXME: describe
 
-    Brakes
-    ^^^^^^
+    **Brakes**
 
     The wing root typically experiences very little (if any) brake deflection,
     so this model allows for zero deflection until some section `s_delta_start`
