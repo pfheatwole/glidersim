@@ -18,10 +18,10 @@ if __name__ == "__main__":
         ],
         extras_require={
             "dev": [
+                "black",
                 "flake8",
-                "flake8-black",
                 "flake8-bugbear",
-                "flake8-commas",
+                "flake8-comprehensions",
                 "flake8-docstrings",
                 "flake8-isort",
                 "flake8-rst-docstrings",
