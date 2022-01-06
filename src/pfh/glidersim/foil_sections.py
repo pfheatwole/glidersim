@@ -138,8 +138,8 @@ class FoilSections:
         profiles: AirfoilGeometryInterpolator,
         coefficients: AirfoilCoefficientsInterpolator = None,
         intakes: Callable | None = None,
-        Cd_intakes : float = 0,
-        Cd_surface : float = 0,
+        Cd_intakes: float = 0,
+        Cd_surface: float = 0,
     ) -> None:
         self.profiles = profiles
         self.coefficients = coefficients
@@ -285,8 +285,7 @@ class FoilSections:
         #
         # Ref: `babinsky1999AerodynamicPerformanceParagliders`
         la = np.linalg.norm(  # Length of the air intake
-            self.surface_xz(s, ai, 0, 'upper')
-            - self.surface_xz(s, ai, 0, 'lower'),
+            self.surface_xz(s, ai, 0, "upper") - self.surface_xz(s, ai, 0, "lower"),
             axis=-1,
         )
         Cd += self.Cd_intakes * la  # Drag due to air intakes

@@ -179,7 +179,7 @@ class ParagliderStateDynamics6a(StateDynamics):
             v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
             reference_solution=params["solution"],
         )
-        a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
+        a_RM2e += cross3(state["omega_b2e"], v_RM2e)  # In frame F_e
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
@@ -337,7 +337,7 @@ class ParagliderStateDynamics9a(StateDynamics):
             v_W2e=orientation.quaternion_rotate(state["q_b2e"], v_W2e),
             reference_solution=params["solution"],
         )
-        a_RM2e += cross3(state['omega_b2e'], v_RM2e)  # In frame F_e
+        a_RM2e += cross3(state["omega_b2e"], v_RM2e)  # In frame F_e
 
         # FIXME: what if Phillips fails? How do I abort gracefully?
 
@@ -462,7 +462,6 @@ def simulate(
     states : array of `model.state_dtype`, shape (K+1,)
         The state trajectory.
     """
-
     K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
     times = np.zeros(K)  # Simulation timestamps [sec]
     states = np.empty(K, dtype=model.state_dtype)

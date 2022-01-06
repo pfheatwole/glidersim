@@ -74,20 +74,24 @@ def short_right_turn(delta_br, delta_w, t_hold=5):
     t_fall = 1
     t_settle = 5
     inputs = {
-        "delta_br": simulation.linear_control([
-            (t_warmup + t_rise_w + t_hold_w, 0),
-            (t_rise_b, delta_br),
-            (t_hold, None),
-            (t_fall, 0),
-        ]),
-        "delta_w": simulation.linear_control([
-            (t_warmup, 0),
-            (t_rise_w, delta_w),
-            (t_hold_w + t_rise_b + t_hold, None),
-            (t_fall, 0),
-        ]),
+        "delta_br": simulation.linear_control(
+            [
+                (t_warmup + t_rise_w + t_hold_w, 0),
+                (t_rise_b, delta_br),
+                (t_hold, None),
+                (t_fall, 0),
+            ]
+        ),
+        "delta_w": simulation.linear_control(
+            [
+                (t_warmup, 0),
+                (t_rise_w, delta_w),
+                (t_hold_w + t_rise_b + t_hold, None),
+                (t_fall, 0),
+            ]
+        ),
     }
-    T = t_warmup + t_rise_w + t_hold_w + + t_rise_b + t_hold + t_fall + t_settle
+    T = t_warmup + t_rise_w + t_hold_w + +t_rise_b + t_hold + t_fall + t_settle
     return inputs, T
 
 
@@ -133,12 +137,14 @@ def roll_yaw_coupling_with_accelerator():
     t_fall = 1.5
     inputs = {
         "delta_a": simulation.linear_control([(t_start, 0), (t_rise, 0.75)]),
-        "delta_br": simulation.linear_control([
-            (t_start + t_warmup, 0),
-            (t_rise, 0.75),
-            (t_hold, None),
-            (t_fall, 0),
-        ]),
+        "delta_br": simulation.linear_control(
+            [
+                (t_start + t_warmup, 0),
+                (t_rise, 0.75),
+                (t_hold, None),
+                (t_fall, 0),
+            ]
+        ),
     }
     T = t_start + t_warmup + t_hold + t_fall + 5
     return inputs, T
@@ -382,7 +388,7 @@ def main():
         raise RuntimeError(f"Unsupported paraglider model {type(paraglider)}")
 
     print("\nPreparing the simulation...\n")
-    modelname = str(type(paraglider)).split('.')[-1].split("'")[0]
+    modelname = str(type(paraglider)).split(".")[-1].split("'")[0]
     print(f"Model: {modelname}(use_apparent_mass={use_apparent_mass})")
     state0 = model.starting_equilibrium()
     gsim.simulator.prettyprint_state(state0, "Initial state:", "")

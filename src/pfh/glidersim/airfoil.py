@@ -174,10 +174,8 @@ class GridCoefficients(AirfoilCoefficientsInterpolator):
         file: str | pathlib.Path | TextIO,
         ai: str = "delta_d",
     ) -> None:
-        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=',')
-        data = np.genfromtxt(
-            file, skip_header=1, names=list(names), delimiter=",",
-        )
+        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=",")
+        data = np.genfromtxt(file, skip_header=1, names=list(names), delimiter=",")
         data.sort(order=[ai, "alpha", "Re"])
 
         # All points must be present (even if `nan`)
@@ -189,16 +187,16 @@ class GridCoefficients(AirfoilCoefficientsInterpolator):
         points = (self._ai, self._alpha, self._Re)
 
         self._Cl = RegularGridInterpolator(
-            points, data["Cl"].reshape(shape), bounds_error=False,
+            points, data["Cl"].reshape(shape), bounds_error=False
         )
         self._Cd = RegularGridInterpolator(
-            points, data["Cd"].reshape(shape), bounds_error=False,
+            points, data["Cd"].reshape(shape), bounds_error=False
         )
         self._Cm = RegularGridInterpolator(
-            points, data["Cm"].reshape(shape), bounds_error=False,
+            points, data["Cm"].reshape(shape), bounds_error=False
         )
         self._Cl_alpha = RegularGridInterpolator(
-            points, data["Cl_alpha"].reshape(shape), bounds_error=False,
+            points, data["Cl_alpha"].reshape(shape), bounds_error=False
         )
 
         # Trilinear interpolation uses the values at all 8 corners of the
@@ -207,7 +205,7 @@ class GridCoefficients(AirfoilCoefficientsInterpolator):
         # cube containing the same ai and Re and the largest alpha.
         lai = len(self._ai)
         lRe = len(self._Re)
-        non_nan = ~np.isnan(data['Cl'].reshape(shape))
+        non_nan = ~np.isnan(data["Cl"].reshape(shape))
         max_non_nan_indices = np.empty((lai, lRe), dtype=int)
         subgrid = np.empty((lai - 1, lRe - 1), dtype=int)
         for (D, R) in product(range(lai), range(lRe)):
@@ -296,11 +294,9 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
         file: str | pathlib.Path | TextIO,
         ai: str = "delta_d",
     ) -> None:
-        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=',')
-        data = np.genfromtxt(
-            file, skip_header=1, names=list(names), delimiter=",",
-        )
-        data.sort(order=[ai, 'alpha', 'Re'])
+        names = np.loadtxt(file, max_rows=1, dtype=str, delimiter=",")
+        data = np.genfromtxt(file, skip_header=1, names=list(names), delimiter=",")
+        data.sort(order=[ai, "alpha", "Re"])
 
         # All points must be present (even if `nan`)
         self._ai = np.unique(data[ai])
@@ -319,10 +315,10 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
             ),
             "k": 1,  # FIXME: why does it crash for k=3?
         }
-        self._Cl = interp3d(f=data['Cl'].reshape(shape), **kwargs)
-        self._Cd = interp3d(f=data['Cd'].reshape(shape), **kwargs)
-        self._Cm = interp3d(f=data['Cm'].reshape(shape), **kwargs)
-        self._Cl_alpha = interp3d(f=data['Cl_alpha'].reshape(shape), **kwargs)
+        self._Cl = interp3d(f=data["Cl"].reshape(shape), **kwargs)
+        self._Cd = interp3d(f=data["Cd"].reshape(shape), **kwargs)
+        self._Cm = interp3d(f=data["Cm"].reshape(shape), **kwargs)
+        self._Cl_alpha = interp3d(f=data["Cl_alpha"].reshape(shape), **kwargs)
 
         # Trilinear interpolation uses the values at all 8 corners of the
         # bounding cube. If any values are nan then interpolation in that cube
@@ -330,7 +326,7 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
         # cube containing the same ai and Re and the largest alpha.
         lai = len(self._ai)
         lRe = len(self._Re)
-        non_nan = ~np.isnan(data['Cl'].reshape(shape))
+        non_nan = ~np.isnan(data["Cl"].reshape(shape))
         max_non_nan_indices = np.empty((lai, lRe), dtype=int)
         subgrid = np.empty((lai - 1, lRe - 1), dtype=int)
         for (D, R) in product(range(lai), range(lRe)):
@@ -407,6 +403,7 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
     FIXME: doesn't support clamping
     """
+
     def __init__(self, dirname: str, flapped: bool) -> None:
         self.flapped = flapped
         polars = self._load_xflr5_polar_set(dirname, flapped)
@@ -450,24 +447,24 @@ class XFLR5Coefficients(AirfoilCoefficientsInterpolator):
 
         polars = []
         for polar_file in polar_files:
-            if (match := re.search(r"_Re(\d+\.\d+)_", polar_file.name)):
+            if match := re.search(r"_Re(\d+\.\d+)_", polar_file.name):
                 Re = float(match.group(1))
             else:
                 raise ValueError(f"Invalid filename {polar_file}; needs `Re`")
             data = np.genfromtxt(polar_file, skip_header=11, names=names)
-            data['alpha'] = np.deg2rad(data['alpha'])
+            data["alpha"] = np.deg2rad(data["alpha"])
 
             # Smoothed `Cl` and `Cl_alpha` improve convergence
-            poly = np.polynomial.Polynomial.fit(data['alpha'], data['Cl'], 10)
-            data['Cl'] = poly(data['alpha'])
-            Cl_alphas = poly.deriv()(data['alpha'])
+            poly = np.polynomial.Polynomial.fit(data["alpha"], data["Cl"], 10)
+            data["Cl"] = poly(data["alpha"])
+            Cl_alphas = poly.deriv()(data["alpha"])
             data = rfn.append_fields(data, "Cl_alpha", Cl_alphas)
 
             # Append the Reynolds number for the polar
             data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
 
             if flapped:
-                if (match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name)):
+                if match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name):
                     delta_d = np.deg2rad(float(match.group(1)))
                 else:
                     raise ValueError(
@@ -545,6 +542,7 @@ def find_leading_edge(curve, definition: str):
         distribution and will not be derotated. For airfoils that will be
         derotated, use the "chord" method.
     """
+
     def _target(d, curve, derivative, TE=None):
         """Optimization target for the "chord" and "x-axis" methods."""
         dydx = derivative(d)  # Tangent line at the proposal
@@ -791,7 +789,7 @@ class AirfoilGeometry:
             increasing `r`, so the normals point "out" of the airfoil.
         """
         dxdy = (self._profile_curve.derivative()(r) * [1, -1]).T
-        dxdy = (dxdy[::-1] / np.linalg.norm(dxdy, axis=0))
+        dxdy = dxdy[::-1] / np.linalg.norm(dxdy, axis=0)
         return dxdy.T
 
     def camber_curve(self, r):
@@ -901,7 +899,7 @@ class NACA(AirfoilGeometry):
 
         elif code <= 99999:  # NACA5 code
             self.series = 5
-            L = (code // 10000)  # Theoretical optimum lift coefficient
+            L = code // 10000  # Theoretical optimum lift coefficient
             P = (code // 1000) % 10  # Point of maximum camber on the chord
             S = (code // 100) % 10  # 0 or 1 for simple or reflexed camber line
             TT = code % 100
@@ -988,7 +986,7 @@ class NACA(AirfoilGeometry):
             dyc = np.full(x.shape, self.k1 / 6)  # Common factors
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
             dyc[f] *= 3 * x[f] ** 2 - 6 * m * x[f] + m ** 2 * (3 - m)
-            dyc[~f] *= -m ** 3
+            dyc[~f] *= -(m ** 3)
 
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")
@@ -1026,7 +1024,9 @@ class NACA(AirfoilGeometry):
         elif self.series == 5:
             m, k1 = self.m, self.k1
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
-            y[f] = (k1 / 6) * (x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f])
+            y[f] = (k1 / 6) * (
+                x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f]
+            )
             y[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
 
         else:
@@ -1147,7 +1147,7 @@ class AirfoilGeometryInterpolator:
         others = np.nonzero(~np.any(exact_match, axis=-1))
         i0[others] = np.argmax(~(ai[others][..., None] >= self.ai), axis=-1) - 1
         i1[others] = np.argmax(ai[others][..., None] < self.ai, axis=-1)
-        delta = (self.ai[i1[others]] - self.ai[i0[others]])
+        delta = self.ai[i1[others]] - self.ai[i0[others]]
         p0[others] = (self.ai[i1[others]] - ai[others]) / delta
         p1[others] = (ai[others] - self.ai[i0[others]]) / delta
         return (i0, i1, p0, p1)

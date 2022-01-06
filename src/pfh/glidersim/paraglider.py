@@ -211,6 +211,8 @@ class ParagliderSystemDynamics6a:
         # Builds a system of equations by equating derivatives of translational
         # and angular momentum to the forces and moments.
 
+        # fmt: off
+
         # Real mass momentums
         v_B2e = v_RM2e + cross3(omega_b2e, r_B2RM)
         p_b2e = m_b * v_B2e  # Linear
@@ -244,6 +246,8 @@ class ParagliderSystemDynamics6a:
                 - cross3(omega_b2e, amp["h_a2R"])
                 + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
+
+        # fmt: on
 
         B = np.r_[B1, B2]
         x = np.linalg.solve(A, B)  # Solve for the derivatives
@@ -301,7 +305,6 @@ class ParagliderSystemDynamics6a:
             solution : dictionary
                 FIXME: docstring. See `Phillips.__call__`
         """
-
         if alpha_0 is None:
             alpha_0 = self.wing.equilibrium_alpha(
                 delta_a=delta_a,
@@ -935,6 +938,8 @@ class ParagliderSystemDynamics9a:
         # `omega_b2e` (in body frd), `omega_p2e` (in payload frd), and the
         # internal force on the risers, `F_RM` (in body frd).
 
+        # fmt: off
+
         # Real mass momentums
         p_b2e = m_b * v_B2e  # Linear
         p_p2e = m_p * v_P2e
@@ -988,8 +993,9 @@ class ParagliderSystemDynamics9a:
                 + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
 
-        B = np.r_[B1, B2, B3, B4]
+        # fmt: on
 
+        B = np.r_[B1, B2, B3, B4]
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
         alpha_b2e = x[3:6]  # In frames F_b and F_e
@@ -1047,7 +1053,6 @@ class ParagliderSystemDynamics9a:
             solution : dictionary
                 FIXME: docstring. See `Phillips.__call__`
         """
-
         if alpha_0 is None:
             alpha_0 = self.wing.equilibrium_alpha(
                 delta_a=delta_a,
@@ -1306,6 +1311,8 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
         # `omega_b2e` (in body frd), `omega_p2e` (in payload frd), and the
         # internal force on the risers, `F_RM` (in body frd).
 
+        # fmt: off
+
         I3, Z3 = np.eye(3), np.zeros((3, 3))
         A1 = [m_b * I3, -m_b * crossmat(r_B2RM), Z3, I3]
         A2 = [Z3, J_b2B, Z3, -crossmat(r_B2RM)]
@@ -1328,6 +1335,9 @@ class ParagliderSystemDynamics9b(ParagliderSystemDynamics9a):
             - m_p * cross3(omega_p2e, cross3(omega_p2e, r_P2RM))
         )
         B4 = g_p2P + C_p2b @ g_RM - cross3(omega_p2e, J_p2P @ omega_p2e)
+
+        # fmt: on
+
         B = np.r_[B1, B2, B3, B4]
         x = np.linalg.solve(A, B)
         a_RM2e = x[:3]  # In frame F_b
@@ -1525,6 +1535,8 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
         # `omega_b2e^b`, `omega_p2e^p`, and the internal force on the risers,
         # `F_RM^b`. All derivatives are from the body frame.
 
+        # fmt: off
+
         # Real mass momentums
         p_b2e = m_b * v_B2e  # Linear
         p_p2e = m_p * v_P2e
@@ -1577,6 +1589,8 @@ class ParagliderSystemDynamics9c(ParagliderSystemDynamics9a):
                 - cross3(omega_b2e, amp["h_a2R"])
                 + cross3(v_RM2e, amp["M_a"] @ v_RM2e)  # Remove the steady-state term
             )
+
+        # fmt: on
 
         B = np.r_[B1, B2, B3, B4]
         x = np.linalg.solve(A, B)

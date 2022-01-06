@@ -18,15 +18,15 @@ if __name__ == "__main__":
 
     if size == 23:  # Similar to if I was flying my non-pod harness
         harness = gsim.paraglider_harness.Spherical(
-            mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15,
+            mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.15
         )
     elif size == 25:  # As in `hook3 Thermik.pdf` from thermik.at
         harness = gsim.paraglider_harness.Spherical(
-            mass=100, z_riser=0.5, S=0.65, CD=0.4, kappa_w=0.15,
+            mass=100, z_riser=0.5, S=0.65, CD=0.4, kappa_w=0.15
         )
     elif size == 27:  # As in `hook_3_perfils.pdf` from Parapente
         harness = gsim.paraglider_harness.Spherical(
-            mass=115, z_riser=0.5, S=0.70, CD=0.4, kappa_w=0.15,
+            mass=115, z_riser=0.5, S=0.70, CD=0.4, kappa_w=0.15
         )
     else:
         raise RuntimeError(f"Invalid Hook 3 canopy size {size}")

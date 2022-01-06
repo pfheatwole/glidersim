@@ -8,7 +8,7 @@ import pfh.glidersim as gsim
 airfoil1 = gsim.airfoil.NACA(24018)
 # airfoil2 = gsim.airfoil.NACA(22010)
 # airfoil1 = gsim.airfoil.NACA(7111, convention='perpendicular')
-airfoil2 = gsim.airfoil.NACA(7911, convention='perpendicular')
+airfoil2 = gsim.airfoil.NACA(7911, convention="perpendicular")
 
 gsim.extras.plots.plot_airfoil_geo(airfoil1)
 gsim.extras.plots.plot_airfoil_geo(airfoil2)
@@ -61,7 +61,6 @@ def update(frame):
         p = 1 - (frame - N_steps) / N_steps  # Counting down
     print(f"\r{frame}", end="")
 
-
     # First method: interpolate the camber and thickness
     xyc = (1 - p) * xyc1 + p * xyc2  # The interpolated camber curve
     cx, cy = xyc.T
@@ -82,7 +81,12 @@ def update(frame):
 # breakpoint()
 
 ani = animation.FuncAnimation(
-    fig, update, frames=N_steps * 2, init_func=setup, blit=True, interval=20,
+    fig,
+    update,
+    frames=N_steps * 2,
+    init_func=setup,
+    blit=True,
+    interval=20,
 )
 
 plt.show()

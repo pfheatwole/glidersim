@@ -166,8 +166,12 @@ def build_hook3(
     line_drag_parameters = {
         "total_line_length": specs["total_line_length"],
         "average_line_diameter": 1e-3,  # Blind guess
-        "r_L2LE": np.array([[-0.5 * specs["chord_root"], -1.75, 1.75],
-                            [-0.5 * specs["chord_root"],  1.75, 1.75]]),
+        "r_L2LE": np.array(
+            [
+                [-0.5 * specs["chord_root"], -1.75, 1.75],
+                [-0.5 * specs["chord_root"], 1.75, 1.75],
+            ],
+        ),
         "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
     }
 
@@ -183,7 +187,7 @@ def build_hook3(
         canopy=canopy,
         rho_upper=39 / 1000,  # [kg/m^2]  Porcher 9017 E77A
         rho_lower=35 / 1000,  # [kg/m^2]  Dominico N20DMF
-        rho_ribs=41 / 1000,   # [kg/m^2]  Porcher 9017 E29
+        rho_ribs=41 / 1000,  # [kg/m^2]  Porcher 9017 E29
         N_cells=52,
     )
 

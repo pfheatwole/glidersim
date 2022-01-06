@@ -37,9 +37,11 @@ def euler_to_dcm(euler):
     """
     sp, st, sg = np.sin(euler)
     cp, ct, cg = np.cos(euler)
-    dcm = [[ct * cg,                                 ct * sg,     -st],
-           [-cp * sg + sp * st * cg,  cp * cg + sp * st * sg, sp * ct],
-           [sp * sg + cp * st * cg,  -sp * cg + cp * st * sg, cp * ct]]
+    # fmt: off
+    dcm = [[                ct * cg,                 ct * sg,     -st],  # noqa: 201, 241
+           [-cp * sg + sp * st * cg,  cp * cg + sp * st * sg, sp * ct],  # noqa: 201, 241
+           [ sp * sg + cp * st * cg, -sp * cg + cp * st * sg, cp * ct]]  # noqa: 201, 241
+    # fmt: on
 
     return np.asfarray(dcm)
 
@@ -84,10 +86,12 @@ def euler_to_quaternion(euler):
     cp, ct, cg = np.cos(euler / 2)
 
     # ref: Stevens, Equation on pg 52 (66)
+    # fmt: off
     q = np.asfarray([cp * ct * cg + sp * st * sg,
                      sp * ct * cg - cp * st * sg,
                      cp * st * cg + sp * ct * sg,
                      cp * ct * sg - sp * st * cg])
+    # fmt: on
     return q
 
 
@@ -130,8 +134,12 @@ def quaternion_to_euler(q):
     return np.array([phi, theta, gamma]).T
 
 
-@guvectorize([(float64[:], float64[:], float64[:])],
-             '(n),(m)->(m)', nopython=True, cache=True)
+@guvectorize(
+    [(float64[:], float64[:], float64[:])],
+    "(n),(m)->(m)",
+    nopython=True,
+    cache=True,
+)
 def quaternion_rotate(q, u, v):
     """Rotate a 3-vector using a quaternion.
 
@@ -159,8 +167,12 @@ def quaternion_rotate(q, u, v):
     v[:] = 2 * qv * (qv @ u) + (qw ** 2 - qv @ qv) * u - 2 * qw * _cross3(qv, u)
 
 
-@guvectorize([(float64[:], float64[:], float64[:])],
-             '(n),(m)->(m)', nopython=True, cache=True)
+@guvectorize(
+    [(float64[:], float64[:], float64[:])],
+    "(n),(m)->(m)",
+    nopython=True,
+    cache=True,
+)
 def quaternion_product(p, q, v):
     r"""
     Multiply two quaternions.

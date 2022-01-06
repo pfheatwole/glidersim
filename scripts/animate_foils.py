@@ -8,12 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 import pfh.glidersim as gsim
 from pfh.glidersim.airfoil import NACA, AirfoilGeometryInterpolator
 from pfh.glidersim.foil import SimpleFoil  # noqa: F401
-from pfh.glidersim.foil_layout import (
-    EllipticalArc,
-    EllipticalChord,
-    FlatYZ,
-    FoilLayout,
-)
+from pfh.glidersim.foil_layout import EllipticalArc, EllipticalChord, FlatYZ, FoilLayout
 from pfh.glidersim.foil_layout import PolynomialTorsion as PT  # noqa: F401
 from pfh.glidersim.foil_sections import FoilSections
 
@@ -59,19 +54,20 @@ def repeat(config, T, fps):
     for _ in np.arange(round(T * fps)):
         yield config
 
+
 # ---------------------------------------------------------------------------
 
 
 def SEQS_sweep_chord_lengths(T, fps):
     """Sweep chord_length over a rectangular wing."""
     seq1 = [
-        sweep_scalar("c", .3, .5, T / 2, fps, False),
+        sweep_scalar("c", 0.3, 0.5, T / 2, fps, False),
     ]
     seq2 = [
-        sweep_scalar("c", .5, .1, T, fps, False),
+        sweep_scalar("c", 0.5, 0.1, T, fps, False),
     ]
     seq3 = [
-        sweep_scalar("c", .1, .3, T / 2, fps, False),
+        sweep_scalar("c", 0.1, 0.3, T / 2, fps, False),
     ]
     return (seq1, T / 2), (seq2, T), (seq3, T / 2)
 
@@ -87,16 +83,14 @@ def SEQS_sweep_linear_chord_ratios(T, fps):
             m = c0 - tip
             yield {"c": f"lambda s: {c0:>4.3g} - {m:4.3g} * abs(s)"}
 
-    seq0 = [
-        sweep_scalar("r_x", 0.5, 1, T / 2, fps, False)
-    ]
+    seq0 = [sweep_scalar("r_x", 0.5, 1, T / 2, fps, False)]
     seq1 = [
         repeat({"r_x": "1"}, T, fps),
-        f1(.3, .5, .3, T, fps, reverse=False),
+        f1(0.3, 0.5, 0.3, T, fps, reverse=False),
     ]
     seq2 = [
         repeat({"r_x": "1"}, T, fps),
-        f2(.3, 0, .5, T, fps, reverse=False),
+        f2(0.3, 0, 0.5, T, fps, reverse=False),
     ]
 
     return (seq0, T / 2), (seq1, T), (seq2, T)
@@ -110,10 +104,10 @@ def SEQS_sweep_elliptical_chord_ratios(T, fps):
             yield {"c": f"EllipticalChord({c0:4.3g}, {tip:4.3g})"}
 
     seq1 = [
-        f(.11, .7, .1, T, fps, False),
+        f(0.11, 0.7, 0.1, T, fps, False),
     ]
     seq2 = [
-        f(.7, .5, .1, T / 2, fps, False),
+        f(0.7, 0.5, 0.1, T / 2, fps, False),
     ]
 
     return (seq1, T), (seq2, T / 2)
@@ -279,11 +273,11 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
     ]
     seq2a = [
         repeat(base, T, fps),
-        f(0, -.2, T, fps),
+        f(0, -0.2, T, fps),
     ]
     seq2b = [
         repeat(base, T, fps),
-        f(0, .2, T, fps),
+        f(0, 0.2, T, fps),
     ]
 
     return (seq1a, T), (seq1b, T), (seq2a, T), (seq2b, T)
@@ -292,21 +286,25 @@ def SEQS_sweep_xrx_elliptical_arched(T, fps):
 def SEQS_sweep_torsion(T, fps):
     def f1(start, peak_start, peak_stop, exponent, T, fps):
         for peak in sweep(peak_start, peak_stop, T, fps=fps, reverse=False):
-            yield {"theta": f"PT(start={start}, peak={peak:<#6.3f}, exponent={exponent})"}
+            yield {
+                "theta": f"PT(start={start}, peak={peak:<#6.3f}, exponent={exponent})"
+            }
 
     def f2(s_start, s_stop, peak, exponent, T, fps):
         for start in sweep(s_start, s_stop, T, fps=fps):
-            yield {"theta": f"PT(start={start:<#6.3f}, peak={peak}, exponent={exponent})"}
+            yield {
+                "theta": f"PT(start={start:<#6.3f}, peak={peak}, exponent={exponent})"
+            }
 
     seq1 = [f1(0, 0, 25, 2, T, fps)]
     seq2 = [f2(0, 0.8, 25, 2, T, fps)]
     seq3a = [
         repeat({"theta": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
-        sweep_scalar("r_x", 0.5, 1, T / 2, fps, True)
+        sweep_scalar("r_x", 0.5, 1, T / 2, fps, True),
     ]
     seq3b = [
         repeat({"theta": "PT(start=0, peak=25.0, exponent=2)"}, T / 2, fps),
-        sweep_scalar("r_x", 0.5, 0, T / 2, fps, True)
+        sweep_scalar("r_x", 0.5, 0, T / 2, fps, True),
     ]
     seq4 = [f1(0, 25, 0, 2, T, fps)]
 
@@ -437,8 +435,8 @@ pfh.glidersim.extras.plots.plot_foil(foil)
 
 
 if __name__ == "__main__":
-    outfile = '/home/peter/animated.mp4'
-    outfile = ''  # Disable movie output (use a live plot)
+    outfile = "/home/peter/animated.mp4"
+    outfile = ""  # Disable movie output (use a live plot)
 
     # Use high quality output for movies
     dpi = 200 if outfile else 150

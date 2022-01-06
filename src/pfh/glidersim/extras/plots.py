@@ -9,10 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401; for `projection='3d'`
 
 
 if TYPE_CHECKING:
-    from pfh.glidersim.airfoil import (
-        AirfoilCoefficientsInterpolator,
-        AirfoilGeometry,
-    )
+    from pfh.glidersim.airfoil import AirfoilCoefficientsInterpolator, AirfoilGeometry
 
 
 __all__ = [
@@ -93,7 +90,7 @@ def _clean_3d_axes(ax, ticks=False, spines=False, panes=False):
 def _create_3d_axes(figsize=(12, 12), dpi=96):
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.add_subplot(projection="3d")
-    ax.set_proj_type('ortho')
+    ax.set_proj_type("ortho")
     elev = 90 - np.rad2deg(np.arctan(np.sqrt(2)))
     ax.view_init(azim=-135, elev=elev)  # Isometric view
     ax.invert_yaxis()
@@ -120,7 +117,7 @@ def plot_airfoil_geo(foil_geo: AirfoilGeometry, N_points: int = 200) -> None:
         linewidth=0.75,
     )
 
-    ax.plot([0, 1], [0, 0], c="grey", lw=1, ls='-.', label="chord")
+    ax.plot([0, 1], [0, 0], c="grey", lw=1, ls="-.", label="chord")
 
     ax.set_aspect("equal")
     ax.margins(x=0.1, y=0.40)
@@ -152,7 +149,7 @@ def plot_airfoil_coef(
         The number of sample points per dimension
     """
     coef = coef.lower()
-    if coef not in {'cl', 'cl_alpha', 'cd', 'cm'}:
+    if coef not in {"cl", "cl_alpha", "cd", "cm"}:
         raise ValueError("`coef` must be one of {cl, cl_alpha, cd, cm}")
 
     alpha = np.deg2rad(np.linspace(-10, 25, N))
@@ -160,10 +157,10 @@ def plot_airfoil_coef(
     grid = np.meshgrid(alpha, Re)
 
     f = {
-        'cl': coefficients.Cl,
-        'cl_alpha': coefficients.Cl_alpha,
-        'cd': coefficients.Cd,
-        'cm': coefficients.Cm,
+        "cl": coefficients.Cl,
+        "cl_alpha": coefficients.Cl_alpha,
+        "cd": coefficients.Cd,
+        "cm": coefficients.Cm,
     }[coef]
     values = f(ai, grid[0], grid[1], clamp=clamp)
 
@@ -232,14 +229,14 @@ def plot_foil(
     z = max(zlim)
     z *= 1.035  # Fix the distortion due to small distance from the xy-pane
     vertices = np.vstack((LE[0:2].T, TE[0:2].T[::-1]))  # shape: (2 * N_sections, 2)
-    poly = PolyCollection([vertices], facecolors=['k'], alpha=0.25)
-    ax.add_collection3d(poly, zs=[z], zdir='z')
+    poly = PolyCollection([vertices], facecolors=["k"], alpha=0.25)
+    ax.add_collection3d(poly, zs=[z], zdir="z")
     ax.plot(c4[0], c4[1], z, "g--", lw=0.8)
 
     # `x` reference curve projection onto the xy-pane
     xyz = foil.surface_xyz(s, ai, foil._layout.r_x(s), surface="chord")
     x, y = xyz[..., 0], xyz[..., 1]
-    ax.plot(x, y, z, 'r--', lw=0.8, label="reference lines")
+    ax.plot(x, y, z, "r--", lw=0.8, label="reference lines")
 
     # Quarter-chord projection onto the yz-pane (`x` held fixed)
     x = np.full(c4[1].shape, min(xlim))
@@ -249,7 +246,7 @@ def plot_foil(
     # `yz` reference curve projection onto the yz-pane
     xyz = foil.surface_xyz(s, ai, foil._layout.r_yz(s), surface="chord")
     y, z = xyz[..., 1], xyz[..., 2]
-    ax.plot(x, y, z, 'r--', lw=0.8)
+    ax.plot(x, y, z, "r--", lw=0.8)
 
     ax.legend()
 
@@ -297,23 +294,25 @@ def plot_foil_topdown(
 
     theta = np.deg2rad(rotate)
     ct, st = np.cos(theta), np.sin(theta)
-    R = np.array(
-        [[ ct, 0, st],  # noqa: E201
-         [  0, 1,  0],  # noqa: E201
-         [-st, 0, ct]],
-    )
+    # fmt: off
+    R = np.array([
+        [ ct, 0, st],  # noqa: E201, E241
+        [  0, 1,  0],  # noqa: E201, E241
+        [-st, 0, ct],  # noqa: E201, E241
+    ])
+    # fmt: on
 
     for _s in s:
         LE = foil.surface_xyz(_s, 0, 0, surface="chord", flatten=flatten)
         TE = foil.surface_xyz(_s, 0, 1, surface="chord", flatten=flatten)
         coords = np.stack((LE, TE))
         coords = (R @ coords.T).T
-        ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c='k')
+        ax.plot(coords.T[1], coords.T[0], linewidth=0.75, c="k")
 
     LE = (R @ foil.surface_xyz(s, 0, 0, surface="chord", flatten=flatten).T).T
     TE = (R @ foil.surface_xyz(s, 0, 1, surface="chord", flatten=flatten).T).T
-    ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c='k')
-    ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c='k')
+    ax.plot(LE.T[1], LE.T[0], linewidth=0.75, c="k")
+    ax.plot(TE.T[1], TE.T[0], linewidth=0.75, c="k")
 
     if independent_plot:
         ax.set_aspect("equal")
