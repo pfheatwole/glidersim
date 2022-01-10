@@ -146,7 +146,7 @@ class Phillips(FoilAerodynamics):
         self.cps = self.foil.surface_xyz(self.s_cps, 0, 0.25, surface="chord")
 
         # Enable clamped coefficients at some control points
-        if s_clamp:
+        if s_clamp is not None:
             self.clamped = np.abs(self.s_cps) >= s_clamp
         else:
             self.clamped = np.full(self.K, False)
