@@ -82,8 +82,14 @@ class Phillips(FoilAerodynamics):
         The reference solution airspeed
     alpha_ref : float [degrees]
         The reference solution angle of attack
-    K : integer
-        The number of bound vortex segments. Default: 51
+    s_nodes : array_like of floats, shape (K+1,)
+        Section indices of the `K + 1` section nodes (wing segment endpoints).
+        The `K >= 1` aerodynamic control points are centered between the nodes.
+        Two common point distributions are:
+
+        * Linear: ``np.linspace(-1, 1, K + 1)``
+        * Cosine: ``np.cos(np.linspace(np.pi, 0, K + 1))``
+
     s_clamp : float, optional
         Section index to enable clamped output of the aerodynamic coefficients
         for section indices `abs(s) >= s_clamp`. Instead of returning `nan`,
@@ -105,11 +111,11 @@ class Phillips(FoilAerodynamics):
     .. [1] Phillips and Snyder, "Modern Adaptation of Prandtl’s Classic
        Lifting-Line Theory", Journal of Aircraft, 2000
 
-    .. [2] McLeanauth, "Understanding Aerodynamics - Arguing from the Real
-       Physics", p382
-
-    .. [3] Hunsaker and Snyder, "A lifting-line approach to estimating
+    .. [2] Hunsaker and Snyder, "A lifting-line approach to estimating
        propeller/wing interactions", 2006
+
+    .. [3] McLeanauth, "Understanding Aerodynamics - Arguing from the Real
+       Physics", 2013, p382
 
     Notes
     -----
@@ -128,25 +134,14 @@ class Phillips(FoilAerodynamics):
         self,
         foil,
         v_ref_mag,
-        alpha_ref: float = 5,
-        K: int = 51,
+        alpha_ref: float,
+        s_nodes,
         s_clamp: float | None = None,
     ) -> None:
         self.foil = foil
-        self.K = K
-
-        # Define the spanwise and nodal and control points
-
-        # Option 1: linear distribution
-        self.s_nodes = np.linspace(-1, 1, self.K + 1)
-
-        # Option 2: cosine distribution
-        # self.s_nodes = np.cos(np.linspace(np.pi, 0, self.K + 1))
-
-        # Nodes are indexed from 0..K+1
+        self.K = len(s_nodes) - 1  # Number of control points
+        self.s_nodes = np.asarray(s_nodes)
         self.nodes = self.foil.surface_xyz(self.s_nodes, 0, 0.25, surface="chord")
-
-        # Control points are indexed from 0..K
         self.s_cps = (self.s_nodes[1:] + self.s_nodes[:-1]) / 2
         self.cps = self.foil.surface_xyz(self.s_cps, 0, 0.25, surface="chord")
 
@@ -154,7 +149,7 @@ class Phillips(FoilAerodynamics):
         if s_clamp:
             self.clamped = np.abs(self.s_cps) >= s_clamp
         else:
-            self.clamped = np.full(K, False)
+            self.clamped = np.full(self.K, False)
 
         # axis0 are nodes, axis1 are control points, axis2 are vectors or norms
         self.R1 = self.cps - self.nodes[:-1, None]

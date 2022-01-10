@@ -120,6 +120,7 @@ def build_hook3(
         Cd_surface=0.004,  # ref: ware1969WindtunnelInvestigationRamair
     )
 
+    s_nodes = np.linspace(-1, 1, num_control_points + 1)
     canopy = gsim.foil.SimpleFoil(
         layout=layout,
         sections=sections,
@@ -128,8 +129,9 @@ def build_hook3(
         aerodynamics_method=gsim.foil_aerodynamics.Phillips,
         aerodynamics_config={
             "v_ref_mag": 10,
-            "K": num_control_points,
-            "s_clamp": 0.95,  # Mitigate fictitious stalls at wing tips
+            "alpha_ref": 5,
+            "s_nodes": s_nodes,
+            "s_clamp": s_nodes[-1],  # Mitigate fictitious stalls at wing tips
         },
     )
 
