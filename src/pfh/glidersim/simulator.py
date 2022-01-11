@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "StateDynamics",
     "ParagliderStateDynamics6a",
     "ParagliderStateDynamics9a",
     "simulate",
