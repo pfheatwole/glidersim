@@ -21,60 +21,91 @@ def __dir__():
     return __all__
 
 
-def euler_to_dcm(euler):
+def euler_to_dcm(euler, intrinsic: bool = True):
     """
-    Convert a set of yaw-pitch-role Tait-Bryan angles to a DCM.
+    Convert a set of yaw-pitch-roll Tait-Bryan angles to a DCM.
+
+    Intrinsic rotation: z-y'-x''
+    Extrinsic rotation: z-y-x
 
     Parameters
     ----------
-    euler : array of float, shape (3,) [radians]
-        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
+    euler : array of float, shape (...,3) [radians]
+        The (roll, pitch, yaw) angles of a yaw-pitch-roll sequence.
+    intrinsic : bool, optional
+        Whether the sequence encodes an intrinsic or extrinsic rotation.
+
+        FIXME: explain how extrinsic rotations are useful for computing vectors
+        in wind axes: `C_w2b = euler_to_dcm([0, -alpha, beta])`
 
     Returns
     -------
-    dcm : ndarray of float, shape (3,3)
+    ndarray of float, shape (...,3,3)
         The direction cosine matrix that would apply the given rotation
     """
-    sp, st, sg = np.sin(euler)
-    cp, ct, cg = np.cos(euler)
-    # fmt: off
-    dcm = [[                ct * cg,                 ct * sg,     -st],  # noqa: 201, 241
-           [-cp * sg + sp * st * cg,  cp * cg + sp * st * sg, sp * ct],  # noqa: 201, 241
-           [ sp * sg + cp * st * cg, -sp * cg + cp * st * sg, cp * ct]]  # noqa: 201, 241
-    # fmt: on
+    if np.shape(euler)[-1] != 3:
+        raise ValueError("The last dimension of `euler` must be 3")
+    se = np.sin(euler)
+    ce = np.cos(euler)
+    sp, st, sg = se[..., 0], se[..., 1], se[..., 2]
+    cp, ct, cg = ce[..., 0], ce[..., 1], ce[..., 2]
 
-    return np.asfarray(dcm)
+    if intrinsic:  # Encode a z-y'-x'' sequence
+        dcm = [
+            [ct * cg, ct * sg, -st],
+            [-cp * sg + sp * st * cg, cp * cg + sp * st * sg, sp * ct],
+            [sp * sg + cp * st * cg, -sp * cg + cp * st * sg, cp * ct],
+        ]
+    else:  # Encode a z-y-x sequence
+        dcm = [
+            [cg * ct, sg * cp + cg * st * sp, sg * sp - cg * st * cp],
+            [-sg * ct, cg * cp - sg * st * sp, cg * sp + sg * st * cp],
+            [st, -ct * sp, ct * cp],
+        ]
+    return np.moveaxis(dcm, [0, 1], [-2, -1])
 
 
-def dcm_to_euler(dcm):
+def dcm_to_euler(dcm, intrinsic: bool = True):
     """
-    Convert a DCM to a set of yaw-pitch-role Tait-Bryan angles.
+    Convert a DCM to a set of yaw-pitch-roll Tait-Bryan angles.
+
+    Intrinsic rotation: z-y'-x''
+    Extrinsic rotation: z-y-x
 
     Parameters
     ----------
-    dcm : ndarray of float, shape (3,3)
+    dcm : ndarray of float, shape (...,3,3)
         A direction cosine matrix.
+    intrinsic : bool, optional
+        Whether the sequence encodes an intrinsic or extrinsic rotation.
 
     Returns
     -------
-    euler : array of float, shape (3,) [radians]
-        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
+    array of float, shape (...,3) [radians]
+        The (roll, pitch, yaw) angles of a yaw-pitch-roll sequence.
     """
-    # ref: Stevens Eq:1.3-11, pg12 (26)
-    phi = np.arctan2(dcm[1, 2], dcm[2, 2])
-    theta = -np.arcsin(dcm[0, 2])
-    gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
-    return np.array([phi, theta, gamma])
+    if np.shape(dcm)[-2:] != (3, 3):
+        raise ValueError("The last two dimensions of `dcm` must be (3, 3)")
+    if intrinsic:
+        # ref: Stevens Eq:1.3-11, pg12 (26)
+        phi = np.arctan2(dcm[1, 2], dcm[2, 2])
+        theta = -np.arcsin(dcm[0, 2])
+        gamma = np.arctan2(dcm[0, 1], dcm[0, 0])
+    else:
+        theta = np.arcsin(dcm[2, 0])
+        phi = np.arccos(dcm[2, 2] / np.cos(theta))
+        gamma = np.arccos(dcm[0, 0] / np.cos(theta))
+    return np.stack([phi, theta, gamma], axis=-1)
 
 
 def euler_to_quaternion(euler):
     """
-    Convert a set of yaw-pitch-role Tait-Bryan angles to a quaternion.
+    Convert a set of intrinsic yaw-pitch-roll Tait-Bryan angles to a quaternion.
 
     Parameters
     ----------
     euler : array of float, shape (3,) [radians]
-        The [phi, theta, gamma] of a yaw-pitch-roll sequence.
+        The (roll, pitch, yaw) angles of a yaw-pitch-roll sequence.
 
     Returns
     -------
@@ -108,7 +139,8 @@ def quaternion_to_dcm(q):
 
 
 def quaternion_to_euler(q):
-    """Convert a quaternion to a set of yaw-pitch-role Tait-Bryan angles.
+    """
+    Convert a quaternion to a set of intrinsic yaw-pitch-roll Tait-Bryan angles.
 
     Parameters
     ----------
