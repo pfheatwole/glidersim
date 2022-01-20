@@ -19,6 +19,14 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
+
+# Serve the HTML output on a local webserver
+.PHONY:
+serve:
+	test -d "$(BUILDDIR)/html" || make html
+	python -m http.server --directory "$(BUILDDIR)/html" 8888
+
+
 # Publish the HTML output to Github Pages
 github: html
 	ghp-import -m 'Generated from "$(shell git symbolic-ref --short HEAD)" @ $(shell git rev-parse --short HEAD)' -n $(BUILDDIR)/html
