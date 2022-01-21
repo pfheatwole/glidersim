@@ -45,8 +45,6 @@ autodoc_default_options = {
     "special-members": "__call__, __init__",
 }
 
-autosummary_generate = True
-
 intersphinx_mapping = {
     "thesis": ("/home/peter/thesis/sphinx/build/html", None),
 }
