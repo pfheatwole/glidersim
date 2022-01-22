@@ -33,6 +33,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
     "numpydoc",
 ]
 
@@ -47,6 +48,17 @@ autodoc_default_options = {
 
 intersphinx_mapping = {
     "thesis": ("/home/peter/thesis/sphinx/build/html", None),
+}
+
+mathjax3_config = {
+    "tex": {
+        "macros": {
+            "defas": r"\stackrel{\mathrm{def}}{=}",
+            "vec": [r"\mathbf{#1}", 1],
+            "mat": [r"\mathbf{#1}", 1],
+            "crossmat": [r"\left[{#1}\right]^{\times}", 1],
+        },
+    },
 }
 
 # Add any paths that contain templates here, relative to this directory.
