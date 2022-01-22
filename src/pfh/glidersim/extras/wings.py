@@ -8,9 +8,9 @@ import pfh.glidersim as gsim
 from pfh.glidersim.extras import plots
 
 
-def build_hook3(
+def niviuk_hook3(
     *,
-    size=23,
+    size,
     num_control_points: int = 31,
     verbose: bool = True,
 ) -> gsim.paraglider_wing.ParagliderWing:

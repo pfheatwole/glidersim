@@ -354,7 +354,7 @@ def canopy_mass_properties(canopy, amp, N=250):
 
 
 if __name__ == "__main__":
-    wing = gsim.extras.wings.build_hook3()
+    wing = gsim.extras.wings.niviuk_hook3(size=23)
     wing.canopy.sections.intakes = wing.canopy.sections._no_intakes
     amp = airfoil_mass_properties(gsim.airfoil.NACA(24018))
     cmp1 = canopy_mass_properties(wing.canopy, amp, N=20000)
