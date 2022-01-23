@@ -26,7 +26,7 @@ from scipy.interpolate import (
     RegularGridInterpolator,
 )
 
-from .fast_interp import interp3d
+from ._fast_interp import interp3d
 
 
 __all__ = [
