@@ -1,4 +1,4 @@
-"""FIXME: add module docstring"""
+"""Mathematical utility functions."""
 
 import numpy as np
 from numba import float64, guvectorize, njit

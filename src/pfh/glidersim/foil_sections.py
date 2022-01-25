@@ -1,4 +1,4 @@
-"""FIXME: add docstring."""
+"""Models that provide foil section geometry and coefficients."""
 
 from __future__ import annotations
 

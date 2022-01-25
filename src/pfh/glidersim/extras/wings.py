@@ -1,4 +1,4 @@
-"""FIXME: add module docstring"""
+"""Prebuilt wing models."""
 
 from __future__ import annotations
 
@@ -14,7 +14,18 @@ def build_hook3(
     num_control_points: int = 31,
     verbose: bool = True,
 ) -> gsim.paraglider_wing.ParagliderWing:
-    """Build an approximate Niviuk Hook 3, size 23."""
+    """
+    Build an approximate Niviuk Hook 3.
+
+    Parameters
+    ----------
+    size : {23, 25, 27} [m^2]
+        The size of the wing.
+    num_control_points : int
+        The number of aerodynamic control points.
+    verbose : bool, default: True
+        Whether to print a description of the resulting model.
+    """
     if verbose:
         print("Building an (approximate) Niviuk Hook 3 23\n")
 

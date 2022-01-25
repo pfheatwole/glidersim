@@ -14,14 +14,14 @@ import os
 import sys
 
 
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath("../.."))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'glidersim'
-copyright = '2021, Peter Heatwole'
-author = 'Peter Heatwole'
+project = "pfh.glidersim"
+copyright = "2022, Peter Heatwole"
+author = "Peter Heatwole"
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,29 +30,44 @@ author = 'Peter Heatwole'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'numpydoc',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
+    "numpydoc",
 ]
 
 autodoc_default_options = {
-    'inherited-members': True,
-    'members': True,
-    'member-order': 'bysource',
-    'undoc-members': True,
-    'show-inheritance': True,
-    'special-members': '__call__, __init__',
+    "inherited-members": True,
+    "members": True,
+    "member-order": "bysource",
+    "undoc-members": True,
+    "show-inheritance": True,
+    "special-members": "__call__, __init__",
 }
 
-autosummary_generate = True
+intersphinx_mapping = {
+    "thesis": ("/home/peter/thesis/sphinx/build/html", None),
+}
+
+mathjax3_config = {
+    "tex": {
+        "macros": {
+            "defas": r"\stackrel{\mathrm{def}}{=}",
+            "vec": [r"\mathbf{#1}", 1],
+            "mat": [r"\mathbf{#1}", 1],
+            "crossmat": [r"\left[{#1}\right]^{\times}", 1],
+        },
+    },
+}
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -60,7 +75,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "furo"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

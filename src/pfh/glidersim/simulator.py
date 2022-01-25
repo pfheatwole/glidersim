@@ -1,4 +1,8 @@
-"""FIXME: add module docstring."""
+"""
+Models for simulating flight trajectories.
+
+FIXME: explain *state dynamics* models
+"""
 
 from __future__ import annotations
 
@@ -22,6 +26,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "StateDynamics",
     "ParagliderStateDynamics6a",
     "ParagliderStateDynamics9a",
     "simulate",
@@ -65,7 +70,7 @@ class StateDynamics(Protocol):
         """
         Perform any necessary cleanup after each integration step.
 
-        NOTE: this will directly modify the integrator's internal state.
+        NOTE: mutating `state` will modify the integrator's internal state
 
         Parameters
         ----------

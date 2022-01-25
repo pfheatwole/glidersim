@@ -6,7 +6,7 @@
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
-BUILDDIR      = _build
+BUILDDIR      = build
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -18,6 +18,13 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+
+# Serve the HTML output on a local webserver
+.PHONY:
+serve:
+	sphinx-autobuild --host 0.0.0.0 --port 8888 "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS) $(O)
+
 
 # Publish the HTML output to Github Pages
 github: html

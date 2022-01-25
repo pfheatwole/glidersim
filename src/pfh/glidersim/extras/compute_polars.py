@@ -1,4 +1,4 @@
-"""FIXME: add module docstring"""
+"""Utility functions for generating performance *polar curves* for a foil."""
 
 from __future__ import annotations
 
