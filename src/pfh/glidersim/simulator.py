@@ -435,30 +435,28 @@ class ParagliderStateDynamics9a(StateDynamics):
 def simulate(
     model: StateDynamics,
     state0,
-    T: float = 10,
-    T0: float = 0,
-    dt: float = 0.5,
-    first_step: float = 0.25,
-    max_step: float = 0.5,
+    T: float,
+    dt: float,
+    t0: float = 0.0,
 ):
     """
     Generate a state trajectory using the model's state derivatives.
 
     Parameters
     ----------
-    model
+    model : StateDynamics
         The model that provides `state_dtype` and `derivatives`
     state0 : model.state_dtype
         The initial state
     T : float [seconds]
         The total simulation time
-    T0 : float [seconds]
-        The start time of the simulation. Useful for models with time varying
-        behavior (eg, wind fields).
     dt : float [seconds]
         The simulation step size. This determines the time separation of each
         point in the state trajectory, but the RK4 integrator is free to use
         a different step size internally.
+    t0 : float [seconds], optional
+        The start time of the simulation. Useful for models with time varying
+        behavior (eg, wind fields).
 
     Returns
     -------
@@ -468,9 +466,9 @@ def simulate(
         The state trajectory.
     """
     K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
-    times = np.zeros(K)  # Simulation timestamps [sec]
+    times = np.empty(K)  # Simulation timestamps [sec]
     states = np.empty(K, dtype=model.state_dtype)
-    times[0] = T0
+    times[0] = t0
     states[0] = state0
 
     def _flattened_derivatives(t, y, params):
@@ -479,8 +477,8 @@ def simulate(
         return state_dot.view(float)
 
     solver = scipy.integrate.ode(_flattened_derivatives)
-    solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
-    solver.set_initial_value(state0.flatten().view(float), T0)
+    solver.set_integrator("dopri5", rtol=1e-5)
+    solver.set_initial_value(state0.flatten().view(float), t0)
     solver.set_f_params(*model.extra_arguments())
 
     t_start = time.perf_counter()
