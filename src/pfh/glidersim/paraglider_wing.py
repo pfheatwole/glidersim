@@ -352,8 +352,8 @@ class ParagliderWing:
         Surface area density of the internal vertical ribs.
     N_cells : integer, optional
         The number of canopy cells. This is only used for estimating the mass
-        of the internal ribs. Proper support for ribs requires a new `Foil`
-        with native support for cells, ribs, profile distortions, etc.
+        of the internal ribs. Proper support for ribs would require a new foil
+        geometry with native support for cells, ribs, profile distortions, etc.
     """
 
     def __init__(
