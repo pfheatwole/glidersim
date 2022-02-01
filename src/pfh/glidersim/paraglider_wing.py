@@ -207,8 +207,8 @@ class SimpleLineGeometry(LineGeometry):
         self.kappa_a = kappa_a
 
         # Default lengths of the A and C lines (when `delta_a = 0`)
-        self.A = np.sqrt(kappa_z ** 2 + (kappa_x - kappa_A) ** 2)
-        self.C = np.sqrt(kappa_z ** 2 + (kappa_C - kappa_x) ** 2)
+        self.A = np.sqrt(kappa_z**2 + (kappa_x - kappa_A) ** 2)
+        self.C = np.sqrt(kappa_z**2 + (kappa_C - kappa_x) ** 2)
 
         # `L` is an array of points where line drag is applied
         r_L2LE = np.atleast_2d(r_L2LE)
@@ -230,7 +230,7 @@ class SimpleLineGeometry(LineGeometry):
         # a peak of `1` at `p = 0.5`. Evaluate to (16, -32, 16), but I like how
         # the equations document the solutions given the constraints.
         p = 0.5
-        self._K1 = 1 / (p ** 4 - 2 * p ** 3 + p ** 2)
+        self._K1 = 1 / (p**4 - 2 * p**3 + p**2)
         self._K2 = -2 * self._K1
         self._K3 = self._K1
 
@@ -239,12 +239,12 @@ class SimpleLineGeometry(LineGeometry):
         delta_a = np.asfarray(delta_a)
         RM_x = (
             (self.A - delta_a * self.kappa_a) ** 2
-            - self.C ** 2
-            - self.kappa_A ** 2
-            + self.kappa_C ** 2
+            - self.C**2
+            - self.kappa_A**2
+            + self.kappa_C**2
         ) / (2 * (self.kappa_C - self.kappa_A))
         RM_y = np.zeros_like(delta_a)
-        RM_z = np.sqrt(self.C ** 2 - (self.kappa_C - RM_x) ** 2)
+        RM_z = np.sqrt(self.C**2 - (self.kappa_C - RM_x) ** 2)
         r_RM2LE = np.array([-RM_x, RM_y, RM_z]).T
         return r_RM2LE
 
@@ -261,7 +261,7 @@ class SimpleLineGeometry(LineGeometry):
         def q(s, s_start, s_stop):
             # Map `s` into the quartic domain `p` to compute deflections
             p = (s - s_start) / (s_stop - s_start)
-            q = self._K1 * p ** 4 + self._K2 * p ** 3 + self._K3 * p ** 2
+            q = self._K1 * p**4 + self._K2 * p**3 + self._K3 * p**2
             q = np.array(q)  # Allow indexing in case `s` is a scalar
             q[(p < 0) | (p > 1)] = 0  # Zero outside `start <= s <= stop`
             return q
@@ -282,7 +282,7 @@ class SimpleLineGeometry(LineGeometry):
         v_W2b = np.asfarray(v_W2b)
         assert v_W2b.shape == self._r_L2LE.shape
         dF = np.zeros(np.shape(v_W2b))
-        v2 = (v_W2b ** 2).sum(axis=-1)
+        v2 = (v_W2b**2).sum(axis=-1)
         mask = ~np.isclose(v2, 0.0)
         if np.any(mask):
             v2m = v2[mask][..., np.newaxis]
@@ -535,31 +535,31 @@ class ParagliderWing:
         k_B = 1.00
 
         # Flat wing values, Barrows Eqs:34-39
-        mf11 = k_A * np.pi * t ** 2 * b / 4
-        mf22 = k_B * np.pi * t ** 2 * c / 4
-        mf33 = AR / (1 + AR) * np.pi * c ** 2 * b / 4
-        If11 = 0.055 * AR / (1 + AR) * b * S ** 2
-        If22 = 0.0308 * AR / (1 + AR) * c ** 3 * S
-        If33 = 0.055 * b ** 3 * t ** 2
+        mf11 = k_A * np.pi * t**2 * b / 4
+        mf22 = k_B * np.pi * t**2 * c / 4
+        mf33 = AR / (1 + AR) * np.pi * c**2 * b / 4
+        If11 = 0.055 * AR / (1 + AR) * b * S**2
+        If22 = 0.0308 * AR / (1 + AR) * c**3 * S
+        If33 = 0.055 * b**3 * t**2
 
         # Compute the pitch and roll centers, treating the wing as a circular
         # arch with fore-aft (yz) and lateral (xz) planes of symmetry. The roll
         # center, pitch center, and the "confluence point" all lie on the
         # z-axis of the idealized circular arch.
         z_PC2C = -r * np.sin(theta) / theta  # Barrows Eq:44
-        z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r ** 2)  # Barrows Eq:50
+        z_RC2C = z_PC2C * mf22 / (mf22 + If11 / r**2)  # Barrows Eq:50
         z_PC2RC = z_PC2C - z_RC2C
 
         # Arched wing values, Barrows Eqs:51-55
-        m11 = k_A * (1 + 8 / 3 * hstar ** 2) * np.pi * t ** 2 * b / 4
-        m22 = (r ** 2 * mf22 + If11) / z_PC2C ** 2
+        m11 = k_A * (1 + 8 / 3 * hstar**2) * np.pi * t**2 * b / 4
+        m22 = (r**2 * mf22 + If11) / z_PC2C**2
         m33 = mf33
         I11 = (
-            z_PC2RC ** 2 / z_PC2C ** 2 * r ** 2 * mf22
-            + z_RC2C ** 2 / z_PC2C ** 2 * If11
+            z_PC2RC**2 / z_PC2C**2 * r**2 * mf22
+            + z_RC2C**2 / z_PC2C**2 * If11
         )
         I22 = If22
-        I33 = 0.055 * (1 + 8 * hstar ** 2) * b ** 3 * t ** 2
+        I33 = 0.055 * (1 + 8 * hstar**2) * b**3 * t**2
 
         # These values are constants for the geometry and choice of coordinate
         # system, and are used to compute the apparent inertia matrix about

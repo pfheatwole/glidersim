@@ -206,7 +206,7 @@ class CircularThermal:
     ) -> None:
         self.c = np.array([px, py])
         self.mag = mag
-        self.R = -(radius5 ** 2) / np.log(0.05)
+        self.R = -(radius5**2) / np.log(0.05)
         self.t_enable = t_enable
 
     def __call__(self, t, r):

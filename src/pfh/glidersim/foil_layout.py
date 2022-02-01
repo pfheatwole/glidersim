@@ -183,7 +183,7 @@ class PolynomialTorsion:
         if np.any(m):
             p = (abs(s[m]) - self.start) / (1 - self.start)
             # p /= p[-1]  # `p` goes from 0 to 1
-            values[m] = self.peak * p ** self.exponent
+            values[m] = self.peak * p**self.exponent
         return values
 
 
@@ -308,12 +308,12 @@ class FoilLayout:
     @property
     def AR(self) -> float:
         """Compute the projected aspect ratio of the foil."""
-        return self.b ** 2 / self.S
+        return self.b**2 / self.S
 
     @property
     def AR_flat(self) -> float:
         """Compute the flattened aspect ratio of the foil."""
-        return self.b_flat ** 2 / self.S_flat
+        return self.b_flat**2 / self.S_flat
 
     @property
     def S(self) -> float:
@@ -379,7 +379,7 @@ class FoilLayout:
         """
         derivatives = self.yz.derivative(s).T
         dyds, dzds = derivatives[0].T, derivatives[1].T
-        K = np.sqrt(dyds ** 2 + dzds ** 2)  # L2-norm
+        K = np.sqrt(dyds**2 + dzds**2)  # L2-norm
         dyds /= K
         dzds /= K
         _0, _1 = np.zeros(np.shape(s)), np.ones(np.shape(s))

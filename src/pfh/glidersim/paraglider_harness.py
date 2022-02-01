@@ -218,7 +218,7 @@ class Spherical(ParagliderHarness):
             v_W2h = v_W2h[0]
         r_CP2RM = self.r_CP2RM(delta_w)[0]  # (1,3) -> (3,)
 
-        v2 = (v_W2h ** 2).sum()
+        v2 = (v_W2h**2).sum()
         if not np.isclose(v2, 0.0):
             u_drag = v_W2h / np.sqrt(v2)  # Drag force unit vector
             f_aero = 0.5 * rho_air * v2 * self._S * self._CD * u_drag

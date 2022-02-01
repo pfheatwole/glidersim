@@ -96,18 +96,18 @@ def airfoil_mass_properties(airfoil, r_upper=0, r_lower=0, N=200):
 
     area = simps(Ty, Tx) - simps(By, Bx)
     xbar = (simps(Tx * Ty, Tx) - simps(Bx * By, Bx)) / area
-    ybar = (simps(Ty ** 2 / 2, Tx) + simps(By ** 2 / 2, Bx)) / area
+    ybar = (simps(Ty**2 / 2, Tx) + simps(By**2 / 2, Bx)) / area
     area_centroid = np.array([xbar, ybar])
 
     # Area moments of inertia about the origin
     # FIXME: verify, especially `Ixy_o`. Check airfoils where some `By > 0`
-    Ixx_o = 1 / 3 * (simps(Ty ** 3, Tx) - simps(By ** 3, Bx))
-    Iyy_o = simps(Tx ** 2 * Ty, Tx) - simps(Bx ** 2 * By, Bx)
-    Ixy_o = 1 / 2 * (simps(Tx * Ty ** 2, Tx) - simps(Bx * By ** 2, Bx))
+    Ixx_o = 1 / 3 * (simps(Ty**3, Tx) - simps(By**3, Bx))
+    Iyy_o = simps(Tx**2 * Ty, Tx) - simps(Bx**2 * By, Bx)
+    Ixy_o = 1 / 2 * (simps(Tx * Ty**2, Tx) - simps(Bx * By**2, Bx))
 
     # Use the parallel axis theorem to find the inertias about the centroid
-    Ixx = Ixx_o - area * ybar ** 2
-    Iyy = Iyy_o - area * xbar ** 2
+    Ixx = Ixx_o - area * ybar**2
+    Iyy = Iyy_o - area * xbar**2
     Ixy = Ixy_o - area * xbar * ybar
     Izz = Ixx + Iyy  # Perpendicular axis theorem
 
@@ -144,15 +144,15 @@ def airfoil_mass_properties(airfoil, r_upper=0, r_lower=0, N=200):
     # FIXME: not proper line integrals: treats segments as point masses
     cmUx, cmUy = upper_centroid
     mid_Ux, mid_Uy = mid_U[0], mid_U[1]
-    Ixx_U = np.sum(mid_Uy ** 2 * norm_U) - upper_length * cmUy ** 2
-    Iyy_U = np.sum(mid_Ux ** 2 * norm_U) - upper_length * cmUx ** 2
+    Ixx_U = np.sum(mid_Uy**2 * norm_U) - upper_length * cmUy**2
+    Iyy_U = np.sum(mid_Ux**2 * norm_U) - upper_length * cmUx**2
     Ixy_U = np.sum(mid_Ux * mid_Uy * norm_U) - upper_length * cmUx * cmUy
     Izz_U = Ixx_U + Iyy_U
 
     cmLx, cmLy = lower_centroid
     mid_Lx, mid_Ly = mid_L[0], mid_L[1]
-    Ixx_L = np.sum(mid_Ly ** 2 * norm_L) - lower_length * cmLy ** 2
-    Iyy_L = np.sum(mid_Lx ** 2 * norm_L) - lower_length * cmLx ** 2
+    Ixx_L = np.sum(mid_Ly**2 * norm_L) - lower_length * cmLy**2
+    Iyy_L = np.sum(mid_Lx**2 * norm_L) - lower_length * cmLx**2
     Ixy_L = np.sum(mid_Lx * mid_Ly * norm_L) - lower_length * cmLx * cmLy
     Izz_L = Ixx_L + Iyy_L
 
@@ -287,7 +287,7 @@ def canopy_mass_properties(canopy, amp, N=250):
     dl = nodes[1:] - nodes[:-1]
     segment_chord_area = np.linalg.norm(np.cross(u_a, dl), axis=1)
     Kl = chords * segment_chord_area  # amp curve length into segment area
-    Ka = chords ** 2 * segment_chord_area  # amp area into segment volume
+    Ka = chords**2 * segment_chord_area  # amp area into segment volume
 
     segment_upper_area = Kl * amp["upper_length"]
     segment_volume = Ka * amp["area"]

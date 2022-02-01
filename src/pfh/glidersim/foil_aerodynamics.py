@@ -190,7 +190,7 @@ class Phillips(FoilAerodynamics):
         self._reference_solution = {
             "ai": 0,
             "v_W2f": v_W2f_ref,
-            "Gamma": np.sqrt(1 - self.s_cps ** 2),  # Naive ellipse
+            "Gamma": np.sqrt(1 - self.s_cps**2),  # Naive ellipse
         }
         try:
             _, _, self._reference_solution = self.__call__(0, v_W2f_ref, 1.2)
@@ -257,7 +257,7 @@ class Phillips(FoilAerodynamics):
             clamp=self.clamped,
         )
         # return 2 * Gamma * W_norm - np.einsum("ik,ik,i,i->i", V, V, self.dA, Cl)
-        return 2 * Gamma * W_norm - (V_n ** 2 + V_a ** 2) * self.dA * Cl
+        return 2 * Gamma * W_norm - (V_n**2 + V_a**2) * self.dA * Cl
 
     def _J(self, Gamma, ai, v_W2f, v, Re, verify_J=False):
         # 7. Compute the Jacobian matrix, `J[ij] = d(f_i)/d(Gamma_j)`
@@ -289,7 +289,7 @@ class Phillips(FoilAerodynamics):
         J3 *= (
             (self.dA * Cl_alpha)[:, None]
             * np.einsum("ik,ik->i", V, V)
-            / (V_n ** 2 + V_a ** 2)
+            / (V_n**2 + V_a**2)
         )
         J4 = 2 * np.einsum("i,i,ik,jik->ij", self.dA, Cl, V, v)
         J += J2 - J3 - J4

@@ -35,26 +35,26 @@ polars = []
 for polar_file in pathlib.Path(".").glob("*.txt"):
     print(polar_file)
     data = np.genfromtxt(polar_file, skip_header=11, names=names)
-    if (match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name)):
+    if match := re.search(r"_deltad(\d+\.\d+)_", polar_file.name):
         delta_d = float(match.group(1))
     else:
         raise ValueError(f"Invalid filename {polar_file}; needs `deltad`.")
-    if (match := re.search(r"_Re(\d\.\d\d\d)_", polar_file.name)):
+    if match := re.search(r"_Re(\d\.\d\d\d)_", polar_file.name):
         Re = float(match.group(1))
     else:
         raise ValueError(f"Invalid filename {polar_file}; needs `Re`.")
     data = rfn.append_fields(data, "delta_d", np.full(data.shape[0], delta_d))
     data = rfn.append_fields(data, "Re", np.full(data.shape[0], Re))
-    columns = ['delta_d', 'alpha', 'Re', 'Cl', 'Cm', 'Cd']
+    columns = ["delta_d", "alpha", "Re", "Cl", "Cm", "Cd"]
     data = data[columns]
     polars.append(data)
 
 # Compute the ranges over the full dataset
 data = np.concatenate(polars)
-data.sort(order=['delta_d', 'alpha', 'Re'])
-alphas = np.unique(data['alpha'])  # Angle of attack in degrees
-delta_ds = np.unique(data['delta_d'])  # Normalized vertical deflection distance
-Res = np.unique(data['Re'])  # Reynolds number
+data.sort(order=["delta_d", "alpha", "Re"])
+alphas = np.unique(data["alpha"])  # Angle of attack in degrees
+delta_ds = np.unique(data["delta_d"])  # Normalized vertical deflection distance
+Res = np.unique(data["Re"])  # Reynolds number
 
 # Compute uniform spacings for each dimension  (FIXME: hacky strategies)
 step_deltad = delta_ds.ptp() / np.ceil(delta_ds.max() / np.diff(delta_ds).min())
@@ -66,15 +66,15 @@ pRe = np.arange(Res.min(), Res.max() + step_Re, step_Re)
 newshape = (len(pdeltad), len(palpha), len(pRe))
 
 # Resample the entire grid with unstructured linear interpolation to fill holes
-points = (data['delta_d'], data['alpha'], data['Re'])
-DELTAD, ALPHA, RE = np.meshgrid(pdeltad, palpha, pRe, indexing='ij')
+points = (data["delta_d"], data["alpha"], data["Re"])
+DELTAD, ALPHA, RE = np.meshgrid(pdeltad, palpha, pRe, indexing="ij")
 GRID = (DELTAD.ravel(), ALPHA.ravel(), RE.ravel())
 print("Resampling Cl...")
-Cl = griddata(points, data['Cl'], GRID)
+Cl = griddata(points, data["Cl"], GRID)
 print("Resampling Cd...")
-Cd = griddata(points, data['Cd'], GRID)
+Cd = griddata(points, data["Cd"], GRID)
 print("Resampling Cm...")
-Cm = griddata(points, data['Cm'], GRID)
+Cm = griddata(points, data["Cm"], GRID)
 
 # Linear interpolation of Cl isn't ideal for optimizing methods. Use polynomial
 # regression to smooth Cl and sample a smooth Cl_alpha.

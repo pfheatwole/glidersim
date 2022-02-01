@@ -106,12 +106,12 @@ class SimpleFoil:
     @property
     def AR(self) -> float:
         """The aspect ratio of the foil."""
-        return self.b ** 2 / self.S
+        return self.b**2 / self.S
 
     @property
     def AR_flat(self) -> float:
         """The aspect ratio of the foil with section dihedral removed."""
-        return self.b_flat ** 2 / self.S_flat
+        return self.b_flat**2 / self.S_flat
 
     @property
     def S(self) -> float:
