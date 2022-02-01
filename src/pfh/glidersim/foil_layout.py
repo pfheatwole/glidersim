@@ -82,9 +82,9 @@ class EllipticalArc:
         if tip_anhedral is None:  # Assume circular
             tip_anhedral = 2 * mean_anhedral
 
-        if mean_anhedral < 0 or mean_anhedral > 45:
+        if not (0 <= mean_anhedral <= 45):
             raise ValueError("mean_anhedral must be between 0 and 45 [degrees]")
-        if tip_anhedral < 0 or tip_anhedral > 90:
+        if not (0 <= tip_anhedral <= 90):
             raise ValueError("tip_anhedral must be between 0 and 90 [degrees]")
         if tip_anhedral < 2 * mean_anhedral:
             raise ValueError("tip_anhedral must be >= 2 * mean_anhedral")
