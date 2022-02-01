@@ -1,4 +1,4 @@
-"""Models for paraglider harnesses."""
+"""Models of paraglider harnesses."""
 
 from __future__ import annotations
 
