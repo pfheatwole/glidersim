@@ -142,7 +142,7 @@ def niviuk_hook3(
             "v_ref_mag": 10,
             "alpha_ref": 5,
             "s_nodes": s_nodes,
-            "s_clamp": s_nodes[-1],  # Mitigate fictitious stalls at wing tips
+            "s_clamp": s_nodes[-2],  # Mitigate fictitious stalls at wing tips
         },
     )
 
