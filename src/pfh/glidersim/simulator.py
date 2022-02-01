@@ -470,6 +470,7 @@ def simulate(
     K = int(np.ceil(T / dt)) + 1  # Total number of states in the output
     times = np.zeros(K)  # Simulation timestamps [sec]
     states = np.empty(K, dtype=model.state_dtype)
+    times[0] = T0
     states[0] = state0
 
     def _flattened_derivatives(t, y, params):
@@ -479,7 +480,7 @@ def simulate(
 
     solver = scipy.integrate.ode(_flattened_derivatives)
     solver.set_integrator("dopri5", rtol=1e-5, first_step=0.25, max_step=0.5)
-    solver.set_initial_value(state0.flatten().view(float))
+    solver.set_initial_value(state0.flatten().view(float), T0)
     solver.set_f_params(*model.extra_arguments())
 
     t_start = time.perf_counter()
