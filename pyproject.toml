@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.isort]
 lines_after_imports = 2
 profile = "black"
+skip_glob = ["scripts/*"]
 
 [tool.mypy]
 python_version = "3.8"
