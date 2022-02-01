@@ -344,7 +344,7 @@ class ParagliderWing:
     ----------
     lines : LineGeometry
         Lines that position the riser and produce trailing edge deflections.
-    canopy : foil.FoilGeometry
+    canopy : SimpleFoil
         The geometric shape of the lifting surface.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
