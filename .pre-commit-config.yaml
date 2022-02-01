@@ -1,19 +1,6 @@
 ---
 fail_fast: true
 repos:
-  - repo: local
-    hooks:
-      - id: black
-        name: black
-        entry: black
-        language: system
-        types: [python]
-      - id: isort
-        name: isort
-        entry: isort
-        language: system
-        types: [python]
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.3.0
     hooks:
@@ -22,3 +9,16 @@ repos:
       # - id: debug-statements
       - id: end-of-file-fixer
       - id: trailing-whitespace
+
+  - repo: https://github.com/psf/black
+    rev: 22.1.0
+    hooks:
+      - id: black
+        language_version: python3.10
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: [--filter-files]

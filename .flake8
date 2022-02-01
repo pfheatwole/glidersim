@@ -17,7 +17,6 @@ select =
   D,  # docstrings
   E,  # pycodestyle errors
   F,  # pyflakes
-  I,  # imports
   RST,  # reST docstrings
   W,  # pycodestyle warnings
   W504,  # newline after binary operator
