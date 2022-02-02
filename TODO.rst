@@ -1,3 +1,17 @@
+* `extras/compute_polars.py`
+
+  Rename `plot_polar_curve` -> `polar_curve`; it doesn't plot anything.
+
+  Refactor the plotting in `plot_wing_coefficients` into `plots.py`
+
+  Generalize the coefficients estimation in `belloc.py` and move it into
+  `compute_wing_coefficients`; should take reference lengths/areas (like
+  `S_flat` in the case of `belloc`). What all should it compute?
+  `CX/CY/CZ/Cl/Cm/Cn` and `CXa/CYa/CZa/Cla/Cma/Cna` are appealing
+
+  Rename the module? It computes polar curves and wing coefficients.
+
+
 Development
 ===========
 
@@ -5,20 +19,47 @@ Development
 Documentation
 -------------
 
+* Review the README template from "write the docs":
+  https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/
+
+* Make sure to point out how I'm handling section dihedral angles  I made the
+  conscious decision to allow step changes, even though it produces overlap at
+  panel boundaries (as in my version of Belloc's reference wing). My assumption
+  is that the small overlap is less important that getting the panel
+  quarter-chord lines correct. You could try to account for airfoil thickness
+  and round the dihedral angles at the panel boundaries, but if you're allowing
+  continuously curving reference curves you'll have this issue anyway.
+
+
+Docstrings
+^^^^^^^^^^
+
+* Review source for docstring references to vectors like `\omega` and wrap them
+  in `\vec{}`. Also check the paraglider system dynamics class docstrings for
+  references like `a_B2e` or `omega_b2e` instead of their :math: equivalents.
+
+* PEP8 recommends a docstring max line-length of 72, but that's a pain. I like
+  what numpy does: keep docstring length at 75, which means if you wrap normal
+  docstrings of top-level functions/classes by four spaces, then 75 puts you at
+  the 79 total width.
+
+* Review all (sub)package, module, and class docstrings. They should have
+  summaries, descriptions, parameters, attributes, etc.
+
+* How should I document `simulator.StateDynamics.state_dtype`?
+
+* Verify function docstrings match the signatures (`darglint` would be
+  helpful, if only it worked)
+
+* Functions that accept array inputs should take `array_like` and return
+  `ndarray`? Assume it's clear that a scalar input produces a scalar output?
+
+
+Sphinx
+^^^^^^
+
 * In Sphinx there is already a "Module index" (via ":ref:`modindex`"). The
   "Library reference" section kind of overlaps with that?
-
-* I'm modeling my `README.rst` after the template taken from "write the docs":
-  https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/. Review
-  that template later, see if my changes missed anything important.
-
-* Should I remove the `sys.path` manipulation? If it's installed in a venv
-  that shouldn't be necessary.
-
-* Add a top-level introduction to the project, give the reader an overview of
-  the project structure.
-
-* Introduce each section, don't just link to the autosummaries
 
 * Review sphinx domains and the roles they define (eg, `:py:attr:` and
   `:py:class:`; think of `:class:` as being a role scoped inside the `:py`
@@ -26,26 +67,11 @@ Documentation
   docstrings a lot more messy (eg, instead of `LineGeometry` it's a concrete
   class like `:py:class:`pfh.glidersim.paraglider.ParagliderSystemDynamics6a`)
 
-* Review all (sub)package, module, and class docstrings. They should have
-  summaries, descriptions, parameters, attributes, etc.
+* Consider https://github.com/tox-dev/sphinx-autodoc-typehints
 
-* How should I document `simulator.StateDynamics.state_dtype`?
-
-* Should docstring types be "array of" or "ndarray of"? I lean towards
-  "array", but would it be better to use the canonical name so sphinx can link
-  to the numpy datatype documentation?
-
-* Verify function docstrings match the signatures (`darglint` would be
-  helpful, if only it worked)
-
-* I must make sure to point out how I'm handling section dihedral angles.
-  I made the conscious decision to allow step changes, even though it produces
-  overlap at panel boundaries (as in my version of Belloc's reference wing).
-  My assumption is that the small overlap is less important that getting the
-  panel quarter-chord lines correct. You could try to account for airfoil
-  thickness and round the dihedral angles at the panel boundaries, but if
-  you're allowing continuously curving reference curves you'll have this issue
-  anyway.
+  It would be great to deduplicate type information in the signature and
+  docstring, but it seems like formal `ndarray` type descriptions will always
+  be a mess compared to English summaries.
 
 * I'm using `sphinx.ext.autosummary`, which uses `autodoc` under the hood.
   A set of Jinja2 templates from [0] control the `autosummary` output. I'd
@@ -84,13 +110,6 @@ General
   components gets higher, but for now I'll just make each class keep track of
   its own "magic" indices.
 
-* Define an `njit` wrapper that replaces `njit` with a noop if Numba can't be
-  imported
-
-* How much do 'C' vs 'F' arrays affect dot product performance? Enough for
-  Numba to warn me about it, at least. (see the error when defining
-  `orientation.quaternion_rotate`)
-
 * Review the API for consistency
 
   * Do the wing+glider functions always parametrize like (<wing stuff>,
@@ -99,16 +118,38 @@ General
 * According to PEP8, module-level dunders should come after `from __future__`
   imports but **before** normal imports. My `__all__` are technically wrong.
 
+* I've been worried about how to let users write functions that support numpy
+  broadcasting. You can do it manually, with array shape manipulations, or you
+  can use `np.frompyfunc` and `np.vectorize`.
+
+* Use a `.dev0` for in-development branches? See PEP440. Remove the `.dev0`
+  when releasing. This helps avoid situations where you look at a commit and
+  see a proper version number even though it's actually a development branch.
+
 
 Static typing
 -------------
 
+* Remember to add a `py.typed` when ready. See PEP 561:
+  https://www.python.org/dev/peps/pep-0561/#packaging-type-information
+
 * A variety of functions take a callable as an argument. Add the callable
   parameters and return type, and document the signature in the docstring.
 
-* Use `surface: typing.Literal["upper", "lower", "camber", "airfoil"]` typing.
-  Unlike the assertion-based checking, this alerts the programmer when they're
-  writing the code instead of crashing at runtime (assuming they use `mypy`).
+  Gets messy when using numpy types though. For example, `FoilLayout` takes
+  a bunch of parameters that are `float | Callable`. You can type the callables
+  with `Callable[[npt.ArrayLike], npt.ArrayLike]` (using the new `numpy.typing`
+  module), but `mypy` still complains that I try to use `float(r_x)` even
+  though that call is guarded. Needs review.
+
+* Use `typing.Literal` for parameters like `surface: typing.Literal["upper",
+  "lower", "camber", "airfoil"]`. Unlike the assertion-based checking, this
+  alerts the programmer when they're writing the code instead of crashing at
+  runtime (assuming they use `mypy`).
+
+
+Numpy typing
+^^^^^^^^^^^^
 
 * Some functions have their return types marked `array_like`, but I think the
   numpy convention is to return "scalar or ndarray".
@@ -122,11 +163,23 @@ Static typing
   allows all scalar types; I need hinting like `ArrayLike[Any, bool]`.
 
   I think numpy v1.22 fixes this: "`ndarray`, `dtype`, and `number` are now
-  runtime-subscriptable", allowing `np.ndarray[Any, np.dtype[np.float64]]`
+  runtime-subscriptable", allowing `np.ndarray[Any, np.dtype[np.float64]]`.
+  Now I just need shape information; see numpy#16544
 
-* You can currently use `npt.ArrayLike`, but with not type qualifier like
-  `np.float`, so I'm holding off. (I don't think `NDArray` will allow
-  specifying the shape, but that's less important.)
+* Some parameters are `array_like of float`, but you can't set a type qualifier
+  with `npt.ArrayLike`. Is that expected to change?
+
+* I don't like duplicating the type information in the docstrings, but at the
+  moment the formal types are much less friendly their informal docstring
+  counterparts.
+
+  Which types (formal signature or docstring) does Sphinx use?
+
+  Don't think I should hold my breath for `numpydoc` support:
+  https://github.com/numpy/numpydoc/issues/196
+
+  Looks like Napolean handles it though:
+  https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#type-annotations
 
 
 Low priority
@@ -135,53 +188,22 @@ Low priority
 * Review function parameters for compatibility with `array_like` arguments.
   (Broadcasting is useful together with `np.meshgrid`, etc.)
 
-* Do a performance comparison between `cross3` and the `np.cross`
-  implementation added to Numba `v0.46`. As of 2019-12-16, that function is
-  roughly 60% slower on small arrays, and nearly 8x slower on `10000x1000x3`
-  arrays.
-
 
 Packaging
 ---------
 
-* pip 21.3 added `pip install -e .` for projects with only `pyproject.toml`
-  Can I eliminate `setup.py`?
-
-  Spec added in PEP 660
-
-  Not sure if this works with `pip-tools`, but I don't think `pip-tools`
-  parses `setup.py` anymore (parses the output of `pip install`). See
-  https://github.com/jazzband/pip-tools/issues/908
+* Merge `setup.cfg` into `pyproject.toml` once `setuptools` supports PEP 621
 
 * Create `.git_archival.txt` once `setuptools_scm` supports the new
-  `%(describe)` git log formatter
+  `git log --format=%(describe)` syntax in `git 2.35`
 
   https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
 
-* Complete `README.rst`
+* Publish to Zenodo, add *concept DOI* to README, add version DOI to thesis
 
-* Make `numba` and `matplotlib` optional dependencies; maybe put them as
-  "performance" and "plotting" extras.
-
-  For `matplotlib`, I need to review the code for places that import
-  `matplotlib`, add lazy-loading for those modules, and present a warning if
-  a user tries to use them. For `numba`, I need to try to import `numba.njit`
-  and `numba.guvectorize`, and define a `noop` decorator if numba is
-  unavailable. Actually, for numba I'll probably need to replace the function
-  with the numpy equivalent. Not sure what that'll look like for
-  `orientation.quaternion_rotate` and `orientation.quaternion_product`.
-
-  Alternatively, make `numba` a dev-only dependency by compiling the modules
-  ahead of time. See https://numba.readthedocs.io/en/stable/user/pycc.html
-
-* I looked into `flit` for packaging, but they don't support namespace
-  packages. I use the `pfh` namespace for my various projects, so this is
-  disappointing. Recall why I started using a namespace in the first place:
-  https://www.python.org/dev/peps/pep-0423/#individual-projects-use-a-namespace
-
-  * https://github.com/takluyver/flit/issues/370
-
-  * https://github.com/takluyver/flit/pull/159
+* Make `matplotlib` an optional dependency? Put it in a `plotting` extras.
+  Could lazy-load modules that import the library and present a user-friendly
+  error if a user tries to use them without having `matplotlib` installed.
 
 
 Plots
@@ -224,15 +246,37 @@ Testing
   with the cg 1m below the wing, etc. (In other words, how to build a model
   for which you can compute accelerations manually.)
 
-* `tox`: Learn it. Use it. Going to take some time to think up how to test this
-  sort of project though.
+* Move the tests embedded in `orientation.py` into `test_orientation.py`
 
 
 Tooling
 -------
 
+* Move `.flake8` into `setup.cfg`?
+
 * Try using `darglint` as a `flake8` plugin. As of 2021-01-01 this wasn't
   working well, needs review.
+
+
+Numba
+^^^^^
+
+* How much do 'C' vs 'F' arrays affect dot product performance? Enough for
+  Numba to warn me about it, at least. (see the error when defining
+  `orientation.quaternion_rotate`)
+
+* Verify that setting `ai.flags.writeable = False` to silence Numpy warnings
+  about `broadcast_arrays` is okay. I'm not sure who triggers the warning, but
+  Numba doesn't seem to respect the `writeable` flag, so I need to verify that
+  `interp3d` doesn't modify its arguments.
+
+* Benchmark `cross3` versus `np.cross` in Numba `v0.46`. As of 2019-12-16, that
+  function is roughly 60% slower on small arrays, and nearly 8x slower on
+  `10000x1000x3` arrays.
+
+* Make `numba` a dev-only dependency by compiling the modules ahead of time?
+  See https://numba.readthedocs.io/en/stable/user/pycc.html Unfortunately, as
+  of Numba 0.55 "ahead-of-time" compilation doesn't support numpy ufuncs.
 
 
 Airfoil
@@ -294,6 +338,13 @@ Coefficients
   a single airfoil geometry. They'll need special logic for calling the grid
   interpolators.
 
+* Implement clamping in *XFLR5Coefficients*, or at least warn that it doesn't
+  support clamping. The alternative is to add code to resample the coefficients
+  onto a regular regular grid and return a `GridCoefficients` (didn't I have
+  a script to do this already?), but that's a pain since the `GridCoefficients`
+  expects the coefficients set includes a range of `ai`; does it work if `ai=0`
+  always?
+
 * Verify the polar curves, especially for flapped airfoils.
 
   The airfoil data is still a bit of a mystery to me. I don't trust the XFOIL
@@ -338,6 +389,9 @@ Low priority
 FoilLayout
 ==========
 
+* Define a `Protocol` for the `yz` parameter; it's VERY unclear that you need
+  an object that defines `__call__` and `derivative`; very weird API.
+
 * Review the calculation of the projected span `b` in `FoilLayout.__init__`.
   Should I use the furthest extent of the wing tips (typically happens at the
   leading edge if the wing has positive torsion and arc anhedral), or should
@@ -353,6 +407,13 @@ FoilLayout
   `delta_a` (ie, let the `LineGeometry` own `yz`), approximate "piloting with
   the C's" control, etc. See branch `WIP_parametric_chords` for a mockup (and
   a discussion of the limitations).
+
+* `FoilLayout` requires the values to be proportional to `b_flat == 2`? **What
+  if you don't know `b_flat`? Do you need to compute the total length of `yz`
+  and re-normalize to that?** (I think I'm missing something here... As long as
+  everything is proportional, who cares? I'll need to look for anywhere that
+  uses `s` to stand in for `y`, but other than that, who cares? May want to
+  introduce an scaling value as a convenience for the user though.)
 
 
 Parametric functions
@@ -371,42 +432,6 @@ Parametric functions
 * Redefine the parameters in `EllipticalArc`? I've moved the paper away from
   "dihedral/anhedral" angles since they're ambiguous. Euler angles are more
   explicit, but it's not clear how to translate those into this usage.
-
-
-FoilGeometry
-============
-
-* I refer to `FoilGeometry` in several places, but there's only one:
-  `SimpleFoil`. There's no abstract base class anymore. Should there be? It'd
-  be nice to be able to reference `FoilGeometry` and have it be a concrete
-  thing in the code.
-
-* Eliminate `Foil.chord_xyz` and add "chord" and "camber" to the `surface`
-  parameter in `Foil.surface_xyz`. More recent versions of my paper discusses
-  three surfaces (chords, camber lines, and section profiles); the code should
-  mirror that.
-
-  `Foil.chord_xyz` uses `pc` whereas the `surface_xyz` uses `sa`, but
-  otherwise the signatures should be compatible. Actually, I'm considering
-  using `r` for "position on the curve" to match `r_x` et al. So for the
-  chord, camber line, upper surface, and lower surface you'd have `0 <= r <=
-  1`, and for the combined profile you'd have `-1 <= r <= 1`.
-
-* Refactor `mesh_vertex_lists` to work on any of the surfaces (`{upper, lower,
-  airfoil, chord, camber}`)? Right now it just assumes you want both `upper`
-  and `lower`.
-
-* The mesh functions don't support airfoil indices (they fix `ai = 0`)
-
-* In `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in my
-  paper I'm referring to the airfoil as the unit-chord shape and "section
-  profile" for the scaled shape. Should I rename `airfoil` -> `profile`?
-
-* Should `S_flat`, `b`, etc really be class properties? Class properties don't
-  support parameters, which means these break for parametric reference curves
-  (eg, if arc anhedral is a function of `delta_a`). You could require users to
-  specify "default parameters" for any extra parameters in the reference
-  curves, but somehow that feels wrong.
 
 
 FoilSections
@@ -482,43 +507,177 @@ Coefficients
 FoilAerodynamics
 ================
 
+* Rename `reference_solution`. It should be a generic `dict` that the
+  aerodynamics method can stuff with whatever they need (like `solution`).
+
+* Design review how the coefficient estimator signals non-convergence. (All
+  users that call `Phillips.__call__` should be exception-aware.)
+
+* Building a linear model for the paraglider dynamics requires the *stability
+  derivatives* (derivatives of the coefficients with respect to `alpha` and
+  `beta`). The direct approach is finite differencing, but for a "more
+  economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
+  Sec:6.5.7, "Stability and control derivative calculation". For an example of
+  the defining equations for computing the linearized coefficients, check
+  "Appendix A" of :cite:`slegers2017ComparisonParafoilDynamic`. For a paper
+  with a set of numerical values, :cite:`toglia2010ModelingMotionAnalysis`.
+
+* Aerodynamic centers exist for lifting bodies with linear lift coefficient
+  and constant pitching moment? How useful is this concept for paragliders?
+  (ie, over what range can you treat it as having an aerodynamic center, and
+  what value would there be?)
+
+
+Phillips
+--------
+
 * Verify `Phillips._J`. It doesn't match the finite-difference approximation in
   `Phillips._J_finite`. Should review `_J_finite` by comparing it to
   `scipy.optimize.approx_fprime` (which, sadly, is univariate only).
 
+* How should I handle a turning wing? (Non-uniform `u_inf`) Right now I just
+  use the central `V_rel` for `u_inf` and assume it's the same everywhere.
 
-Parafoil
-========
+  This is a general issue with aerodynamic methods that rely on the
+  *straight-wake assumption*. In general, vortex filaments do no have to be
+  straight lines, but the math is much simpler if they do (for example, with
+  Phillips they get to let two segments that share a node also share the
+  trailing vortex filament from that node, and because they're in opposite
+  directions the net shed vorticity is simply their sum). **The straight-wake
+  assumption is invalid for a rotating wing.** Faster turn rates will produce
+  larger error (but then most of these methods assume minimal spanwise flow, so
+  it's already a crapshoot).
 
-* The name `SimpleFoil` is peculiar. Simple compared to what? (I think I was
-  originally planning to create a `Parafoil` class which includes the cells
-  and accounts for cell billowing).
+  Related: anytime you change speed and/or direction, you should shed an
+  additional *starting vortex*, which (I think?) should require additional
+  energy beyond what you'd expect from the steady-state aerodynamics.
 
-* I think I need a class `Foil(FoilGeometry, FoilAerodynamics)` or similar.
-  I've NEVER liked this design where `SimpleFoil` passes `self` to initialize
-  the `FoilAerodynamics`.
+  For insight into the magnitude of the error, consult the manual for AVL
+  (`avl_dot.txt`). In the section "Unsteady Flow":
 
-* Rename `reference_solution`. It should be a generic `dict` that the
-  aerodynamics method can stuff with whatever they need (like `solution`).
+     AVL assumes quasi-steady flow, meaning that unsteady vorticity shedding is
+     neglected.  More precisely, it assumes the limit of small reduced
+     frequency, which means that any oscillatory motion (e.g. in pitch) must be
+     slow enough so that the period of oscillation is much longer than the time
+     it takes the flow to traverse an airfoil chord.  This is true for
+     virtually any expected flight maneuver.  Also, the roll, pitch, and yaw
+     rates used in the computations must be slow enough so that the resulting
+     relative flow angles are small.  This can be judged by the dimensionless
+     rotation rate parameters, which should fall within the following practical
+     limits.
+
+     -0.10 < pb/2V < 0.10
+     -0.03 < qc/2V < 0.03
+     -0.25 < rb/2V < 0.25
+
+     These limits represent extremely violent aircraft motion, and are unlikely
+     to exceeded in any typical flight situation, except possibly during
+     low-airspeed aerobatic maneuvers.  In any case, if any of these parameters
+     falls outside of these limits, the results should be interpreted with
+     caution.
+
+* Review what happens if `v_W2f` is all zeros
+
+* Add a `control_point_section_indices()` or somesuch to `Phillips`. Should
+  return a view of `s_cps` so `ParagliderWing` can stop grabbing it directly.
+
+* Review Phillips paper: he says not to use the spatial midpoints of the
+  segments for the control points, and that "a significant improvement in
+  accuracy for a given number of elements can be achieved", especially near
+  the tips by placing the control points at the midpoints of the cosine
+  distribution angle instead of the midpoints of the segments. Look into that?
+  (Then again, I've been using a linear distribution in `s`, so I'm already
+  deviating quite a lot from his recommendation anyway.)
+
+* Review `github/usaero/MachUpX`, commit `93ae2a7`: "Overcame singularity in
+  induced velocities by averaging the effective joint locations, thus forcing
+  continuity in the vortex sheet." Useful? He may just be talking about
+  discontinuities in the geometry, not the discontinuity at the wingtip.
+
+* The `_hybrj` solver retries a bazillion times when it encounters a `nan`.
+  Can I use exceptions to abort early so I can use relaxation iterations
+  instead of letting `hybrj` try to brute force bad solutions? What if `_f`
+  threw an exception when it produces a `nan`, which is caught by Phillips to
+  initiate a relaxation solution? (This probably depends on how scipy calls
+  the Fortran code; not sure what happens to the Python exceptions.)
+
+* If the target and reference are effectively the same, iteration will just
+  waste time (since you'll keep pushing the same target onto the stack). There
+  should be some kind of metric for deciding "the reference is too close to
+  the target to be of much use, just abort"
+
+* Review the conditions for non-convergence. What are the primary causes, and
+  can they be mitigated? What are the average number of iterations for
+  convergence? Right now, convergence via iteration is uncommon: cases either
+  succeed, or they don't. It'd be nice to detect "non-convergence" ASAP.
+
+* **Review the iteration design**: should I be interpolating `Gamma`?
+
+* Verify the analytical Jacobian; right now the finite-difference
+  approximation disagrees with the analytical version (which isn't unexpected,
+  actually: it's computing `Cl_alpha` using finite differences of linearly
+  interpolated values of `Cl`).
+
+* Using straight segments to approximate an curved wing will underestimate the
+  upper surface and overestimate the lower surface. It'd be interesting to
+  compute surface meshes for a range of `K` and (1) see how the error
+  accumulates for both surfaces, and (2) consider how the upper and lower
+  surfaces contribute to the airfoil coefficients. For example, if the
+  dominant contributor to the section lift coefficient is the pressure over
+  the upper surface of the airfoil, you'd expect an underestimate of the
+  segment upper surface area to underestimate the segment lift coefficient,
+  but I'm not sure what conclusions you could reliably produce from such
+  a crude measure.
+
+* Profile and optimize
+
+  * For example, ``python -m cProfile -o belloc.prof belloc.py``, then ``>>>
+    p = pstats.Stats('belloc.prof'); p.sort_stats('cumtime').print_stats(50)``
+
+  * Do the matrices used in the `einsum` calls have the optimal in-memory
+    layout? Consider the access patterns and verify they are contiguous in the
+    correct dimensions (ie, `C` vs `F` contiguous; see ``ndarray.flags``)
+
+* Phillips' could always use more testing against XFLR5 or similar. I don't
+  have geometry export yet, but simple flat wings should be good for comparing
+  my Phillips implementation against the VLM methods in XFLR5.
 
 
-Geometry
---------
+Foil
+====
 
-* The `FoilLayout` requires the values to be proportional to `b_flat == 2`?
-  **What if you don't know `b_flat`? Do you need to compute the total length
-  of `yz` and re-normalize to that?** (I think I'm missing something here...
-  As long as everything is proportional, who cares? I'll need to look for
-  anywhere that uses `s` to stand in for `y`, but other than that, who cares?
-  May want to introduce an scaling value as a convenience for the user
-  though.)
+* HIGH: should there be a `FoilGeometry` class? Right now `SimpleFoil` combines
+  the layout, sections, and aerodynamics, and you set aerodynamics to `None` if
+  you don't care. A bit weird. I think I need a class `Foil(FoilGeometry,
+  FoilAerodynamics)` or similar. I've NEVER liked this design where
+  `SimpleFoil` passes `self` to initialize the `FoilAerodynamics`.
 
-* Define the fundamental `FoilGeometry` spec
+* HIGH: I refer to `FoilGeometry` in several places, but that class doesn't
+  exist. There is only `SimpleFoil` in `foil.py`. Define a `Protocol`. What are
+  the essential needs? `section_orientation, chord_length, surface_xyz`. More?
+  I think the least constraining view is "profiles as a function of section
+  index positioned along some line".
 
-  What are the essential needs of users like `SimpleFoil`, `Parafoil`, etc? At
-  least: `section_orientation, chord_length, chord_xyz, surface_xyz`. Anything
-  else? I think the least constraining view is "profiles as a function of
-  section index positioned along some line".
+* HIGH: the name `SimpleFoil` is peculiar. Simple compared to what? (I think
+  I was originally planning to create a `Parafoil` class which includes the
+  cells and accounts for cell billowing).
+
+* HIGH: In `Foil.surface_xyz`, I use `airfoil` for the profile surfaces, but in
+  my paper I'm referring to the airfoil as the unit-chord shape and "section
+  profile" for the scaled shape. Should I rename `airfoil` -> `profile`?
+
+
+* Refactor `mesh_vertex_lists` to work on any of the surfaces (`{upper, lower,
+  airfoil, chord, camber}`)? Right now it just assumes you want both `upper`
+  and `lower`.
+
+* The mesh functions don't support airfoil indices (they fix `ai = 0`)
+
+* Should `S_flat`, `b`, etc really be class properties? Class properties don't
+  support parameters, which means these break for parametric reference curves
+  (eg, if arc anhedral is a function of `delta_a`). You could require users to
+  specify "default parameters" for any extra parameters in the reference
+  curves, but somehow that feels wrong.
 
 
 Inertia
@@ -681,94 +840,10 @@ Low Priority
   changed `S` by `0.15%`, so it's not a big deal.
 
 
-Coefficient Estimation
-----------------------
-
-* Design review how the coefficient estimator signals non-convergence. (All
-  users that call `Phillips.__call__` should be exception-aware.)
-
-* Building a linear model for the paraglider dynamics requires the *stability
-  derivatives* (derivatives of the coefficients with respect to `alpha` and
-  `beta`). The direct approach is finite differencing, but for a "more
-  economical approach", see "Flight Vehicle Aerodynamics" (Drela; 2014),
-  Sec:6.5.7, "Stability and control derivative calculation". For an example of
-  the defining equations for computing the linearized coefficients, check
-  "Appendix A" of :cite:`slegers2017ComparisonParafoilDynamic`. For a paper
-  with a set of numerical values, :cite:`toglia2010ModelingMotionAnalysis`.
-
-
-Phillips
-^^^^^^^^
-
-* Review what happens if `v_W2f` is all zeros
-
-* Add a `control_point_section_indices()` or somesuch to `Phillips`. Should
-  return a view of `s_cps` so `ParagliderWing` can stop grabbing it directly.
-
-* Review Phillips paper: he says not to use the spatial midpoints of the
-  segments for the control points, and that "a significant improvement in
-  accuracy for a given number of elements can be achieved", especially near
-  the tips by placing the control points at the midpoints of the cosine
-  distribution angle instead of the midpoints of the segments. Look into that?
-  (Then again, I've been using a linear distribution in `s`, so I'm already
-  deviating quite a lot from his recommendation anyway.)
-
-* Review `github/usaero/MachUpX`, commit `93ae2a7`: "Overcame singularity in
-  induced velocities by averaging the effective joint locations, thus forcing
-  continuity in the vortex sheet." Useful? He may just be talking about
-  discontinuities in the geometry, not the discontinuity at the wingtip.
-
-* The `_hybrj` solver retries a bazillion times when it encounters a `nan`.
-  Can I use exceptions to abort early so I can use relaxation iterations
-  instead of letting `hybrj` try to brute force bad solutions? What if `_f`
-  threw an exception when it produces a `nan`, which is caught by Phillips to
-  initiate a relaxation solution? (This probably depends on how scipy calls
-  the Fortran code; not sure what happens to the Python exceptions.)
-
-* If the target and reference are effectively the same, iteration will just
-  waste time (since you'll keep pushing the same target onto the stack). There
-  should be some kind of metric for deciding "the reference is too close to
-  the target to be of much use, just abort"
-
-* Review the conditions for non-convergence. What are the primary causes, and
-  can they be mitigated? What are the average number of iterations for
-  convergence? Right now, convergence via iteration is uncommon: cases either
-  succeed, or they don't. It'd be nice to detect "non-convergence" ASAP.
-
-* **Review the iteration design**: should I be interpolating `Gamma`?
-
-* Verify the analytical Jacobian; right now the finite-difference
-  approximation disagrees with the analytical version (which isn't unexpected,
-  actually: it's computing `Cl_alpha` using finite differences of linearly
-  interpolated values of `Cl`).
-
-* Using straight segments to approximate an curved wing will underestimate the
-  upper surface and overestimate the lower surface. It'd be interesting to
-  compute surface meshes for a range of `K` and (1) see how the error
-  accumulates for both surfaces, and (2) consider how the upper and lower
-  surfaces contribute to the airfoil coefficients. For example, if the
-  dominant contributor to the section lift coefficient is the pressure over
-  the upper surface of the airfoil, you'd expect an underestimate of the
-  segment upper surface area to underestimate the segment lift coefficient,
-  but I'm not sure what conclusions you could reliably produce from such
-  a crude measure.
-
-* Profile and optimize
-
-  * For example, ``python -m cProfile -o belloc.prof belloc.py``, then ``>>>
-    p = pstats.Stats('belloc.prof'); p.sort_stats('cumtime').print_stats(50)``
-
-  * Do the matrices used in the `einsum` calls have the optimal in-memory
-    layout? Consider the access patterns and verify they are contiguous in the
-    correct dimensions (ie, `C` vs `F` contiguous; see ``ndarray.flags``)
-
-* Phillips' could always use more testing against XFLR5 or similar. I don't
-  have geometry export yet, but simple flat wings should be good for comparing
-  my Phillips implementation against the VLM methods in XFLR5.
-
-
 Harness
 =======
+
+* Should weight shift move the aerodynamic control point?
 
 * Reparametrize `SphericalHarness` to use the radius instead of the projected
   area? Projected area is not a common way to define a sphere; using the
@@ -779,9 +854,7 @@ Harness
 Line geometry
 =============
 
-* Add a proper line geometry
-
-  The `BrakeGeometry` are nothing more than quick-and-dirty hacks that produce
+* Add a proper line geometry. `SimpleLineGeometry` is a kludge that produces
   deflection distributions that you're *assuming* can be produced by a line
   geometry. Checkout `altmann2015FluidStructureInteractionAnalysis` for
   a discussion on "identifying optimal line cascading"
@@ -806,10 +879,6 @@ ParagliderWing
 * Canopy parameters (`rho_upper`, `N_cells`, etc) should belong to the canopy,
   but first I need a foil with native support for internal ribs.
 
-* My definition of *pitching angle* conflicts with the notion of a *rigging
-  angle* (see `iacomini1999InvestigationLargeScale`), which is essentially
-  a built-in offset to the pitching angle.
-
 * Do speed bars on real wings decrease the length of all lines, or just those
   in the central sections? If they're unequal, you'd expect the arcs to
   flatten; do they?
@@ -828,11 +897,6 @@ ParagliderWing
 
 Wing mass properties
 --------------------
-
-* Verify that setting `ai.flags.writeable = False` to silence Numpy warnings
-  about `broadcast_arrays` is okay. I'm not sure who triggers the warning, but
-  Numba doesn't seem to respect the `writeable` flag, so I need to verify that
-  `interp3d` doesn't modify its arguments.
 
 * My implementation of Barrows needs a design review. The thickness parameter
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
@@ -983,26 +1047,10 @@ Apparent Inertia
 Simulator
 =========
 
-* In `simulator.py` some variable names confuse frames with coordinate
-  systems. Specifically, the "earth" frame `e` and the "tangent-plane" `tp`.
-  For example, `q_b2e` should be `q_b2tp`.
-
-  Think of it this way: you would say how two coordinate systems are oriented
-  relative to each other, but you don't say how they are rotating relative to
-  each other: they're embedded in frames, so you specify rotation rates using
-  frames. **The rotation of frames are the same regardless of of coordinate
-  system.** (I think.)
-
-  Conversely, what is the absolute orientation of one frame relative to
-  another? It's undefined: their only have relative orientations in the sense
-  that you can attach coordinate systems to each frame and describe the
-  orientation of those two coordinate systems.
-
-* The simulator should use `R` instead of `RM`. The dynamics model can choose
-  which a particular reference point, but the simulator itself shouldn't care.
-  (Maybe you wanted a dynamics model that uses the center of mass, or you
-  wanted to implement a hang glider, etc.) Using `R` would make it easier to
-  reuse the simulator `states` output in things like plots.
+* The simulator should use a generic `R` instead of `RM`. The system dynamics
+  model are free to use whatever reference point is convenient and let the
+  state dynamics model compute the dynamics wrt the `R`. Using `R` would make
+  it easier to reuse the simulator `states` output in things like plots.
 
 * Ideally, the simulator would understand that Phillips can fail, and could
   degrade/terminate gracefully. (Depends on how the `FoilAerodynamics` signals
@@ -1013,17 +1061,16 @@ Simulator
   dynamics (the vehicle) as well as the input dynamics (frequency content of
   the brake, speedbar, and wind values).
 
+* Add calculated `alpha` and `v_mag` to `simulator.prettyprint_state`
+
 
 Pre-built models
 ----------------
 
-* `extras/simulator.py:sample_paraglider_positions` should use the `kappa_x`
-  point on the chord so the vertical line shows the true relative pitch angle.
-  As it is, the line is ways pointing forwards, which makes the pitch angle
-  harder to distinguish.
-
-* `2013-01-23_hook3_23_en.pdf` says the "symmetric control travel" is `>60cm`.
-  I've got `kappa_b = 0.43m`, so I'm hitting 60% or so brake input?
+* HIGH: `extras/simulator.py:sample_paraglider_positions` should use the
+  `kappa_x` point on the chord so the vertical line shows the true relative
+  pitch angle. As it is, the line is ways pointing forwards, which makes the
+  pitch angle harder to distinguish.
 
 * Right now the only wing I've coded is a "Niviuk Hook 3 23". I need more
   wings (preferably at least one each from class A and C) for comparison and
@@ -1034,13 +1081,12 @@ Pre-built models
   wings. Each wing has some info like weight limits; maybe that'd be good
   enough. For now just choose the parameters myself.
 
-* For the prebuilt wings, should I have `hook3_23.canopy`, `hook3_23.wing`,
-  `hook3_23.glider6a`, etc?
 
-* Aerodynamic centers exist for lifting bodies with linear lift coefficient
-  and constant pitching moment? How useful is this concept for paragliders?
-  (ie, over what range can you treat it as having an aerodynamic center, and
-  what value would there be?)
+Niviuk Hook 3
+^^^^^^^^^^^^^
+
+* `2013-01-23_hook3_23_en.pdf` says the "symmetric control travel" is `>60cm`.
+  I've got `kappa_b = 0.43m`, so I'm hitting 60% or so brake input?
 
 
 Scenarios

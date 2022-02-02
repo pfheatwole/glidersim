@@ -41,7 +41,7 @@ def main():
     x = np.linspace(0, 1, N)
     t = np.linspace(0, 2 * np.pi, N)  # Implicit: frequency = 1
     yc = 0.1 * np.sin(t)
-    thickness = -0.5 * x ** 2 + 0.5 * x
+    thickness = -0.5 * x**2 + 0.5 * x
     xyc = np.c_[x, yc]  # The xy-coordinates of the "true" camber curve
 
     fig, axes = plt.subplots(2)

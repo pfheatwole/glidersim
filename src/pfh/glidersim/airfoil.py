@@ -26,7 +26,7 @@ from scipy.interpolate import (
     RegularGridInterpolator,
 )
 
-from .fast_interp import interp3d
+from ._fast_interp import interp3d
 
 
 __all__ = [
@@ -350,6 +350,7 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
     def _query(self, f, clamp, ai, alpha, Re):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
         ai.flags.writeable = False  # Silence deprecation warnings
+        alpha.flags.writeable = False
         Re.flags.writeable = False
 
         # Set clamped sections to their maximum non-nan values by setting alpha
@@ -376,6 +377,7 @@ class GridCoefficients2(AirfoilCoefficientsInterpolator):
     def Cl_alpha(self, ai, alpha, Re, clamp=False):
         ai, alpha, Re = np.broadcast_arrays(ai, alpha, Re / 1e6)
         ai.flags.writeable = False  # Silence deprecation warnings
+        alpha.flags.writeable = False
         Re.flags.writeable = False
         out = self._Cl_alpha(ai, alpha, Re)
         if np.any(clamp):
@@ -957,7 +959,7 @@ class NACA(AirfoilGeometry):
         return (
             5
             * self.tcr
-            * (a0 * np.sqrt(x) - a1 * x - a2 * x ** 2 + a3 * x ** 3 - a4 * x ** 4)
+            * (a0 * np.sqrt(x) - a1 * x - a2 * x**2 + a3 * x**3 - a4 * x**4)
         )
 
     def _theta(self, x):
@@ -979,14 +981,14 @@ class NACA(AirfoilGeometry):
             dyc = np.full(x.shape, 2 * m * (p - x))  # Common factors
             f = x < p  # Filter for the two cases, `x < p` and `x >= p`
             if p > 0:
-                dyc[f] /= p ** 2
+                dyc[f] /= p**2
             dyc[~f] /= (1 - p) ** 2
 
         elif self.series == 5:
             dyc = np.full(x.shape, self.k1 / 6)  # Common factors
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
-            dyc[f] *= 3 * x[f] ** 2 - 6 * m * x[f] + m ** 2 * (3 - m)
-            dyc[~f] *= -(m ** 3)
+            dyc[f] *= 3 * x[f] ** 2 - 6 * m * x[f] + m**2 * (3 - m)
+            dyc[~f] *= -(m**3)
 
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")
@@ -1018,16 +1020,16 @@ class NACA(AirfoilGeometry):
             m, p = self.m, self.p
             f = x < p  # Filter for the two cases, `x < p` and `x >= p`
             if p > 0:
-                y[f] = (m / p ** 2) * (2 * p * (x[f]) - (x[f]) ** 2)
+                y[f] = (m / p**2) * (2 * p * (x[f]) - (x[f]) ** 2)
             y[~f] = (m / (1 - p) ** 2) * ((1 - 2 * p) + 2 * p * (x[~f]) - (x[~f]) ** 2)
 
         elif self.series == 5:
             m, k1 = self.m, self.k1
             f = x < m  # Filter for the two cases, `x < m` and `x >= m`
             y[f] = (k1 / 6) * (
-                x[f] ** 3 - 3 * m * (x[f] ** 2) + (m ** 2) * (3 - m) * x[f]
+                x[f] ** 3 - 3 * m * (x[f] ** 2) + (m**2) * (3 - m) * x[f]
             )
-            y[~f] = (k1 * m ** 3 / 6) * (1 - x[~f])
+            y[~f] = (k1 * m**3 / 6) * (1 - x[~f])
 
         else:
             raise RuntimeError(f"Invalid NACA series '{self.series}'")

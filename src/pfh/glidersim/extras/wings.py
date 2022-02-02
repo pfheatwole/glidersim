@@ -8,9 +8,9 @@ import pfh.glidersim as gsim
 from pfh.glidersim.extras import plots
 
 
-def build_hook3(
+def niviuk_hook3(
     *,
-    size=23,
+    size,
     num_control_points: int = 31,
     verbose: bool = True,
 ) -> gsim.paraglider_wing.ParagliderWing:
@@ -142,7 +142,7 @@ def build_hook3(
             "v_ref_mag": 10,
             "alpha_ref": 5,
             "s_nodes": s_nodes,
-            "s_clamp": s_nodes[-1],  # Mitigate fictitious stalls at wing tips
+            "s_clamp": s_nodes[-2],  # Mitigate fictitious stalls at wing tips
         },
     )
 

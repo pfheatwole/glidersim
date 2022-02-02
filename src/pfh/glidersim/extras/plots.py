@@ -324,7 +324,7 @@ def plot_foil_topdown(
         return ax.lines
 
 
-def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show: bool = True):
+def plot_3d_simulation_path(r_RM2O, r_C02O, r_P2O, ax=None, show: bool = True):
     """
     Plot glider positions over time with lines to the wing and harness.
 
@@ -334,17 +334,15 @@ def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show: bool = True):
     Parameters
     ----------
     r_RM2O : array of float, shape (T,3)
-        Position vectors of the riser midpoint to the world origin O.
-    r_LE2O : array of float, shape (T,3)
-        Position vectors of the central leading edge to the world origin O.
+        Position vectors of the riser midpoint with respect to the world origin O.
+    r_C02O : array of float, shape (T,3)
+        Position vectors of the point on the central chord directly above RM
+        with respect to to the world origin O. The vertical line makes it easy
+        to visualize the pitch angle of the wing.
     r_P2O : array of float, shape (T,3)
-        Position vectors of a payload reference point to the world origin O.
-        It's better to use a fixed point on the payload z-axis instead of the
-        actual payload center of mass, since the centerline is better at
-        showing the relative orientation of the payload.
-    clpp : float [sec], optional
-        Connecting-line plotting period (draw the connecting lines from RM
-        to the leading-edge and paylod every `clpp` seconds).
+        Position vectors of a payload reference point with respect to the world
+        origin O. Using a fixed reference point makes it easy to visualize the
+        relative orientation of the payload.
     ax : matplotlib.axes, optional
         An existing axis to use instead of creating a new one.
     show : bool, optional
@@ -357,11 +355,11 @@ def plot_3d_simulation_path(r_RM2O, r_LE2O, r_P2O, ax=None, show: bool = True):
     else:
         independent_plot = False
 
-    ax.plot(*r_RM2O.T, label="risers")
-    ax.plot(*r_LE2O.T, label="LE0")
-    ax.plot(*r_P2O.T, label="payload", lw=0.5, c="r")
+    ax.plot(*r_RM2O.T, label="Riser midpoint")
+    ax.plot(*r_C02O.T, label="Central chord")
+    ax.plot(*r_P2O.T, label="Payload", lw=0.5, c="r")
     for t in range(0, len(r_RM2O)):
-        p1, p2 = r_RM2O[t], r_LE2O[t]  # Risers -> wing central LE
+        p1, p2 = r_RM2O[t], r_C02O[t]  # Risers -> wing central chord
         ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], lw=0.5, c="k")
 
         p1, p2 = r_RM2O[t], r_P2O[t]  # Risers -> payload

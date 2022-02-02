@@ -133,7 +133,7 @@ def quaternion_to_dcm(q):
     qw, qv = q[0], q[1:]
 
     # ref: Stevens, Eq:1.8-16, pg 53 (67)
-    dcm = 2 * qv @ qv.T + (qw ** 2 - qv.T @ qv) * np.eye(3) - 2 * qw * crossmat(qv)
+    dcm = 2 * qv @ qv.T + (qw**2 - qv.T @ qv) * np.eye(3) - 2 * qw * crossmat(qv)
 
     return np.asfarray(dcm)
 
@@ -160,9 +160,9 @@ def quaternion_to_euler(q):
     # ref: Merwe, Eq:B.5:7, p363 (382)
     # FIXME: These assume a unit quaternion?
     # FIXME: verify: these assume the quaternion is `q_local/global`? (Merwe-style?)
-    phi = np.arctan2(2 * (w * x + y * z), 1 - 2 * (x ** 2 + y ** 2))
+    phi = np.arctan2(2 * (w * x + y * z), 1 - 2 * (x**2 + y**2))
     theta = np.arcsin(-2 * (x * z - w * y))
-    gamma = np.arctan2(2 * (w * z + x * y), 1 - 2 * (y ** 2 + z ** 2))
+    gamma = np.arctan2(2 * (w * z + x * y), 1 - 2 * (y**2 + z**2))
     return np.array([phi, theta, gamma]).T
 
 
@@ -196,7 +196,7 @@ def quaternion_rotate(q, u, v):
         raise ValueError("u must be an array_like of u.shape[-1] == 3")
     qw, qv = q[0], q[1:]
     # ref: Stevens, Eq:1.8-8, p49
-    v[:] = 2 * qv * (qv @ u) + (qw ** 2 - qv @ qv) * u - 2 * qw * _cross3(qv, u)
+    v[:] = 2 * qv * (qv @ u) + (qw**2 - qv @ qv) * u - 2 * qw * _cross3(qv, u)
 
 
 @guvectorize(

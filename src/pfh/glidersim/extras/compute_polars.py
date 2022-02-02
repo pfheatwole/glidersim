@@ -125,10 +125,10 @@ def plot_wing_coefficients(
     for n, F in enumerate(Fs):
         L = F[0] * np.sin(alphas[n]) - F[2] * np.cos(alphas[n])
         D = -F[0] * np.cos(alphas[n]) - F[2] * np.sin(alphas[n])
-        CL = L / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
-        CD = D / (0.5 * rho_air * v_mag ** 2 * wing.canopy.S)
+        CL = L / (0.5 * rho_air * v_mag**2 * wing.canopy.S)
+        CD = D / (0.5 * rho_air * v_mag**2 * wing.canopy.S)
         CM = Ms[n][1] / (
-            0.5 * rho_air * v_mag ** 2 * wing.canopy.S * wing.canopy.chord_length(0)
+            0.5 * rho_air * v_mag**2 * wing.canopy.S * wing.canopy.chord_length(0)
         )
         CLs.append(CL)
         CDs.append(CD)

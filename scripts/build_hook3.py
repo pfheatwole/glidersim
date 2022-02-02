@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     size = 23
 
-    wing = gsim.extras.wings.build_hook3(size=size, verbose=True)
+    wing = gsim.extras.wings.niviuk_hook3(size=size, verbose=True)
 
     if size == 23:  # Similar to if I was flying my non-pod harness
         harness = gsim.paraglider_harness.Spherical(

@@ -104,14 +104,9 @@ def sample_paraglider_positions(
             Position of the wing's central leading edge.
         r_P2O : array of float, shape (M,3) [m]
             Position of the payload's default center of mass. This ignores
-            displacements due to weight shift because the more intuitive
-            interpretation of the plot is to think in terms of the orientation
-            of the payload frame, not the payload center of mass.
+            displacements due to weight shift because it is easier to visualize
+            the orientation of the payload using a fixed reference point.
     """
-    r_LE2RM = -model.paraglider.wing.r_RM2LE(model.delta_a(times))
-
-    # FIXME: assumes the payload has only one control point (r_P2RM^p)
-    r_P2RM = model.paraglider.payload.r_CP2RM(delta_w=0)
 
     q_e2b = states["q_b2e"] * [-1, 1, 1, 1]  # Applies C_ned/frd
     if "q_p2e" in states.dtype.names:  # 9 DoF model
@@ -119,8 +114,15 @@ def sample_paraglider_positions(
     else:  # 6 DoF model
         q_e2p = q_e2b
 
+    # Compute the vector from the RM straight up to the central chord
+    r_C02RM = -model.paraglider.wing.r_RM2LE(model.delta_a(times))
+    r_C02RM[..., 0] = 0  # Zero the x-offsets
+
     r_RM2O = states["r_RM2O"]
-    r_LE2O = states["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_LE2RM)
+    r_C02O = states["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2b, r_C02RM)
+
+    # FIXME: assumes the payload has only one control point (r_P2RM^p)
+    r_P2RM = model.paraglider.payload.r_CP2RM(delta_w=0)
     r_P2O = states["r_RM2O"] + gsim.orientation.quaternion_rotate(q_e2p, r_P2RM)
 
     dt = times[1] - times[0]  # Assume a constant simulation timestep
@@ -131,7 +133,7 @@ def sample_paraglider_positions(
 
     points = {
         "r_RM2O": r_RM2O[samples],
-        "r_LE2O": r_LE2O[samples],
+        "r_C02O": r_C02O[samples],
         "r_P2O": r_P2O[samples],
     }
     if include_times:
@@ -206,7 +208,7 @@ class CircularThermal:
     ) -> None:
         self.c = np.array([px, py])
         self.mag = mag
-        self.R = -(radius5 ** 2) / np.log(0.05)
+        self.R = -(radius5**2) / np.log(0.05)
         self.t_enable = t_enable
 
     def __call__(self, t, r):
