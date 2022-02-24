@@ -727,10 +727,7 @@ class ParagliderWing:
 
     def mass_properties(self, rho_air: float, r_R2LE):
         """
-        Compute inertia-related properties of the wing about a reference point.
-
-        Includes terms for the solid mass, the enclosed air, and the apparent
-        mass (which appears due to the inertial acceleration of the air).
+        Compute the mass properties of the materials and enclosed volume of air.
 
         Parameters
         ----------

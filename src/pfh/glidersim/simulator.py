@@ -106,7 +106,12 @@ class StateDynamics(Protocol):
 
 
 class ParagliderStateDynamics6a(StateDynamics):
-    """Defines the state dynamics for a 6 DoF paraglider model."""
+    """
+    State dynamics for a 6 DoF paraglider model.
+
+    Implements the choice of state variables and their associated dynamics
+    outlined in :external+thesis:doc:`state_dynamics`.
+    """
 
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
@@ -256,7 +261,12 @@ class ParagliderStateDynamics6a(StateDynamics):
 
 
 class ParagliderStateDynamics9a(StateDynamics):
-    """Defines the state dynamics for a 9 DoF paraglider model."""
+    """
+    State dynamics for a 9 DoF paraglider model.
+
+    Implements the choice of state variables and their associated dynamics
+    outlined in :external+thesis:doc:`state_dynamics`.
+    """
 
     state_dtype = [
         ("q_b2e", float, (4,)),  # Orientation: body/earth
