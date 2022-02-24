@@ -356,13 +356,13 @@ def canopy_mass_properties(canopy, amp, N=250):
 if __name__ == "__main__":
     wing = gsim.extras.wings.niviuk_hook3(size=23)
     wing.canopy.sections.intakes = wing.canopy.sections._no_intakes
+    using_mesh = wing.canopy.mass_properties(1001, 1001)
     amp = airfoil_mass_properties(gsim.airfoil.NACA(24018))
-    cmp1 = canopy_mass_properties(wing.canopy, amp, N=20000)
-    cmp2 = wing.canopy.mass_properties(1001, 1001)
-    for d in cmp1:
+    using_slices = canopy_mass_properties(wing.canopy, amp, N=20000)
+    for d in using_mesh:
         print(d)
-        print(cmp1[d])
-        print(cmp2[d])
+        print("Mesh:\n", using_mesh[d])
+        print("Slices:\n", using_slices[d])
         print()
 
     breakpoint()
