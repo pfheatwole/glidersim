@@ -26,23 +26,8 @@ def niviuk_hook3(
     verbose : bool, default: True
         Whether to print a description of the resulting model.
     """
-    if verbose:
-        print("Building an (approximate) Niviuk Hook 3 23\n")
 
-    # -----------------------------------------------------------------------
-    # Airfoil
-
-    if verbose:
-        print("Airfoil: braking_NACA24018_Xtr0.25\n")
-    airfoils = gsim.extras.airfoils.load_datfile_set("braking_NACA24018_Xtr0.25")
-    airfoil_geo = gsim.airfoil.AirfoilGeometryInterpolator(airfoils)
-    airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
-    delta_d_max = 0.20273  # FIXME: magic number from the set of coefficients
-
-    # -----------------------------------------------------------------------
-    # Canopy
-
-    # True specs from the Niviuk Hook 3 User Manual, p14, "Technical Data"
+    # Specifications from the Niviuk Hook 3 User Manual, p14, "Technical Data"
     technical_specs: dict[int, dict] = {}
 
     technical_specs[23] = {
@@ -96,6 +81,16 @@ def niviuk_hook3(
         )
 
     specs = technical_specs[size]
+
+    if verbose:
+        print(f"Building an (approximate) Niviuk Hook 3 {size}\n")
+
+    if verbose:
+        print("Airfoil: braking_NACA24018_Xtr0.25\n")
+    airfoils = gsim.extras.airfoils.load_datfile_set("braking_NACA24018_Xtr0.25")
+    airfoil_geo = gsim.airfoil.AirfoilGeometryInterpolator(airfoils)
+    airfoil_coefs = gsim.extras.airfoils.load_polar("braking_NACA24018_Xtr0.25")
+    delta_d_max = 0.20273  # FIXME: magic number from the set of coefficients
 
     c = gsim.foil_layout.EllipticalChord(
         root=specs["chord_root"] / (specs["b_flat"] / 2),
@@ -247,6 +242,8 @@ def niviuk_hook3(
         print("Wing inertia:              [Target]")
         print(f"  solid mass:     {wmp['m_s']:>6.3f}   [{specs['m_s']:>6.3f}]")
         print()
+
+        print(f"Maximum brake length (kappa_b): {wing.lines.kappa_b}")
 
         print("Finished building the glider.\n")
 
