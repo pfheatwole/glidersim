@@ -1,15 +1,15 @@
-* `extras/compute_polars.py`
+* Rename `AirfoilCoefficients.Cl` -> `CL`? Airfoils are infinitely long
+  **symmetric** wings, and their coefficients are always produced using `β = 0`
+  so the roll and yaw coefficients are zero, meaning in the context of airfoils
+  you don't need `Cl` for the roll coefficient.
 
-  Rename `plot_polar_curve` -> `polar_curve`; it doesn't plot anything.
+  I think I went with `Cl` because Phillips uses `Cl` and `Cla` for the lift
+  coefficient and lift coefficient slope.
 
-  Refactor the plotting in `plot_wing_coefficients` into `plots.py`
+* Convert `extras.sample_paraglider_positions` to resample points; it's current
+  design is confusing. Just build a linear interpolator over the states and
+  resample.
 
-  Generalize the coefficients estimation in `belloc.py` and move it into
-  `compute_wing_coefficients`; should take reference lengths/areas (like
-  `S_flat` in the case of `belloc`). What all should it compute?
-  `CX/CY/CZ/Cl/Cm/Cn` and `CXa/CYa/CZa/Cla/Cma/Cna` are appealing
-
-  Rename the module? It computes polar curves and wing coefficients.
 
 
 Development
@@ -22,7 +22,11 @@ Documentation
 * Review the README template from "write the docs":
   https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/
 
-* Make sure to point out how I'm handling section dihedral angles  I made the
+* Highlight that all models can be copied out of the tree to serve as
+  a baseline to new models? For example, you can just copy and modify
+  `extras.wings.niviuk_hook3` since it don't use relative imports.
+
+* Make sure to point out how I'm handling section dihedral angles. I made the
   conscious decision to allow step changes, even though it produces overlap at
   panel boundaries (as in my version of Belloc's reference wing). My assumption
   is that the small overlap is less important that getting the panel
@@ -30,9 +34,26 @@ Documentation
   and round the dihedral angles at the panel boundaries, but if you're allowing
   continuously curving reference curves you'll have this issue anyway.
 
+* Document why I decomposed the `foil` like I did. For example, you can't have
+  a pure `foil_geometry` because it needs the sections, but the sections are
+  most easily described by combining the section profiles with their
+  coefficients (so the geometry would "own" the section coefficient data).
+
+  Why did I make `Foil` own `b_flat`? I remember that making the design curves
+  in `foil_layout` normalized by `b_flat/2` allowed for simpler parametric
+  forms, but why not put `b_flat` in `foil_layout`? It's weird.
+
+
 
 Docstrings
 ^^^^^^^^^^
+
+* Sphinx uses type hints to create cross-references in the source, but it
+  doesn't do that automatically for the docstrings. For docstrings it requires
+  explicit ReST markup like ``:py:class:`pfh.glidersim.module.class```.
+  Assuming most consumers will view docstrings in the repl or their IDE, is
+  this clutter worth it? In the HTML output they can still click the linked
+  type in the function signature.
 
 * Review source for docstring references to vectors like `\omega` and wrap them
   in `\vec{}`. Also check the paraglider system dynamics class docstrings for
@@ -57,6 +78,9 @@ Docstrings
 
 Sphinx
 ^^^^^^
+
+* `intersphinx` doesn't support equations yet (see sphinx #9483); once they do,
+  add links to `eq:6dof_state_dynamics` in `StateDynamics6a`, etc
 
 * In Sphinx there is already a "Module index" (via ":ref:`modindex`"). The
   "Library reference" section kind of overlaps with that?
@@ -87,6 +111,15 @@ Sphinx
 
 General
 -------
+
+* Review for standardized parameter order: `delta_*`, wind velocity, air
+  density, `g`, etc
+
+* Should I rename `mass_properties` to `inertial_properties`?
+
+* Review default parameters; are they justified? And if so, are they
+  consistent? For example, why is `rho_air` defaulted in some places but not
+  others?
 
 * Performance: why is importing `pfh.glidersim` so slow?
 
@@ -125,6 +158,106 @@ General
 * Use a `.dev0` for in-development branches? See PEP440. Remove the `.dev0`
   when releasing. This helps avoid situations where you look at a commit and
   see a proper version number even though it's actually a development branch.
+
+* I don't like that names like `v_W2h` and `v_W2b` (in the `resultant_force` of
+  `ParagliderHarness` and `ParagliderinWing`) don't clearly communicate that
+  they are ndarrays of vectors for each control point. Should I rename them
+  `v_W2CP`?
+
+* Do I ever use `ValueError` when `TypeError` would be more appropriate?
+
+
+Refactor
+^^^^^^^^
+
+* Rename `LineGeometry` -> `SuspensionLines`. They're more than just the
+  geometry; they provide mass properties and dynamics.
+
+  Split `SuspensionLines` into `suspension_lines.py` (for consistency)
+
+* Rename `SimpleFoil` -> `ParagliderFoil`?
+
+  Reason being that it uses `FoilSections` which takes a `SimpleIntakes`.
+
+  Should I make a `class ParafoilSections(FoilSections)`, leaving the
+  `FoilSections` as a `Protocol`? It'd also let me isolate some of the stranger
+  stuff like the coefficient offsets (like `Cd_intakes`).
+
+  **More support for putting the `paraglider_*` modules into a package**
+
+  If I'm refactoring stuff, what happens to `SimpleFoil`? And does it make
+  sense to keep it scaled by `b_flat / 2`? Heck, does it make sense for `Foil`
+  to be opinionated about the choice of section index? **Shouldn't that belong
+  to the specific aircraft model choices?** Like, defining `s` using the length
+  of the `yz`-curve makes sense of paragliders, but maybe not for other wings.
+  It'd be nice if the top level `foil_` modules were unopinionated.
+
+  What about `SimpleFoil.mass_properties`? It knows parafoil-specific details
+  like upper vs lower surfaces. Should `mass_properties` be part of the
+  `Foil(Protocol)`? Who uses it outside of the immediate consumer
+  (`ParagliderWing` and `Paraglider`)? Same thing for the mesh generating
+  functions; they return separate upper/lower meshes. I guess the general
+  rule should be "don't try to generalize prematurely"; until somebody
+  outside the model-specific code needs it, don't add it to the Protocol.
+
+* Reorganize all the paraglider-specific bits into a subpackage? So I'd have
+  `pfh.glidersim.paraglider` with `.wing`, `.lines`, `.harness`, etc? I'd
+  like to move the paraglider-specific state dynamics out of the `simulator`
+  module. Also, `paraglider.paraglider` is a bit weird; maybe
+  `.system_dynamics` and `.state_dynamics`? Also,
+  `ParagliderSystemDynamics6a` is kinda ridiculous.
+
+  Might be helpful to consider what it'd look like if I added other aircraft
+  like hang gliders, kites, or sailplanes.
+
+* `extras/compute_polars.py`
+
+  Rename the module? It computes polar curves and wing coefficients.
+
+  Rename `plot_polar_curve` -> `polar_curve`; it doesn't plot anything.
+
+  Refactor the plotting in `plot_wing_coefficients` into `plots.py`
+
+  I should generalize the coefficients estimation in `belloc.py` and move it
+  into `glidersim`; should take reference lengths/areas and return
+  `{CX,CY,CZ,Cl,Cm,Cn,CXa,CYa,CZa,Cla,Cma,Cna}`. (Should it understand to start
+  from `alpha = 0` and work outwards to improve convergence? Same for `beta`.)
+
+  Would need to replace the `dict` with a numpy array with a structured dtype;
+  instead of direct indexing by value, you'd need something like
+  ``coeffs[:,betas==specific_beta]['CZa']``. Also, some of the inputs might fail
+  to converge; I guess set their components to `nan`? (So instead of empty
+  arrays, you'd have `CXa = np.nan` for those entries.
+
+  .. code-block:: python
+
+     def compute_coefficients(alphas, betas, r_CP2LE, c_ref, S_ref):
+         # c_ref and S_ref are the reference length and area
+         alphas = np.asarray(alpha)
+         betas = np.asarray(betas)
+         dtype = ("CX", "CXa", ...)
+         coeffs = np.array(
+             shape=np.broadcast_shapes(alpha, beta),
+             np.nan,
+             dtype=dtype,
+         )
+         for ka, alpha in enumerate(alphas):
+            for kb, beta in enumerate(betas):
+               dF, dM = wing.aerodynamics(...)
+               F = dF.sum(...)
+               M = dM.sum(...) + np.cross(r_CP2RM, ...)
+               CX, CY, CZ = ...
+               CXa, CYa, CZa = ...
+            coefs[ka, kb] = (CX, CY, CZ, CXa, CYa, CZa)
+
+   What about control inputs? For polar curves you accelerator and brakes. Use
+   `kwargs`? Oh, and computing polar curves is NOT the same thing as
+   coefficient curves; don't confuse the two. Coefficient curves are usually
+   not associated with equilibrium states; polar curves are. Also, polar curves
+   depend on both aerodynamics **and gravity**; very different.
+
+   **Postpone**:: `belloc.py` uses `dict` indexed by `alpha` and `beta`
+
 
 
 Static typing
@@ -199,7 +332,14 @@ Packaging
 
   https://github.com/pypa/setuptools_scm/issues/578#issue-913435885
 
-* Publish to Zenodo, add *concept DOI* to README, add version DOI to thesis
+  Adopt changes demonstrated in
+  https://github.com/pypa/setuptools_scm/pull/580/files (add
+  `.git_archival.txt`, update `.gitattributes` and `MANIFEST.in`, etc).
+  Probably need to bump `setuptools>=` in `pyproject.toml`.
+
+* Publish to Zenodo, add *concept DOI* to README and `CITATION.cff`, and add
+  version DOI to thesis. After publishing the thesis, and its DOI to
+  `glidersim` and add equation references (eg, `Heatwole Eq:2.7`)
 
 * Make `matplotlib` an optional dependency? Put it in a `plotting` extras.
   Could lazy-load modules that import the library and present a user-friendly
@@ -208,6 +348,13 @@ Packaging
 
 Plots
 -----
+
+* Could `plot_3d_simulation_path` be refactored to plot labeled ndarray of
+  points that should be connected by lines? You could pass in `r_RM2O` as
+  a `(K,)`, or `(r_RM2O, r_LE2O)` as a `(2,K)` and plot lines pairwise. Once
+  you've got the general plotting function you could call it multiple times
+  with the same `ax` and create custom plotters for scenarios like it's
+  currently doing.
 
 * In `plots.plot_foil` I have a `surface` parameter. Should I use `airfoil` or
   `profile` for the profile surface? I'm using `airfoil` but in a way that
@@ -223,28 +370,39 @@ Plots
 Testing
 -------
 
-* Create a set of unit tests:
+* Testing component models using realistic designs is a real chore because true
+  values are difficult to calculate by hand. Instead, start with simplistic
+  models for fixtures, like an `AirfoilCoefficientsInterpolator` that just
+  returns `1`, a `FoilAerodynamics` that just returns `1`, a wing model that
+  weighs 1kg with the cg 1m below the wing, etc.
 
-  1. Create several test harnesses:
 
-     * mass=0.0, z_riser=0.0, CD==0.0, kappa_w=0.0
-     * mass=1.0, z_riser=0.0, CD==0.0, kappa_w=0.0
-     * mass=0.0, z_riser=1.0, CD==0.0, kappa_w=0.0
-     * mass=0.0, z_riser=0.0, CD==1.0, kappa_w=0.0
+Foil aerodynamics
+^^^^^^^^^^^^^^^^^
 
-     ... etc.
+* Method that always produce a force of 1 in the direction of `v_W2b`?
 
-  2. Write tests for `control_points`, `aerodynamics`, and `mass_properties`
+* Method that always produces a yaw restoring force proportional to the
+  sideslip angle?
 
-  This should give me a good starting point. Ultimately I want tests for full
-  `Paraglider` objects. A Paraglider is composed of a wing and payload, so
-  write tests for those first.
 
-  Will probably need some special tooling, like an
-  `AirfoilCoefficientsInterpolator` that just returns `1`,
-  a `FoilAerodynamics` that just returns `1`, a wing model that weighs 1kg
-  with the cg 1m below the wing, etc. (In other words, how to build a model
-  for which you can compute accelerations manually.)
+Foil
+^^^^
+
+* Test `mass_properties()` with simple shapes like spheres and cubes; should be
+  easy to verify surface areas, volumes, centers of mass, and moments of
+  inertia.
+
+
+Paraglider wing
+^^^^^^^^^^^^^^^
+
+* `_compute_real_mass_properties`: difficult to test since it relies on
+  `canopy.mass_properties`.
+
+
+Orientation
+^^^^^^^^^^^
 
 * Move the tests embedded in `orientation.py` into `test_orientation.py`
 
@@ -252,7 +410,11 @@ Testing
 Tooling
 -------
 
-* Move `.flake8` into `setup.cfg`?
+* Update `MANIFEST.in` to prune `.flake8`, `.gitignore`,
+  `.pre-commit-config.yaml`, `TODO.rst`, `requirements*.txt`, etc? Guess it
+  doesn't REALLY matter, they're small. What about `docs`? Is the `sdist`
+  strictly the content used to build the wheel? If so, it'd only need `src` and
+  a few config files.
 
 * Try using `darglint` as a `flake8` plugin. As of 2021-01-01 this wasn't
   working well, needs review.
@@ -854,6 +1016,8 @@ Harness
 Line geometry
 =============
 
+* Should `LineGeometry` use `resultant_force` instead of `aerodynamics`?
+
 * Add a proper line geometry. `SimpleLineGeometry` is a kludge that produces
   deflection distributions that you're *assuming* can be produced by a line
   geometry. Checkout `altmann2015FluidStructureInteractionAnalysis` for
@@ -873,6 +1037,8 @@ Line geometry
 
 ParagliderWing
 ==============
+
+* Review `ParagliderWing.aerodynamics`; it's UGLY.
 
 * Eliminate "magic indexing"
 
@@ -898,11 +1064,14 @@ ParagliderWing
 Wing mass properties
 --------------------
 
+* `ParagliderWing.mass_properties` no longer uses `delta_a`, which would
+  technically mean the suspension line inertia is constant. Close enough, but
+  technically not true. Then again, `ParagliderWing.mass_properties` ignores
+  the mass of the lines anyway (it doesn't contribute weight or moment).
+
 * My implementation of Barrows needs a design review. The thickness parameter
   `t` in particular. Barrows assumes a uniform thickness canopy, and I'm not
   sure how to best translate for a paraglider wing.
-
-* `ParagliderWing.mass_properties` ignores the mass of the lines.
 
 * `mass_properties` should take the reference point for the apparent mass as
   a parameter. It's only constraint should be that it lies in the xz-plane (to
@@ -949,6 +1118,8 @@ Paraglider
 
 Models
 ------
+
+* Why is `ParagliderSystemDynamics6a` faster with apparent mass **enabled**?
 
 * It seems like a bad idea to use `Theta_p2b` to compute the payload restoring
   moment in the 9DoF models. The linear relationship is probably fine for
@@ -1047,6 +1218,13 @@ Apparent Inertia
 Simulator
 =========
 
+* The state dynamics models call `paraglider.control_points`, then
+  `paraglider.accelerations` also calls `paraglider.control_points`, then
+  `wing` and `harness` both also call their own `control_points`. The reason
+  was to simplify the function signatures and avoid passing redundant
+  information (since knowledge of the control points is contained in the
+  control inputs), but YUCK.
+
 * The simulator should use a generic `R` instead of `RM`. The system dynamics
   model are free to use whatever reference point is convenient and let the
   state dynamics model compute the dynamics wrt the `R`. Using `R` would make
@@ -1063,23 +1241,18 @@ Simulator
 
 * Add calculated `alpha` and `v_mag` to `simulator.prettyprint_state`
 
+* Documentation: highlight that state dynamics models expect deterministic
+  input functions of the time `t`.
+
 
 Pre-built models
 ----------------
 
-* HIGH: `extras/simulator.py:sample_paraglider_positions` should use the
-  `kappa_x` point on the chord so the vertical line shows the true relative
-  pitch angle. As it is, the line is ways pointing forwards, which makes the
-  pitch angle harder to distinguish.
-
-* Right now the only wing I've coded is a "Niviuk Hook 3 23". I need more
-  wings (preferably at least one each from class A and C) for comparison and
+* Right now the only wings I've coded are "Niviuk Hook 3". I need more wings
+  (preferably at least one each from class A and C) for comparison and
   demonstration (both of how to use the library and of the difference in wing
-  performance).
-
-  I should probably also have some "suggested" paraglider models using those
-  wings. Each wing has some info like weight limits; maybe that'd be good
-  enough. For now just choose the parameters myself.
+  performance). I should probably also add complete glider models using those
+  wings, adding suitable payloads to each wing.
 
 
 Niviuk Hook 3
