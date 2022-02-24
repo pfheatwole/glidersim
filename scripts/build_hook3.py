@@ -81,7 +81,7 @@ if __name__ == "__main__":
     breakpoint()
 
     input("Plot the polar curve?  Press any key")
-    accelerating, braking = gsim.extras.compute_polars.plot_polar_curve(
+    accelerating, braking = gsim.extras.compute_polars.compute_polar_data(
         paraglider,
     )
 

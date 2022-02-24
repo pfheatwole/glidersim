@@ -1,4 +1,4 @@
-"""Utility functions for generating performance *polar curves* for a foil."""
+"""Utility functions for analyzing wing performance."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import numpy as np
 from pfh.glidersim import foil_aerodynamics, orientation
 
 
-def plot_polar_curve(glider, rho_air: float = 1.225, N: int = 21):
-    """Compute the equilibrium conditions and plot the polar curves."""
+def compute_polar_data(glider, rho_air: float = 1.225, N: int = 21):
+    """Compute the equilibrium conditions over the range of control inputs."""
     eqs_a = []
     delta_as = np.linspace(0, 1, N)
     equilibrium = {  # Initial guesses
