@@ -10,10 +10,10 @@ import abc
 from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
 
 import numpy as np
-from scipy.optimize import minimize, minimize_scalar, root_scalar
-from scipy.spatial import Delaunay
+import scipy.optimize
+import scipy.spatial
 
-from pfh.glidersim import foil, foil_aerodynamics
+from pfh.glidersim import foil_aerodynamics
 from pfh.glidersim.util import cross3, crossmat
 
 
@@ -322,7 +322,7 @@ class SimpleLineGeometry(LineGeometry):
         # delta_d is a convex function, assumes the maximum normalized
         # deflection occurs with full brakes, etc.
         self.kappa_b = 1
-        res = minimize_scalar(
+        res = scipy.optimize.minimize_scalar(
             lambda s: -self.delta_d(s, 1, 1) / chord_length(s),
             bounds=(0, 1),
             method="bounded",
@@ -344,7 +344,7 @@ class ParagliderWing:
     ----------
     lines : LineGeometry
         Lines that position the riser and produce trailing edge deflections.
-    canopy : foil.FoilGeometry
+    canopy : SimpleFoil
         The geometric shape of the lifting surface.
     rho_upper, rho_lower : float [kg/m^2]
         Surface area densities of the upper and lower canopy surfaces.
@@ -352,8 +352,8 @@ class ParagliderWing:
         Surface area density of the internal vertical ribs.
     N_cells : integer, optional
         The number of canopy cells. This is only used for estimating the mass
-        of the internal ribs. Proper support for ribs requires a new `Foil`
-        with native support for cells, ribs, profile distortions, etc.
+        of the internal ribs. Proper support for ribs would require a new foil
+        geometry with native support for cells, ribs, profile distortions, etc.
     """
 
     def __init__(
@@ -403,7 +403,7 @@ class ParagliderWing:
         rib_points = self.canopy.sections.surface_xz(s_ribs[:, None], 0, r, "airfoil")
         rib_tris = []
         for n in range(len(rib_vertices)):
-            rib_simplices = Delaunay(rib_points[n]).simplices
+            rib_simplices = scipy.spatial.Delaunay(rib_points[n]).simplices
             rib_tris.append(rib_vertices[n][rib_simplices])
         rib_tris = np.asarray(rib_tris)
         rib_sides = np.diff(rib_tris, axis=2)
@@ -684,7 +684,7 @@ class ParagliderWing:
             return M[1]  # Wing pitching moment
 
         x0, x1 = np.deg2rad([alpha_0, alpha_1])
-        res = root_scalar(target, x0=x0, x1=x1)
+        res = scipy.optimize.root_scalar(target, x0=x0, x1=x1)
         if not res.converged:
             raise foil_aerodynamics.ConvergenceError
         return res.root
@@ -727,10 +727,7 @@ class ParagliderWing:
 
     def mass_properties(self, rho_air: float, r_R2LE):
         """
-        Compute inertia-related properties of the wing about a reference point.
-
-        Includes terms for the solid mass, the enclosed air, and the apparent
-        mass (which appears due to the inertial acceleration of the air).
+        Compute the mass properties of the materials and enclosed volume of air.
 
         Parameters
         ----------

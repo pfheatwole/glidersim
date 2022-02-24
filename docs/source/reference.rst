@@ -1,10 +1,10 @@
 Library Reference
 =================
 
-Wing modeling
+Foil modeling
 -------------
 
-The wing model is created from a continuum of wing sections.
+The foil model is created from a continuum of foil sections.
 
 .. autosummary::
    :toctree: _autosummary
@@ -19,8 +19,8 @@ The wing model is created from a continuum of wing sections.
 Paraglider modeling
 -------------------
 
-A paraglider dynamics model is created by combining models for the canopy,
-lines, and harness.
+A glider system dynamics model is created by combining component models for the
+canopy, lines, and harness.
 
 [[well, `wing = lines + canopy`, then `paraglider = wing + harness`]]
 
@@ -35,8 +35,12 @@ lines, and harness.
 Simulation
 ----------
 
-A flight simulation is created by defining a set of state variables and
-relating the state dynamics to the glider dynamics.
+A flight simulation is created by integrating a set of state derivatives over
+time to create a state trajectory. A state dynamics model is responsible for
+choosing a set of state variables and relating their derivatives to the system
+dynamics.
+
+.. FIXME: separate the StateDynamics from the simulator; this is confusing
 
 .. autosummary::
    :toctree: _autosummary

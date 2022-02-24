@@ -1,7 +1,7 @@
 Welcome to glidersim's documentation!
 =====================================
 
-[[Brief intro sentence here, then preview the overview the sections.]]
+[[Brief intro sentence here, then preview the sections.]]
 
 
 Contents

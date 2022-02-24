@@ -76,7 +76,7 @@ class Phillips(FoilAerodynamics):
 
     Parameters
     ----------
-    foil : FoilGeometry
+    foil : SimpleFoil
         Defines the lifting-line and section coefficients.
     v_ref_mag : float [m/s]
         The reference solution airspeed
@@ -132,7 +132,7 @@ class Phillips(FoilAerodynamics):
 
     def __init__(
         self,
-        foil,
+        foil: SimpleFoil,
         v_ref_mag,
         alpha_ref: float,
         s_nodes,

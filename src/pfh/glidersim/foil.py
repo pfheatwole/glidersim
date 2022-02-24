@@ -44,7 +44,7 @@ class SimpleFoil:
     b, b_flat : float
         The arched and flattened spans of the chords. Specify only one. These
         function as scaling factors for the FoilLayout.
-    aerodynamics_method : foil_aerodynamics.FoilAerodynamics, optional
+    aerodynamics_method : FoilAerodynamics, optional
         Estimator for the aerodynamic forces and moments.
     aerodynamics_config : dictionary, optional
         Keyword arguments for instantiating `aerodynamics_method`
