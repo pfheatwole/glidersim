@@ -208,10 +208,11 @@ class Spherical(ParagliderHarness):
         }
 
     def resultant_force(self, delta_w, v_W2h, rho_air, g, r_R2RM, mp=None):
+        v_W2h = np.asfarray(v_W2h)
+        g = np.asfarray(g)
         if mp is None:
             mp = self.mass_properties(delta_w, r_R2RM)
 
-        v_W2h = np.asfarray(v_W2h)
         if v_W2h.shape not in [(3,), (1, 3)]:
             raise ValueError("v_W2h must be a (3,) or a (1,3)")
         if v_W2h.shape == (1, 3):
