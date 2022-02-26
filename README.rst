@@ -158,9 +158,4 @@ Disclaimer
 This software has been stable for my purposes, but should be considered "alpha"
 quality. The design (including the API) needs more users to test it before it
 could be considered stable. Also the estimates produced by the nonlinear
-aerodynamics method needs more verification. (Current validation is only for
-static scenarios with a single parafoil in a wind tunnel; refer to the
-:ref:`aerodynamics case study <thesis:foil_aerodynamics:case study>` for
-a discussion, and the `associated script
-<http://github.com/pfheatwole/thesis/blob/main/source/figures/paraglider/belloc/belloc.py>`__
-from my thesis for the test sources.)
+aerodynamics method needs more verification.
