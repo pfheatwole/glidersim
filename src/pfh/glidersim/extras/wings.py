@@ -111,7 +111,7 @@ def niviuk_hook3(
     layout = gsim.foil_layout.FoilLayout(
         r_x=0.70,
         x=0,
-        r_yz=1.00,
+        r_yz=0.25,
         # yz=gsim.foil_layout.EllipticalArc(mean_anhedral=33, tip_anhedral=67),
         yz=gsim.foil_layout.EllipticalArc(mean_anhedral=32, tip_anhedral=75),
         c=c,
