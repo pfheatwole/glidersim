@@ -47,7 +47,7 @@ autodoc_default_options = {
 }
 
 intersphinx_mapping = {
-    "thesis": ("/home/peter/thesis/sphinx/build/html", None),
+    "thesis": ("https://pfheatwole.github.io/thesis", None),
 }
 
 mathjax3_config = {
