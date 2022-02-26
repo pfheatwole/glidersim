@@ -1,0 +1,36 @@
+﻿pfh.glidersim.foil\_aerodynamics
+================================
+
+.. automodule:: pfh.glidersim.foil_aerodynamics
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      FoilAerodynamics
+      Phillips
+   
+   
+
+   
+   
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      ConvergenceError
+   
+   
+
+
+

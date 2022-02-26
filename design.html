@@ -1,0 +1,390 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Usage" href="usage.html" /><link rel="prev" title="Introduction" href="introduction.html" />
+
+    <meta name="generator" content="sphinx-4.4.0, furo 2022.02.14.1"/>
+        <title>Design - pfh.glidersim</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=a8f031f701c6af50c9919b48f173a5785af06fac" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=25ceb02ed1c46dc30f2321ff83e92799f69dfdb9" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     <b>This documentation is a work-in-progress.</b> 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">pfh.glidersim</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/hook3_vectorized_opt.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">pfh.glidersim</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference.html">Library Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle child pages in navigation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.airfoil.html">pfh.glidersim.airfoil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.foil_sections.html">pfh.glidersim.foil_sections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.foil_layout.html">pfh.glidersim.foil_layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.foil_aerodynamics.html">pfh.glidersim.foil_aerodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.foil.html">pfh.glidersim.foil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.paraglider_wing.html">pfh.glidersim.paraglider_wing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.paraglider_harness.html">pfh.glidersim.paraglider_harness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.paraglider.html">pfh.glidersim.paraglider</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.orientation.html">pfh.glidersim.orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.simulator.html">pfh.glidersim.simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.extras.airfoils.html">pfh.glidersim.extras.airfoils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.extras.compute_polars.html">pfh.glidersim.extras.compute_polars</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.extras.plots.html">pfh.glidersim.extras.plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.extras.simulation.html">pfh.glidersim.extras.simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pfh.glidersim.extras.wings.html">pfh.glidersim.extras.wings</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container"><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="design">
+<h1>Design<a class="headerlink" href="#design" title="Permalink to this headline">#</a></h1>
+<p>This library is motivated by a need for flight dynamics models encoded as
+simple systems of differential equations:</p>
+<div class="math-wrapper"><div class="math notranslate nohighlight">
+\[\dot{\vec{x}} = f(\vec{x}, \vec{u})\]</div></div>
+<p>(where <span class="math notranslate nohighlight">\(\vec{x}\)</span> is a vector of state variables and <span class="math notranslate nohighlight">\(\vec{u}\)</span> is
+a vector of system inputs).</p>
+<p>[[Typical aircraft simulators expose a complicated model interface, making them
+difficult to use and extend. Instead, deliberately targeting numerical
+derivatives makes the flight dynamics models directly usable in common
+applications such as control modeling and statistical filtering.]]</p>
+<section id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">#</a></h2>
+<p>This library began as an implementation of my thesis: <a class="reference external" href="https://pfheatwole.github.io/thesis/">Parametric Paraglider
+Modeling</a>. Its motivation was to
+enable statistical flight reconstruction of the wind fields present during
+recorded paraglider flights. The task would require a flight dynamics model of
+the glider that produced the flight record, so the objective of the paper was
+to estimate the flight dynamics of commercial paraglider wings using only basic
+technical data. Achieving that objective required decomposing the paraglider
+system into components that enabled convenient model parametrizations. Although
+development focused on paraglider dynamics, the model decomposition makes the
+library suitable for general gliding aircraft such as kites and hang gliders.</p>
+</section>
+<section id="design-overview">
+<h2>Design overview<a class="headerlink" href="#design-overview" title="Permalink to this headline">#</a></h2>
+<p>Creating a flight dynamics model using this library means implementing
+a <a class="reference internal" href="_autosummary/pfh.glidersim.simulator.html#pfh.glidersim.simulator.StateDynamics" title="pfh.glidersim.simulator.StateDynamics"><code class="xref py py-class docutils literal notranslate"><span class="pre">StateDynamics</span></code></a> class that
+defines a set of state variables and computes numerical state derivatives that
+can be integrated over time to produce a flight trajectory.</p>
+<p>Because gliding aircraft are complex systems, it is easier to estimate their
+dynamics if they are decomposed into composite models, leading to a natural
+hierarchy that builds up to the state dynamics to record the behavior of the
+system.</p>
+</section>
+<section id="model-hierarchy">
+<h2>Model hierarchy<a class="headerlink" href="#model-hierarchy" title="Permalink to this headline">#</a></h2>
+<p>The models in this library can be categorized into three groups:</p>
+<ol class="arabic simple">
+<li><p>Components</p></li>
+<li><p>Systems</p></li>
+<li><p>State variables</p></li>
+</ol>
+<section id="components">
+<h3>Components<a class="headerlink" href="#components" title="Permalink to this headline">#</a></h3>
+<p>Component models define the control inputs of the individual components of the
+glider system, their inertial properties, and the resultant forces that act on
+them. The choice of components is whatever decomposition makes sense for
+a specific system dynamics model.</p>
+</section>
+<section id="systems">
+<h3>Systems<a class="headerlink" href="#systems" title="Permalink to this headline">#</a></h3>
+<p>System models define the composite behavior produced by combining the component
+models. They calculate whatever physical rates of change are necessary to
+describe the system dynamics, such as translational and angular acceleration.</p>
+</section>
+<section id="state-variables">
+<h3>State variables<a class="headerlink" href="#state-variables" title="Permalink to this headline">#</a></h3>
+<p><a class="reference external" href="https://en.wikipedia.org/wiki/State_variable">State variables</a> are numbers
+that summarize the current “state” of a dynamical system, such as position and
+velocity. The time derivatives of the state variables, called the <em>state
+dynamics</em>, describe how the state of the system is reacting to the current
+state and any system inputs. Flight simulation is performed by integrating the
+state dynamics over time to produce a <em>state trajectory</em>: a record of the
+dynamic behavior of the system over time. A state dynamics model is responsible
+for choosing a set of state variables and relating their derivatives to the
+derivatives generated by the system dynamics.</p>
+<p>At first glance the system dynamics and state dynamics can seem equivalent, but
+differentiating the two adds significant freedom to system model design because
+it separates the system dynamics from the representation of system state. For
+example, the state dynamics may record orientation using Euler angles,
+quaternions, or some other encoding; the system dynamics should not depend on
+the choice of encoding. Similarly, the system dynamics should not depend on
+position, nor should they depend on the choice of global coordinate system; the
+system models are free to define all quantities in local, body-fixed coordinate
+systems, and let the state dynamics choose representations that suit the
+simulation applications.</p>
+<p>Also, the state dynamics provide the interface between the system dynamics and
+the simulator. Although the models included with this library are designed for
+use with the (rudimentary) bundled simulator, alternative state dynamics
+classes could — in theory — expose the same system models to more comprehensive
+flight simulators such as FlightGear.</p>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+<div class="related-pages">
+  <a class="next-page" href="usage.html">
+      <div class="page-info">
+        <div class="context">
+          <span>Next</span>
+        </div>
+        <div class="title">Usage</div>
+      </div>
+      <svg><use href="#svg-arrow-right"></use></svg>
+    </a>
+  <a class="prev-page" href="introduction.html">
+      <svg><use href="#svg-arrow-right"></use></svg>
+      <div class="page-info">
+        <div class="context">
+          <span>Previous</span>
+        </div>
+        
+        <div class="title">Introduction</div>
+        
+      </div>
+    </a>
+</div>
+<div class="bottom-of-page">
+  <div class="left-details">
+    &copy; 2022, Peter Heatwole
+    |
+    <a href="https://creativecommons.org/licenses/by/4.0" style="text-decoration-line:none">
+      <img
+        class="logo"
+        src="_static/cc_by_80x15.svg"
+        height="15px"
+        style="vertical-align:middle"
+        alt="Licensed CC-BY 4.0"
+      />
+    </a>
+    | Powered by <a href="http://sphinx-doc.org/">Sphinx</a>
+    w/ <a href="https://github.com/pradyunsg/furo">Furo</a>
+      | <a class="muted-link" href="_sources/design.rst.txt"
+        rel="nofollow">
+        Show Source
+      </a>
+  </div>
+  <div class="right-details">
+    <div class="icons">
+      
+    </div>
+  </div>
+</div>
+
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            Contents
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Design</a><ul>
+<li><a class="reference internal" href="#background">Background</a></li>
+<li><a class="reference internal" href="#design-overview">Design overview</a></li>
+<li><a class="reference internal" href="#model-hierarchy">Model hierarchy</a><ul>
+<li><a class="reference internal" href="#components">Components</a></li>
+<li><a class="reference internal" href="#systems">Systems</a></li>
+<li><a class="reference internal" href="#state-variables">State variables</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/scripts/furo.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"defas": "\\stackrel{\\mathrm{def}}{=}", "vec": ["\\mathbf{#1}", 1], "mat": ["\\mathbf{#1}", 1], "crossmat": ["\\left[{#1}\\right]^{\\times}", 1]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>

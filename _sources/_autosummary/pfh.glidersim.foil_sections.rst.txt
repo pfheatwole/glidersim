@@ -1,0 +1,30 @@
+﻿pfh.glidersim.foil\_sections
+============================
+
+.. automodule:: pfh.glidersim.foil_sections
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      FoilSections
+      SimpleIntakes
+   
+   
+
+   
+   
+   
+
+
+

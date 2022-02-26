@@ -1,0 +1,30 @@
+﻿pfh.glidersim.extras.compute\_polars
+====================================
+
+.. automodule:: pfh.glidersim.extras.compute_polars
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compute_polar_data
+      plot_wing_coefficients
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

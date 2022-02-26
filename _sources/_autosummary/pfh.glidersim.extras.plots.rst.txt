@@ -1,0 +1,32 @@
+﻿pfh.glidersim.extras.plots
+==========================
+
+.. automodule:: pfh.glidersim.extras.plots
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      plot_airfoil_coef
+      plot_airfoil_geo
+      plot_foil
+      plot_foil_topdown
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

@@ -1,0 +1,30 @@
+﻿pfh.glidersim.paraglider\_harness
+=================================
+
+.. automodule:: pfh.glidersim.paraglider_harness
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ParagliderHarness
+      Spherical
+   
+   
+
+   
+   
+   
+
+
+

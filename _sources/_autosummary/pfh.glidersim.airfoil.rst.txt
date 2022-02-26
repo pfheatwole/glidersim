@@ -1,0 +1,34 @@
+﻿pfh.glidersim.airfoil
+=====================
+
+.. automodule:: pfh.glidersim.airfoil
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AirfoilCoefficientsInterpolator
+      AirfoilGeometry
+      AirfoilGeometryInterpolator
+      GridCoefficients
+      NACA
+      XFLR5Coefficients
+   
+   
+
+   
+   
+   
+
+
+

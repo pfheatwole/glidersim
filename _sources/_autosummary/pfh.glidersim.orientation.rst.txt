@@ -1,0 +1,33 @@
+﻿pfh.glidersim.orientation
+=========================
+
+.. automodule:: pfh.glidersim.orientation
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      dcm_to_euler
+      euler_to_dcm
+      euler_to_quaternion
+      quaternion_to_dcm
+      quaternion_to_euler
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

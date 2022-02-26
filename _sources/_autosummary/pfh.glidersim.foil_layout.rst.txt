@@ -1,0 +1,33 @@
+﻿pfh.glidersim.foil\_layout
+==========================
+
+.. automodule:: pfh.glidersim.foil_layout
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      EllipticalArc
+      EllipticalChord
+      FlatYZ
+      FoilLayout
+      PolynomialTorsion
+   
+   
+
+   
+   
+   
+
+
+

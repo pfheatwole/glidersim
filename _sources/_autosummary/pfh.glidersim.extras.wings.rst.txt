@@ -1,0 +1,29 @@
+﻿pfh.glidersim.extras.wings
+==========================
+
+.. automodule:: pfh.glidersim.extras.wings
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      niviuk_hook3
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

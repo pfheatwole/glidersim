@@ -1,0 +1,29 @@
+﻿pfh.glidersim.foil
+==================
+
+.. automodule:: pfh.glidersim.foil
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      SimpleFoil
+   
+   
+
+   
+   
+   
+
+
+

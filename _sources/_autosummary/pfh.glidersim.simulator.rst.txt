@@ -1,0 +1,39 @@
+﻿pfh.glidersim.simulator
+=======================
+
+.. automodule:: pfh.glidersim.simulator
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      prettyprint_state
+      recompute_derivatives
+      simulate
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ParagliderStateDynamics6a
+      ParagliderStateDynamics9a
+      StateDynamics
+   
+   
+
+   
+   
+   
+
+
+

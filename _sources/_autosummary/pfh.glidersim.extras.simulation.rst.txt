@@ -1,0 +1,38 @@
+﻿pfh.glidersim.extras.simulation
+===============================
+
+.. automodule:: pfh.glidersim.extras.simulation
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compute_euler_derivatives
+      linear_control
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      CircularThermal
+      HorizontalShear
+      LateralGust
+   
+   
+
+   
+   
+   
+
+
+

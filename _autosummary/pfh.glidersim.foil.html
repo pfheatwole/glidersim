@@ -1,0 +1,590 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="pfh.glidersim.paraglider_wing" href="pfh.glidersim.paraglider_wing.html" /><link rel="prev" title="pfh.glidersim.foil_aerodynamics" href="pfh.glidersim.foil_aerodynamics.html" />
+
+    <meta name="generator" content="sphinx-4.4.0, furo 2022.02.14.1"/>
+        <title>pfh.glidersim.foil - pfh.glidersim</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=a8f031f701c6af50c9919b48f173a5785af06fac" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=25ceb02ed1c46dc30f2321ff83e92799f69dfdb9" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     <b>This documentation is a work-in-progress.</b> 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">pfh.glidersim</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/hook3_vectorized_opt.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">pfh.glidersim</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../reference.html">Library Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle child pages in navigation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.airfoil.html">pfh.glidersim.airfoil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_sections.html">pfh.glidersim.foil_sections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_layout.html">pfh.glidersim.foil_layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_aerodynamics.html">pfh.glidersim.foil_aerodynamics</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">pfh.glidersim.foil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.paraglider_wing.html">pfh.glidersim.paraglider_wing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.paraglider_harness.html">pfh.glidersim.paraglider_harness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.paraglider.html">pfh.glidersim.paraglider</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.orientation.html">pfh.glidersim.orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.simulator.html">pfh.glidersim.simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.airfoils.html">pfh.glidersim.extras.airfoils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.compute_polars.html">pfh.glidersim.extras.compute_polars</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.plots.html">pfh.glidersim.extras.plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.simulation.html">pfh.glidersim.extras.simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.wings.html">pfh.glidersim.extras.wings</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container"><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="module-pfh.glidersim.foil">
+<span id="pfh-glidersim-foil"></span><h1>pfh.glidersim.foil<a class="headerlink" href="#module-pfh.glidersim.foil" title="Permalink to this headline">#</a></h1>
+<p>Models that combine a 3D foil geometry with an aerodynamics estimator.</p>
+<p class="rubric">Classes</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil" title="pfh.glidersim.foil.SimpleFoil"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SimpleFoil</span></code></a>(layout, sections[, b, b_flat, ...])</p></td>
+<td><p>A foil geometry that applies a constant airfoil along a chord surface.</p></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py class">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pfh.glidersim.foil.</span></span><span class="sig-name descname"><span class="pre">SimpleFoil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil_layout.html#pfh.glidersim.foil_layout.FoilLayout" title="pfh.glidersim.foil_layout.FoilLayout"><span class="pre">FoilLayout</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil_sections.html#pfh.glidersim.foil_sections.FoilSections" title="pfh.glidersim.foil_sections.FoilSections"><span class="pre">FoilSections</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b_flat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aerodynamics_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="pfh.glidersim.foil_aerodynamics.html#pfh.glidersim.foil_aerodynamics.FoilAerodynamics" title="pfh.glidersim.foil_aerodynamics.FoilAerodynamics"><span class="pre">FoilAerodynamics</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aerodynamics_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A foil geometry that applies a constant airfoil along a chord surface.</p>
+<p>These are idealized foils that exactly match the scaled chord surface and
+profiles. Such an idealized shape is only possible for rigid foils that can
+enforce absolute geometry, unlike flexible foils, which can only attempt to
+create the target shape through internal structure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>layout</strong><span class="classifier">FoilLayout</span></dt><dd><p>Provides the scale, position, and orientation of the section profiles.</p>
+</dd>
+<dt><strong>sections</strong><span class="classifier">FoilSections</span></dt><dd><p>The geometry and coefficients for the section profiles.</p>
+</dd>
+<dt><strong>b, b_flat</strong><span class="classifier">float</span></dt><dd><p>The arched and flattened spans of the chords. Specify only one. These
+function as scaling factors for the FoilLayout.</p>
+</dd>
+<dt><strong>aerodynamics_method</strong><span class="classifier">FoilAerodynamics, optional</span></dt><dd><p>Estimator for the aerodynamic forces and moments.</p>
+</dd>
+<dt><strong>aerodynamics_config</strong><span class="classifier">dictionary, optional</span></dt><dd><p>Keyword arguments for instantiating <cite>aerodynamics_method</cite></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes</dt>
+<dd class="field-even"><dl class="simple">
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.AR" title="pfh.glidersim.foil.SimpleFoil.AR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AR</span></code></a></dt><dd><p>The aspect ratio of the foil.</p>
+</dd>
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.AR_flat" title="pfh.glidersim.foil.SimpleFoil.AR_flat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AR_flat</span></code></a></dt><dd><p>The aspect ratio of the foil with section dihedral removed.</p>
+</dd>
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.S" title="pfh.glidersim.foil.SimpleFoil.S"><code class="xref py py-obj docutils literal notranslate"><span class="pre">S</span></code></a></dt><dd><p>The projected area of the surface.</p>
+</dd>
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.S_flat" title="pfh.glidersim.foil.SimpleFoil.S_flat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">S_flat</span></code></a></dt><dd><p>The projected area of the surface with section dihedral removed.</p>
+</dd>
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.b" title="pfh.glidersim.foil.SimpleFoil.b"><code class="xref py py-obj docutils literal notranslate"><span class="pre">b</span></code></a></dt><dd><p>The projected span of the foil.</p>
+</dd>
+<dt><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.b_flat" title="pfh.glidersim.foil.SimpleFoil.b_flat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">b_flat</span></code></a></dt><dd><p>The projected span of the foil with section dihedral removed.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.chord_length" title="pfh.glidersim.foil.SimpleFoil.chord_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">chord_length</span></code></a>(s)</p></td>
+<td><p>Compute section chord lengths.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.mass_properties" title="pfh.glidersim.foil.SimpleFoil.mass_properties"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mass_properties</span></code></a>([N_s, N_r])</p></td>
+<td><p>Compute the quantities that control inertial behavior.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.section_orientation" title="pfh.glidersim.foil.SimpleFoil.section_orientation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">section_orientation</span></code></a>(s[, flatten])</p></td>
+<td><p>Compute section coordinate axes as rotation matrices.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.section_thickness" title="pfh.glidersim.foil.SimpleFoil.section_thickness"><code class="xref py py-obj docutils literal notranslate"><span class="pre">section_thickness</span></code></a>(s, ai, r)</p></td>
+<td><p>Compute section thicknesses.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.foil.SimpleFoil.surface_xyz" title="pfh.glidersim.foil.SimpleFoil.surface_xyz"><code class="xref py py-obj docutils literal notranslate"><span class="pre">surface_xyz</span></code></a>(s, ai, r, surface[, flatten])</p></td>
+<td><p>Sample points on section surfaces in foil frd.</p></td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-wrapper"><table class="docutils align-default">
+<colgroup>
+<col style="width: 52%"/>
+<col style="width: 48%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><strong>r_CP2LE</strong></p></td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil_layout.html#pfh.glidersim.foil_layout.FoilLayout" title="pfh.glidersim.foil_layout.FoilLayout"><span class="pre">FoilLayout</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sections</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil_sections.html#pfh.glidersim.foil_sections.FoilSections" title="pfh.glidersim.foil_sections.FoilSections"><span class="pre">FoilSections</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b_flat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aerodynamics_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="pfh.glidersim.foil_aerodynamics.html#pfh.glidersim.foil_aerodynamics.FoilAerodynamics" title="pfh.glidersim.foil_aerodynamics.FoilAerodynamics"><span class="pre">FoilAerodynamics</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aerodynamics_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.__init__" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.b">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">b</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.b" title="Permalink to this definition">#</a></dt>
+<dd><p>The projected span of the foil.</p>
+</dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.b_flat">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">b_flat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.b_flat" title="Permalink to this definition">#</a></dt>
+<dd><p>The projected span of the foil with section dihedral removed.</p>
+</dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.AR">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AR</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.AR" title="Permalink to this definition">#</a></dt>
+<dd><p>The aspect ratio of the foil.</p>
+</dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.AR_flat">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AR_flat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.AR_flat" title="Permalink to this definition">#</a></dt>
+<dd><p>The aspect ratio of the foil with section dihedral removed.</p>
+</dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.S">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">S</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.S" title="Permalink to this definition">#</a></dt>
+<dd><p>The projected area of the surface.</p>
+<p>This is the conventional definition using the area traced out by the
+section chords projected onto the xy-plane.</p>
+</dd></dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.S_flat">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">S_flat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.S_flat" title="Permalink to this definition">#</a></dt>
+<dd><p>The projected area of the surface with section dihedral removed.</p>
+<p>This is the conventional definition using the area traced out by the
+section chords projected onto the xy-plane.</p>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.chord_length">
+<span class="sig-name descname"><span class="pre">chord_length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.chord_length" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute section chord lengths.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float, shape (N,)</span></dt><dd><p>Section index</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>array_like of float, shape (N,)</dt><dd><p>The length of the section chord.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.section_orientation">
+<span class="sig-name descname"><span class="pre">section_orientation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flatten</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.section_orientation" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute section coordinate axes as rotation matrices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float, shape (N,)</span></dt><dd><p>Section index</p>
+</dd>
+<dt><strong>flatten</strong><span class="classifier">bool, optional</span></dt><dd><p>Whether to ignore dihedral. Default: False</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>array of float, shape (N,3)</dt><dd><p>Rotation matrices encoding section orientation, where the columns
+are the section (local) x, y, and z coordinate axes.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.section_thickness">
+<span class="sig-name descname"><span class="pre">section_thickness</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ai</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.section_thickness" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute section thicknesses.</p>
+<p>Note that the thickness is determined by the airfoil convention, so
+this value may be measured perpendicular to either the chord line or
+to the camber line. Be careful relying on these values.</p>
+<p>NOTE: the airfoil thickness “convention” can dramatically affect this
+value. For normalized and derotated airfoils with relatively mild
+camber the convention does not dramatically affect the thickness, but
+for airfoils with deflected trailing edges it can vary quite a lot.
+For now, the <cite>ai</cite> parameter is included to establish the API, but is
+constrained to zero-indexed profiles (which assumes the <cite>ai=0</cite> airfoil
+is normalized and derotated). Section thickness is in serious need of a
+design review.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float</span></dt><dd><p>Section index.</p>
+</dd>
+<dt><strong>ai</strong></dt><dd><p>Airfoil index. Must be zero. (See NOTE above.)</p>
+</dd>
+<dt><strong>r</strong><span class="classifier">float</span></dt><dd><p>Position along the chord or camber line as a percentage, where <cite>r =
+0</cite> is the leading edge, and <cite>r = 1</cite> is the trailing edge.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.surface_xyz">
+<span class="sig-name descname"><span class="pre">surface_xyz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ai</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">surface</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flatten</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.surface_xyz" title="Permalink to this definition">#</a></dt>
+<dd><p>Sample points on section surfaces in foil frd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float</span></dt><dd><p>Section index.</p>
+</dd>
+<dt><strong>ai</strong><span class="classifier">float</span></dt><dd><p>Airfoil index.</p>
+</dd>
+<dt><strong>r</strong><span class="classifier">array_like of float</span></dt><dd><p>Surface coordinate (normalized arc length). Meaning depends on the
+value of <cite>surface</cite>.</p>
+</dd>
+<dt><strong>surface</strong><span class="classifier">{“chord”, “camber”, “upper”, “lower”, “airfoil”}</span></dt><dd><p>How to interpret the coordinates in <cite>r</cite>. If “upper” or “lower”,
+then <cite>r</cite> is treated as surface coordinates, which range from 0 to
+1, and specify points on the upper or lower surfaces, as defined by
+the intakes. If “airfoil”, then <cite>r</cite> is treated as raw airfoil
+coordinates, which must range from -1 to +1, and map from the
+lower surface trailing edge to the upper surface trailing edge.</p>
+</dd>
+<dt><strong>flatten</strong><span class="classifier">boolean</span></dt><dd><p>Whether to flatten the foil by disregarding dihedral (curvature in
+the yz-plane). This is useful for inflatable wings, such as
+parafoils. Default: False.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>array of float</dt><dd><p>Coordinates on the section surface in foil frd. The shape is
+determined by standard numpy broadcasting of <cite>s</cite>, <cite>ai</cite>, and <cite>r</cite>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.mass_properties">
+<span class="sig-name descname"><span class="pre">mass_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N_s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">301</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">301</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.mass_properties" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the quantities that control inertial behavior.</p>
+<p>The inertia matrices returned by this function are proportional to the
+values for a physical wing, and do not have standard units. They must
+be scaled by the wing materials and air density to get their physical
+values. See “Notes” for a thorough description.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>N_s</strong><span class="classifier">int</span></dt><dd><p>The grid resolution over the section index.</p>
+</dd>
+<dt><strong>N_r</strong><span class="classifier">int</span></dt><dd><p>The grid resolution over the surface coordinates.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>dictionary</dt><dd><dl class="simple">
+<dt>upper_area: float [m^2]</dt><dd><p>foil upper surface area</p>
+</dd>
+<dt>upper_centroid: ndarray of float, shape (3,) [m]</dt><dd><p>center of mass of the upper surface material in foil frd</p>
+</dd>
+<dt>upper_inertia: ndarray of float, shape (3, 3) [m^4]</dt><dd><p>The inertia matrix of the upper surface</p>
+</dd>
+<dt>volume: float [m^3]</dt><dd><p>internal volume of the inflated foil</p>
+</dd>
+<dt>volume_centroid: ndarray of float, shape (3,) [m]</dt><dd><p>centroid of the internal air mass in foil frd</p>
+</dd>
+<dt>volume_inertia: ndarray of float, shape (3, 3) [m^5]</dt><dd><p>The inertia matrix of the internal volume</p>
+</dd>
+<dt>lower_area: float [m^2]</dt><dd><p>foil lower surface area</p>
+</dd>
+<dt>lower_centroid: ndarray of float, shape (3,) [m]</dt><dd><p>center of mass of the lower surface material in foil frd</p>
+</dd>
+<dt>lower_inertia: ndarray of float, shape (3, 3) [m^4]</dt><dd><p>The inertia matrix of the upper surface</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The foil is treated as a composite of three components: the upper
+surface, internal volume, and lower surface. Because this class only
+defines the geometry of the foil, not the physical properties, each
+component is treated as having unit densities, and the results are
+proportional to the values for a physical wing. To compute the values
+for a physical wing, the upper and lower surface inertia matrices must
+be scaled by the aerial densities [kg/m^2] of the upper and lower wing
+surface materials, and the volumetric inertia matrix must be scaled by
+the volumetric density [kg/m^3] of air.</p>
+<p>Keeping these components separate allows a user to simply multiply them
+by different wing material densities and air densities to compute the
+values for the physical wing.</p>
+<p>The volume calculation requires a closed surface mesh, so it ignores
+air intakes and assumes a closed trailing edge (which is fine for
+inflatable foils like a paraglider). The concept of using a summation
+of signed tetrahedron volumes is developed in [1]. This implementation
+of that idea is from [2], which first computes the inertia tensor of a
+“canonical tetrahedron” then applies an affine transformation to
+compute the inertia tensors of each individual tetrahedron.</p>
+<p class="rubric">References</p>
+<ol class="arabic simple">
+<li><p>Efficient feature extraction for 2D/3D objects in mesh
+representation, Zhang and Chen, 2001(?)</p></li>
+<li><p>How to find the inertia tensor (or other mass properties) of a 3D
+solid body represented by a triangle mesh, Jonathan Blow, 2004.
+<a class="reference external" href="http://number-none.com/blow/inertia/index.html">http://number-none.com/blow/inertia/index.html</a></p></li>
+</ol>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.foil.SimpleFoil.r_CP2LE">
+<span class="sig-name descname"><span class="pre">r_CP2LE</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.foil.SimpleFoil.r_CP2LE" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+</dd></dl>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+<div class="related-pages">
+  <a class="next-page" href="pfh.glidersim.paraglider_wing.html">
+      <div class="page-info">
+        <div class="context">
+          <span>Next</span>
+        </div>
+        <div class="title">pfh.glidersim.paraglider_wing</div>
+      </div>
+      <svg><use href="#svg-arrow-right"></use></svg>
+    </a>
+  <a class="prev-page" href="pfh.glidersim.foil_aerodynamics.html">
+      <svg><use href="#svg-arrow-right"></use></svg>
+      <div class="page-info">
+        <div class="context">
+          <span>Previous</span>
+        </div>
+        
+        <div class="title">pfh.glidersim.foil_aerodynamics</div>
+        
+      </div>
+    </a>
+</div>
+<div class="bottom-of-page">
+  <div class="left-details">
+    &copy; 2022, Peter Heatwole
+    |
+    <a href="https://creativecommons.org/licenses/by/4.0" style="text-decoration-line:none">
+      <img
+        class="logo"
+        src="_static/cc_by_80x15.svg"
+        height="15px"
+        style="vertical-align:middle"
+        alt="Licensed CC-BY 4.0"
+      />
+    </a>
+    | Powered by <a href="http://sphinx-doc.org/">Sphinx</a>
+    w/ <a href="https://github.com/pradyunsg/furo">Furo</a>
+      | <a class="muted-link" href="../_sources/_autosummary/pfh.glidersim.foil.rst.txt"
+        rel="nofollow">
+        Show Source
+      </a>
+  </div>
+  <div class="right-details">
+    <div class="icons">
+      
+    </div>
+  </div>
+</div>
+
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    </body>
+</html>

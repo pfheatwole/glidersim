@@ -1,0 +1,31 @@
+﻿pfh.glidersim.extras.airfoils
+=============================
+
+.. automodule:: pfh.glidersim.extras.airfoils
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load_datfile
+      load_datfile_set
+      load_polar
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+

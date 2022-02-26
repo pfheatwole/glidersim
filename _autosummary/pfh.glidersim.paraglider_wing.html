@@ -1,0 +1,888 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="pfh.glidersim.paraglider_harness" href="pfh.glidersim.paraglider_harness.html" /><link rel="prev" title="pfh.glidersim.foil" href="pfh.glidersim.foil.html" />
+
+    <meta name="generator" content="sphinx-4.4.0, furo 2022.02.14.1"/>
+        <title>pfh.glidersim.paraglider_wing - pfh.glidersim</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=a8f031f701c6af50c9919b48f173a5785af06fac" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=25ceb02ed1c46dc30f2321ff83e92799f69dfdb9" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<div class="announcement">
+  <aside class="announcement-content">
+     <b>This documentation is a work-in-progress.</b> 
+  </aside>
+</div>
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">pfh.glidersim</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/hook3_vectorized_opt.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">pfh.glidersim</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../reference.html">Library Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle child pages in navigation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.airfoil.html">pfh.glidersim.airfoil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_sections.html">pfh.glidersim.foil_sections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_layout.html">pfh.glidersim.foil_layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil_aerodynamics.html">pfh.glidersim.foil_aerodynamics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.foil.html">pfh.glidersim.foil</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">pfh.glidersim.paraglider_wing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.paraglider_harness.html">pfh.glidersim.paraglider_harness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.paraglider.html">pfh.glidersim.paraglider</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.orientation.html">pfh.glidersim.orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.simulator.html">pfh.glidersim.simulator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.airfoils.html">pfh.glidersim.extras.airfoils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.compute_polars.html">pfh.glidersim.extras.compute_polars</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.plots.html">pfh.glidersim.extras.plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.simulation.html">pfh.glidersim.extras.simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pfh.glidersim.extras.wings.html">pfh.glidersim.extras.wings</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container"><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section id="module-pfh.glidersim.paraglider_wing">
+<span id="pfh-glidersim-paraglider-wing"></span><h1>pfh.glidersim.paraglider_wing<a class="headerlink" href="#module-pfh.glidersim.paraglider_wing" title="Permalink to this headline">#</a></h1>
+<p>Models of paraglider wings.</p>
+<p>FIXME: explain “wing = canopy + suspension lines”</p>
+<p class="rubric">Classes</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry" title="pfh.glidersim.paraglider_wing.LineGeometry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LineGeometry</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Interface for classes that define a LineGeometry model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing" title="pfh.glidersim.paraglider_wing.ParagliderWing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParagliderWing</span></code></a>(lines, canopy[, rho_upper, ...])</p></td>
+<td><p>FIXME: add class docstring.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SimpleLineGeometry</span></code></a>(kappa_x, kappa_z, ...)</p></td>
+<td><p>FIXME: add docstring.</p></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py class">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pfh.glidersim.paraglider_wing.</span></span><span class="sig-name descname"><span class="pre">LineGeometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></p>
+<p>Interface for classes that define a LineGeometry model.</p>
+<p class="rubric">Methods</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry.aerodynamics" title="pfh.glidersim.paraglider_wing.LineGeometry.aerodynamics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aerodynamics</span></code></a>(v_W2b, rho_air)</p></td>
+<td><p>Calculate the aerodynamic forces and moments at each control point.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry.delta_d" title="pfh.glidersim.paraglider_wing.LineGeometry.delta_d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delta_d</span></code></a>(s, delta_bl, delta_br)</p></td>
+<td><p>Compute the trailing edge deflection distance due to brake inputs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry.r_CP2LE" title="pfh.glidersim.paraglider_wing.LineGeometry.r_CP2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_CP2LE</span></code></a>()</p></td>
+<td><p>Compute the control points for the line geometry dynamics.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry.r_RM2LE" title="pfh.glidersim.paraglider_wing.LineGeometry.r_RM2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_RM2LE</span></code></a>([delta_a])</p></td>
+<td><p>Compute the position of the riser midpoint <cite>RM</cite> in body frd.</p></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry.r_RM2LE">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">r_RM2LE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry.r_RM2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the position of the riser midpoint <cite>RM</cite> in body frd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">array_like of float, shape (N,) [percentage] (optional)</span></dt><dd><p>Fraction of maximum accelerator application. Default: 0</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>r_RM2LE</strong><span class="classifier">array of float, shape (N,3) [unitless]</span></dt><dd><p>The riser midpoint <cite>RM</cite> with respect to the canopy origin.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry.r_CP2LE">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">r_CP2LE</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry.r_CP2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the control points for the line geometry dynamics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><dl class="simple">
+<dt>ndarray of float, shape (K,3) [m]</dt><dd><p>Control points relative to the central leading edge <cite>LE</cite>.
+Coordinates are in canopy frd, and <cite>K</cite> is the number of points
+being used to distribute the surface area of the lines.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry.delta_d">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delta_d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_bl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_br</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry.delta_d" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the trailing edge deflection distance due to brake inputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float</span></dt><dd><p>Section index, where <cite>-1 &lt;= s &lt;= 1</cite></p>
+</dd>
+<dt><strong>delta_bl</strong><span class="classifier">array_like of float [percentage]</span></dt><dd><p>Left brake application as a fraction of maximum braking</p>
+</dd>
+<dt><strong>delta_br</strong><span class="classifier">array_like of float [percentage]</span></dt><dd><p>Right brake application as a fraction of maximum braking</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>delta_d</strong><span class="classifier">float [m]</span></dt><dd><p>The deflection distance of the trailing edge.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry.aerodynamics">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aerodynamics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v_W2b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry.aerodynamics" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the aerodynamic forces and moments at each control point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>v_W2b</strong><span class="classifier">array of float, shape (K,3) [m/s]</span></dt><dd><p>The wind velocity at each of the K control points.</p>
+</dd>
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>Air density</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>dF, dM</strong><span class="classifier">array of float, shape (K,3) [N, N m]</span></dt><dd><p>Aerodynamic forces and moments for each control point.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.LineGeometry.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.LineGeometry.__init__" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pfh.glidersim.paraglider_wing.</span></span><span class="sig-name descname"><span class="pre">SimpleLineGeometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kappa_x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_line_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">average_line_diameter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_L2LE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Cd_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_start0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_start1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_stop0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_stop1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry" title="pfh.glidersim.paraglider_wing.LineGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">pfh.glidersim.paraglider_wing.LineGeometry</span></code></a></p>
+<p>FIXME: add docstring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>kappa_x</strong><span class="classifier">float [m]</span></dt><dd><p>x-coordinate distance from <cite>RM</cite> to the canopy origin.</p>
+</dd>
+<dt><strong>kappa_z</strong><span class="classifier">float [m]</span></dt><dd><p>z-coordinate distance from <cite>RM</cite> to the canopy origin.</p>
+</dd>
+<dt><strong>kappa_A, kappa_C</strong><span class="classifier">float [m]</span></dt><dd><p>Distance of the A and C canopy connection points along the central
+chord. The accelerator adjusts the length of the A lines, while the C
+lines remain fixed length, effectively causing a rotation of the canopy
+about the point <cite>kappa_C</cite>.</p>
+</dd>
+<dt><strong>kappa_a</strong><span class="classifier">float [m]</span></dt><dd><p>Accelerator line length. This is the maximum change in the length of
+the A lines.</p>
+</dd>
+<dt><strong>kappa_b</strong><span class="classifier">float [m]</span></dt><dd><p>Brake line length. Equal to the maximum vertical deflection of the
+trailing edge, which occurs at <cite>(s_delta_start + s_delta_stop) / 2</cite>.
+This is the deflection distance supported by the model, not the true
+physical length of the line. The aerodynamics model can only support a
+limited range of edge deflection, and this value is the deflection
+associated with “100% brake input”.</p>
+</dd>
+<dt><strong>s_delta_start0, s_delta_start1</strong><span class="classifier">float</span></dt><dd><p>Section indices where brake deflections begin, transitioning from
+<cite>start0</cite> when <cite>delta_b = 0</cite> to <cite>start1</cite> when <cite>delta_b = 1</cite>.
+FIXME: needs a proper docstring. For example, these are for the right
+brake, but the left is symmetric.</p>
+</dd>
+<dt><strong>s_delta_stop0, s_delta_stop1</strong><span class="classifier">float</span></dt><dd><p>Section indices where brake deflections end, transitioning from <cite>stop0</cite>
+when <cite>delta_b = 0</cite> to <cite>stop1</cite> when <cite>delta_b = 1</cite>.
+FIXME: needs a proper docstring. For example, these are for the right
+brake, but the left is symmetric.</p>
+</dd>
+<dt><strong>total_line_length</strong><span class="classifier">float [m]</span></dt><dd><p>Total length of the lines from the risers to the canopy.</p>
+</dd>
+<dt><strong>average_line_diameter</strong><span class="classifier">float [m]</span></dt><dd><p>Average diameter of the connecting lines.</p>
+</dd>
+<dt><strong>r_L2LE</strong><span class="classifier">array of float, shape (K,3) [m]</span></dt><dd><p>Averaged location(s) of the connecting line surface area(s). If
+multiple positions are given, the total line length will be divided
+between them evenly.</p>
+</dd>
+<dt><strong>Cd_lines</strong><span class="classifier">float</span></dt><dd><p>Drag coefficient of the lines.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>FIXME: describe the design, and reference the sections in my thesis.</p>
+<p><strong>Accelerator</strong></p>
+<p>FIXME: describe</p>
+<p><strong>Brakes</strong></p>
+<p>The wing root typically experiences very little (if any) brake deflection,
+so this model allows for zero deflection until some section <cite>s_delta_start</cite>
+from the wing root. Similarly, brake deflections typically stop a little
+before reaching the wing tip.</p>
+<p>This models the deflection distribution with a quartic function. It assumes
+the deflection distance is symmetric about some peak at the middle of
+<cite>s_delta_start</cite> and <cite>s_delta_stop</cite>.</p>
+<p>Regarding the the derivation: a normal quartic goes like <span class="math notranslate nohighlight">\(Ap^4 + Bp^3
++ Cp^2 + Dp + E = 0\)</span>. Assuming symmetry about <cite>p = 0.5</cite>, the six terms can
+be solved using:</p>
+<blockquote>
+<div><p>delta_d(0) = 0
+d(delta_d)/dp | s_0 = 0
+delta_d(1) = 0
+d(delta_d)/dp | s_1 = 0
+delta_d(0.5) = delta_d_peak</p>
+</div></blockquote>
+<p>I don’t love this design, but I was hoping to find time to prototype a
+proper line geometry that computes the true angles throughout the bridle,
+and having the LineGeometry compute distances instead of angles would
+make that easier.</p>
+<p class="rubric">Methods</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.aerodynamics" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry.aerodynamics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aerodynamics</span></code></a>(v_W2b, rho_air)</p></td>
+<td><p>Calculate the aerodynamic forces and moments at each control point.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.delta_d" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry.delta_d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delta_d</span></code></a>(s, delta_bl, delta_br)</p></td>
+<td><p>Compute the trailing edge deflection distance due to brake inputs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.maximize_kappa_b" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry.maximize_kappa_b"><code class="xref py py-obj docutils literal notranslate"><span class="pre">maximize_kappa_b</span></code></a>(delta_d_max, chord_length)</p></td>
+<td><p>Maximze kappa_b such that delta_d never exceeds delta_d_max.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_CP2LE" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_CP2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_CP2LE</span></code></a>()</p></td>
+<td><p>Compute the control points for the line geometry dynamics.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_RM2LE" title="pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_RM2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_RM2LE</span></code></a>([delta_a])</p></td>
+<td><p>Compute the position of the riser midpoint <cite>RM</cite> in body frd.</p></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kappa_x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_line_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">average_line_diameter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_L2LE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Cd_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_start0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_start1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_stop0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_delta_stop1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.__init__" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_RM2LE">
+<span class="sig-name descname"><span class="pre">r_RM2LE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_RM2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the position of the riser midpoint <cite>RM</cite> in body frd.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">array_like of float, shape (N,) [percentage] (optional)</span></dt><dd><p>Fraction of maximum accelerator application. Default: 0</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>r_RM2LE</strong><span class="classifier">array of float, shape (N,3) [unitless]</span></dt><dd><p>The riser midpoint <cite>RM</cite> with respect to the canopy origin.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_CP2LE">
+<span class="sig-name descname"><span class="pre">r_CP2LE</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.r_CP2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the control points for the line geometry dynamics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><dl class="simple">
+<dt>ndarray of float, shape (K,3) [m]</dt><dd><p>Control points relative to the central leading edge <cite>LE</cite>.
+Coordinates are in canopy frd, and <cite>K</cite> is the number of points
+being used to distribute the surface area of the lines.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.delta_d">
+<span class="sig-name descname"><span class="pre">delta_d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_bl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_br</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.delta_d" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the trailing edge deflection distance due to brake inputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>s</strong><span class="classifier">array_like of float</span></dt><dd><p>Section index, where <cite>-1 &lt;= s &lt;= 1</cite></p>
+</dd>
+<dt><strong>delta_bl</strong><span class="classifier">array_like of float [percentage]</span></dt><dd><p>Left brake application as a fraction of maximum braking</p>
+</dd>
+<dt><strong>delta_br</strong><span class="classifier">array_like of float [percentage]</span></dt><dd><p>Right brake application as a fraction of maximum braking</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>delta_d</strong><span class="classifier">float [m]</span></dt><dd><p>The deflection distance of the trailing edge.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.aerodynamics">
+<span class="sig-name descname"><span class="pre">aerodynamics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v_W2b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.aerodynamics" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the aerodynamic forces and moments at each control point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>v_W2b</strong><span class="classifier">array of float, shape (K,3) [m/s]</span></dt><dd><p>The wind velocity at each of the K control points.</p>
+</dd>
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>Air density</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>dF, dM</strong><span class="classifier">array of float, shape (K,3) [N, N m]</span></dt><dd><p>Aerodynamic forces and moments for each control point.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.SimpleLineGeometry.maximize_kappa_b">
+<span class="sig-name descname"><span class="pre">maximize_kappa_b</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_d_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chord_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.SimpleLineGeometry.maximize_kappa_b" title="Permalink to this definition">#</a></dt>
+<dd><p>Maximze kappa_b such that delta_d never exceeds delta_d_max.</p>
+<p>Useful to ensure the deflections don’t exceed the maximum delta_d
+supported by the airfoil coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_d_max</strong><span class="classifier">float</span></dt><dd><p>Maximum deflection distance the brakes should produce at any
+section, normalized to unit chord length.</p>
+</dd>
+<dt><strong>chord_length</strong><span class="classifier">function</span></dt><dd><p>Canopy chord length as a function of section index <cite>-1 &lt;= s &lt;= 1</cite>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pfh.glidersim.paraglider_wing.</span></span><span class="sig-name descname"><span class="pre">ParagliderWing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry" title="pfh.glidersim.paraglider_wing.LineGeometry"><span class="pre">LineGeometry</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">canopy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil.html#pfh.glidersim.foil.SimpleFoil" title="pfh.glidersim.foil.SimpleFoil"><span class="pre">SimpleFoil</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_upper</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_lower</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_ribs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_cells</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>FIXME: add class docstring.</p>
+<p>The system is referred to as the “body” since that is conventional in
+aeronautics literature. Vectors are in “body frd”, a coordinate system
+inherited from the canopy: the xyz axes are oriented front-right-down with
+the origin at the central leading edge <cite>LE</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>lines</strong><span class="classifier">LineGeometry</span></dt><dd><p>Lines that position the riser and produce trailing edge deflections.</p>
+</dd>
+<dt><strong>canopy</strong><span class="classifier">SimpleFoil</span></dt><dd><p>The geometric shape of the lifting surface.</p>
+</dd>
+<dt><strong>rho_upper, rho_lower</strong><span class="classifier">float [kg/m^2]</span></dt><dd><p>Surface area densities of the upper and lower canopy surfaces.</p>
+</dd>
+<dt><strong>rho_ribs</strong><span class="classifier">float [kg/m^2]</span></dt><dd><p>Surface area density of the internal vertical ribs.</p>
+</dd>
+<dt><strong>N_cells</strong><span class="classifier">integer, optional</span></dt><dd><p>The number of canopy cells. This is only used for estimating the mass
+of the internal ribs. Proper support for ribs would require a new foil
+geometry with native support for cells, ribs, profile distortions, etc.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<div class="table-wrapper"><table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%"/>
+<col style="width: 90%"/>
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.aerodynamics" title="pfh.glidersim.paraglider_wing.ParagliderWing.aerodynamics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aerodynamics</span></code></a>(delta_a, delta_bl, delta_br, ...)</p></td>
+<td><p>FIXME: add docstring.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.apparent_mass_properties" title="pfh.glidersim.paraglider_wing.ParagliderWing.apparent_mass_properties"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apparent_mass_properties</span></code></a>(rho_air, r_R2LE, ...)</p></td>
+<td><p>Compute the apparent mass matrix and momentum of the canopy.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.equilibrium_alpha" title="pfh.glidersim.paraglider_wing.ParagliderWing.equilibrium_alpha"><code class="xref py py-obj docutils literal notranslate"><span class="pre">equilibrium_alpha</span></code></a>(delta_a, delta_b, v_mag[, ...])</p></td>
+<td><p>Compute the angle of attack with zero aerodynamic pitching moment.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.mass_properties" title="pfh.glidersim.paraglider_wing.ParagliderWing.mass_properties"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mass_properties</span></code></a>(rho_air, r_R2LE)</p></td>
+<td><p>Compute the mass properties of the materials and enclosed volume of air.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.r_CP2LE" title="pfh.glidersim.paraglider_wing.ParagliderWing.r_CP2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_CP2LE</span></code></a>([delta_a])</p></td>
+<td><p>Compute the FoilGeometry control points in frd.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.r_RM2LE" title="pfh.glidersim.paraglider_wing.ParagliderWing.r_RM2LE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">r_RM2LE</span></code></a>([delta_a])</p></td>
+<td><p>Compute the position of the riser midpoint <cite>RM</cite> in frd coordinates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pfh.glidersim.paraglider_wing.ParagliderWing.resultant_force" title="pfh.glidersim.paraglider_wing.ParagliderWing.resultant_force"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resultant_force</span></code></a>(delta_a, delta_bl, delta_br, ...)</p></td>
+<td><p>Calculate the net force and moment due to wind and gravity.</p></td>
+</tr>
+</tbody>
+</table></div>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#pfh.glidersim.paraglider_wing.LineGeometry" title="pfh.glidersim.paraglider_wing.LineGeometry"><span class="pre">LineGeometry</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">canopy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="pfh.glidersim.foil.html#pfh.glidersim.foil.SimpleFoil" title="pfh.glidersim.foil.SimpleFoil"><span class="pre">SimpleFoil</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_upper</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_lower</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_ribs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N_cells</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.__init__" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.aerodynamics">
+<span class="sig-name descname"><span class="pre">aerodynamics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_bl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_br</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_W2b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_solution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.aerodynamics" title="Permalink to this definition">#</a></dt>
+<dd><p>FIXME: add docstring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of accelerator, from 0 to 1</p>
+</dd>
+<dt><strong>delta_bl</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of left brake, from 0 to 1</p>
+</dd>
+<dt><strong>delta_br</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of right brake, from 0 to 1</p>
+</dd>
+<dt><strong>v_W2b</strong><span class="classifier">array of float, shape (K,3) [m/s]</span></dt><dd><p>The wind vector at each control point in body frd</p>
+</dd>
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>The ambient air density</p>
+</dd>
+<dt><strong>reference_solution</strong><span class="classifier">dictionary, optional</span></dt><dd><p>FIXME: docstring. See <cite>Phillips.__call__</cite></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>dF, dM</strong><span class="classifier">array of float, shape (K,3) [N, N m]</span></dt><dd><p>Aerodynamic forces and moments for each control point.</p>
+</dd>
+<dt><strong>solution</strong><span class="classifier">dictionary, optional</span></dt><dd><p>FIXME: docstring. See <cite>Phillips.__call__</cite></p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.equilibrium_alpha">
+<span class="sig-name descname"><span class="pre">equilibrium_alpha</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_mag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.225</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_solution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.equilibrium_alpha" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the angle of attack with zero aerodynamic pitching moment.</p>
+<p>The final wing will have extra moments from the harness and weight of
+the wing, but this value is often a good estimate.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">float [percentage], optional</span></dt><dd><p>Fraction of accelerator, from 0 to 1</p>
+</dd>
+<dt><strong>delta_b</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of symmetric brake, from 0 to 1</p>
+</dd>
+<dt><strong>v_mag</strong><span class="classifier">float [m/s]</span></dt><dd><p>Airspeed</p>
+</dd>
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3], optional</span></dt><dd><p>Air density</p>
+</dd>
+<dt><strong>alpha_0</strong><span class="classifier">float [deg], optional</span></dt><dd><p>First guess for the equilibrium alpha search.</p>
+</dd>
+<dt><strong>alpha_1</strong><span class="classifier">float [deg], optional</span></dt><dd><p>Second guess for the equilibrium alpha search.</p>
+</dd>
+<dt><strong>solution</strong><span class="classifier">dictionary, optional</span></dt><dd><p>FIXME: docstring. See <cite>Phillips.__call__</cite></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>float [rad]</dt><dd><p>The angle of attack where the section pitching moments sum to zero.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.r_CP2LE">
+<span class="sig-name descname"><span class="pre">r_CP2LE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.r_CP2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the FoilGeometry control points in frd.</p>
+<p>FIXME: descibe/define “control points”</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">array_like of float, shape (K,) [percentage] (optional)</span></dt><dd><p>Fraction of maximum accelerator application</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>ndarray of floats, shape (K,3) [m]</dt><dd><p>The control points in frd coordinates</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.r_RM2LE">
+<span class="sig-name descname"><span class="pre">r_RM2LE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.r_RM2LE" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the position of the riser midpoint <cite>RM</cite> in frd coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">array_like of float, shape (K,) [percentage] (optional)</span></dt><dd><p>Fraction of maximum accelerator application. Default: 0</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>r_RM2LE</strong><span class="classifier">array of float, shape (K,3) [m]</span></dt><dd><p>The riser midpoint <cite>RM</cite> with respect to the canopy origin.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.mass_properties">
+<span class="sig-name descname"><span class="pre">mass_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_R2LE</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.mass_properties" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the mass properties of the materials and enclosed volume of air.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>Air density</p>
+</dd>
+<dt><strong>r_R2LE</strong><span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Reference point <cite>R</cite> with respect to the canopy origin in body frd.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>dictionary</dt><dd><dl class="simple">
+<dt>m_s<span class="classifier">float [kg]</span></dt><dd><p>The solid mass of the wing</p>
+</dd>
+<dt>r_S2LE<span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Vector from the canopy origin to the solid mass centroid</p>
+</dd>
+<dt>r_S2R<span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Vector from the reference point to the solid mass centroid</p>
+</dd>
+<dt>J_s2S<span class="classifier">array of float, shape (3,3) [kg m^2]</span></dt><dd><p>The moment of inertia matrix of the solid mass about its cm</p>
+</dd>
+<dt>v<span class="classifier">float [m^3]</span></dt><dd><p>The enclosed volume</p>
+</dd>
+<dt>r_V2R<span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Vector from the reference point to the volume centroid V</p>
+</dd>
+<dt>J_v2V<span class="classifier">array of float, shape (3,3) [m^2]</span></dt><dd><p>The moment of inertia matrix of the volume about its centroid</p>
+</dd>
+<dt>m_air<span class="classifier">float [kg m^3]</span></dt><dd><p>The enclosed air mass.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.apparent_mass_properties">
+<span class="sig-name descname"><span class="pre">apparent_mass_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rho_air</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_R2LE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_R2e</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">omega_b2e</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.apparent_mass_properties" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute the apparent mass matrix and momentum of the canopy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>Air density</p>
+</dd>
+<dt><strong>r_R2LE</strong><span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Reference point <cite>R</cite> with respect to the canopy origin in body frd.</p>
+</dd>
+<dt><strong>v_R2e</strong><span class="classifier">array of float, shape (3,) [m/s]</span></dt><dd><p>The velocity of the <cite>R</cite> with respect to the inertial frame.</p>
+</dd>
+<dt><strong>omega_b2e</strong><span class="classifier">array of float, shape (3,) [rad/s]</span></dt><dd><p>Angular velocity of the body, in body frd coordinates.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>dictionary</dt><dd><dl class="simple">
+<dt>r_PC2RC<span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Vector to the pitch center from the roll center</p>
+</dd>
+<dt>r_RC2R<span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Vector to the roll center from the riser connection point</p>
+</dd>
+<dt>M_a<span class="classifier">array of float, shape (3,3)</span></dt><dd><p>The apparent mass matrix</p>
+</dd>
+<dt>A_a2R<span class="classifier">array of float, shape (6,6)</span></dt><dd><p>The apparent inertia matrix of the volume with respect to <cite>R</cite></p>
+</dd>
+<dt>p_a2e<span class="classifier">array of float, shape (3,)</span></dt><dd><p>The apparent linear momentum with respect to the inertial frame</p>
+</dd>
+<dt>h_a2R<span class="classifier">array of float, shape (3,3)</span></dt><dd><p>The angular momentum of the apparent mass with respect to <cite>R</cite></p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="pfh.glidersim.paraglider_wing.ParagliderWing.resultant_force">
+<span class="sig-name descname"><span class="pre">resultant_force</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta_a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_bl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_br</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_W2b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho_air</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_R2LE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_solution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pfh.glidersim.paraglider_wing.ParagliderWing.resultant_force" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the net force and moment due to wind and gravity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>delta_a</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of accelerator, from 0 to 1</p>
+</dd>
+<dt><strong>delta_bl</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of left brake, from 0 to 1</p>
+</dd>
+<dt><strong>delta_br</strong><span class="classifier">float [percentage]</span></dt><dd><p>Fraction of right brake, from 0 to 1</p>
+</dd>
+<dt><strong>v_W2b</strong><span class="classifier">array of float, shape (K,3) [m/s]</span></dt><dd><p>The wind vector at each control point in body frd</p>
+</dd>
+<dt><strong>rho_air</strong><span class="classifier">float [kg/m^3]</span></dt><dd><p>The ambient air density</p>
+</dd>
+<dt><strong>g</strong><span class="classifier">array of float, shape (3,) [m/s^s]</span></dt><dd><p>The gravity vector in body frd</p>
+</dd>
+<dt><strong>r_R2LE</strong><span class="classifier">array of float, shape (3,) [m]</span></dt><dd><p>Reference point <cite>R</cite> with respect to the canopy origin in body frd.</p>
+</dd>
+<dt><strong>mp</strong><span class="classifier">dictionary, optional</span></dt><dd><p>The mass properties of the body associated with the given air
+density and reference point. Used to avoid recomputation.</p>
+</dd>
+<dt><strong>reference_solution</strong><span class="classifier">dictionary, optional</span></dt><dd><p>FIXME: docstring. See <cite>Phillips.__call__</cite></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>f_b, g_B2R</strong><span class="classifier">array of float, shape (3,) [N, N m]</span></dt><dd><p>The net force and moment on the body with respect to <cite>R</cite>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+</dd></dl>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+<div class="related-pages">
+  <a class="next-page" href="pfh.glidersim.paraglider_harness.html">
+      <div class="page-info">
+        <div class="context">
+          <span>Next</span>
+        </div>
+        <div class="title">pfh.glidersim.paraglider_harness</div>
+      </div>
+      <svg><use href="#svg-arrow-right"></use></svg>
+    </a>
+  <a class="prev-page" href="pfh.glidersim.foil.html">
+      <svg><use href="#svg-arrow-right"></use></svg>
+      <div class="page-info">
+        <div class="context">
+          <span>Previous</span>
+        </div>
+        
+        <div class="title">pfh.glidersim.foil</div>
+        
+      </div>
+    </a>
+</div>
+<div class="bottom-of-page">
+  <div class="left-details">
+    &copy; 2022, Peter Heatwole
+    |
+    <a href="https://creativecommons.org/licenses/by/4.0" style="text-decoration-line:none">
+      <img
+        class="logo"
+        src="_static/cc_by_80x15.svg"
+        height="15px"
+        style="vertical-align:middle"
+        alt="Licensed CC-BY 4.0"
+      />
+    </a>
+    | Powered by <a href="http://sphinx-doc.org/">Sphinx</a>
+    w/ <a href="https://github.com/pradyunsg/furo">Furo</a>
+      | <a class="muted-link" href="../_sources/_autosummary/pfh.glidersim.paraglider_wing.rst.txt"
+        rel="nofollow">
+        Show Source
+      </a>
+  </div>
+  <div class="right-details">
+    <div class="icons">
+      
+    </div>
+  </div>
+</div>
+
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/furo.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"defas": "\\stackrel{\\mathrm{def}}{=}", "vec": ["\\mathbf{#1}", 1], "mat": ["\\mathbf{#1}", 1], "crossmat": ["\\left[{#1}\\right]^{\\times}", 1]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>
