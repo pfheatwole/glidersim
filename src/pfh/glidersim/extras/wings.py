@@ -180,7 +180,7 @@ def niviuk_hook3(
                 [-0.5 * specs["chord_root"], 1.75, 1.75],
             ],
         ),
-        "Cd_lines": 0.98,  # ref: Kulhánek, 2019; page 5
+        "Cd_lines": 1,  # ref: Kulhánek, 2019; page 5
     }
 
     lines = gsim.paraglider_wing.SimpleLineGeometry(
