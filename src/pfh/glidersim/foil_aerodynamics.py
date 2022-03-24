@@ -123,11 +123,11 @@ class Phillips(FoilAerodynamics):
     is suitable for parafoils, which is a continuous lifting surface, but for
     wings with left and right segments separated by some discontinuity at the
     root you should distribute the points across each semispan independently.
-    See _[1] for a related discussion.
+    See [1]_ for a related discussion.
 
     This method does suffer an issue where induced velocity goes to infinity as
     the segment lengths tend toward zero (as the number of segments increases,
-    or for a poorly chosen point distribution). See _[2], section 8.2.3.
+    or for a poorly chosen point distribution). See [2]_, section 8.2.3.
     """
 
     def __init__(
