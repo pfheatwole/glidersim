@@ -565,7 +565,7 @@ def recompute_derivatives(model: StateDynamics, times, states):
     if is_interactive:
         print()
 
-    return derivatives
+    return derivatives.view(model.state_dtype)
 
 
 def prettyprint_state(state, header: str = None, footer: str = None) -> None:
