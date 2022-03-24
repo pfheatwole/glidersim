@@ -69,8 +69,8 @@ def compute_polar_data(glider, rho_air: float = 1.225, N: int = 21):
     # Convert the airspeeds from body coordinates to Earth coordinates
     Theta_b2e_a = np.asarray([e["Theta_b2e"] for e in eqs_a])
     Theta_b2e_b = np.asarray([e["Theta_b2e"] for e in eqs_b])
-    q_e2b_a = orientation.euler_to_quaternion(Theta_b2e_a.T).T * [-1, 1, 1, 1]
-    q_e2b_b = orientation.euler_to_quaternion(Theta_b2e_b.T).T * [-1, 1, 1, 1]
+    q_e2b_a = orientation.euler_to_quaternion(Theta_b2e_a.T).T * [1, -1, -1, -1]
+    q_e2b_b = orientation.euler_to_quaternion(Theta_b2e_b.T).T * [1, -1, -1, -1]
     v_RM2e_a = [e["v_RM2e"] for e in eqs_a]
     v_RM2e_b = [e["v_RM2e"] for e in eqs_b]
     v_RM2e_a = orientation.quaternion_rotate(q_e2b_a, v_RM2e_a)
