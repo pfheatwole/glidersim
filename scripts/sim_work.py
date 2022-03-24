@@ -270,7 +270,7 @@ def build_paragliders(use_apparent_mass=True):
         z_riser=0.5,
         S=0.55,
         CD=0.8,
-        kappa_w=0.1,
+        kappa_w=0.15,
     )
 
     # 6 DoF models
