@@ -68,16 +68,20 @@ if __name__ == "__main__":
         print(f"  alpha_p2b:   {np.rad2deg(alpha_p2b).round(4)}")
 
     print("\n<pausing before polar curves>\n")
-    breakpoint()
+    # breakpoint()
 
     input("Plot the polar curve?  Press any key")
     accelerating, braking = gsim.extras.compute_polars.compute_polar_data(
         paraglider,
     )
 
+    # Just
+    # gsim.extras.compute_polars.plot_wing_coefficients(paraglider)
+
     # -----------------------------------------------------------------------
     # Plot the curves
-    fig, ax = plt.subplots(2, 2)  # [[alpha_b, sink rate], [theta_b, GR]]
+    fig = plt.figure()
+    fig.suptitle('Mescal 6 {} Characteristics'.format(size))
 
     deltas_a = accelerating["delta"]
     deltas_b = braking["delta"]
@@ -87,36 +91,42 @@ if __name__ == "__main__":
     v_RM2e_b = braking["v_RM2e"]
 
     # alpha_b versus control input
-    ax[0, 0].plot(deltas_a, np.rad2deg(accelerating["alpha_b"]), "g")
-    ax[0, 0].plot(-deltas_b, np.rad2deg(braking["alpha_b"]), "r")
-    ax[0, 0].set_xlabel("Control input [%]")
-    ax[0, 0].set_ylabel("alpha_b [deg]")
-
-    # Vertical versus horizontal airspeed
-    ax[0, 1].plot(v_RM2e_a.T[0], v_RM2e_a.T[2], "g")
-    ax[0, 1].plot(v_RM2e_b.T[0], v_RM2e_b.T[2], "r")
-    ax[0, 1].set_aspect("equal")
-    ax[0, 1].set_xlim(0, 25)
-    ax[0, 1].set_ylim(0, 8)
-    ax[0, 1].invert_yaxis()
-    ax[0, 1].set_xlabel("Horizontal airspeed [m/s]")
-    ax[0, 1].set_ylabel("sink rate [m/s]")
-    ax[0, 1].grid(which="both")
-    ax[0, 1].minorticks_on()
+    alpha_b_plot = fig.add_subplot(2, 2, 1) # Upper Left
+    alpha_b_plot.plot(deltas_a, np.rad2deg(accelerating["alpha_b"]), "g")
+    alpha_b_plot.plot(-deltas_b, np.rad2deg(braking["alpha_b"]), "r")
+    alpha_b_plot.set_xlabel("Control input [%]")
+    alpha_b_plot.set_ylabel("alpha_b [deg]")
 
     # theta_b versus control input
-    ax[1, 0].plot(deltas_a, np.rad2deg(thetas_a), "g")
-    ax[1, 0].plot(-deltas_b, np.rad2deg(thetas_b), "r")
-    ax[1, 0].set_xlabel("Control input [%]")
-    ax[1, 0].set_ylabel("theta_b [deg]")
+    theta_b_plot = fig.add_subplot(2, 2, 3) # Lower Left
+    theta_b_plot.plot(deltas_a, np.rad2deg(thetas_a), "g")
+    theta_b_plot.plot(-deltas_b, np.rad2deg(thetas_b), "r")
+    theta_b_plot.set_xlabel("Control input [%]")
+    theta_b_plot.set_ylabel("theta_b [deg]")
+
+    # Vertical versus horizontal airspeed
+    polar_plot = fig.add_subplot(2, 2, 2) # Upper Right
+    polar_plot.plot(v_RM2e_a.T[0], v_RM2e_a.T[2], "g")
+    polar_plot.plot(v_RM2e_b.T[0], v_RM2e_b.T[2], "r")
+    # polar_plot.set_aspect("equal")
+    # polar_plot.set_xlim(0, 25)
+    # polar_plot.set_ylim(0, 8)
+    polar_plot.invert_yaxis()
+    polar_plot.set_xlabel("Horizontal airspeed [m/s]")
+    polar_plot.set_ylabel("sink rate [m/s]")
+    polar_plot.grid(which="both")
+    polar_plot.minorticks_on()
 
     # Glide ratio
-    ax[1, 1].plot(v_RM2e_a.T[0], accelerating["glide_ratio"], "g")
-    ax[1, 1].plot(v_RM2e_b.T[0], braking["glide_ratio"], "r")
-    ax[1, 1].set_xlim(0, 25)
-    ax[1, 1].set_xlabel("Horizontal airspeed [m/s]")
-    ax[1, 1].set_ylabel("Glide ratio")
+    glide_ratio_plot = fig.add_subplot(2, 2, 4, sharex=polar_plot) # Lower Right. Share axis with polar plot (V forward)
+    glide_ratio_plot.plot(v_RM2e_a.T[0], accelerating["glide_ratio"], "g")
+    glide_ratio_plot.plot(v_RM2e_b.T[0], braking["glide_ratio"], "r")
+    # glide_ratio_plot.set_xlim(0, 25)
+    glide_ratio_plot.set_xlabel("Horizontal airspeed [m/s]")
+    glide_ratio_plot.set_ylabel("Glide ratio")
+    glide_ratio_plot.grid()
 
+    fig.tight_layout() # Make sure graphs don't overlap
     plt.show()
 
-    breakpoint()
+    # breakpoint()
